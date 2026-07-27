@@ -33,7 +33,8 @@
       "title": "Title",
       "manual": "Manual order",
       "relevance": "Relevance"
-    }
+    },
+    "dropHint": "Drop to file this note here"
   },
   "noteActions": {
     "open": "Open",
@@ -145,7 +146,8 @@
     "noteCount_other": "{{count}} notes will be exported",
     "action": "Export",
     "exporting": "Exporting…",
-    "complete": "Export complete"
+    "complete": "Export complete",
+    "layoutPdfHint": "PDF always prints as one document."
   },
   "backups": {
     "schedule": "Automatic backups",
@@ -177,14 +179,17 @@
     "replaceConfirm": "Replace the current library with this backup? The current library will be removed.",
     "emptyTrashConfirm": "Permanently delete every note in Trash? This cannot be undone.",
     "trashEmptied_one": "{{count}} note permanently deleted",
-    "trashEmptied_other": "{{count}} notes permanently deleted"
+    "trashEmptied_other": "{{count}} notes permanently deleted",
+    "scheduleSection": "Schedule",
+    "retentionSection": "Retention"
   },
   "search": {
     "placeholder": "Search notes",
     "scopeAll": "Everywhere",
     "scopeCourse": "This course",
     "noResults": "No notes match",
-    "saveSearch": "Save as smart folder"
+    "saveSearch": "Save as smart folder",
+    "scope": "Search scope"
   },
   "organization": {
     "editCourse": "Edit course",
@@ -216,7 +221,10 @@
     "noTemplates": "No templates yet",
     "editSavedSearch": "Edit smart folder",
     "name": "Name",
-    "query": "Search query"
+    "query": "Search query",
+    "deleteCourse": "Delete course",
+    "deleteSection": "Delete section",
+    "noTags": "No tags yet"
   },
   "save": {
     "idle": "",
@@ -300,7 +308,13 @@
     "sourceCount_one": "{{count}} note selected",
     "sourceCount_other": "{{count}} notes selected",
     "acceptedCount_one": "{{count}} of {{total}} accepted",
-    "acceptedCount_other": "{{count}} of {{total}} accepted"
+    "acceptedCount_other": "{{count}} of {{total}} accepted",
+    "providersSection": "Providers",
+    "connectedCount_one": "{{count}} provider connected",
+    "connectedCount_other": "{{count}} providers connected",
+    "noneConnected": "Nothing connected yet — AI actions stay disabled until one is.",
+    "needsKey": "Add a key",
+    "notEnabled": "Off"
   },
   "mcp": {
     "title": "Local agent access",
@@ -374,8 +388,17 @@
     "fontPreview": "The tangent at a point is the limit of the secants through it.",
     "checkForUpdates": "Check for updates",
     "checkForUpdatesHint": "Asks GitHub for a new release. Nothing else ever leaves this machine.",
-    "phaseBadge": "phase {{phase}}",
-    "landsInPhase": "This section lands in phase {{phase}}."
+    "groupApp": "Application",
+    "groupContent": "Your notes",
+    "groupConnections": "Connections",
+    "groupAbout": "About",
+    "aboutPrivacy": "Privacy",
+    "aboutPrivacyLocal": "Every note, drawing and attachment lives in a folder on this Mac. There is no account and no sync.",
+    "aboutPrivacyNetwork": "The only outbound requests are to an AI provider you configured, the update check you can switch off, and nothing else. No telemetry, ever.",
+    "aboutPrivacyKeys": "API keys are held in the macOS Keychain and cannot appear in a backup or an export.",
+    "aboutLicence": "Licence",
+    "aboutLicenceBody": "NotaBene is released under the Apache License 2.0.",
+    "aboutCredits": "Built with"
   },
   "menu": {
     "about": "About",

@@ -2,4 +2,13 @@ export { GlassPanel } from './GlassPanel';
 export { GlassButton } from './GlassButton';
 export { GlassIconButton } from './GlassIconButton';
 export { GlassSegmentedControl, type SegmentOption } from './GlassSegmentedControl';
+export { GlassSelect } from './GlassSelect';
+export {
+  ContextMenu,
+  type ContextMenuEntry,
+  type ContextMenuItem,
+  type ContextPoint,
+} from './ContextMenu';
 export { ModalOverlay } from './ModalOverlay';
+export { Dialog } from './Dialog';
+export { FieldNote, FieldRow, FieldSection, FieldToggle } from './Field';

@@ -9,6 +9,14 @@
  * The pane stays mounted while collapsed, so it also keeps its scroll position.
  * `inert` is what keeps that honest: a zero-width pane must not be reachable by
  * Tab or readable by VoiceOver just because it is technically still there.
+ *
+ * `relative` is load-bearing, not decoration. `overflow: hidden` on a statically
+ * positioned box does not clip absolutely positioned descendants — they resolve
+ * against the nearest *positioned* ancestor instead. The `sr-only` spans inside
+ * the inspector's segmented control are absolutely positioned, so with the
+ * inspector collapsed they escaped a zero-width pane, landed 280px past the
+ * right edge, and gave the whole window a horizontal scrollbar it could never
+ * legitimately need. Making the pane a containing block is what closes that.
  */
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
@@ -26,7 +34,10 @@ export function CollapsiblePane({ open, width, children }: CollapsiblePaneProps)
     <div
       inert={!open}
       aria-hidden={!open}
-      className={cn('pane-collapse shrink-0 overflow-hidden', !open && 'opacity-0')}
+      className={cn(
+        'pane-collapse relative shrink-0 overflow-hidden',
+        !open && 'opacity-0',
+      )}
       style={{ width: open ? width : 0 }}
     >
       <div style={{ width }} className="h-full">

@@ -153,7 +153,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
               void ask();
             }
           }}
-          className="min-w-0 flex-1 resize-none rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-bg)] p-2 text-[12px] disabled:opacity-50"
+          className="min-w-0 flex-1 resize-none rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] p-2 text-[12px] disabled:opacity-50"
         />
         <GlassButton
           size="sm"

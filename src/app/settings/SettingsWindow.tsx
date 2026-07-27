@@ -3,8 +3,13 @@
  *
  * A modal rather than a second OS window: everything it changes is visible
  * behind it, and a theme or font-size change you can watch land needs no
- * preview. Sections that have not landed yet remain listed with their phase
- * rather than hidden, so the shape of the app is honest about what is coming.
+ * preview.
+ *
+ * The nav is grouped rather than flat. Seven equal-weight entries in one column
+ * make the reader compare all seven every time; three headed groups — how it
+ * looks, what it does with your notes, what it is allowed to talk to — turn the
+ * same list into three short ones, and put "Agent access" next to "AI
+ * providers" where a reader looking for either would expect to find both.
  */
 import {
   Bot,
@@ -17,7 +22,15 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, GlassSegmentedControl, ModalOverlay } from '@/components/glass';
+import {
+  FieldRow,
+  FieldSection,
+  FieldToggle,
+  GlassButton,
+  GlassSegmentedControl,
+  GlassSelect,
+  ModalOverlay,
+} from '@/components/glass';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
@@ -26,17 +39,36 @@ import type { AccentColor, AppSettings } from '@/lib/adapters';
 import { BackupSettings } from './BackupSettings';
 import { AiProviderSettings } from './AiProviderSettings';
 import { AgentSettings } from './AgentSettings';
+import { AboutSettings } from './AboutSettings';
 
-/** Sections, their icons, and (for placeholders) the phase that makes each real. */
-const TABS: { id: SettingsTab; icon: LucideIcon; landsIn?: string }[] = [
-  { id: 'general', icon: SlidersHorizontal },
-  { id: 'appearance', icon: Palette },
-  { id: 'editor', icon: Type },
-  { id: 'aiProviders', icon: Sparkles },
-  { id: 'backups', icon: DatabaseBackup },
-  // The same robot the status bar lights up when an agent is editing.
-  { id: 'agent', icon: Bot },
-  { id: 'about', icon: Info, landsIn: 'H' },
+interface TabEntry {
+  id: SettingsTab;
+  icon: LucideIcon;
+}
+
+/** Nav groups, in the order they appear. The group label is an i18n key. */
+const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
+  {
+    labelKey: 'settings.groupApp',
+    tabs: [
+      { id: 'general', icon: SlidersHorizontal },
+      { id: 'appearance', icon: Palette },
+      { id: 'editor', icon: Type },
+    ],
+  },
+  {
+    labelKey: 'settings.groupContent',
+    tabs: [{ id: 'backups', icon: DatabaseBackup }],
+  },
+  {
+    labelKey: 'settings.groupConnections',
+    tabs: [
+      { id: 'aiProviders', icon: Sparkles },
+      // The same robot the status bar lights up when an agent is editing.
+      { id: 'agent', icon: Bot },
+    ],
+  },
+  { labelKey: 'settings.groupAbout', tabs: [{ id: 'about', icon: Info }] },
 ];
 
 const EDITOR_FONT_SIZES = { min: 13, max: 22 };
@@ -64,44 +96,53 @@ export function SettingsWindow() {
   }
 
   return (
-    <ModalOverlay open={open} onClose={() => setOpen(false)} label={t('settings.title')}>
-      <div className="flex h-[min(560px,78vh)]">
+    <ModalOverlay
+      open={open}
+      onClose={() => setOpen(false)}
+      label={t('settings.title')}
+      className="w-[min(760px,94vw)]"
+    >
+      <div className="flex h-[min(580px,80vh)]">
         <nav
           aria-label={t('settings.title')}
-          // Wide enough for "Fournisseurs IA" beside its phase badge; the FR
-          // labels are the ones that decide this number.
-          className="flex w-[196px] shrink-0 flex-col gap-0.5 border-r border-[var(--nb-divider)] p-2"
+          // Wide enough for "Outils de révision" beside its icon; the FR labels
+          // are the ones that decide this number.
+          className="flex w-[212px] shrink-0 flex-col gap-3 overflow-y-auto border-r border-[var(--nb-divider)] p-2"
         >
-          {TABS.map(({ id, icon: Icon, landsIn }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              aria-current={tab === id ? 'page' : undefined}
-              className={cn(
-                'flex h-7 items-center gap-2 rounded-nb-xs px-2 text-left text-[13px]',
-                'transition-colors duration-[var(--nb-t-fast)]',
-                tab === id
-                  ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
-                  : 'text-nb-text-2 hover:bg-[var(--nb-hover)]',
-              )}
-            >
-              <Icon size={14} className="shrink-0" aria-hidden />
-              <span className="truncate">{t(`settings.${id}`)}</span>
-              {landsIn && (
-                <span className="ml-auto shrink-0 text-[10px] text-nb-text-3">
-                  {t('settings.phaseBadge', { phase: landsIn })}
-                </span>
-              )}
-            </button>
+          {GROUPS.map((group) => (
+            <div key={group.labelKey}>
+              <h2 className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-nb-text-3">
+                {t(group.labelKey)}
+              </h2>
+              <div className="flex flex-col gap-0.5">
+                {group.tabs.map(({ id, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTab(id)}
+                    aria-current={tab === id ? 'page' : undefined}
+                    className={cn(
+                      'flex h-7 items-center gap-2 rounded-nb-xs px-2 text-left text-[13px]',
+                      'transition-colors duration-[var(--nb-t-fast)]',
+                      tab === id
+                        ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
+                        : 'text-nb-text-2 hover:bg-[var(--nb-hover)]',
+                    )}
+                  >
+                    <Icon size={14} className="shrink-0" aria-hidden />
+                    <span className="truncate">{t(`settings.${id}`)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto p-4">
             {tab === 'general' && (
-              <Section>
-                <Row label={t('settings.language')}>
+              <FieldSection>
+                <FieldRow label={t('settings.language')}>
                   <GlassSegmentedControl<Locale>
                     label={t('settings.language')}
                     value={settings.locale}
@@ -111,23 +152,24 @@ export function SettingsWindow() {
                       label: t(`settings.locale_${locale}`),
                     }))}
                   />
-                </Row>
-                <Row
+                </FieldRow>
+                <FieldRow
                   label={t('settings.checkForUpdates')}
                   hint={t('settings.checkForUpdatesHint')}
+                  align="end"
                 >
-                  <Toggle
+                  <FieldToggle
                     label={t('settings.checkForUpdates')}
                     checked={settings.checkForUpdates}
                     onChange={(checked) => set('checkForUpdates', checked)}
                   />
-                </Row>
-              </Section>
+                </FieldRow>
+              </FieldSection>
             )}
 
             {tab === 'appearance' && (
-              <Section>
-                <Row label={t('settings.theme')}>
+              <FieldSection>
+                <FieldRow label={t('settings.theme')}>
                   <GlassSegmentedControl<AppSettings['theme']>
                     label={t('settings.theme')}
                     value={settings.theme}
@@ -138,8 +180,8 @@ export function SettingsWindow() {
                       { value: 'system', label: t('settings.themeSystem') },
                     ]}
                   />
-                </Row>
-                <Row label={t('settings.accentColor')}>
+                </FieldRow>
+                <FieldRow label={t('settings.accentColor')} align="end">
                   <div
                     role="radiogroup"
                     aria-label={t('settings.accentColor')}
@@ -160,72 +202,50 @@ export function SettingsWindow() {
                       </button>
                     ))}
                   </div>
-                </Row>
-              </Section>
+                </FieldRow>
+              </FieldSection>
             )}
 
             {tab === 'editor' && (
-              <Section>
-                <Row label={t('settings.editorFont')}>
-                  <select
-                    aria-label={t('settings.editorFont')}
-                    value={settings.editorFont}
-                    onChange={(event) =>
-                      set('editorFont', event.target.value as AppSettings['editorFont'])
-                    }
-                    className="h-8 min-w-40 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-[var(--nb-accent-ring)]"
-                  >
-                    <option value="sans">{t('settings.fontSans')}</option>
-                    <option value="avenir">{t('settings.fontAvenir')}</option>
-                    <option value="serif">{t('settings.fontSerif')}</option>
-                    <option value="claude">{t('settings.fontClaude')}</option>
-                    <option value="iowan">{t('settings.fontIowan')}</option>
-                    <option value="mono">{t('settings.fontMono')}</option>
-                  </select>
-                </Row>
-                <Row label={t('settings.fontSize')}>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={EDITOR_FONT_SIZES.min}
-                      max={EDITOR_FONT_SIZES.max}
-                      step={1}
+              <div className="space-y-4">
+                <FieldSection>
+                  <FieldRow label={t('settings.editorFont')}>
+                    <GlassSelect
+                      label={t('settings.editorFont')}
+                      value={settings.editorFont}
+                      onChange={(event) =>
+                        set('editorFont', event.target.value as AppSettings['editorFont'])
+                      }
+                    >
+                      <option value="sans">{t('settings.fontSans')}</option>
+                      <option value="avenir">{t('settings.fontAvenir')}</option>
+                      <option value="serif">{t('settings.fontSerif')}</option>
+                      <option value="claude">{t('settings.fontClaude')}</option>
+                      <option value="iowan">{t('settings.fontIowan')}</option>
+                      <option value="mono">{t('settings.fontMono')}</option>
+                    </GlassSelect>
+                  </FieldRow>
+                  <FieldRow label={t('settings.fontSize')} align="end">
+                    <SizeSlider
+                      label={t('settings.fontSize')}
+                      range={EDITOR_FONT_SIZES}
                       value={settings.editorFontSize}
-                      aria-label={t('settings.fontSize')}
-                      onChange={(event) =>
-                        set('editorFontSize', Number(event.target.value))
-                      }
-                      className="w-[140px] accent-[var(--nb-accent)]"
+                      onChange={(value) => set('editorFontSize', value)}
                     />
-                    <span className="w-8 text-right text-[12px] tabular-nums text-nb-text-3">
-                      {settings.editorFontSize}
-                    </span>
-                  </div>
-                </Row>
-                <Row label={t('settings.titleSize')}>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={EDITOR_TITLE_SIZES.min}
-                      max={EDITOR_TITLE_SIZES.max}
-                      step={1}
+                  </FieldRow>
+                  <FieldRow label={t('settings.titleSize')} align="end">
+                    <SizeSlider
+                      label={t('settings.titleSize')}
+                      range={EDITOR_TITLE_SIZES}
                       value={settings.editorTitleSize}
-                      aria-label={t('settings.titleSize')}
-                      onChange={(event) =>
-                        set('editorTitleSize', Number(event.target.value))
-                      }
-                      className="w-[140px] accent-[var(--nb-accent)]"
+                      onChange={(value) => set('editorTitleSize', value)}
                     />
-                    <span className="w-8 text-right text-[12px] tabular-nums text-nb-text-3">
-                      {settings.editorTitleSize}
-                    </span>
-                  </div>
-                </Row>
+                  </FieldRow>
+                </FieldSection>
+
                 <div
-                  className="rounded-nb-sm bg-[var(--nb-hover)] p-3"
-                  style={{
-                    fontFamily: 'var(--nb-editor-font)',
-                  }}
+                  className="rounded-nb-sm bg-[var(--nb-inset-surface)] p-3"
+                  style={{ fontFamily: 'var(--nb-editor-font)' }}
                 >
                   <p
                     className="font-semibold tracking-[-0.03em]"
@@ -243,22 +263,13 @@ export function SettingsWindow() {
                     {t('settings.fontPreview')}
                   </p>
                 </div>
-              </Section>
+              </div>
             )}
 
             {tab === 'backups' && <BackupSettings />}
-
             {tab === 'aiProviders' && <AiProviderSettings />}
-
             {tab === 'agent' && <AgentSettings />}
-
-            {tab === 'about' && (
-              <p className="text-[13px] text-nb-text-3">
-                {t('settings.landsInPhase', {
-                  phase: TABS.find((entry) => entry.id === tab)?.landsIn ?? '—',
-                })}
-              </p>
-            )}
+            {tab === 'about' && <AboutSettings />}
           </div>
 
           <div className="flex justify-end border-t border-[var(--nb-divider)] p-3">
@@ -272,59 +283,32 @@ export function SettingsWindow() {
   );
 }
 
-function Section({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-4">{children}</div>;
-}
-
-function Row({
+function SizeSlider({
   label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-[13px]">{label}</p>
-        {hint && <p className="mt-0.5 text-[11px] text-nb-text-3">{hint}</p>}
-      </div>
-      <div className="shrink-0">{children}</div>
-    </div>
-  );
-}
-
-function Toggle({
-  label,
-  checked,
+  range,
+  value,
   onChange,
 }: {
   label: string;
-  checked: boolean;
-  onChange(checked: boolean): void;
+  range: { min: number; max: number };
+  value: number;
+  onChange(value: number): void;
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative h-[22px] w-[38px] rounded-full transition-colors duration-[var(--nb-t-fast)]',
-        checked ? 'bg-[var(--nb-accent)]' : 'bg-[var(--nb-active)]',
-      )}
-    >
-      <span
-        aria-hidden
-        className={cn(
-          'absolute top-[2px] size-[18px] rounded-full bg-white shadow-sm',
-          'transition-[left] duration-[var(--nb-t-fast)]',
-          checked ? 'left-[18px]' : 'left-[2px]',
-        )}
+    <div className="flex w-full items-center gap-2">
+      <input
+        type="range"
+        min={range.min}
+        max={range.max}
+        step={1}
+        value={value}
+        aria-label={label}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="min-w-0 flex-1 accent-[var(--nb-accent)]"
       />
-    </button>
+      <span className="w-7 shrink-0 text-right text-[12px] tabular-nums text-nb-text-3">
+        {value}
+      </span>
+    </div>
   );
 }

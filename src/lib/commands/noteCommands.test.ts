@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { library } from '@/lib/adapters';
-import { createNoteCommand, restoreSnapshotCommand, updateNoteCommand } from './noteCommands';
+import {
+  createNoteCommand,
+  fileNoteCommand,
+  restoreSnapshotCommand,
+  updateNoteCommand,
+} from './noteCommands';
 import type { NoteDoc } from '@/lib/schema';
 
 function docOf(text: string): NoteDoc {
@@ -80,6 +85,56 @@ describe('updateNoteCommand', () => {
     await updateNoteCommand({ noteId: created.value.id, title: 'b' });
     const stored = await library.getNote(created.value.id);
     expect(stored).not.toHaveProperty('noteId');
+  });
+});
+
+describe('fileNoteCommand', () => {
+  it('clears the section when the note lands in a different course', async () => {
+    const created = await createNoteCommand({
+      doc: docOf('week 3'),
+      courseId: 'course-a',
+      sectionId: 'section-a1',
+    });
+    if (!created.ok) throw new Error(created.message);
+
+    const moved = await fileNoteCommand(created.value.id, { courseId: 'course-b' });
+    expect(moved.ok).toBe(true);
+    if (moved.ok) {
+      expect(moved.value.courseId).toBe('course-b');
+      // A section belongs to one course; carrying the id across would leave the
+      // note pointing at a section its new course has never heard of.
+      expect(moved.value.sectionId).toBeNull();
+    }
+  });
+
+  it('keeps the section when only the section is named', async () => {
+    const created = await createNoteCommand({ doc: docOf('week 4'), courseId: 'course-a' });
+    if (!created.ok) throw new Error(created.message);
+
+    const moved = await fileNoteCommand(created.value.id, {
+      courseId: 'course-a',
+      sectionId: 'section-a2',
+    });
+    if (!moved.ok) throw new Error(moved.message);
+    expect(moved.value.sectionId).toBe('section-a2');
+  });
+
+  it('is a no-op when the note is dropped where it already lives', async () => {
+    const created = await createNoteCommand({ doc: docOf('week 5'), courseId: 'course-a' });
+    if (!created.ok) throw new Error(created.message);
+
+    const moved = await fileNoteCommand(created.value.id, { courseId: 'course-a' });
+    expect(moved.ok).toBe(true);
+    // No write, so no version: dropping a note back on its own course should
+    // not fill the history with entries that changed nothing.
+    expect(await library.listSnapshots(created.value.id)).toHaveLength(0);
+    if (moved.ok) expect(moved.value.updatedAt).toBe(created.value.updatedAt);
+  });
+
+  it('reports a missing note rather than filing nothing quietly', async () => {
+    const result = await fileNoteCommand('nope', { courseId: 'course-a' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('not_found');
   });
 });
 

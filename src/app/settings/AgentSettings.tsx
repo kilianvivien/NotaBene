@@ -1,7 +1,7 @@
 import { Check, Circle, Copy, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton } from '@/components/glass';
+import { FieldToggle, GlassButton } from '@/components/glass';
 import { platformRuntime } from '@/lib/platform/runtime';
 import { useMcpStore, type McpActivity } from '@/lib/state/mcpStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
@@ -63,7 +63,7 @@ export function AgentSettings() {
             </div>
             <p className="mt-1 text-[11px] text-nb-text-3">{t('mcp.loopbackHint')}</p>
           </div>
-          <Toggle
+          <FieldToggle
             label={t('mcp.enable')}
             checked={settings.mcpEnabled}
             disabled={pending}
@@ -208,40 +208,5 @@ function ActivityRow({ activity }: { activity: McpActivity }) {
         </p>
       </div>
     </li>
-  );
-}
-
-function Toggle({
-  label,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange(checked: boolean): void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative h-[22px] w-[38px] rounded-full transition-colors duration-[var(--nb-t-fast)] disabled:opacity-50',
-        checked ? 'bg-[var(--nb-accent)]' : 'bg-[var(--nb-active)]',
-      )}
-    >
-      <span
-        aria-hidden
-        className={cn(
-          'absolute top-[2px] size-[18px] rounded-full bg-white shadow-sm transition-[left] duration-[var(--nb-t-fast)]',
-          checked ? 'left-[18px]' : 'left-[2px]',
-        )}
-      />
-    </button>
   );
 }

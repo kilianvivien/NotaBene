@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton } from '@/components/glass';
+import { FieldRow, FieldSection, GlassButton, GlassSelect } from '@/components/glass';
 import { dialog, library } from '@/lib/adapters';
 import type { ParsedBackup } from '@/lib/backup';
 import {
-  emptyTrashCommand,
   pickAndWriteBackupCommand,
   pickBackupCommand,
   restoreBackupCommand,
@@ -84,84 +83,76 @@ export function BackupSettings() {
     }
   }
 
-  async function emptyTrash() {
-    if (
-      !(await dialog.confirm(t('backups.emptyTrashConfirm'), {
-        title: t('sidebar.trash'),
-        danger: true,
-      }))
-    ) {
-      return;
-    }
-    const result = await emptyTrashCommand();
-    if (result.ok) setMessage(t('backups.trashEmptied', { count: result.value }));
-    else setMessage(result.message);
-  }
-
   return (
     <div className="space-y-5">
-      <SettingRow label={t('backups.schedule')} hint={t('backups.scheduleHint')}>
-        <select
-          value={settings.backupSchedule}
-          onChange={(event) =>
-            void update({
-              backupSchedule: event.target.value as typeof settings.backupSchedule,
-            })
-          }
-          className="h-8 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
-        >
-          <option value="off">{t('backups.off')}</option>
-          <option value="daily">{t('backups.daily')}</option>
-          <option value="weekly">{t('backups.weekly')}</option>
-        </select>
-      </SettingRow>
-      <SettingRow
-        label={t('backups.folder')}
-        hint={settings.backupFolder ?? t('backups.noFolder')}
-      >
-        <GlassButton size="sm" onClick={() => void chooseFolder()}>
-          {t('backups.chooseFolder')}
-        </GlassButton>
-      </SettingRow>
-      <SettingRow label={t('backups.versions')}>
-        <select
-          value={settings.snapshotRetention}
-          onChange={(event) =>
-            void update({
-              snapshotRetention: event.target.value as typeof settings.snapshotRetention,
-            })
-          }
-          className="h-8 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
-        >
-          <option value="standard">{t('backups.retentionStandard')}</option>
-          <option value="extended">{t('backups.retentionExtended')}</option>
-          <option value="forever">{t('backups.retentionForever')}</option>
-        </select>
-      </SettingRow>
-      <SettingRow label={t('backups.trashRetention')}>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={1}
-            max={3650}
-            value={settings.trashRetentionDays}
+      <FieldSection title={t('backups.scheduleSection')}>
+        <FieldRow label={t('backups.schedule')} hint={t('backups.scheduleHint')}>
+          <GlassSelect
+            label={t('backups.schedule')}
+            value={settings.backupSchedule}
             onChange={(event) =>
-              void update({ trashRetentionDays: Number(event.target.value) })
+              void update({
+                backupSchedule: event.target.value as typeof settings.backupSchedule,
+              })
             }
-            className="h-8 w-20 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
-          />
-          <span className="text-[12px] text-nb-text-3">{t('backups.days')}</span>
-        </div>
-      </SettingRow>
+          >
+            <option value="off">{t('backups.off')}</option>
+            <option value="daily">{t('backups.daily')}</option>
+            <option value="weekly">{t('backups.weekly')}</option>
+          </GlassSelect>
+        </FieldRow>
+        <FieldRow
+          label={t('backups.folder')}
+          hint={settings.backupFolder ?? t('backups.noFolder')}
+          align="end"
+        >
+          <GlassButton size="sm" onClick={() => void chooseFolder()}>
+            {t('backups.chooseFolder')}
+          </GlassButton>
+        </FieldRow>
+      </FieldSection>
+
+      <FieldSection title={t('backups.retentionSection')}>
+        <FieldRow label={t('backups.versions')}>
+          <GlassSelect
+            label={t('backups.versions')}
+            value={settings.snapshotRetention}
+            onChange={(event) =>
+              void update({
+                snapshotRetention: event.target
+                  .value as typeof settings.snapshotRetention,
+              })
+            }
+          >
+            <option value="standard">{t('backups.retentionStandard')}</option>
+            <option value="extended">{t('backups.retentionExtended')}</option>
+            <option value="forever">{t('backups.retentionForever')}</option>
+          </GlassSelect>
+        </FieldRow>
+        <FieldRow label={t('backups.trashRetention')} align="end">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              aria-label={t('backups.trashRetention')}
+              value={settings.trashRetentionDays}
+              onChange={(event) =>
+                void update({ trashRetentionDays: Number(event.target.value) })
+              }
+              className="h-8 w-20 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
+            />
+            <span className="text-[12px] text-nb-text-3">{t('backups.days')}</span>
+          </div>
+        </FieldRow>
+      </FieldSection>
+
       <div className="flex flex-wrap gap-2 border-t border-[var(--nb-divider)] pt-4">
         <GlassButton size="sm" variant="accent" disabled={working} onClick={() => void createBackup()}>
           {t('backups.backupNow')}
         </GlassButton>
         <GlassButton size="sm" disabled={working} onClick={() => void selectRestore()}>
           {t('backups.restore')}
-        </GlassButton>
-        <GlassButton size="sm" disabled={working} onClick={() => void emptyTrash()}>
-          {t('backups.emptyTrash')}
         </GlassButton>
       </div>
       {settings.lastBackupAt && (
@@ -199,26 +190,6 @@ export function BackupSettings() {
           </div>
         </section>
       )}
-    </div>
-  );
-}
-
-function SettingRow({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-[13px]">{label}</p>
-        {hint && <p className="mt-0.5 max-w-[260px] truncate text-[11px] text-nb-text-3">{hint}</p>}
-      </div>
-      <div className="shrink-0">{children}</div>
     </div>
   );
 }

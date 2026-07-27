@@ -11,7 +11,7 @@
  * unsaved tail. There is no third option that loses anything.
  */
 import { useTranslation } from 'react-i18next';
-import { GlassButton, ModalOverlay } from '@/components/glass';
+import { Dialog, GlassButton } from '@/components/glass';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
@@ -40,7 +40,7 @@ export function RecoveryPrompt() {
   }
 
   return (
-    <ModalOverlay
+    <Dialog
       // Driven by the list rather than unmounted outright, so answering the
       // last one lets the panel leave the way it arrived.
       open={pending.length > 0}
@@ -48,32 +48,28 @@ export function RecoveryPrompt() {
       // back next launch rather than the work being thrown away by an
       // accidental Escape.
       onClose={() => void refreshPending()}
-      label={t('recovery.title')}
-      className="w-[min(520px,90vw)]"
+      title={t('recovery.title')}
+      description={t('recovery.body')}
+      size="md"
     >
-      <div className="flex flex-col gap-3 p-4">
-        <div>
-          <h2 className="text-[15px] font-semibold">{t('recovery.title')}</h2>
-          <p className="mt-1 text-[12px] text-nb-text-2">{t('recovery.body')}</p>
-        </div>
-
-        <ul className="flex flex-col gap-2">
-          {pending.map((entry) => (
-            <li
-              key={entry.noteId}
-              className="flex items-center gap-3 rounded-nb-sm bg-[var(--nb-hover)] p-2.5"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium">
-                  {entry.title || entry.noteTitle || t('noteList.untitled')}
-                </p>
-                <p className="text-[11px] text-nb-text-3">
-                  {t('recovery.unsavedSince', {
-                    time: new Date(entry.writtenAt).toLocaleTimeString(i18n.language),
-                    saved: new Date(entry.noteUpdatedAt).toLocaleTimeString(i18n.language),
-                  })}
-                </p>
-              </div>
+      <ul className="flex flex-col gap-2">
+        {pending.map((entry) => (
+          <li
+            key={entry.noteId}
+            className="flex flex-wrap items-center gap-2 rounded-nb-sm bg-[var(--nb-hover)] p-2.5"
+          >
+            <div className="min-w-0 flex-1 basis-[55%]">
+              <p className="truncate text-[13px] font-medium">
+                {entry.title || entry.noteTitle || t('noteList.untitled')}
+              </p>
+              <p className="text-[11px] text-nb-text-3">
+                {t('recovery.unsavedSince', {
+                  time: new Date(entry.writtenAt).toLocaleTimeString(i18n.language),
+                  saved: new Date(entry.noteUpdatedAt).toLocaleTimeString(i18n.language),
+                })}
+              </p>
+            </div>
+            <div className="ml-auto flex shrink-0 gap-2">
               <GlassButton size="sm" onClick={() => void onDiscard(entry.noteId)}>
                 {t('recovery.discard')}
               </GlassButton>
@@ -84,10 +80,10 @@ export function RecoveryPrompt() {
               >
                 {t('recovery.restore')}
               </GlassButton>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </ModalOverlay>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Dialog>
   );
 }

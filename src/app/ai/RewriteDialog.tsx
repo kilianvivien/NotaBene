@@ -106,11 +106,14 @@ export function RewriteDialog() {
         setOpen(false);
       }}
       label={t('ai.rewrite')}
+      className="w-[min(640px,92vw)]"
     >
-      <div className="flex max-h-[min(640px,80vh)] w-[620px] flex-col">
+      <div className="flex max-h-[min(640px,80vh)] w-full flex-col">
         <header className="flex items-center gap-3 border-b border-[var(--nb-divider)] p-4">
-          <h2 className="text-[17px] font-semibold">{t('ai.rewrite')}</h2>
-          <AiStatusPill feature="rewrite" className="ml-auto" />
+          <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold">
+            {t('ai.rewrite')}
+          </h2>
+          <AiStatusPill feature="rewrite" className="max-w-[45%] shrink-0" />
         </header>
 
         <div className="flex flex-col gap-3 border-b border-[var(--nb-divider)] p-4">

@@ -1,6 +1,6 @@
 import { FileStack } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, ModalOverlay } from '@/components/glass';
+import { Dialog, GlassButton } from '@/components/glass';
 import { createNoteFromTemplateCommand } from '@/lib/commands';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -16,53 +16,52 @@ export function TemplatePicker() {
   const openNote = useEditorStore((state) => state.openNote);
 
   return (
-    <ModalOverlay
+    <Dialog
       open={open}
       onClose={() => setOpen(false)}
-      label={t('organization.newFromTemplate')}
-      className="max-w-[520px]"
+      title={t('organization.newFromTemplate')}
+      size="md"
+      footer={
+        <GlassButton size="sm" onClick={() => setOpen(false)}>
+          {t('common.close')}
+        </GlassButton>
+      }
     >
-      <div className="p-5">
-        <h2 className="text-[17px] font-semibold">{t('organization.newFromTemplate')}</h2>
-        <div className="my-4 max-h-[50vh] space-y-1 overflow-y-auto">
-          {templates.length ? (
-            templates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                className="flex w-full items-center gap-3 rounded-nb-sm p-3 text-left hover:bg-[var(--nb-hover)]"
-                onClick={() => {
-                  void createNoteFromTemplateCommand(template).then(async (result) => {
-                    if (!result.ok) return;
-                    selectNote(result.value.id);
-                    await openNote(result.value.id);
-                    setOpen(false);
-                  });
-                }}
-              >
-                <FileStack size={17} className="text-[var(--nb-accent)]" />
-                <span>
-                  <span className="block text-[13px] font-medium">{template.name}</span>
-                  <span className="block text-[12px] text-nb-text-3">
-                    {template.courseId
-                      ? courses.find((course) => course.id === template.courseId)?.name
-                      : t('organization.globalTemplate')}
-                  </span>
+      <div className="space-y-1">
+        {templates.length ? (
+          templates.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="flex w-full items-center gap-3 rounded-nb-sm p-3 text-left hover:bg-[var(--nb-hover)]"
+              onClick={() => {
+                void createNoteFromTemplateCommand(template).then(async (result) => {
+                  if (!result.ok) return;
+                  selectNote(result.value.id);
+                  await openNote(result.value.id);
+                  setOpen(false);
+                });
+              }}
+            >
+              <FileStack size={17} className="shrink-0 text-[var(--nb-accent)]" />
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-medium">
+                  {template.name}
                 </span>
-              </button>
-            ))
-          ) : (
-            <p className="py-8 text-center text-[12px] text-nb-text-3">
-              {t('organization.noTemplates')}
-            </p>
-          )}
-        </div>
-        <div className="flex justify-end">
-          <GlassButton size="sm" onClick={() => setOpen(false)}>
-            {t('common.close')}
-          </GlassButton>
-        </div>
+                <span className="block truncate text-[12px] text-nb-text-3">
+                  {template.courseId
+                    ? courses.find((course) => course.id === template.courseId)?.name
+                    : t('organization.globalTemplate')}
+                </span>
+              </span>
+            </button>
+          ))
+        ) : (
+          <p className="py-8 text-center text-[12px] text-nb-text-3">
+            {t('organization.noTemplates')}
+          </p>
+        )}
       </div>
-    </ModalOverlay>
+    </Dialog>
   );
 }

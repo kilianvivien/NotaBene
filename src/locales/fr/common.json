@@ -33,7 +33,8 @@
       "title": "Titre",
       "manual": "Ordre manuel",
       "relevance": "Pertinence"
-    }
+    },
+    "dropHint": "Déposer pour classer cette note ici"
   },
   "noteActions": {
     "open": "Ouvrir",
@@ -145,7 +146,8 @@
     "noteCount_other": "{{count}} notes seront exportées",
     "action": "Exporter",
     "exporting": "Exportation…",
-    "complete": "Exportation terminée"
+    "complete": "Exportation terminée",
+    "layoutPdfHint": "Le PDF est toujours imprimé en un seul document."
   },
   "backups": {
     "schedule": "Sauvegardes automatiques",
@@ -177,14 +179,17 @@
     "replaceConfirm": "Remplacer la bibliothèque actuelle par cette sauvegarde ? La bibliothèque actuelle sera supprimée.",
     "emptyTrashConfirm": "Supprimer définitivement toutes les notes de la corbeille ? Cette action est irréversible.",
     "trashEmptied_one": "{{count}} note supprimée définitivement",
-    "trashEmptied_other": "{{count}} notes supprimées définitivement"
+    "trashEmptied_other": "{{count}} notes supprimées définitivement",
+    "scheduleSection": "Planification",
+    "retentionSection": "Conservation"
   },
   "search": {
     "placeholder": "Rechercher dans les notes",
     "scopeAll": "Partout",
     "scopeCourse": "Ce cours",
     "noResults": "Aucune note ne correspond",
-    "saveSearch": "Enregistrer comme dossier intelligent"
+    "saveSearch": "Enregistrer comme dossier intelligent",
+    "scope": "Portée de la recherche"
   },
   "organization": {
     "editCourse": "Modifier le cours",
@@ -216,7 +221,10 @@
     "noTemplates": "Aucun modèle",
     "editSavedSearch": "Modifier le dossier intelligent",
     "name": "Nom",
-    "query": "Requête de recherche"
+    "query": "Requête de recherche",
+    "deleteCourse": "Supprimer le cours",
+    "deleteSection": "Supprimer la section",
+    "noTags": "Aucune étiquette"
   },
   "save": {
     "idle": "",
@@ -300,7 +308,13 @@
     "sourceCount_one": "{{count}} note sélectionnée",
     "sourceCount_other": "{{count}} notes sélectionnées",
     "acceptedCount_one": "{{count}} sur {{total}} acceptée",
-    "acceptedCount_other": "{{count}} sur {{total}} acceptées"
+    "acceptedCount_other": "{{count}} sur {{total}} acceptées",
+    "providersSection": "Fournisseurs",
+    "connectedCount_one": "{{count}} fournisseur connecté",
+    "connectedCount_other": "{{count}} fournisseurs connectés",
+    "noneConnected": "Aucun fournisseur connecté — les actions IA restent désactivées.",
+    "needsKey": "Ajouter une clé",
+    "notEnabled": "Désactivé"
   },
   "mcp": {
     "title": "Accès agent local",
@@ -374,8 +388,17 @@
     "fontPreview": "La tangente en un point est la limite des sécantes qui y passent.",
     "checkForUpdates": "Rechercher les mises à jour",
     "checkForUpdatesHint": "Interroge GitHub pour une nouvelle version. Rien d'autre ne quitte cette machine.",
-    "phaseBadge": "phase {{phase}}",
-    "landsInPhase": "Cette section arrive en phase {{phase}}."
+    "groupApp": "Application",
+    "groupContent": "Vos notes",
+    "groupConnections": "Connexions",
+    "groupAbout": "À propos",
+    "aboutPrivacy": "Confidentialité",
+    "aboutPrivacyLocal": "Chaque note, dessin et pièce jointe réside dans un dossier sur ce Mac. Aucun compte, aucune synchronisation.",
+    "aboutPrivacyNetwork": "Les seules requêtes sortantes vont au fournisseur d’IA que vous avez configuré et à la vérification des mises à jour, désactivable. Aucune télémétrie, jamais.",
+    "aboutPrivacyKeys": "Les clés d’API sont conservées dans le trousseau macOS et ne peuvent apparaître ni dans une sauvegarde ni dans un export.",
+    "aboutLicence": "Licence",
+    "aboutLicenceBody": "NotaBene est distribué sous licence Apache 2.0.",
+    "aboutCredits": "Construit avec"
   },
   "menu": {
     "about": "À propos de",

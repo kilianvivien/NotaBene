@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { GlassSelect, type ContextPoint } from '@/components/glass';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
@@ -8,7 +9,8 @@ import { useSettingsStore } from '@/lib/state/settingsStore';
 import { reorderNotesCommand } from '@/lib/commands';
 import { viewToQuery } from './viewQuery';
 import { cn } from '@/lib/utils/cn';
-import { NoteContextMenu, type ContextPoint } from './NoteContextMenu';
+import { NoteContextMenu } from './NoteContextMenu';
+import { readDrag, startDrag } from './dnd';
 import type { NoteSummary } from '@/lib/schema';
 
 function formatDate(iso: string, locale: string): string {
@@ -70,12 +72,18 @@ export function NoteList() {
 
   return (
     <div className="flex h-full w-full flex-col border-r border-[var(--nb-divider)] bg-[var(--nb-list-surface)]">
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--nb-divider)] px-3">
-        <span className="text-[12px] text-nb-text-3">
+      {/* The count yields before the sort control does: which order you are
+          looking at is the thing you came here to read, and "12 notes" survives
+          being clipped in a way "Dernière modification" does not. */}
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-[var(--nb-divider)] px-3">
+        <span className="min-w-0 shrink truncate text-[12px] text-nb-text-3">
           {t('noteList.count', { count: notes.length })}
         </span>
-        <select
-          aria-label={t('noteList.sortBy')}
+        <GlassSelect
+          label={t('noteList.sortBy')}
+          variant="plain"
+          size="sm"
+          className="ml-auto shrink-0"
           value={sort}
           onChange={(event) =>
             void updateSettings({
@@ -85,7 +93,6 @@ export function NoteList() {
               },
             })
           }
-          className="max-w-[145px] bg-transparent text-[12px] text-nb-text-3 focus:outline-none"
         >
           <option value="updated">{t('noteList.sort.updated')}</option>
           <option value="created">{t('noteList.sort.created')}</option>
@@ -96,7 +103,7 @@ export function NoteList() {
           {view.kind === 'search' && (
             <option value="relevance">{t('noteList.sort.relevance')}</option>
           )}
-        </select>
+        </GlassSelect>
       </div>
 
       {notes.length === 0 ? (
@@ -112,20 +119,23 @@ export function NoteList() {
               draggable
               onDragStart={(event) => {
                 setDraggedNoteId(note.id);
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('application/x-notabene-note-id', note.id);
-                event.dataTransfer.setData('text/plain', note.id);
+                startDrag(event, 'note', note.id, note.title || t('noteList.untitled'));
               }}
               onDragEnd={() => setDraggedNoteId(null)}
               onDragOver={(event) => {
+                // Reordering is a course-view affordance only; everywhere else
+                // the order is the query's to decide.
                 if (view.kind === 'course') event.preventDefault();
               }}
-              onDrop={() => {
-                if (view.kind !== 'course' || !draggedNoteId || draggedNoteId === note.id)
-                  return;
+              onDrop={(event) => {
+                if (view.kind !== 'course') return;
+                const moved = readDrag(event, 'note') ?? draggedNoteId;
+                if (!moved || moved === note.id) return;
+                event.preventDefault();
                 const ids = notes.map((candidate) => candidate.id);
-                const from = ids.indexOf(draggedNoteId);
+                const from = ids.indexOf(moved);
                 const to = ids.indexOf(note.id);
+                if (from === -1 || to === -1) return;
                 ids.splice(to, 0, ids.splice(from, 1)[0]!);
                 void updateSettings({
                   viewSorts: { ...viewSorts, [key]: 'manual' },

@@ -684,7 +684,7 @@
   border: 1px solid var(--nb-control-border);
   border-radius: 6px;
   color: var(--nb-text);
-  background: var(--nb-control-bg);
+  background: var(--nb-control-surface);
   font-size: 12px;
 }
 

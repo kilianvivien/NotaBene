@@ -24,7 +24,13 @@ export type InspectorTab =
 /** Settings sections. Future sections stay addressable while their panes are
  * placeholders, so commands and navigation do not change shape between phases. */
 export type SettingsTab =
-  'general' | 'appearance' | 'editor' | 'aiProviders' | 'backups' | 'agent' | 'about';
+  | 'general'
+  | 'appearance'
+  | 'editor'
+  | 'aiProviders'
+  | 'backups'
+  | 'agent'
+  | 'about';
 
 interface UiState {
   view: ViewKind;

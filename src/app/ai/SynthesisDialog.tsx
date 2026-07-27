@@ -8,7 +8,7 @@
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, ModalOverlay } from '@/components/glass';
+import { Dialog, FieldNote, GlassButton } from '@/components/glass';
 import type { SynthesisStyle } from '@/lib/ai';
 import { synthesizeNotesCommand } from '@/lib/commands';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
@@ -62,53 +62,17 @@ export function SynthesisDialog() {
     .map((note) => note.title || t('noteList.untitled'));
 
   return (
-    <ModalOverlay
+    <Dialog
       open={open}
       onClose={() => {
         cancelRun('synthesis');
         setOpen(false);
       }}
-      label={t('ai.synthesis')}
-    >
-      <div className="w-[460px] p-5">
-        <div className="flex items-center gap-3">
-          <h2 className="text-[17px] font-semibold">{t('ai.synthesis')}</h2>
-          <AiStatusPill feature="synthesis" className="ml-auto" />
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3">
-          <fieldset className="flex flex-col gap-1.5">
-            <legend className="text-[12px] text-nb-text-3">{t('ai.synthesisStyle')}</legend>
-            {STYLES.map((entry) => (
-              <label
-                key={entry}
-                className="flex cursor-pointer items-start gap-2 rounded-nb-xs p-1.5 hover:bg-[var(--nb-hover)]"
-              >
-                <input
-                  type="radio"
-                  name="nb-synthesis-style"
-                  checked={style === entry}
-                  onChange={() => setStyle(entry)}
-                  className="mt-0.5 accent-[var(--nb-accent)]"
-                />
-                <span className="min-w-0">
-                  <span className="block text-[13px]">{t(`ai.style_${entry}`)}</span>
-                  <span className="block text-[11px] text-nb-text-3">
-                    {t(`ai.styleHint_${entry}`)}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
-
-          <p className="text-[12px] text-nb-text-3">
-            {t('ai.sourceCount', { count: noteIds.length })}
-            {titles.length > 0 && <span className="block truncate">{titles.join(' · ')}</span>}
-          </p>
-          {error && <p className="text-[12px] text-[var(--nb-danger)]">{error}</p>}
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
+      title={t('ai.synthesis')}
+      size="md"
+      headerAction={<AiStatusPill feature="synthesis" className="max-w-[200px]" />}
+      footer={
+        <>
           {running ? (
             <GlassButton size="sm" onClick={() => cancelRun('synthesis')}>
               {t('ai.cancel')}
@@ -127,8 +91,40 @@ export function SynthesisDialog() {
             {running && <Loader2 size={12} className="animate-spin" />}
             {running ? t('ai.running') : t('ai.createNote')}
           </GlassButton>
-        </div>
-      </div>
-    </ModalOverlay>
+        </>
+      }
+    >
+      <fieldset className="flex flex-col gap-1">
+        <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-nb-text-3">
+          {t('ai.synthesisStyle')}
+        </legend>
+        {STYLES.map((entry) => (
+          <label
+            key={entry}
+            className="flex cursor-pointer items-start gap-2 rounded-nb-xs p-1.5 hover:bg-[var(--nb-hover)]"
+          >
+            <input
+              type="radio"
+              name="nb-synthesis-style"
+              checked={style === entry}
+              onChange={() => setStyle(entry)}
+              className="mt-0.5 shrink-0 accent-[var(--nb-accent)]"
+            />
+            <span className="min-w-0">
+              <span className="block text-[13px]">{t(`ai.style_${entry}`)}</span>
+              <span className="block text-[11px] text-nb-text-3">
+                {t(`ai.styleHint_${entry}`)}
+              </span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+
+      <FieldNote>
+        {t('ai.sourceCount', { count: noteIds.length })}
+        {titles.length > 0 && <span className="block truncate">{titles.join(' · ')}</span>}
+      </FieldNote>
+      {error && <FieldNote tone="danger">{error}</FieldNote>}
+    </Dialog>
   );
 }

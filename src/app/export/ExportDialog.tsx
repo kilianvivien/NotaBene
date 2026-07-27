@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, ModalOverlay } from '@/components/glass';
+import {
+  Dialog,
+  FieldNote,
+  FieldRow,
+  GlassButton,
+  GlassSelect,
+} from '@/components/glass';
 import { exportNotesCommand } from '@/lib/commands';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
@@ -19,6 +25,7 @@ export function ExportDialog() {
   const [scope, setScope] = useState<'selected' | 'view'>('selected');
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState('');
+  const [failed, setFailed] = useState(false);
 
   const ids =
     scope === 'view'
@@ -36,6 +43,7 @@ export function ExportDialog() {
   async function run() {
     setWorking(true);
     setMessage('');
+    setFailed(false);
     const result = await exportNotesCommand(ids, {
       ...preset,
       layout: preset.format === 'pdf' ? 'combined' : preset.layout,
@@ -46,81 +54,96 @@ export function ExportDialog() {
       setMessage(t('export.complete'));
     } else if (result.code !== 'not_supported') {
       setMessage(result.message);
+      setFailed(true);
     }
   }
 
+  // PDF goes through the system print sheet, which has no concept of a file
+  // per note. Saying so beats a select that silently ignores what you picked.
+  const layoutLocked = preset.format === 'pdf';
+
   return (
-    <ModalOverlay open={open} onClose={() => setOpen(false)} label={t('export.title')}>
-      <div className="w-[460px] p-5">
-        <h2 className="text-[17px] font-semibold">{t('export.title')}</h2>
-        <div className="mt-4 space-y-4">
-          <label className="flex items-center justify-between gap-4 text-[13px]">
-            {t('export.notes')}
-            <select
-              value={scope}
-              onChange={(event) => setScope(event.target.value as typeof scope)}
-              className="h-8 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2"
-            >
-              <option value="selected">{t('export.selectedNotes')}</option>
-              <option value="view">{t('export.currentView')}</option>
-            </select>
-          </label>
-          <label className="flex items-center justify-between gap-4 text-[13px]">
-            {t('export.format')}
-            <select
-              value={preset.format}
-              onChange={(event) =>
-                setPreset({
-                  format: event.target.value as AppSettings['exportPreset']['format'],
-                })
-              }
-              className="h-8 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2"
-            >
-              <option value="markdown">Markdown</option>
-              <option value="html">HTML</option>
-              <option value="pdf">PDF</option>
-              <option value="docx">DOCX</option>
-            </select>
-          </label>
-          <label className="flex items-center justify-between gap-4 text-[13px]">
-            {t('export.layout')}
-            <select
-              value={preset.format === 'pdf' ? 'combined' : preset.layout}
-              disabled={preset.format === 'pdf'}
-              onChange={(event) =>
-                setPreset({
-                  layout: event.target.value as AppSettings['exportPreset']['layout'],
-                })
-              }
-              className="h-8 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 disabled:opacity-50"
-            >
-              <option value="combined">{t('export.combined')}</option>
-              <option value="separate">{t('export.separate')}</option>
-            </select>
-          </label>
-          <label className="flex items-center justify-between gap-4 text-[13px]">
-            {t('export.includeToc')}
-            <input
-              type="checkbox"
-              checked={preset.includeToc}
-              onChange={(event) => setPreset({ includeToc: event.target.checked })}
-              className="accent-[var(--nb-accent)]"
-            />
-          </label>
-          <p className="text-[12px] text-nb-text-3">
-            {t('export.noteCount', { count: ids.length })}
-          </p>
-          {message && <p className="text-[12px] text-nb-text-2">{message}</p>}
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
+    <Dialog
+      open={open}
+      onClose={() => setOpen(false)}
+      title={t('export.title')}
+      size="md"
+      footer={
+        <>
           <GlassButton size="sm" onClick={() => setOpen(false)}>
             {t('common.cancel')}
           </GlassButton>
-          <GlassButton size="sm" variant="accent" disabled={!ids.length || working} onClick={() => void run()}>
+          <GlassButton
+            size="sm"
+            variant="accent"
+            disabled={!ids.length || working}
+            onClick={() => void run()}
+          >
             {working ? t('export.exporting') : t('export.action')}
           </GlassButton>
-        </div>
-      </div>
-    </ModalOverlay>
+        </>
+      }
+    >
+      <FieldRow label={t('export.notes')}>
+        <GlassSelect
+          label={t('export.notes')}
+          value={scope}
+          onChange={(event) => setScope(event.target.value as typeof scope)}
+        >
+          <option value="selected">{t('export.selectedNotes')}</option>
+          <option value="view">{t('export.currentView')}</option>
+        </GlassSelect>
+      </FieldRow>
+
+      <FieldRow label={t('export.format')}>
+        <GlassSelect
+          label={t('export.format')}
+          value={preset.format}
+          onChange={(event) =>
+            setPreset({
+              format: event.target.value as AppSettings['exportPreset']['format'],
+            })
+          }
+        >
+          <option value="markdown">Markdown</option>
+          <option value="html">HTML</option>
+          <option value="pdf">PDF</option>
+          <option value="docx">DOCX</option>
+        </GlassSelect>
+      </FieldRow>
+
+      <FieldRow
+        label={t('export.layout')}
+        hint={layoutLocked ? t('export.layoutPdfHint') : undefined}
+      >
+        <GlassSelect
+          label={t('export.layout')}
+          value={layoutLocked ? 'combined' : preset.layout}
+          disabled={layoutLocked}
+          className="disabled:opacity-50"
+          onChange={(event) =>
+            setPreset({
+              layout: event.target.value as AppSettings['exportPreset']['layout'],
+            })
+          }
+        >
+          <option value="combined">{t('export.combined')}</option>
+          <option value="separate">{t('export.separate')}</option>
+        </GlassSelect>
+      </FieldRow>
+
+      <FieldRow label={t('export.includeToc')} htmlFor="nb-export-toc" align="end">
+        <input
+          id="nb-export-toc"
+          type="checkbox"
+          checked={preset.includeToc}
+          onChange={(event) => setPreset({ includeToc: event.target.checked })}
+          className="size-4 accent-[var(--nb-accent)]"
+        />
+      </FieldRow>
+
+      <FieldNote>{t('export.noteCount', { count: ids.length })}</FieldNote>
+      {message && <FieldNote tone={failed ? 'danger' : 'muted'}>{message}</FieldNote>}
+    </Dialog>
   );
 }

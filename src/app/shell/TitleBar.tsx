@@ -1,7 +1,7 @@
 import { PanelLeft, PanelRight, Plus, Save, Search, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassIconButton } from '@/components/glass';
+import { GlassIconButton, GlassSelect } from '@/components/glass';
 import { useUiStore } from '@/lib/state/uiStore';
 import { runAppCommand } from '@/lib/commands';
 import { saveSearchCommand } from '@/lib/commands';
@@ -46,54 +46,61 @@ export function TitleBar() {
         <Plus size={16} />
       </GlassIconButton>
 
-      <div className="relative mx-auto w-[min(420px,45vw)]">
-        <Search
-          size={14}
-          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-nb-text-3"
-        />
-        <input
-          type="search"
-          list="notabene-recent-searches"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' || !searchQuery.trim()) return;
-            const recent = [
-              searchQuery.trim(),
-              ...recentSearches.filter((entry) => entry !== searchQuery.trim()),
-            ].slice(0, 10);
-            void updateSettings({ recentSearches: recent });
-          }}
-          placeholder={t('search.placeholder')}
-          aria-label={t('search.placeholder')}
-          autoComplete="off"
-          className="glass-thin h-7 w-full rounded-nb-sm border-[0.5px] border-[var(--nb-glass-border)] pl-8 pr-20 text-[13px] placeholder:text-nb-text-3 focus:outline-none"
-        />
-        <datalist id="notabene-recent-searches">
-          {recentSearches.map((entry) => (
-            <option key={entry} value={entry} />
-          ))}
-        </datalist>
-        {searchQuery.trim() && (
-          <button
-            type="button"
-            className="absolute right-1 top-1/2 -translate-y-1/2 rounded-nb-xs p-1 text-nb-text-3 hover:bg-[var(--nb-hover)]"
-            aria-label={t('search.saveSearch')}
-            onClick={() => setSaveSearchOpen(true)}
-          >
-            <Save size={12} />
-          </button>
-        )}
+      {/* The scope picker sits *beside* the field rather than floating inside
+          it. Overlaid on the input it had to be capped at 72px, which cut
+          "Everywhere" in half and left no room at all for "Dans ce cours". */}
+      <div className="mx-auto flex w-[min(460px,48vw)] min-w-0 items-center gap-1.5">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            size={14}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-nb-text-3"
+          />
+          <input
+            type="search"
+            list="notabene-recent-searches"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || !searchQuery.trim()) return;
+              const recent = [
+                searchQuery.trim(),
+                ...recentSearches.filter((entry) => entry !== searchQuery.trim()),
+              ].slice(0, 10);
+              void updateSettings({ recentSearches: recent });
+            }}
+            placeholder={t('search.placeholder')}
+            aria-label={t('search.placeholder')}
+            autoComplete="off"
+            className="glass-thin h-7 w-full rounded-nb-sm border-[0.5px] border-[var(--nb-glass-border)] pl-8 pr-8 text-[13px] placeholder:text-nb-text-3 focus:outline-none"
+          />
+          <datalist id="notabene-recent-searches">
+            {recentSearches.map((entry) => (
+              <option key={entry} value={entry} />
+            ))}
+          </datalist>
+          {searchQuery.trim() && (
+            <button
+              type="button"
+              className="absolute right-1 top-1/2 -translate-y-1/2 rounded-nb-xs p-1 text-nb-text-3 hover:bg-[var(--nb-hover)]"
+              aria-label={t('search.saveSearch')}
+              onClick={() => setSaveSearchOpen(true)}
+            >
+              <Save size={12} />
+            </button>
+          )}
+        </div>
         {searchCourseId && searchQuery.trim() && (
-          <select
-            aria-label={t('search.scopeAll')}
+          <GlassSelect
+            label={t('search.scope')}
+            variant="plain"
+            size="sm"
+            className="shrink-0"
             value={searchScope}
             onChange={(event) => setSearchScope(event.target.value as 'all' | 'course')}
-            className="absolute right-7 top-1/2 max-w-[72px] -translate-y-1/2 bg-transparent text-[11px] text-nb-text-3 focus:outline-none"
           >
             <option value="all">{t('search.scopeAll')}</option>
             <option value="course">{t('search.scopeCourse')}</option>
-          </select>
+          </GlassSelect>
         )}
       </div>
 

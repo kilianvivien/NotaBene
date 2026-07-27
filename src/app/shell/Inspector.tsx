@@ -131,7 +131,7 @@ function VersionsPanel({ noteId }: { noteId: string }) {
       <select
         value={selected?.id ?? ''}
         onChange={(event) => void choose(event.target.value)}
-        className="h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-bg)] px-2 text-[12px]"
+        className="h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
         aria-label={t('inspector.versions')}
       >
         {snapshots.map((snapshot) => (
@@ -219,7 +219,7 @@ function InfoPanel() {
       <label className="block text-[12px] text-nb-text-3">
         {t('inspector.course')}
         <select
-          className="mt-1 h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-bg)] px-2 text-[12px]"
+          className="mt-1 h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
           value={note.courseId ?? ''}
           onChange={(event) => void updateLocation(event.target.value || null, null)}
         >
@@ -235,7 +235,7 @@ function InfoPanel() {
         <label className="mt-3 block text-[12px] text-nb-text-3">
           {t('inspector.section')}
           <select
-            className="mt-1 h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-bg)] px-2 text-[12px]"
+            className="mt-1 h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
             value={note.sectionId ?? ''}
             onChange={(event) =>
               void updateLocation(note.courseId, event.target.value || null)
@@ -334,7 +334,7 @@ function TagsPanel() {
       <div className="flex gap-1">
         <input
           list="notabene-tag-options"
-          className="h-8 min-w-0 flex-1 rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-bg)] px-2 text-[12px]"
+          className="h-8 min-w-0 flex-1 rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
           value={value}
           placeholder={t('organization.addTag')}
           onChange={(event) => setValue(event.target.value)}

@@ -210,6 +210,40 @@ export async function emptyTrashCommand(): Promise<CommandResult<number>> {
   }
 }
 
+/**
+ * File a note under a course and section — the write behind dropping a note on
+ * a sidebar row.
+ *
+ * Moving to a different course clears the section, because a section belongs to
+ * exactly one course and carrying the old id across would leave the note
+ * pointing at a section its new course has never heard of.
+ */
+export async function fileNoteCommand(
+  noteId: string,
+  location: { courseId: string | null; sectionId?: string | null },
+  context: CommandContext = USER,
+): Promise<CommandResult<Note>> {
+  const existing = await library.getNote(noteId);
+  if (!existing) return fail('not_found', `no note ${noteId}`);
+
+  const sectionId =
+    location.sectionId !== undefined
+      ? location.sectionId
+      : location.courseId === existing.courseId
+        ? existing.sectionId
+        : null;
+
+  if (existing.courseId === location.courseId && existing.sectionId === sectionId) {
+    return ok(existing);
+  }
+
+  await useEditorStore.getState().flush();
+  return updateNoteCommand(
+    { noteId, courseId: location.courseId, sectionId },
+    context,
+  );
+}
+
 export async function trashNoteCommand(
   noteId: string,
   _context: CommandContext = USER,

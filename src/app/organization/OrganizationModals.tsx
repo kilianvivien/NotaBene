@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, ModalOverlay } from '@/components/glass';
+import { Dialog, GlassButton, GlassSelect } from '@/components/glass';
 import {
   createCourseCommand,
   deleteCourseCommand,
@@ -21,7 +21,7 @@ import {
 import { useLibraryStore } from '@/lib/state/libraryStore';
 
 const field =
-  'h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-bg)] px-2 text-[13px] focus:outline-none';
+  'h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[13px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--nb-accent-ring)]';
 const COURSE_ICONS = [
   '📘',
   '📐',
@@ -40,6 +40,13 @@ const COURSE_ICONS = [
   '💡',
   '🧠',
 ] as const;
+
+/** The footer sits outside the `<form>` element, so submit buttons reach it by
+ * id. Native submission then still works, which is what makes Return in a text
+ * field do the obvious thing. */
+const COURSE_FORM = 'nb-course-form';
+const NAME_FORM = 'nb-name-form';
+const SAVED_SEARCH_FORM = 'nb-saved-search-form';
 
 interface CourseDialogProps {
   open: boolean;
@@ -86,17 +93,37 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
   }
 
   return (
-    <ModalOverlay
+    <Dialog
       open={open}
       onClose={onClose}
-      label={course ? t('organization.editCourse') : t('sidebar.newCourse')}
-      className="max-w-[520px]"
+      title={course ? t('organization.editCourse') : t('sidebar.newCourse')}
+      size="md"
+      footer={
+        <>
+          {course && (
+            <GlassButton
+              variant="danger"
+              size="sm"
+              className="mr-auto"
+              onClick={() => {
+                if (!window.confirm(t('organization.deleteCourseConfirm'))) return;
+                void deleteCourseCommand(course.id).then(() => onClose());
+              }}
+            >
+              {t('common.delete')}
+            </GlassButton>
+          )}
+          <GlassButton size="sm" onClick={onClose}>
+            {t('common.cancel')}
+          </GlassButton>
+          <GlassButton form={COURSE_FORM} type="submit" size="sm" variant="accent">
+            {t('common.confirm')}
+          </GlassButton>
+        </>
+      }
     >
-      <form onSubmit={(event) => void submit(event)} className="p-5">
-        <h2 className="mb-4 text-[17px] font-semibold">
-          {course ? t('organization.editCourse') : t('sidebar.newCourse')}
-        </h2>
-        <div className="grid grid-cols-[72px_1fr] gap-3">
+      <form id={COURSE_FORM} onSubmit={(event) => void submit(event)}>
+        <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-3">
           <label className="text-[12px] text-nb-text-2">
             {t('organization.icon')}
             <input
@@ -106,7 +133,7 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
               onChange={(event) => setIcon(event.target.value)}
             />
           </label>
-          <label className="text-[12px] text-nb-text-2">
+          <label className="min-w-0 text-[12px] text-nb-text-2">
             {t('organization.courseName')}
             <input
               className={`${field} mt-1`}
@@ -117,11 +144,12 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
             />
           </label>
         </div>
-        <fieldset className="mt-3">
-          <legend className="mb-1 text-[12px] text-nb-text-2">
+
+        <fieldset className="mt-4">
+          <legend className="mb-1.5 text-[12px] text-nb-text-2">
             {t('organization.color')}
           </legend>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {COURSE_COLORS.map((candidate) => (
               <button
                 key={candidate}
@@ -135,8 +163,9 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
             ))}
           </div>
         </fieldset>
-        <fieldset className="mt-3">
-          <legend className="mb-1 text-[12px] text-nb-text-2">
+
+        <fieldset className="mt-4">
+          <legend className="mb-1.5 text-[12px] text-nb-text-2">
             {t('organization.iconPicker')}
           </legend>
           <div className="grid grid-cols-8 gap-1.5">
@@ -147,14 +176,15 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
                 aria-label={candidate}
                 aria-pressed={icon === candidate}
                 onClick={() => setIcon(candidate)}
-                className="grid size-9 place-items-center rounded-nb-sm border border-transparent text-lg hover:bg-[var(--nb-hover)] aria-pressed:border-[var(--nb-accent)] aria-pressed:bg-[var(--nb-accent-soft)]"
+                className="grid aspect-square place-items-center rounded-nb-sm border border-transparent text-lg hover:bg-[var(--nb-hover)] aria-pressed:border-[var(--nb-accent)] aria-pressed:bg-[var(--nb-accent-soft)]"
               >
                 {candidate}
               </button>
             ))}
           </div>
         </fieldset>
-        <div className="mt-3 grid grid-cols-2 gap-3">
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
           <FormField
             label={t('organization.professor')}
             value={professor}
@@ -177,32 +207,8 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
             onChange={setSchedule}
           />
         </div>
-        <div className="mt-5 flex justify-between">
-          {course ? (
-            <GlassButton
-              variant="danger"
-              size="sm"
-              onClick={() => {
-                if (!window.confirm(t('organization.deleteCourseConfirm'))) return;
-                void deleteCourseCommand(course.id).then(() => onClose());
-              }}
-            >
-              {t('common.delete')}
-            </GlassButton>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <GlassButton size="sm" onClick={onClose}>
-              {t('common.cancel')}
-            </GlassButton>
-            <GlassButton type="submit" size="sm" variant="accent">
-              {t('common.confirm')}
-            </GlassButton>
-          </div>
-        </div>
       </form>
-    </ModalOverlay>
+    </Dialog>
   );
 }
 
@@ -218,7 +224,7 @@ function FormField({
   type?: string;
 }) {
   return (
-    <label className="text-[12px] text-nb-text-2">
+    <label className="min-w-0 text-[12px] text-nb-text-2">
       {label}
       <input
         className={`${field} mt-1`}
@@ -244,50 +250,57 @@ export function TagManagerDialog({ open, onClose }: { open: boolean; onClose(): 
   }
 
   return (
-    <ModalOverlay open={open} onClose={onClose} label={t('organization.tagManager')}>
-      <div className="p-5">
-        <h2 className="text-[17px] font-semibold">{t('organization.tagManager')}</h2>
-        <form
-          onSubmit={(event) => void add(event)}
-          className="my-4 grid grid-cols-[140px_1fr_auto] gap-2"
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t('organization.tagManager')}
+      size="lg"
+      footer={
+        <GlassButton size="sm" onClick={onClose}>
+          {t('common.close')}
+        </GlassButton>
+      }
+    >
+      <form
+        onSubmit={(event) => void add(event)}
+        className="mb-3 grid grid-cols-[150px_minmax(0,1fr)_auto] gap-2"
+      >
+        <GlassSelect
+          label={t('organization.freeTag')}
+          value={namespace ?? ''}
+          onChange={(event) =>
+            setNamespace((event.target.value || null) as Tag['namespace'])
+          }
         >
-          <select
-            className={field}
-            value={namespace ?? ''}
-            onChange={(event) =>
-              setNamespace((event.target.value || null) as Tag['namespace'])
-            }
-          >
-            <option value="">{t('organization.freeTag')}</option>
-            {TAG_NAMESPACES.map((value) => (
-              <option key={value} value={value}>
-                {value}:
-              </option>
-            ))}
-          </select>
-          <input
-            className={field}
-            value={name}
-            required
-            placeholder={t('organization.tagName')}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <GlassButton type="submit" size="sm" variant="accent">
-            {t('organization.addTag')}
-          </GlassButton>
-        </form>
-        <div className="max-h-[48vh] space-y-1 overflow-y-auto">
-          {tags.map((tag) => (
-            <TagRow key={tag.id} tag={tag} tags={tags} />
+          <option value="">{t('organization.freeTag')}</option>
+          {TAG_NAMESPACES.map((value) => (
+            <option key={value} value={value}>
+              {value}:
+            </option>
           ))}
-        </div>
-        <div className="mt-4 flex justify-end">
-          <GlassButton size="sm" onClick={onClose}>
-            {t('common.close')}
-          </GlassButton>
-        </div>
+        </GlassSelect>
+        <input
+          className={field}
+          value={name}
+          required
+          placeholder={t('organization.tagName')}
+          onChange={(event) => setName(event.target.value)}
+        />
+        <GlassButton type="submit" size="sm" variant="accent">
+          {t('organization.addTag')}
+        </GlassButton>
+      </form>
+      <div className="space-y-1">
+        {tags.map((tag) => (
+          <TagRow key={tag.id} tag={tag} tags={tags} />
+        ))}
+        {tags.length === 0 && (
+          <p className="py-6 text-center text-[12px] text-nb-text-3">
+            {t('organization.noTags')}
+          </p>
+        )}
       </div>
-    </ModalOverlay>
+    </Dialog>
   );
 }
 
@@ -296,18 +309,18 @@ function TagRow({ tag, tags }: { tag: Tag; tags: Tag[] }) {
   const [name, setName] = useState(tag.name);
   const [mergeInto, setMergeInto] = useState('');
   return (
-    <div className="grid grid-cols-[90px_1fr_120px_auto_auto] items-center gap-2 rounded-nb-sm bg-[var(--nb-control-bg)] p-2">
+    <div className="grid grid-cols-[92px_minmax(0,1fr)_150px_auto_auto] items-center gap-2 rounded-nb-sm bg-[var(--nb-inset-surface)] p-2">
       <span className="truncate text-[12px] text-nb-text-3">
         {tag.namespace ? `${tag.namespace}:` : t('organization.freeTag')}
       </span>
       <input
+        aria-label={t('organization.tagName')}
         className={field}
         value={name}
         onChange={(event) => setName(event.target.value)}
       />
-      <select
-        aria-label={t('organization.mergeInto')}
-        className={field}
+      <GlassSelect
+        label={t('organization.mergeInto')}
         value={mergeInto}
         onChange={(event) => setMergeInto(event.target.value)}
       >
@@ -320,10 +333,10 @@ function TagRow({ tag, tags }: { tag: Tag; tags: Tag[] }) {
               {candidate.name}
             </option>
           ))}
-      </select>
+      </GlassSelect>
       <GlassButton
         size="sm"
-        disabled={!name.trim()}
+        disabled={!name.trim() || name.trim() === tag.name}
         onClick={() => void updateTagCommand({ ...tag, name: name.trim() })}
       >
         {t('common.rename')}
@@ -361,33 +374,41 @@ export function NameDialog({
   useEffect(() => {
     if (open) setValue(initialValue);
   }, [initialValue, open]);
+
   return (
-    <ModalOverlay open={open} onClose={onClose} label={label} className="max-w-[420px]">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={label}
+      size="sm"
+      footer={
+        <>
+          <GlassButton size="sm" onClick={onClose}>
+            {t('common.cancel')}
+          </GlassButton>
+          <GlassButton form={NAME_FORM} type="submit" size="sm" variant="accent">
+            {t('common.confirm')}
+          </GlassButton>
+        </>
+      }
+    >
       <form
-        className="p-5"
+        id={NAME_FORM}
         onSubmit={(event) => {
           event.preventDefault();
           void onSubmit(value.trim());
         }}
       >
-        <h2 className="mb-3 text-[17px] font-semibold">{label}</h2>
         <input
+          aria-label={label}
           className={field}
           autoFocus
           required
           value={value}
           onChange={(event) => setValue(event.target.value)}
         />
-        <div className="mt-4 flex justify-end gap-2">
-          <GlassButton size="sm" onClick={onClose}>
-            {t('common.cancel')}
-          </GlassButton>
-          <GlassButton type="submit" size="sm" variant="accent">
-            {t('common.confirm')}
-          </GlassButton>
-        </div>
       </form>
-    </ModalOverlay>
+    </Dialog>
   );
 }
 
@@ -405,15 +426,27 @@ export function SavedSearchDialog({
     setName(search?.name ?? '');
     setQuery(search?.query ?? '');
   }, [search]);
+
   return (
-    <ModalOverlay
+    <Dialog
       open={search !== null}
       onClose={onClose}
-      label={t('organization.editSavedSearch')}
-      className="max-w-[500px]"
+      title={t('organization.editSavedSearch')}
+      size="md"
+      footer={
+        <>
+          <GlassButton size="sm" onClick={onClose}>
+            {t('common.cancel')}
+          </GlassButton>
+          <GlassButton form={SAVED_SEARCH_FORM} type="submit" size="sm" variant="accent">
+            {t('common.confirm')}
+          </GlassButton>
+        </>
+      }
     >
       <form
-        className="p-5"
+        id={SAVED_SEARCH_FORM}
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (!search) return;
@@ -422,11 +455,8 @@ export function SavedSearchDialog({
           });
         }}
       >
-        <h2 className="mb-4 text-[17px] font-semibold">
-          {t('organization.editSavedSearch')}
-        </h2>
         <FormField label={t('organization.name')} value={name} onChange={setName} />
-        <label className="mt-3 block text-[12px] text-nb-text-2">
+        <label className="block text-[12px] text-nb-text-2">
           {t('organization.query')}
           <input
             className={`${field} mt-1`}
@@ -435,15 +465,7 @@ export function SavedSearchDialog({
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        <div className="mt-4 flex justify-end gap-2">
-          <GlassButton size="sm" onClick={onClose}>
-            {t('common.cancel')}
-          </GlassButton>
-          <GlassButton type="submit" size="sm" variant="accent">
-            {t('common.confirm')}
-          </GlassButton>
-        </div>
       </form>
-    </ModalOverlay>
+    </Dialog>
   );
 }
