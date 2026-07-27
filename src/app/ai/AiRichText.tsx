@@ -1,5 +1,6 @@
 import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
+import { toggleSummaryLabel } from '@/editor/extensions/Toggle';
 import { markdownToDoc } from '@/editor/markdown';
 import type { DocNode } from '@/lib/schema';
 import { cn } from '@/lib/utils/cn';
@@ -177,7 +178,7 @@ function renderBlock(node: DocNode, key: string): ReactNode {
           className="my-3 rounded-nb-xs border border-[var(--nb-divider)] px-3 py-2"
         >
           <summary className="cursor-pointer font-medium">
-            {String(node.attrs?.summary ?? 'Details')}
+            {toggleSummaryLabel(node.attrs?.summary)}
           </summary>
           <div className="mt-2">{blockChildren(node, key)}</div>
         </details>

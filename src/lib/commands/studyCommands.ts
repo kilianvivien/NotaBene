@@ -228,6 +228,7 @@ export async function saveFlashcardsToNoteCommand(
   deck: FlashcardDeck,
 ): Promise<CommandResult<Note>> {
   if (!deck.cards.length) return fail('invalid_input', 'the deck is empty');
+  const answerLabel = language().startsWith('fr') ? 'Réponse' : 'Answer';
 
   const markdown = [
     `## ${deck.title}`,
@@ -248,7 +249,7 @@ export async function saveFlashcardsToNoteCommand(
         `**${front}**`,
         '',
         ...(card.hint ? [`*${card.hint.replaceAll('\n', ' ')}*`, ''] : []),
-        `> [!TOGGLE Answer]`,
+        `> [!TOGGLE ${answerLabel}]`,
         `> ${answer}`,
         '',
       ];

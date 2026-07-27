@@ -94,7 +94,7 @@ const SYNTHESIS_INTENT: Record<SynthesisStyle, string> = {
     'Write an executive summary: what this material is about, the handful of claims that matter, and what a reader should walk away knowing. Prose, not bullets, except where a list is genuinely the clearest form.',
   revision:
     'Write a revision sheet: the key definitions, formulae, dates and distinctions, organised under headings, dense enough to revise from the night before an exam. Use callouts for the things most often got wrong.',
-  qa: 'Write a self-test: questions that probe understanding rather than recall of wording, each followed by its answer inside a `> [!TOGGLE Answer]` block so the reader can cover it up.',
+  qa: 'Write a self-test: questions that probe understanding rather than recall of wording, each followed by its answer inside a collapsible toggle so the reader can cover it up.',
   glossary:
     'Write a glossary: every term of art that appears in the material, defined in one or two sentences, in alphabetical order, as a definition list of bold term followed by its definition.',
 };
@@ -104,6 +104,12 @@ export function synthesisPrompt(options: {
   sources: { title: string; markdown: string }[];
   language: string;
 }): AiMessage[] {
+  const intent =
+    options.style === 'qa'
+      ? `${SYNTHESIS_INTENT.qa} Use \`> [!TOGGLE ${
+          options.language.startsWith('fr') ? 'Réponse' : 'Answer'
+        }]\` for every answer.`
+      : SYNTHESIS_INTENT[options.style];
   const body = options.sources
     .map(
       (source, index) =>
@@ -127,7 +133,7 @@ ${JSON_ONLY} It must match:
     },
     {
       role: 'user',
-      content: `${SYNTHESIS_INTENT[options.style]}\n\n${body}`,
+      content: `${intent}\n\n${body}`,
     },
   ];
 }

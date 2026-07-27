@@ -94,12 +94,29 @@ describe('the menu bar', () => {
   });
 
   it('passes a localized label to the native fullscreen item', () => {
-    const fullscreen = findPredefined(buildMenuBar((key) => `translated:${key}`), 'fullscreen');
+    const fullscreen = findPredefined(
+      buildMenuBar((key) => `translated:${key}`),
+      'fullscreen',
+    );
     expect(fullscreen).toMatchObject({
       kind: 'predefined',
       role: 'fullscreen',
       label: 'translated:menu.fullscreen',
     });
+  });
+
+  it('passes localized labels for every native system role', () => {
+    const menu = buildMenuBar((key) => `translated:${key}`);
+    const visit = (nodes: MenuNode[]) => {
+      for (const node of nodes) {
+        if (node.kind === 'predefined') {
+          expect(node.label, node.role).toContain('translated:');
+        } else if (node.kind === 'submenu') {
+          visit(node.items);
+        }
+      }
+    };
+    visit(menu);
   });
 });
 

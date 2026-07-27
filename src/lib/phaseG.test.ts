@@ -35,6 +35,7 @@ import {
   type MindMap,
 } from '@/lib/schema';
 import { flattenDoc } from '@/lib/notes/docText';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 
 // ---------------------------------------------------------------------------
 // Mind map
@@ -233,9 +234,9 @@ describe('reading a rendered map back', () => {
   });
 
   it('falls back rather than returning a zero-sized map', () => {
-    expect(svgSize('<svg xmlns="http://www.w3.org/2000/svg"></svg>').width).toBeGreaterThan(
-      0,
-    );
+    expect(
+      svgSize('<svg xmlns="http://www.w3.org/2000/svg"></svg>').width,
+    ).toBeGreaterThan(0);
   });
 
   /** Every colour in the render is a `#` literal, which a data URI would read
@@ -394,6 +395,9 @@ describe('the Anki file', () => {
 describe('a deck saved into a note', () => {
   beforeEach(() => {
     memoryLibraryAdapter.reset();
+    useSettingsStore.setState((state) => ({
+      settings: { ...state.settings, locale: 'en' },
+    }));
   });
 
   it('appends a self-test section with the answers behind toggles', async () => {
@@ -420,6 +424,20 @@ describe('a deck saved into a note', () => {
       'A value approached.',
     );
     expect(saved.value.plainText).toContain('What is a limit?');
+  });
+
+  it('uses a French answer label when the app is in French', async () => {
+    useSettingsStore.setState((state) => ({
+      settings: { ...state.settings, locale: 'fr' },
+    }));
+    const created = await createNoteCommand({ title: 'Cours' });
+    if (!created.ok) throw new Error(created.message);
+
+    const saved = await saveFlashcardsToNoteCommand(created.value.id, DECK);
+    if (!saved.ok) throw new Error(saved.message);
+
+    const toggle = saved.value.doc.content.find((node) => node.type === 'toggle');
+    expect(toggle?.attrs?.summary).toBe('Réponse');
   });
 
   it('refuses an empty deck rather than appending a lone rule', async () => {
