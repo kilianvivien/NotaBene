@@ -1,0 +1,125 @@
+{
+  "app": {
+    "name": "NotaBene",
+    "tagline": "The class-notes app that respects your privacy"
+  },
+  "sidebar": {
+    "allNotes": "All notes",
+    "inbox": "Inbox",
+    "recents": "Recents",
+    "pinned": "Pinned",
+    "archived": "Archived",
+    "trash": "Trash",
+    "courses": "Courses",
+    "tags": "Tags",
+    "savedSearches": "Smart folders",
+    "newCourse": "New course",
+    "noCourses": "No courses yet"
+  },
+  "noteList": {
+    "empty": "No notes here yet",
+    "emptyHint": "Press ⌘N to start one",
+    "newNote": "New note",
+    "untitled": "Untitled note",
+    "count_one": "{{count}} note",
+    "count_other": "{{count}} notes",
+    "sortBy": "Sort by",
+    "sort": {
+      "updated": "Last modified",
+      "created": "Date created",
+      "title": "Title",
+      "manual": "Manual order",
+      "relevance": "Relevance"
+    }
+  },
+  "editor": {
+    "titlePlaceholder": "Note title",
+    "bodyPlaceholder": "Start typing, or press / for blocks",
+    "noSelection": "Select a note",
+    "noSelectionHint": "Pick one from the list, or create a new note",
+    "words_one": "{{count}} word",
+    "words_other": "{{count}} words",
+    "readingTime": "{{count}} min read"
+  },
+  "inspector": {
+    "info": "Info",
+    "tags": "Tags",
+    "versions": "Versions",
+    "attachments": "Attachments",
+    "backlinks": "Backlinks",
+    "ai": "AI",
+    "course": "Course",
+    "section": "Section",
+    "created": "Created",
+    "modified": "Modified",
+    "wordCount": "Words"
+  },
+  "search": {
+    "placeholder": "Search notes",
+    "scopeAll": "Everywhere",
+    "scopeCourse": "This course",
+    "noResults": "No notes match",
+    "saveSearch": "Save as smart folder"
+  },
+  "save": {
+    "idle": "",
+    "dirty": "Unsaved changes",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "error": "Could not save"
+  },
+  "ai": {
+    "rewrite": "Rewrite & correct",
+    "synthesis": "Summarize",
+    "mindMap": "Mind map",
+    "flashcards": "Flashcards",
+    "podcast": "Listen",
+    "notConfigured": "Connect a provider",
+    "notConfiguredHint": "AI features are bring-your-own-key. Add one in Settings.",
+    "running": "Working…",
+    "cancel": "Cancel",
+    "accept": "Accept",
+    "reject": "Reject",
+    "acceptAll": "Accept all"
+  },
+  "mcp": {
+    "title": "Local agent access",
+    "description": "Lets Claude Code and other MCP clients read and write your notes on this machine.",
+    "enable": "Enable",
+    "running": "Running on port {{port}}",
+    "stopped": "Stopped",
+    "agentWorking": "An agent is editing your notes",
+    "copyConfig": "Copy client config"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "appearance": "Appearance",
+    "editor": "Editor",
+    "aiProviders": "AI providers",
+    "backups": "Backups",
+    "agent": "Agent access",
+    "about": "About",
+    "language": "Language",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "transparency": "Transparency",
+    "transparencyAuto": "Follow system",
+    "transparencySolid": "Reduce"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "rename": "Rename",
+    "close": "Close",
+    "retry": "Retry"
+  },
+  "error": {
+    "boundaryTitle": "Something went wrong",
+    "boundaryBody": "Your notes are safe on disk. Reload to continue.",
+    "reload": "Reload"
+  }
+}

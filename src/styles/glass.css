@@ -1,0 +1,92 @@
+/* The liquid-glass recipe — four layered effects on the same element. Dropping
+ * any one breaks the illusion (see docs/GeoCarto-design.md §3). */
+
+.glass {
+  /* 1. translucent fill (theme-aware) */
+  background: var(--nb-glass);
+
+  /* 2. real backdrop blur — the saturate boost makes it glass, not frosted plastic */
+  backdrop-filter: blur(var(--nb-blur-md)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--nb-blur-md)) saturate(180%);
+
+  /* 3. hairline top-edge highlight (inner) + crisp outer hairline */
+  border: 0.5px solid var(--nb-glass-border);
+  box-shadow:
+    0 1px 0 var(--nb-glass-sheen) inset,
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 12px 40px rgba(20, 40, 80, 0.14),
+    0 2px 6px rgba(20, 40, 80, 0.06);
+
+  /* 4. generous radius */
+  border-radius: var(--nb-radius-md);
+}
+
+.glass-strong {
+  background: var(--nb-glass-strong);
+  backdrop-filter: blur(var(--nb-blur-window)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--nb-blur-window)) saturate(180%);
+}
+
+.glass-thin {
+  background: var(--nb-glass-thin);
+}
+
+.mono {
+  font-family: var(--nb-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reduced-transparency: swap glass for solid surfaces. Honors both the OS media
+ * query and an explicit app setting via html[data-transparency="solid"]. */
+@media (prefers-reduced-transparency: reduce) {
+  html[data-transparency='auto'] .glass,
+  html[data-transparency='auto'] .glass-strong {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--nb-solid-surface);
+  }
+}
+
+html[data-transparency='solid'] .glass,
+html[data-transparency='solid'] .glass-strong {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--nb-solid-surface);
+}
+
+html[data-transparency='solid'] .glass-strong {
+  background: var(--nb-solid-surface-strong);
+}
+
+/* Entrance animations — opt in only when motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes nb-window-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.992);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes nb-panel-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .window-anim {
+    animation: nb-window-in var(--nb-t-slow) var(--nb-ease-out);
+  }
+
+  .panel-anim {
+    animation: nb-panel-in var(--nb-t-base) var(--nb-ease-out) both;
+  }
+}

@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+.pnpm-store
+
+# This project uses pnpm; a second lockfile only invites drift.
+package-lock.json
+yarn.lock
+
+# Build output
+dist
+dist-ssr
+src-tauri/target
+src-tauri/gen
+
+# Test / coverage artifacts
+coverage
+playwright-report
+test-results
+e2e/screenshots/
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Updater signing keys — never commit
+.tauri/
+*.key
+
+# Local Claude Code / agent harness config
+.claude/
+.codex/
+
+# Working documents (PRD, plans, design notes) stay local
+docs/

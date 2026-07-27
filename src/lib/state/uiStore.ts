@@ -1,0 +1,148 @@
+/** Chrome state: which panes are open, what is selected, what the user is
+ * looking at. Nothing here is persisted to the library — it is window state,
+ * and it is deliberately kept out of `libraryStore` so a re-query never
+ * disturbs the user's layout. */
+import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
+
+/** What the note list is currently showing. */
+export type ViewKind =
+  | { kind: 'all' }
+  | { kind: 'inbox' }
+  | { kind: 'recents' }
+  | { kind: 'pinned' }
+  | { kind: 'archived' }
+  | { kind: 'trash' }
+  | { kind: 'course'; courseId: string; sectionId?: string }
+  | { kind: 'tag'; tagId: string }
+  | { kind: 'savedSearch'; savedSearchId: string }
+  | { kind: 'search'; query: string };
+
+export type InspectorTab = 'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'ai';
+
+interface UiState {
+  view: ViewKind;
+  selectedNoteId: string | null;
+  /** Multi-select for bulk export/synthesis. Always includes
+   * `selectedNoteId` when non-empty. */
+  multiSelection: string[];
+  sidebarVisible: boolean;
+  inspectorVisible: boolean;
+  inspectorTab: InspectorTab;
+  focusMode: boolean;
+  commandPaletteOpen: boolean;
+  quickSwitcherOpen: boolean;
+  searchQuery: string;
+  /** Set while an MCP agent is mutating the library, so the UI can show it. */
+  agentBusy: boolean;
+
+  setView(view: ViewKind): void;
+  selectNote(noteId: string | null): void;
+  toggleInMultiSelection(noteId: string): void;
+  clearMultiSelection(): void;
+  toggleSidebar(): void;
+  toggleInspector(): void;
+  setInspectorTab(tab: InspectorTab): void;
+  setFocusMode(on: boolean): void;
+  setCommandPaletteOpen(open: boolean): void;
+  setQuickSwitcherOpen(open: boolean): void;
+  setSearchQuery(query: string): void;
+  setAgentBusy(busy: boolean): void;
+}
+
+export const useUiStore = create<UiState>()(
+  immer((set) => ({
+    view: { kind: 'all' },
+    selectedNoteId: null,
+    multiSelection: [],
+    sidebarVisible: true,
+    inspectorVisible: false,
+    inspectorTab: 'info',
+    focusMode: false,
+    commandPaletteOpen: false,
+    quickSwitcherOpen: false,
+    searchQuery: '',
+    agentBusy: false,
+
+    setView(view) {
+      set((state) => {
+        state.view = view;
+        state.multiSelection = [];
+      });
+    },
+
+    selectNote(noteId) {
+      set((state) => {
+        state.selectedNoteId = noteId;
+      });
+    },
+
+    toggleInMultiSelection(noteId) {
+      set((state) => {
+        const index = state.multiSelection.indexOf(noteId);
+        if (index >= 0) state.multiSelection.splice(index, 1);
+        else state.multiSelection.push(noteId);
+      });
+    },
+
+    clearMultiSelection() {
+      set((state) => {
+        state.multiSelection = [];
+      });
+    },
+
+    toggleSidebar() {
+      set((state) => {
+        state.sidebarVisible = !state.sidebarVisible;
+      });
+    },
+
+    toggleInspector() {
+      set((state) => {
+        state.inspectorVisible = !state.inspectorVisible;
+      });
+    },
+
+    setInspectorTab(tab) {
+      set((state) => {
+        state.inspectorTab = tab;
+        state.inspectorVisible = true;
+      });
+    },
+
+    setFocusMode(on) {
+      set((state) => {
+        state.focusMode = on;
+        if (on) {
+          state.sidebarVisible = false;
+          state.inspectorVisible = false;
+        }
+      });
+    },
+
+    setCommandPaletteOpen(open) {
+      set((state) => {
+        state.commandPaletteOpen = open;
+      });
+    },
+
+    setQuickSwitcherOpen(open) {
+      set((state) => {
+        state.quickSwitcherOpen = open;
+      });
+    },
+
+    setSearchQuery(query) {
+      set((state) => {
+        state.searchQuery = query;
+        if (query.trim()) state.view = { kind: 'search', query };
+      });
+    },
+
+    setAgentBusy(busy) {
+      set((state) => {
+        state.agentBusy = busy;
+      });
+    },
+  })),
+);

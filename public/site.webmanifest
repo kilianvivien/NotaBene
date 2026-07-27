@@ -1,0 +1,29 @@
+{
+  "name": "NotaBene",
+  "short_name": "NotaBene",
+  "description": "A simple, privacy-first note-taking app for students",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#24172f",
+  "theme_color": "#24172f",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "app": {
+    "name": "NotaBene",
+    "tagline": "L'appli de notes de cours qui respecte votre vie privée"
+  },
+  "sidebar": {
+    "allNotes": "Toutes les notes",
+    "inbox": "Boîte de réception",
+    "recents": "Récents",
+    "pinned": "Épinglées",
+    "archived": "Archivées",
+    "trash": "Corbeille",
+    "courses": "Cours",
+    "tags": "Étiquettes",
+    "savedSearches": "Dossiers intelligents",
+    "newCourse": "Nouveau cours",
+    "noCourses": "Aucun cours pour l'instant"
+  },
+  "noteList": {
+    "empty": "Aucune note ici",
+    "emptyHint": "Appuyez sur ⌘N pour commencer",
+    "newNote": "Nouvelle note",
+    "untitled": "Note sans titre",
+    "count_one": "{{count}} note",
+    "count_other": "{{count}} notes",
+    "sortBy": "Trier par",
+    "sort": {
+      "updated": "Dernière modification",
+      "created": "Date de création",
+      "title": "Titre",
+      "manual": "Ordre manuel",
+      "relevance": "Pertinence"
+    }
+  },
+  "editor": {
+    "titlePlaceholder": "Titre de la note",
+    "bodyPlaceholder": "Commencez à écrire, ou tapez / pour insérer un bloc",
+    "noSelection": "Sélectionnez une note",
+    "noSelectionHint": "Choisissez-en une dans la liste, ou créez une note",
+    "words_one": "{{count}} mot",
+    "words_other": "{{count}} mots",
+    "readingTime": "{{count}} min de lecture"
+  },
+  "inspector": {
+    "info": "Infos",
+    "tags": "Étiquettes",
+    "versions": "Versions",
+    "attachments": "Pièces jointes",
+    "backlinks": "Rétroliens",
+    "ai": "IA",
+    "course": "Cours",
+    "section": "Section",
+    "created": "Créée le",
+    "modified": "Modifiée le",
+    "wordCount": "Mots"
+  },
+  "search": {
+    "placeholder": "Rechercher dans les notes",
+    "scopeAll": "Partout",
+    "scopeCourse": "Ce cours",
+    "noResults": "Aucune note ne correspond",
+    "saveSearch": "Enregistrer comme dossier intelligent"
+  },
+  "save": {
+    "idle": "",
+    "dirty": "Modifications non enregistrées",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré",
+    "error": "Enregistrement impossible"
+  },
+  "ai": {
+    "rewrite": "Réécrire et corriger",
+    "synthesis": "Résumer",
+    "mindMap": "Carte mentale",
+    "flashcards": "Fiches de révision",
+    "podcast": "Écouter",
+    "notConfigured": "Connecter un fournisseur",
+    "notConfiguredHint": "Les fonctions IA utilisent votre propre clé. Ajoutez-en une dans les réglages.",
+    "running": "En cours…",
+    "cancel": "Annuler",
+    "accept": "Accepter",
+    "reject": "Refuser",
+    "acceptAll": "Tout accepter"
+  },
+  "mcp": {
+    "title": "Accès agent local",
+    "description": "Permet à Claude Code et aux autres clients MCP de lire et écrire vos notes sur cette machine.",
+    "enable": "Activer",
+    "running": "Actif sur le port {{port}}",
+    "stopped": "Arrêté",
+    "agentWorking": "Un agent modifie vos notes",
+    "copyConfig": "Copier la configuration client"
+  },
+  "settings": {
+    "title": "Réglages",
+    "general": "Général",
+    "appearance": "Apparence",
+    "editor": "Éditeur",
+    "aiProviders": "Fournisseurs IA",
+    "backups": "Sauvegardes",
+    "agent": "Accès agent",
+    "about": "À propos",
+    "language": "Langue",
+    "theme": "Thème",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "themeSystem": "Système",
+    "transparency": "Transparence",
+    "transparencyAuto": "Suivre le système",
+    "transparencySolid": "Réduire"
+  },
+  "common": {
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "rename": "Renommer",
+    "close": "Fermer",
+    "retry": "Réessayer"
+  },
+  "error": {
+    "boundaryTitle": "Une erreur est survenue",
+    "boundaryBody": "Vos notes sont en sécurité sur le disque. Rechargez pour continuer.",
+    "reload": "Recharger"
+  }
+}

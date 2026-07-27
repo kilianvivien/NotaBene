@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+@import './tokens.css';
+@import './glass.css';
+
+/* Tailwind v4 theme bridge — expose the design tokens as utility values so
+ * components can write `text-nb-text` / `rounded-nb-md` instead of arbitrary
+ * values. Tokens stay the single source of truth. */
+@theme inline {
+  --color-nb-text: var(--nb-text);
+  --color-nb-text-2: var(--nb-text-2);
+  --color-nb-text-3: var(--nb-text-3);
+  --color-nb-accent: var(--nb-accent);
+  --color-nb-accent-soft: var(--nb-accent-soft);
+  --color-nb-divider: var(--nb-divider);
+  --color-nb-hover: var(--nb-hover);
+  --color-nb-active: var(--nb-active);
+  --color-nb-paper: var(--nb-paper);
+  --color-nb-danger: var(--nb-danger);
+  --color-nb-warn: var(--nb-warn);
+  --color-nb-success: var(--nb-success);
+
+  --radius-nb-xs: var(--nb-radius-xs);
+  --radius-nb-sm: var(--nb-radius-sm);
+  --radius-nb-md: var(--nb-radius-md);
+  --radius-nb-lg: var(--nb-radius-lg);
+
+  --font-nb-sans: var(--nb-font-sans);
+  --font-nb-serif: var(--nb-font-serif);
+  --font-nb-mono: var(--nb-font-mono);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--nb-font-sans);
+  color: var(--nb-text);
+  background: var(--nb-wallpaper);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* The window chrome owns scrolling; panes scroll individually. */
+  overflow: hidden;
+}
+
+/* macOS-style overlay scrollbars that stay out of the way. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--nb-text-3) transparent;
+}
+
+::selection {
+  background: var(--nb-accent-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--nb-accent-ring);
+  outline-offset: 2px;
+}
+
+/* Drag region for the frameless macOS title bar. Interactive children opt out
+ * with `data-tauri-drag-region="false"`. */
+[data-tauri-drag-region='true'] {
+  -webkit-app-region: drag;
+}
+
+[data-tauri-drag-region='true'] button,
+[data-tauri-drag-region='true'] input,
+[data-tauri-drag-region='true'] a {
+  -webkit-app-region: no-drag;
+}
