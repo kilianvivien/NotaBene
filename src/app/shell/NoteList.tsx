@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/lib/state/settingsStore';
 import { reorderNotesCommand } from '@/lib/commands';
 import { viewToQuery } from './viewQuery';
 import { cn } from '@/lib/utils/cn';
+import { HighlightedSnippet } from './HighlightedSnippet';
 import { NoteContextMenu } from './NoteContextMenu';
 import { endDrag, readDrag, startDrag } from './dnd';
 import type { NoteSummary } from '@/lib/schema';
@@ -212,15 +213,3 @@ function viewKey(view: ReturnType<typeof useUiStore.getState>['view']): string {
   }
 }
 
-function HighlightedSnippet({ value }: { value: string }) {
-  const parts = value.split(/(<mark>.*?<\/mark>)/g);
-  return parts.map((part, index) =>
-    part.startsWith('<mark>') && part.endsWith('</mark>') ? (
-      <mark key={index} className="rounded-sm bg-[var(--nb-mark)] text-inherit">
-        {part.slice(6, -7)}
-      </mark>
-    ) : (
-      part
-    ),
-  );
-}

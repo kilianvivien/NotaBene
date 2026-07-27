@@ -13,11 +13,21 @@
  * for a deck. `anki` and `audio` come from the study features in Phase G.
  */
 export type ExportFormat =
-  'markdown' | 'html' | 'pdf' | 'docx' | 'backup' | 'anki' | 'audio';
+  | 'markdown'
+  | 'html'
+  | 'pdf'
+  | 'docx'
+  | 'backup'
+  | 'anki'
+  | 'audio'
+  | 'svg';
 
 /** The formats the note export pipeline renders. The others are produced by
  * features that build their own bytes and only borrow the sink. */
-export type NoteExportFormat = Exclude<ExportFormat, 'backup' | 'anki' | 'audio'>;
+export type NoteExportFormat = Exclude<
+  ExportFormat,
+  'backup' | 'anki' | 'audio' | 'svg'
+>;
 
 export interface ExportFile {
   /** Path relative to the export root, e.g. `Analysis I/lecture-3.md`. */

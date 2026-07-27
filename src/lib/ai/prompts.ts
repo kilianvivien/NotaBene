@@ -211,9 +211,10 @@ ${languageRule(options.language)}
 - Aim for about ${options.count} cards, fewer if the material does not support that many. Fewer good cards is the right answer.
 - Plain text only in "front" and "back": no Markdown headings, no lists, no code fences. Inline maths as \`$x$\` is fine.
 - "kind" is "cloze" only when the front actually contains a \`{{c1::…}}\` deletion.
+- Every basic card needs a "back". On a cloze card "back" is Anki's Extra field, not the answer — write a one-line aside there or set it to "".
 
 ${JSON_ONLY} It must match:
-{"title": "<deck title>", "cards": [{"kind": "basic" | "cloze", "front": "<text>", "back": "<text>", "hint": "<optional>", "tags": ["<optional short tag>"]}]}`,
+{"title": "<deck title>", "cards": [{"kind": "basic" | "cloze", "front": "<text>", "back": "<text, may be \\"\\" for cloze>", "hint": "<optional>", "tags": ["<optional short tag>"]}]}`,
     },
     {
       role: 'user',

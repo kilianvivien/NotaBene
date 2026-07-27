@@ -2,6 +2,7 @@ import { Archive, FolderOpen, Pin, PinOff, RotateCcw, Tag, Trash2 } from 'lucide
 import { useTranslation } from 'react-i18next';
 import { ContextMenu, type ContextPoint } from '@/components/glass';
 import { restoreNoteCommand, trashNoteCommand, updateNoteCommand } from '@/lib/commands';
+import { tagLabel } from '@/lib/notes/tagLabel';
 import type { NoteSummary } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -86,9 +87,7 @@ export function NoteContextMenu({
                     null,
                     ...availableTags.map((tag) => ({
                       id: `tag-${tag.id}`,
-                      label: t('noteActions.addTag', {
-                        tag: `${tag.namespace ? `${tag.namespace}:` : ''}${tag.name}`,
-                      }),
+                      label: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
                       icon: Tag,
                       swatch: tag.color,
                       onSelect: () => void update({ tagIds: [...note.tagIds, tag.id] }),

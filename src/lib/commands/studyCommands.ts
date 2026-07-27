@@ -111,6 +111,67 @@ export async function insertMindMapCommand(
   ]);
 }
 
+/** A title as a filename: no diacritics, no separators, nothing a shell or a
+ * Finder column will argue with. */
+function slug(title: string, fallback: string): string {
+  return (
+    title
+      .normalize('NFKD')
+      .replaceAll(/\p{Diacritic}/gu, '')
+      .replaceAll(/[^\p{Letter}\p{Number}]+/gu, '-')
+      .replaceAll(/^-|-$/g, '')
+      .toLocaleLowerCase() || fallback
+  );
+}
+
+/**
+ * Save a map on its own, as a picture.
+ *
+ * SVG is the map itself — the exact string the note holds, so it reopens in
+ * Illustrator or a browser at any size with the text still text. PDF is the
+ * one to hand in or print. Both are written from the stored `svg` and never
+ * re-laid-out, for the reason the block comment in `MindMap.tsx` gives: a map
+ * that redrew at export time would not be the map the student looked at.
+ */
+export async function exportMindMapCommand(
+  map: { svg: string; title: string },
+  format: 'svg' | 'pdf',
+  destination?: string,
+): Promise<CommandResult<string | undefined>> {
+  if (!map.svg.trim()) return fail('invalid_input', 'this map has not been rendered');
+
+  const name = `${slug(map.title, 'mind-map')}.${format}`;
+  const target =
+    destination ??
+    (await dialog.saveFile({
+      defaultPath: name,
+      filters: [{ name: format.toUpperCase(), extensions: [format] }],
+    }));
+  if (!target) return fail('not_supported', 'export cancelled');
+
+  try {
+    // pdfmake and its font file are megabytes, and `exportCommands.ts` already
+    // keeps them out of the startup chunk for the same reason. A static import
+    // here would put them back and undo that from the other side.
+    const contents =
+      format === 'svg'
+        ? new Blob([map.svg], { type: 'image/svg+xml;charset=utf-8' })
+        : await (await import('@/lib/export/pdf')).mindMapToPdf(map.svg, map.title);
+
+    const result = await exporter.write({
+      format,
+      destination: target,
+      suggestedName: name,
+      files: [{ path: name, contents }],
+    });
+    return result.ok
+      ? ok(result.path)
+      : fail('storage_failed', result.error ?? 'export failed');
+  } catch (error) {
+    return fail('storage_failed', message(error));
+  }
+}
+
 // -- Flashcards --------------------------------------------------------------
 
 export interface FlashcardInput {
@@ -147,6 +208,13 @@ export async function proposeFlashcardsCommand(
   }
 }
 
+/** Hide a cloze deletion, and show it. `{{c1::the term}}` reads as `[…]` on the
+ * question side and as the term itself on the answer side — which is the whole
+ * card, because a cloze card's answer is not in its `back` field. */
+function cloze(text: string, reveal: boolean): string {
+  return text.replaceAll(/\{\{c\d+::([^}|]*)(?:\|[^}]*)?\}\}/g, reveal ? '$1' : '[…]');
+}
+
 /**
  * Write the deck into the note as a self-test section.
  *
@@ -164,14 +232,27 @@ export async function saveFlashcardsToNoteCommand(
   const markdown = [
     `## ${deck.title}`,
     '',
-    ...deck.cards.flatMap((card) => [
-      `**${card.front.replaceAll('\n', ' ')}**`,
-      '',
-      ...(card.hint ? [`*${card.hint.replaceAll('\n', ' ')}*`, ''] : []),
-      `> [!TOGGLE Answer]`,
-      `> ${card.back.replaceAll('\n', ' ')}`,
-      '',
-    ]),
+    ...deck.cards.flatMap((card) => {
+      const front = cloze(card.front, false).replaceAll('\n', ' ');
+      // A cloze card keeps its answer in the front; `back` is Anki's Extra and
+      // is often empty, so the toggle shows the revealed sentence with the
+      // aside under it rather than an empty box.
+      const answer = [
+        card.kind === 'cloze' ? cloze(card.front, true).replaceAll('\n', ' ') : '',
+        card.back.replaceAll('\n', ' '),
+      ]
+        .filter(Boolean)
+        .join(' — ');
+
+      return [
+        `**${front}**`,
+        '',
+        ...(card.hint ? [`*${card.hint.replaceAll('\n', ' ')}*`, ''] : []),
+        `> [!TOGGLE Answer]`,
+        `> ${answer}`,
+        '',
+      ];
+    }),
   ].join('\n');
 
   return appendToNote(noteId, [
@@ -323,6 +404,94 @@ export async function synthesizePodcastCommand(
   }
 }
 
+/**
+ * Break prose into things a synthesiser should be handed one at a time.
+ *
+ * Not for prosody — `say` handles a paragraph fine — but for latency. A
+ * fifteen-hundred-word note takes the better part of a minute to synthesise in
+ * one call, and a student who pressed a play button expects sound in about a
+ * second. Splitting on sentence ends and grouping up to `MAX_CHARS` means the
+ * first chunk is short enough to arrive quickly and the rest are long enough
+ * not to sound chopped.
+ */
+const MAX_CHARS = 320;
+
+export function speechChunks(text: string): string[] {
+  const chunks: string[] = [];
+
+  for (const paragraph of text.split(/\n{2,}/)) {
+    const trimmed = paragraph.trim();
+    if (!trimmed) continue;
+
+    // Keep the terminator: `say` reads "Stop." and "Stop" with different
+    // intonation, and the difference is audible across a whole note.
+    const sentences = trimmed.match(/[^.!?…]+[.!?…]*\s*/g) ?? [trimmed];
+    let current = '';
+    for (const sentence of sentences) {
+      if (current && current.length + sentence.length > MAX_CHARS) {
+        chunks.push(current.trim());
+        current = '';
+      }
+      current += sentence;
+      // A single sentence longer than the budget goes on its own rather than
+      // being cut mid-clause.
+      while (current.length > MAX_CHARS * 2) {
+        chunks.push(current.slice(0, MAX_CHARS * 2).trim());
+        current = current.slice(MAX_CHARS * 2);
+      }
+    }
+    if (current.trim()) chunks.push(current.trim());
+  }
+
+  return chunks;
+}
+
+/**
+ * Read text aloud, now.
+ *
+ * The difference from `synthesizePodcastCommand` is that this one hands each
+ * chunk back the moment it exists instead of returning a finished set. Reading
+ * a note is a thing you start and listen to; waiting for the whole note to be
+ * synthesised first would put ten seconds of nothing between the button and the
+ * first word, which is the whole reason this exists as its own path rather than
+ * as "generate a one-line podcast script".
+ *
+ * No provider is involved. This is the note's own words, spoken by the Mac.
+ */
+export async function readAloudCommand(
+  text: string,
+  options: {
+    voiceId: string;
+    rate?: number;
+    signal?: AbortSignal;
+    onChunk(chunk: SpokenSegment, index: number, total: number): void;
+  },
+): Promise<CommandResult<number>> {
+  const chunks = speechChunks(text);
+  if (!chunks.length) return fail('invalid_input', 'there is nothing to read');
+  if (!options.voiceId) return fail('invalid_input', 'choose a voice first');
+
+  try {
+    for (const [index, chunk] of chunks.entries()) {
+      if (options.signal?.aborted) return ok(index);
+      const result = await tts.synthesize(
+        { text: chunk, voiceId: options.voiceId, rate: options.rate },
+        options.signal,
+      );
+      if (options.signal?.aborted) return ok(index);
+      options.onChunk(
+        { audio: result.audio, durationMs: result.durationMs },
+        index,
+        chunks.length,
+      );
+    }
+    return ok(chunks.length);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return ok(0);
+    return fail('storage_failed', message(error));
+  }
+}
+
 /** Save the episode as one file. See `src/lib/podcast/wav.ts` for why joining
  * the segments is safe, and why it checks rather than assumes. */
 export async function exportPodcastAudioCommand(
@@ -332,12 +501,7 @@ export async function exportPodcastAudioCommand(
 ): Promise<CommandResult<string | undefined>> {
   if (!segments.length) return fail('invalid_input', 'nothing has been synthesised yet');
 
-  const name = `${
-    script.title
-      .replaceAll(/[^\p{Letter}\p{Number}]+/gu, '-')
-      .replaceAll(/^-|-$/g, '')
-      .toLocaleLowerCase() || 'episode'
-  }.wav`;
+  const name = `${slug(script.title, 'episode')}.wav`;
   const target =
     destination ??
     (await dialog.saveFile({

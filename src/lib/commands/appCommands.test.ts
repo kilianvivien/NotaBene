@@ -53,6 +53,22 @@ describe('the command table', () => {
     );
     expect(new Set(accelerators).size).toBe(accelerators.length);
   });
+
+  /**
+   * Every command that actually works is reachable from the keyboard.
+   *
+   * The menu bar is generated from this table, so an entry without an
+   * accelerator is a menu item with a blank right-hand column — which reads as
+   * "this one has no shortcut" rather than as an oversight. Commands from
+   * unshipped phases are exempt: they render disabled, and a shortcut for
+   * something that refuses itself is worse than none.
+   */
+  it('gives every shipped command a keyboard shortcut', () => {
+    const missing = APP_COMMAND_IDS.filter(
+      (id) => isCommandAvailable(id) && !APP_COMMANDS[id].accelerator,
+    );
+    expect(missing).toEqual([]);
+  });
 });
 
 describe('the menu bar', () => {

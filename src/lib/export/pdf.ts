@@ -1,4 +1,15 @@
-import * as pdfMake from 'pdfmake/build/pdfmake';
+/**
+ * A default import, and it has to be.
+ *
+ * `pdfmake/build/pdfmake.js` is a CommonJS bundle that defines `createPdf` and
+ * `addVirtualFileSystem` as **non-enumerable** properties of `module.exports`.
+ * Vite builds an ES namespace object for `import * as` by enumerating those
+ * exports, so the two functions this file needs are the two it does not get —
+ * `pdfMake.addVirtualFileSystem is not a function`, at import time, which took
+ * PDF export down with it. The default import binds `module.exports` itself,
+ * non-enumerables included.
+ */
+import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import type {
   Content,
@@ -7,6 +18,7 @@ import type {
   TableCell,
   TDocumentDefinitions,
 } from 'pdfmake/interfaces';
+import { svgSize } from '@/lib/mindmap/svg';
 import type { DocNode, Note } from '@/lib/schema';
 
 pdfMake.addVirtualFileSystem(pdfFonts);
@@ -449,5 +461,55 @@ export function notesToPdf(
 ): Promise<Blob> {
   return pdfMake
     .createPdf(pdfDocumentDefinition(notes, assetUrls, metadata, options))
+    .getBlob();
+}
+
+/**
+ * One mind map, on one page of its own.
+ *
+ * The page is cut to the map rather than the map squeezed onto A4. A radial
+ * tree is typically twice as wide as it is tall, and letterboxing one into
+ * portrait A4 costs about half the legible size for no gain — this is a picture
+ * to be looked at, not a document to be filed alongside others. The dimensions
+ * are the SVG's own, so the print is 1:1 with what the viewer shows, clamped
+ * only to keep an enormous map from becoming a page no printer will accept.
+ */
+export function mindMapToPdf(svg: string, title: string): Promise<Blob> {
+  const { width, height } = svgSize(svg);
+  const scale = Math.min(1, 1400 / Math.max(width, height));
+  const margin = 28;
+  const page = {
+    width: Math.round(width * scale) + margin * 2,
+    height: Math.round(height * scale) + margin * 2 + (title ? 26 : 0),
+  };
+
+  return pdfMake
+    .createPdf({
+      pageSize: page,
+      pageMargins: [margin, margin, margin, margin],
+      content: [
+        ...(title
+          ? [
+              {
+                text: title,
+                fontSize: 12,
+                bold: true,
+                color: COLORS.text,
+                margin: [0, 0, 0, 8] as [number, number, number, number],
+              },
+            ]
+          : []),
+        {
+          svg: printableSvg(svg),
+          fit: [page.width - margin * 2, page.height - margin * 2 - (title ? 26 : 0)] as [
+            number,
+            number,
+          ],
+          alignment: 'center' as const,
+        },
+      ],
+      defaultStyle: { font: 'Roboto' },
+      info: { title: title || 'Mind map', creator: 'NotaBene' },
+    })
     .getBlob();
 }

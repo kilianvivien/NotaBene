@@ -5,6 +5,7 @@ import { NoteList } from './shell/NoteList';
 import { EditorPane } from './shell/EditorPane';
 import { Inspector } from './shell/Inspector';
 import { StatusBar } from './shell/StatusBar';
+import { CommandPalette } from './shell/CommandPalette';
 import { SettingsWindow } from './settings/SettingsWindow';
 import { RecoveryPrompt } from './recovery/RecoveryPrompt';
 import { useAppCommands } from './useAppCommands';
@@ -101,6 +102,7 @@ export function App() {
         </CollapsiblePane>
       </div>
       <StatusBar />
+      <CommandPalette />
       <SettingsWindow />
       {/* Asked before anything else can be typed over: this is the one moment
           the choice is still the user's to make. */}

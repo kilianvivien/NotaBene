@@ -35,6 +35,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
       items: [
         { kind: 'predefined', role: 'about', label: `${t('menu.about')} ${appName}` },
         separator,
+        command('app.commandPalette', t),
         command('app.settings', t),
         separator,
         { kind: 'predefined', role: 'services' },
@@ -116,6 +117,8 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('view.toggleInspector', t),
         separator,
         command('view.focusMode', t),
+        separator,
+        command('note.readAloud', t),
         { kind: 'predefined', role: 'fullscreen', label: t('menu.fullscreen') },
       ],
     },

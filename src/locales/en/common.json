@@ -99,7 +99,12 @@
     "replace": "Replace",
     "replaceAll": "Replace all",
     "previousMatch": "Previous match",
-    "nextMatch": "Next match"
+    "nextMatch": "Next match",
+    "readAloud": "Read aloud",
+    "stopReading": "Stop reading",
+    "resumeReading": "Resume reading",
+    "tableControls": "Table",
+    "deleteTable": "Delete table"
   },
   "inspector": {
     "details": "Details",
@@ -388,6 +393,25 @@
     "feature_flashcards": "Flashcards",
     "feature_podcast": "Podcast"
   },
+  "tags": {
+    "facet_topic": "Topic",
+    "facet_prof": "Lecturer",
+    "facet_semester": "Semester",
+    "facet_exam": "Exam",
+    "facet_type": "Kind",
+    "value_type_summary": "Summary",
+    "free": "No category"
+  },
+  "mindMap": {
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit to window",
+    "svg": "SVG",
+    "pdf": "PDF",
+    "downloadSvg": "Save as SVG — keeps the text as text",
+    "downloadPdf": "Save as PDF",
+    "hint": "Drag to move · pinch or ⌘-scroll to zoom · 0 to fit · Esc to close"
+  },
   "mcp": {
     "title": "Local agent access",
     "description": "Lets Claude Code and other MCP clients read and write your notes on this machine.",
@@ -402,8 +426,6 @@
     "rotateToken": "Rotate token",
     "clientSetup": "Client setup",
     "clientSetupHint": "Add this local server without changing any of your other MCP entries.",
-    "setupClaudeCode": "Set up Claude Code",
-    "setupClaudeDesktop": "Set up Claude Desktop",
     "copied": "Copied",
     "configCopied": "The client configuration snippet is on your clipboard.",
     "configWritten": "NotaBene was added to {{path}}.",
@@ -422,7 +444,16 @@
     "tool_manage_tags": "Manage tags",
     "tool_create_course": "Create course",
     "tool_export_notes": "Export notes",
-    "tool_organize": "Organize library"
+    "tool_organize": "Organize library",
+    "otherClient": "Another client",
+    "configure": "Configure",
+    "willWrite": "Adds a “notabene” entry to",
+    "enableFirst": "Turn agent access on first.",
+    "clientHint_claudeCode": "The Claude Code CLI. The entry is global, so it works in every project.",
+    "clientHint_claudeDesktop": "The Claude desktop app. Quit and reopen it after configuring.",
+    "clientHint_codex": "The OpenAI Codex CLI and its IDE extension, which share one TOML config. Existing comments in the file are preserved.",
+    "clientHint_antigravity": "Google Antigravity. Reload the MCP servers panel afterwards.",
+    "clientHint_opencode": "OpenCode. The entry disables OAuth so the pairing token is used instead."
   },
   "settings": {
     "title": "Settings",
@@ -503,7 +534,9 @@
     "toggleInspector": "Show inspector",
     "focusMode": "Focus mode",
     "fullscreen": "Toggle Full Screen",
-    "documentation": "NotaBene help"
+    "documentation": "NotaBene help",
+    "readAloud": "Read note aloud",
+    "commandPalette": "Commands…"
   },
   "recovery": {
     "title": "Unsaved changes recovered",
@@ -519,11 +552,18 @@
     "rename": "Rename",
     "save": "Save",
     "close": "Close",
-    "retry": "Retry"
+    "retry": "Retry",
+    "clear": "Clear"
   },
   "error": {
     "boundaryTitle": "Something went wrong",
     "boundaryBody": "Your notes are safe on disk. Reload to continue.",
     "reload": "Reload"
+  },
+  "palette": {
+    "title": "Commands",
+    "placeholder": "Search notes, or type a command…",
+    "noResults": "Nothing matches",
+    "hint": "Type to find a note or run a command"
   }
 }

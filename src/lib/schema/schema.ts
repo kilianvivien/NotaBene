@@ -298,19 +298,50 @@ export const MindMapSchema = z
   });
 export type MindMap = z.infer<typeof MindMapSchema>;
 
+/** A cloze deletion, in Anki's own notation. Whether one is present is what
+ * decides if a card can stand without a back. */
+export const CLOZE_DELETION = /\{\{c\d+::[^}]*\}\}/;
+
 export const FlashcardSchema = z.object({
   id,
   kind: z.enum(['basic', 'cloze']).default('basic'),
   front: z.string().min(1),
-  back: z.string().min(1),
+  /**
+   * Empty is legal, and only for a cloze card.
+   *
+   * The back of a cloze note is Anki's "Extra" field — an optional aside shown
+   * after the reveal, not the answer, because the answer is the text the
+   * deletion hides. Requiring it here rejected whole decks over a card the
+   * model was right to leave blank. `answerable` below is the check that
+   * actually matters.
+   */
+  back: z.string().default(''),
   hint: z.string().optional(),
   tags: z.array(z.string()).default([]),
 });
 export type Flashcard = z.infer<typeof FlashcardSchema>;
 
+/** A card nobody can answer: no deletion on the front and nothing on the back. */
+export function answerable(card: { front: string; back: string }): boolean {
+  return CLOZE_DELETION.test(card.front) || card.back.trim().length > 0;
+}
+
 export const FlashcardDeckSchema = z.object({
   title: z.string().min(1),
-  cards: z.array(FlashcardSchema).min(1),
+  cards: z
+    .array(FlashcardSchema)
+    .min(1)
+    .superRefine((cards, ctx) => {
+      for (const [index, card] of cards.entries()) {
+        if (!answerable(card)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, 'back'],
+            message: 'a card with no cloze deletion needs a back',
+          });
+        }
+      }
+    }),
 });
 export type FlashcardDeck = z.infer<typeof FlashcardDeckSchema>;
 
@@ -400,6 +431,11 @@ export type AiSynthesisResponse = z.infer<typeof AiSynthesisResponseSchema>;
  * across thirty objects is asking for the one duplicate that makes two cards
  * share a row in the review list. `src/lib/ai/flashcards.ts` mints them
  * instead, which is also what makes a card the user edited keep its identity.
+ *
+ * Deliberately more permissive than `FlashcardDeckSchema`: an unanswerable card
+ * is dropped by `requestFlashcards` rather than rejected here, because one card
+ * the model fumbled should cost one card and not the other twenty-nine. What
+ * that function returns is then a deck the strict schema accepts.
  */
 export const AiFlashcardsResponseSchema = z.object({
   title: z.string().min(1).max(200),

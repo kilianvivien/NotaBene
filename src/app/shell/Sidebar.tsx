@@ -38,6 +38,7 @@ import {
   updateNoteCommand,
   updateSectionCommand,
 } from '@/lib/commands';
+import { tagLabel } from '@/lib/notes/tagLabel';
 import type { Course, NoteTemplate, SavedSearch, Section, Tag } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -270,6 +271,7 @@ export function Sidebar() {
           <ul className="flex flex-col gap-0.5">
             {tags.map((tag) => {
               const target: ViewKind = { kind: 'tag', tagId: tag.id };
+              const label = tagLabel(tag, t);
               return (
                 <li key={tag.id}>
                   <button
@@ -297,9 +299,13 @@ export function Sidebar() {
                       className="size-2.5 shrink-0 rounded-full border border-black/10"
                       style={{ backgroundColor: tag.color }}
                     />
-                    <span className="truncate">
-                      {tag.namespace ? `${tag.namespace}:` : ''}
-                      {tag.name}
+                    <span className="truncate" title={label.full}>
+                      {label.facet && (
+                        <span className="mr-1 text-[10.5px] uppercase tracking-wide text-nb-text-3">
+                          {label.facet}
+                        </span>
+                      )}
+                      {label.name}
                     </span>
                   </button>
                 </li>
@@ -806,7 +812,7 @@ function TagMenu({
     <ContextMenu
       point={point}
       onClose={onClose}
-      header={`${tag.namespace ? `${tag.namespace}:` : ''}${tag.name}`}
+      header={tagLabel(tag, t).full}
       items={[
         {
           id: 'manage',

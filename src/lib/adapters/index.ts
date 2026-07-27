@@ -81,6 +81,8 @@ export type { TtsEngine, TtsRequest, TtsVoice } from './tts/TtsEngine';
 export type {
   McpAdapter,
   McpBridgeRequest,
+  McpClientDefinition,
   McpClientId,
   McpStatus,
 } from './mcp/McpAdapter';
+export { MCP_CLIENTS } from './mcp/McpAdapter';

@@ -7,15 +7,26 @@
   line-height: var(--nb-editor-leading);
 }
 
-.nb-editor-toolbar {
+/* Toolbar and find bar share one sticky row: the find bar belongs beside the
+   formatting controls, not floating in its own strip above them. */
+.nb-editor-bar {
   position: sticky;
   z-index: 20;
   top: 10px;
   display: flex;
+  margin: 0 0 24px -3px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nb-editor-toolbar {
+  position: relative;
+  display: flex;
   width: max-content;
   max-width: 100%;
   min-height: 32px;
-  margin: 0 0 24px -3px;
   padding: 2px;
   align-items: center;
   gap: 1px;
@@ -134,40 +145,53 @@
   white-space: nowrap;
 }
 
-.nb-table-actions {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+/* Pinned to the active table in viewport coordinates — see TableControls.tsx
+   for why the position is computed rather than inherited. */
+.nb-table-controls {
+  position: fixed;
+  z-index: 30;
   display: flex;
-  padding: 4px;
-  gap: 2px;
+  padding: 3px;
+  align-items: center;
+  gap: 3px;
   border: 1px solid var(--nb-control-border);
   border-radius: 8px;
   background: var(--nb-menu-surface);
   box-shadow: var(--nb-shadow-sm);
 }
 
-.nb-table-actions button {
-  height: 27px;
-  padding: 0 7px;
+.nb-table-group {
+  display: flex;
+  padding-right: 3px;
+  align-items: center;
+  gap: 1px;
+  border-right: 1px solid var(--nb-divider);
+  color: var(--nb-text-3);
+}
+
+.nb-table-group > svg {
+  margin: 0 3px 0 2px;
+}
+
+.nb-table-controls button {
+  display: grid;
+  width: 22px;
+  height: 22px;
   border: 0;
   border-radius: 5px;
   color: var(--nb-text-2);
   background: transparent;
-  font-size: 11px;
-  white-space: nowrap;
+  place-items: center;
 }
 
-.nb-table-actions button:hover {
+.nb-table-controls button:hover {
   color: var(--nb-text);
   background: var(--nb-active);
 }
 
-.nb-table-actions > span {
-  width: 1px;
-  height: 17px;
-  margin: 5px 2px;
-  background: var(--nb-divider);
+.nb-table-controls .nb-table-delete:hover {
+  color: var(--nb-danger);
+  background: color-mix(in srgb, var(--nb-danger) 12%, transparent);
 }
 
 .nb-prosemirror {
@@ -514,9 +538,11 @@
 }
 
 .nb-mind-map-preview {
+  position: relative;
   display: block;
   width: 100%;
   padding: 10px;
+  overflow: hidden;
   border: 1px solid var(--nb-divider);
   border-radius: var(--nb-radius-sm);
   color: var(--nb-text-3);
@@ -524,16 +550,44 @@
      matching surface behind it stops the map reading as a pasted screenshot in
      dark mode. */
   background: #fbfaf8;
+  transition: border-color var(--nb-t-fast) ease;
+}
+
+.nb-mind-map-preview:not(:disabled):hover {
+  border-color: var(--nb-divider-strong);
 }
 
 .nb-mind-map-preview img {
   display: block;
   width: 100%;
-  max-height: 420px;
+  max-height: 380px;
   object-fit: contain;
 }
 
-.nb-mind-map-preview > span {
+/* The affordance stays out of the way until the pointer says otherwise: a
+   permanent badge over a thumbnail this small covers a branch of the map. */
+.nb-mind-map-open {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  padding: 5px 10px;
+  border-radius: 999px;
+  opacity: 0;
+  color: white;
+  background: rgb(0 0 0 / 62%);
+  font-size: 11px;
+  align-items: center;
+  gap: 5px;
+  transition: opacity var(--nb-t-fast) ease;
+}
+
+.nb-mind-map-preview:hover .nb-mind-map-open,
+.nb-mind-map-preview:focus-visible .nb-mind-map-open {
+  opacity: 1;
+}
+
+.nb-mind-map-placeholder {
   display: flex;
   min-height: 140px;
   align-items: center;
@@ -542,39 +596,143 @@
 }
 
 .nb-mind-map figcaption {
+  display: flex;
   margin-top: 6px;
   color: var(--nb-text-3);
   font-size: 0.78em;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
-.nb-mind-map-zoom {
+/* ---------------------------------------------------------------------------
+   Full-window mind map viewer
+   --------------------------------------------------------------------------- */
+
+.nb-map-viewer {
   position: fixed;
-  z-index: 100;
+  z-index: 200;
   inset: 0;
-  display: grid;
-  padding: 32px;
-  background: rgba(0, 0, 0, 0.72);
-  place-items: center;
+  display: flex;
+  background: var(--nb-surface);
+  flex-direction: column;
 }
 
-.nb-mind-map-zoom img {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: var(--nb-radius-sm);
-  background: #fbfaf8;
+.nb-map-viewer-bar {
+  display: flex;
+  height: 46px;
+  padding: 0 10px 0 16px;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--nb-divider);
+  background: var(--nb-toolbar-surface);
 }
 
-.nb-mind-map-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+.nb-map-viewer-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--nb-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.nb-map-viewer-controls {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: 9px;
+  background: var(--nb-control-surface);
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.nb-map-viewer-controls button {
+  display: flex;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  color: var(--nb-text-2);
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+}
+
+.nb-map-viewer-controls button:hover:not(:disabled) {
+  color: var(--nb-text);
+  background: var(--nb-hover);
+}
+
+.nb-map-viewer-controls button:disabled {
+  opacity: 0.45;
+}
+
+.nb-map-viewer-scale {
+  min-width: 46px;
+  color: var(--nb-text-2);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.nb-map-viewer-close {
   display: grid;
   width: 30px;
   height: 30px;
-  border-radius: 50%;
-  color: white;
-  background: rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  color: var(--nb-text-2);
+  flex: none;
   place-items: center;
+}
+
+.nb-map-viewer-close:hover {
+  color: var(--nb-text);
+  background: var(--nb-hover);
+}
+
+/* `touch-action: none` so a trackpad pinch reaches the wheel handler instead of
+   being consumed as a page zoom, and `overflow: hidden` because panning is the
+   transform below, not a scrollbar. */
+.nb-map-viewer-stage {
+  position: relative;
+  overflow: hidden;
+  background: var(--nb-inset-surface);
+  cursor: grab;
+  touch-action: none;
+  flex: 1;
+}
+
+.nb-map-viewer-stage[data-dragging] {
+  cursor: grabbing;
+}
+
+.nb-map-viewer-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.nb-map-viewer-canvas img {
+  display: block;
+  border-radius: var(--nb-radius-sm);
+  background: #fbfaf8;
+  box-shadow: var(--nb-shadow-sm);
+  user-select: none;
+}
+
+.nb-map-viewer-hint {
+  padding: 7px 16px;
+  border-top: 1px solid var(--nb-divider);
+  color: var(--nb-text-3);
+  font-size: 11px;
+}
+
+.nb-map-viewer-hint[data-tone='danger'] {
+  color: var(--nb-danger);
 }
 
 .nb-drawing-preview {
@@ -730,27 +888,28 @@
 }
 
 .nb-find-replace {
-  position: sticky;
-  z-index: 20;
-  top: 4px;
   display: flex;
   width: max-content;
   max-width: 100%;
-  min-height: 36px;
-  margin: 0 0 7px auto;
-  padding: 4px;
+  min-height: 32px;
+  padding: 2px;
   align-items: center;
   gap: 3px;
+  /* Wraps rather than overflowing: the editor measure is narrow, and eight
+     controls plus two fields do not always fit beside the toolbar. */
+  flex-wrap: wrap;
   border: 1px solid var(--nb-control-border);
-  border-radius: var(--nb-radius-sm);
-  background: var(--nb-menu-surface);
-  box-shadow: var(--nb-shadow-md);
+  border-radius: 8px;
+  background: var(--nb-toolbar-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
 }
 
 .nb-find-replace input {
-  width: 145px;
-  height: 27px;
+  width: 128px;
+  min-width: 80px;
+  height: 26px;
   padding: 0 7px;
+  flex: 1 1 80px;
   border: 1px solid var(--nb-control-border);
   border-radius: 6px;
   color: var(--nb-text);

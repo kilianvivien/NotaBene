@@ -99,7 +99,12 @@
     "replace": "Remplacer",
     "replaceAll": "Tout remplacer",
     "previousMatch": "Occurrence précédente",
-    "nextMatch": "Occurrence suivante"
+    "nextMatch": "Occurrence suivante",
+    "readAloud": "Lire à voix haute",
+    "stopReading": "Arrêter la lecture",
+    "resumeReading": "Reprendre la lecture",
+    "tableControls": "Tableau",
+    "deleteTable": "Supprimer le tableau"
   },
   "inspector": {
     "details": "Détails",
@@ -388,6 +393,25 @@
     "feature_flashcards": "Fiches",
     "feature_podcast": "Podcast"
   },
+  "tags": {
+    "facet_topic": "Thème",
+    "facet_prof": "Enseignant",
+    "facet_semester": "Semestre",
+    "facet_exam": "Examen",
+    "facet_type": "Type",
+    "value_type_summary": "Résumé",
+    "free": "Sans catégorie"
+  },
+  "mindMap": {
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "fit": "Ajuster à la fenêtre",
+    "svg": "SVG",
+    "pdf": "PDF",
+    "downloadSvg": "Enregistrer en SVG — le texte reste du texte",
+    "downloadPdf": "Enregistrer en PDF",
+    "hint": "Glisser pour déplacer · pincer ou ⌘-défiler pour zoomer · 0 pour ajuster · Échap pour fermer"
+  },
   "mcp": {
     "title": "Accès agent local",
     "description": "Permet à Claude Code et aux autres clients MCP de lire et écrire vos notes sur cette machine.",
@@ -402,8 +426,6 @@
     "rotateToken": "Renouveler le jeton",
     "clientSetup": "Configuration du client",
     "clientSetupHint": "Ajoutez ce serveur local sans modifier vos autres entrées MCP.",
-    "setupClaudeCode": "Configurer Claude Code",
-    "setupClaudeDesktop": "Configurer Claude Desktop",
     "copied": "Copié",
     "configCopied": "La configuration client est dans le presse-papiers.",
     "configWritten": "NotaBene a été ajouté à {{path}}.",
@@ -422,7 +444,16 @@
     "tool_manage_tags": "Gérer les étiquettes",
     "tool_create_course": "Créer un cours",
     "tool_export_notes": "Exporter des notes",
-    "tool_organize": "Organiser la bibliothèque"
+    "tool_organize": "Organiser la bibliothèque",
+    "otherClient": "Un autre client",
+    "configure": "Configurer",
+    "willWrite": "Ajoute une entrée « notabene » dans",
+    "enableFirst": "Activez d’abord l’accès agent.",
+    "clientHint_claudeCode": "L’interface en ligne de commande Claude Code. L’entrée est globale et vaut donc pour tous vos projets.",
+    "clientHint_claudeDesktop": "L’application de bureau Claude. Quittez-la et rouvrez-la après configuration.",
+    "clientHint_codex": "L’interface Codex d’OpenAI et son extension d’éditeur, qui partagent un même fichier TOML. Les commentaires du fichier sont conservés.",
+    "clientHint_antigravity": "Google Antigravity. Rechargez ensuite le panneau des serveurs MCP.",
+    "clientHint_opencode": "OpenCode. L’entrée désactive OAuth pour que le jeton d’appairage soit utilisé."
   },
   "settings": {
     "title": "Réglages",
@@ -503,7 +534,9 @@
     "toggleInspector": "Afficher l'inspecteur",
     "focusMode": "Mode concentration",
     "fullscreen": "Activer/désactiver le plein écran",
-    "documentation": "Aide NotaBene"
+    "documentation": "Aide NotaBene",
+    "readAloud": "Lire la note à voix haute",
+    "commandPalette": "Commandes…"
   },
   "recovery": {
     "title": "Modifications non enregistrées récupérées",
@@ -519,11 +552,18 @@
     "rename": "Renommer",
     "save": "Enregistrer",
     "close": "Fermer",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "clear": "Effacer"
   },
   "error": {
     "boundaryTitle": "Une erreur est survenue",
     "boundaryBody": "Vos notes sont en sécurité sur le disque. Rechargez pour continuer.",
     "reload": "Recharger"
+  },
+  "palette": {
+    "title": "Commandes",
+    "placeholder": "Rechercher une note, ou taper une commande…",
+    "noResults": "Aucun résultat",
+    "hint": "Tapez pour trouver une note ou lancer une commande"
   }
 }

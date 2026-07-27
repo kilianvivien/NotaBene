@@ -1,7 +1,12 @@
-import { Check, Circle, Copy, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, Circle, Copy, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FieldToggle, GlassButton } from '@/components/glass';
+import {
+  MCP_CLIENTS,
+  type McpClientDefinition,
+  type McpClientId,
+} from '@/lib/adapters';
 import { platformRuntime } from '@/lib/platform/runtime';
 import { useMcpStore, type McpActivity } from '@/lib/state/mcpStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
@@ -22,12 +27,13 @@ export function AgentSettings() {
   const clearActivity = useMcpStore((state) => state.clearActivity);
   const [port, setPort] = useState(String(settings.mcpPort));
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState<McpClientId | null>(null);
 
   if (!platformRuntime.capabilities.mcpServer) {
     return <p className="text-[13px] text-nb-text-3">{t('mcp.desktopOnly')}</p>;
   }
 
-  async function setup(client: 'claude-code' | 'claude-desktop' | 'custom') {
+  async function setup(client: McpClientId) {
     try {
       const result = await writeClientConfig(client);
       if (client === 'custom') {
@@ -95,33 +101,40 @@ export function AgentSettings() {
         </div>
       </div>
 
+      {/* Same shape as the AI provider list: one row per client, expanded to
+          show exactly which file is about to be edited. Five buttons in a row
+          told the student nothing about what pressing one would do. */}
       <div>
         <h3 className="text-[13px] font-medium">{t('mcp.clientSetup')}</h3>
         <p className="mt-0.5 text-[11px] text-nb-text-3">{t('mcp.clientSetupHint')}</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <GlassButton
-            size="sm"
-            disabled={!status.running || pending}
-            onClick={() => void setup('claude-code')}
-          >
-            {t('mcp.setupClaudeCode')}
-          </GlassButton>
-          <GlassButton
-            size="sm"
-            disabled={!status.running || pending}
-            onClick={() => void setup('claude-desktop')}
-          >
-            {t('mcp.setupClaudeDesktop')}
-          </GlassButton>
-          <GlassButton
-            size="sm"
-            disabled={!status.running || pending}
-            onClick={() => void setup('custom')}
-          >
-            {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
-            {copied ? t('mcp.copied') : t('mcp.copyConfig')}
-          </GlassButton>
-        </div>
+
+        <ul className="mt-2 divide-y divide-[var(--nb-divider)] overflow-hidden rounded-nb-sm border border-[var(--nb-divider)]">
+          {MCP_CLIENTS.map((client) => (
+            <ClientRow
+              key={client.id}
+              client={client}
+              open={expanded === client.id}
+              busy={pending}
+              ready={status.running}
+              onToggle={() =>
+                setExpanded((current) => (current === client.id ? null : client.id))
+              }
+              onSetup={() => void setup(client.id)}
+            />
+          ))}
+          <li className="flex items-center gap-2 px-3 py-2">
+            <span className="min-w-0 flex-1 text-[13px]">{t('mcp.otherClient')}</span>
+            <GlassButton
+              size="sm"
+              disabled={!status.running || pending}
+              onClick={() => void setup('custom')}
+            >
+              {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
+              {copied ? t('mcp.copied') : t('mcp.copyConfig')}
+            </GlassButton>
+          </li>
+        </ul>
+
         {setupResult && (
           <p className="mt-2 break-all text-[11px] text-[var(--nb-success)]">
             {setupResult === 'custom'
@@ -162,6 +175,61 @@ export function AgentSettings() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ClientRow({
+  client,
+  open,
+  busy,
+  ready,
+  onToggle,
+  onSetup,
+}: {
+  client: McpClientDefinition;
+  open: boolean;
+  busy: boolean;
+  ready: boolean;
+  onToggle(): void;
+  onSetup(): void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <li className={cn(open && 'bg-[var(--nb-inset-surface)]')}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--nb-hover)]"
+      >
+        <ChevronRight
+          size={13}
+          aria-hidden
+          className={cn(
+            'shrink-0 text-nb-text-3 transition-transform duration-[var(--nb-t-fast)]',
+            open && 'rotate-90',
+          )}
+        />
+        <span className="min-w-0 flex-1 truncate text-[13px]">{client.label}</span>
+      </button>
+
+      {open && (
+        <div className="space-y-2 border-t border-[var(--nb-divider)] px-3 py-2.5">
+          <p className="text-[11px] leading-snug text-nb-text-3">{t(client.hintKey)}</p>
+          <p className="text-[11px] text-nb-text-3">
+            {t('mcp.willWrite')}{' '}
+            <code className="break-all font-mono text-nb-text-2">{client.path}</code>
+          </p>
+          <GlassButton size="sm" disabled={!ready || busy} onClick={onSetup}>
+            {t('mcp.configure')}
+          </GlassButton>
+          {!ready && (
+            <p className="text-[11px] text-nb-text-3">{t('mcp.enableFirst')}</p>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 

@@ -20,6 +20,7 @@ import {
   type SavedSearch,
   type Tag,
 } from '@/lib/schema';
+import { tagLabel } from '@/lib/notes/tagLabel';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 
 const field =
@@ -278,10 +279,10 @@ export function TagManagerDialog({ open, onClose }: { open: boolean; onClose(): 
             setNamespace((event.target.value || null) as Tag['namespace'])
           }
         >
-          <option value="">{t('organization.freeTag')}</option>
+          <option value="">{t('tags.free')}</option>
           {TAG_NAMESPACES.map((value) => (
             <option key={value} value={value}>
-              {value}:
+              {t(`tags.facet_${value}`)}
             </option>
           ))}
         </GlassSelect>
@@ -325,7 +326,7 @@ function TagRow({ tag, tags }: { tag: Tag; tags: Tag[] }) {
     <div className="grid grid-cols-[auto_82px_minmax(0,1fr)_140px_auto_auto] items-center gap-2 rounded-nb-sm bg-[var(--nb-inset-surface)] p-2">
       <TagColorPicker value={color} onChange={setColor} compact />
       <span className="truncate text-[12px] text-nb-text-3">
-        {tag.namespace ? `${tag.namespace}:` : t('organization.freeTag')}
+        {tag.namespace ? tagLabel(tag, t).facet : t('tags.free')}
       </span>
       <input
         aria-label={t('organization.tagName')}
@@ -343,8 +344,7 @@ function TagRow({ tag, tags }: { tag: Tag; tags: Tag[] }) {
           .filter((candidate) => candidate.id !== tag.id)
           .map((candidate) => (
             <option key={candidate.id} value={candidate.id}>
-              {candidate.namespace ? `${candidate.namespace}:` : ''}
-              {candidate.name}
+              {tagLabel(candidate, t).full}
             </option>
           ))}
       </GlassSelect>

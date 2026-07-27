@@ -24,6 +24,7 @@ import {
 } from '@/lib/commands';
 import { compareDocuments } from '@/lib/history/comparison';
 import { docStats } from '@/lib/notes/docText';
+import { tagLabel, tagQuery } from '@/lib/notes/tagLabel';
 import type { Backlink, Snapshot, Tag as NoteTag } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -433,13 +434,7 @@ function TagsPanel() {
     const name = separator > 0 ? raw.slice(separator + 1) : raw;
     const known = tags.find(
       (tag) =>
-        `${tag.namespace ? `${tag.namespace}:` : ''}${tag.name}`.localeCompare(
-          raw,
-          undefined,
-          {
-            sensitivity: 'accent',
-          },
-        ) === 0,
+        tagQuery(tag).localeCompare(raw, undefined, { sensitivity: 'accent' }) === 0,
     );
     let tag = known;
     if (!tag) {
@@ -482,19 +477,24 @@ function TagsPanel() {
         >
           <Plus size={12} />
         </GlassButton>
+        {/* The value is the storage form, because that is what the field
+            parses and what search understands; the label beside it is the
+            readable one, so the list is not a column of `type:summary`. */}
         <datalist id="notabene-tag-options">
           {tags.map((tag) => (
-            <option key={tag.id}>
-              {tag.namespace ? `${tag.namespace}:` : ''}
-              {tag.name}
+            <option key={tag.id} value={tagQuery(tag)}>
+              {tagLabel(tag, t).full}
             </option>
           ))}
         </datalist>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {selected.map((tag) => (
+        {selected.map((tag) => {
+          const label = tagLabel(tag, t);
+          return (
           <span
             key={tag.id}
+            title={label.full}
             className="inline-flex items-center gap-1.5 rounded-full border bg-[var(--nb-inset-surface)] px-2 py-1 text-[12px] text-nb-text-2"
             style={{ borderColor: tag.color }}
           >
@@ -503,8 +503,12 @@ function TagsPanel() {
               className="size-2 rounded-full"
               style={{ backgroundColor: tag.color }}
             />
-            {tag.namespace ? `${tag.namespace}:` : ''}
-            {tag.name}
+            {label.facet && (
+              <span className="text-[10.5px] uppercase tracking-wide text-nb-text-3">
+                {label.facet}
+              </span>
+            )}
+            {label.name}
             <button
               type="button"
               aria-label={t('common.delete')}
@@ -513,7 +517,8 @@ function TagsPanel() {
               <X size={10} />
             </button>
           </span>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

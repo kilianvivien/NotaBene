@@ -7,9 +7,9 @@
  * worth far more when the tree behind the picture is still there, and because
  * it is what a future "expand this branch" would need.
  *
- * A map is wider than the editor measure, so the preview is scaled to fit and
- * clicking it opens the map at full size. Squinting at a 700px-wide radial tree
- * is not revision.
+ * A map is wider than the editor measure, so what sits in the note is a
+ * thumbnail with a caption; reading one happens in `MindMapViewer`, full window
+ * and zoomable. Squinting at a 700px-wide radial tree is not revision.
  */
 import { Node, mergeAttributes } from '@tiptap/core';
 import {
@@ -17,62 +17,61 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from '@tiptap/react';
-import { Network, X } from 'lucide-react';
+import { Maximize2, Network } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-function svgDataUri(svg: string): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
+import { MindMapViewer } from '@/app/mindmap/MindMapViewer';
+import { svgDataUri } from '@/lib/mindmap/svg';
 
 function MindMapView({ node, selected }: NodeViewProps) {
   const { t } = useTranslation();
-  const [zoomed, setZoomed] = useState(false);
+  const [open, setOpen] = useState(false);
   const svg = typeof node.attrs.svg === 'string' ? node.attrs.svg : '';
   const title = String(node.attrs.title ?? t('ai.mindMap'));
+  const nodeCount = Array.isArray((node.attrs.data as { nodes?: unknown[] })?.nodes)
+    ? (node.attrs.data as { nodes: unknown[] }).nodes.length
+    : 0;
 
   return (
     <NodeViewWrapper
       as="figure"
       className="nb-mind-map"
       data-selected={selected || undefined}
+      contentEditable={false}
     >
       <button
         type="button"
         className="nb-mind-map-preview"
+        disabled={!svg}
         onClick={() => {
-          if (svg) setZoomed(true);
+          if (svg) setOpen(true);
         }}
         aria-label={t('ai.mindMapZoom')}
       >
         {svg ? (
-          <img src={svgDataUri(svg)} alt={title} draggable={false} />
+          <>
+            <img src={svgDataUri(svg)} alt={title} draggable={false} />
+            <span className="nb-mind-map-open">
+              <Maximize2 size={13} aria-hidden />
+              {t('ai.mindMapZoom')}
+            </span>
+          </>
         ) : (
-          <span>
+          <span className="nb-mind-map-placeholder">
             <Network size={22} aria-hidden />
             {title}
           </span>
         )}
       </button>
-      <figcaption>{title}</figcaption>
 
-      {zoomed && (
-        <div
-          className="nb-mind-map-zoom"
-          role="dialog"
-          aria-label={title}
-          onClick={() => setZoomed(false)}
-        >
-          <button
-            type="button"
-            className="nb-mind-map-close"
-            aria-label={t('common.close')}
-            onClick={() => setZoomed(false)}
-          >
-            <X size={16} />
-          </button>
-          <img src={svgDataUri(svg)} alt={title} draggable={false} />
-        </div>
+      <figcaption>
+        <Network size={12} aria-hidden />
+        <span>{title}</span>
+        {nodeCount > 0 && <span>· {t('ai.mindMapNodes', { count: nodeCount })}</span>}
+      </figcaption>
+
+      {open && (
+        <MindMapViewer svg={svg} title={title} onClose={() => setOpen(false)} />
       )}
     </NodeViewWrapper>
   );

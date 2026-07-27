@@ -1,9 +1,6 @@
 import type { Editor } from '@tiptap/core';
 import {
   Bold,
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
   CheckSquare,
   ChevronDown,
   Code2,
@@ -13,17 +10,22 @@ import {
   Link2,
   List,
   ListOrdered,
+  Loader2,
   MessageSquareWarning,
   MoreHorizontal,
   PencilRuler,
+  Play,
   Quote,
   Sigma,
+  Square,
   Table2,
   Underline as UnderlineIcon,
+  Volume2,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EditorCommand } from './commandBridge';
+import { useSpeechStore } from '@/lib/state/speechStore';
 import { cn } from '@/lib/utils/cn';
 
 interface ToolbarProps {
@@ -60,6 +62,65 @@ function ToolButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Read this note aloud.
+ *
+ * Deliberately not behind the AI panel: no provider writes a script, nothing
+ * leaves the machine, and the thing spoken is the note as written. It reads the
+ * selection when there is one, which is how you check a paragraph you have just
+ * rewritten without listening to the twelve before it.
+ */
+function ReadAloudButton({ editor }: { editor: Editor }) {
+  const { t } = useTranslation();
+  const status = useSpeechStore((state) => state.status);
+  const done = useSpeechStore((state) => state.done);
+  const total = useSpeechStore((state) => state.total);
+  const speak = useSpeechStore((state) => state.speak);
+  const stop = useSpeechStore((state) => state.stop);
+  const toggle = useSpeechStore((state) => state.toggle);
+
+  const idle = status === 'idle';
+  const label = idle
+    ? t('editor.readAloud')
+    : status === 'paused'
+      ? t('editor.resumeReading')
+      : t('editor.stopReading');
+
+  return (
+    <>
+      <ToolButton
+        label={label}
+        active={!idle}
+        onClick={() => {
+          if (status === 'paused') return toggle();
+          if (!idle) return stop();
+          const { from, to } = editor.state.selection;
+          const text =
+            from === to
+              ? editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n\n', ' ')
+              : editor.state.doc.textBetween(from, to, '\n\n', ' ');
+          void speak(text);
+        }}
+      >
+        {status === 'preparing' ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : status === 'playing' ? (
+          <Square size={13} />
+        ) : status === 'paused' ? (
+          <Play size={14} />
+        ) : (
+          <Volume2 size={14} />
+        )}
+      </ToolButton>
+      {!idle && total > 0 && (
+        <span className="nb-tool-text tabular-nums text-nb-text-3" aria-live="polite">
+          {done}/{total}
+        </span>
+      )}
+    </>
   );
 }
 
@@ -224,6 +285,10 @@ export function Toolbar({ editor, run }: ToolbarProps) {
         <MoreHorizontal size={15} />
       </ToolButton>
 
+      <span className="nb-toolbar-divider" />
+
+      <ReadAloudButton editor={editor} />
+
       {moreOpen && (
         <div className="nb-format-menu">
           {extraActions.map(({ label, icon: Icon, action, active }) => (
@@ -244,50 +309,9 @@ export function Toolbar({ editor, run }: ToolbarProps) {
         </div>
       )}
 
-      {editor.isActive('table') && (
-        <div className="nb-table-actions">
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().addRowAfter().run()}
-          >
-            {t('editor.addRow')}
-          </button>
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().addColumnAfter().run()}
-          >
-            {t('editor.addColumn')}
-          </button>
-          <button type="button" onClick={() => editor.chain().focus().deleteRow().run()}>
-            {t('editor.deleteRow')}
-          </button>
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().deleteColumn().run()}
-          >
-            {t('editor.deleteColumn')}
-          </button>
-          <span />
-          {[
-            { value: 'left', label: t('editor.alignLeft'), Icon: AlignLeft },
-            { value: 'center', label: t('editor.alignCenter'), Icon: AlignCenter },
-            { value: 'right', label: t('editor.alignRight'), Icon: AlignRight },
-          ].map(({ value, label, Icon }) => (
-            <button
-              type="button"
-              key={value}
-              aria-label={label}
-              title={label}
-              onClick={() => {
-                const type = editor.isActive('tableHeader') ? 'tableHeader' : 'tableCell';
-                editor.chain().focus().updateAttributes(type, { textAlign: value }).run();
-              }}
-            >
-              <Icon size={13} />
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Table controls are not here: they live in `TableControls`, pinned to
+          the table itself, because a control that acts on a cell belongs
+          beside that cell and not in a strip across the top of the note. */}
     </div>
   );
 }

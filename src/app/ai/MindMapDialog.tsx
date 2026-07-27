@@ -8,12 +8,14 @@
  * Nothing is written until Insert. A map the model got wrong costs one more
  * press of Generate, not an edit to unpick.
  */
-import { Loader2, Network, RefreshCw } from 'lucide-react';
+import { Loader2, Maximize2, Network, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MindMapViewer } from '@/app/mindmap/MindMapViewer';
 import { Dialog, FieldNote, GlassButton } from '@/components/glass';
 import type { MindMapResult } from '@/lib/ai';
 import { insertMindMapCommand, proposeMindMapCommand } from '@/lib/commands';
+import { svgDataUri } from '@/lib/mindmap/svg';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
@@ -29,11 +31,13 @@ export function MindMapDialog() {
   const availability = useAiAvailability('mindMap');
 
   const [result, setResult] = useState<MindMapResult | null>(null);
+  const [viewing, setViewing] = useState(false);
   const [error, setError] = useState('');
 
   // A map of the note you were on is not a map of the note you are on now.
   useEffect(() => {
     setResult(null);
+    setViewing(false);
     setError('');
   }, [noteId]);
 
@@ -109,17 +113,36 @@ export function MindMapDialog() {
     >
       {result ? (
         <figure className="flex flex-col gap-2">
-          <div className="overflow-auto rounded-nb-sm border border-[var(--nb-divider)] bg-[#fbfaf8] p-2">
+          {/* The preview is deliberately small and the real view is one click
+              away: a map big enough to read does not fit in a dialog, and a
+              dialog stretched until it does is a worse full-screen viewer. */}
+          <button
+            type="button"
+            className="nb-mind-map-preview"
+            onClick={() => setViewing(true)}
+            aria-label={t('ai.mindMapZoom')}
+          >
             <img
-              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(result.svg)}`}
+              src={svgDataUri(result.svg)}
               alt={result.map.title}
-              className="mx-auto block max-h-[52vh]"
+              draggable={false}
             />
-          </div>
+            <span className="nb-mind-map-open">
+              <Maximize2 size={13} aria-hidden />
+              {t('ai.mindMapZoom')}
+            </span>
+          </button>
           <figcaption className="text-[12px] text-nb-text-3">
             {result.map.title} ·{' '}
             {t('ai.mindMapNodes', { count: result.map.nodes.length })}
           </figcaption>
+          {viewing && (
+            <MindMapViewer
+              svg={result.svg}
+              title={result.map.title}
+              onClose={() => setViewing(false)}
+            />
+          )}
         </figure>
       ) : (
         <div className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-nb-sm border border-dashed border-[var(--nb-divider)] text-nb-text-3">

@@ -9,6 +9,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { editorExtensions } from './extensions';
 import { registerEditorCommandRunner, type EditorCommand } from './commandBridge';
+import { TableControls } from './TableControls';
 import { Toolbar } from './Toolbar';
 import { SlashMenu, type SlashState } from './SlashMenu';
 import { WikiLinkMenu, type WikiLinkState } from './WikiLinkMenu';
@@ -276,13 +277,20 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
 
   return (
     <div className="nb-rich-editor">
-      <FindReplaceBar
-        editor={editor}
-        open={findOpen}
-        onClose={() => setFindOpen(false)}
-      />
-      <Toolbar editor={editor} run={(command) => void run(command)} />
+      {/* One sticky row, not two stacked strips. The find bar used to be its
+          own sticky element above the toolbar, which put a floating panel
+          between the note title and the formatting controls and pushed the
+          body down whenever it opened. */}
+      <div className="nb-editor-bar">
+        <Toolbar editor={editor} run={(command) => void run(command)} />
+        <FindReplaceBar
+          editor={editor}
+          open={findOpen}
+          onClose={() => setFindOpen(false)}
+        />
+      </div>
       <EditorContent editor={editor} />
+      <TableControls editor={editor} />
       <input
         ref={inputRef}
         type="file"

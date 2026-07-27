@@ -21,6 +21,7 @@ import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapte
 import { createNoteCommand, saveFlashcardsToNoteCommand } from '@/lib/commands';
 import { deckToAnkiTsv } from '@/lib/export/anki';
 import { layoutMindMap, mindMapToSvg } from '@/lib/mindmap/layout';
+import { svgDataUri, svgSize } from '@/lib/mindmap/svg';
 import { concatWav, encodeWav, parseWav, wavDurationMs } from '@/lib/podcast/wav';
 import { parseModelJson } from '@/lib/ai';
 import { estimateSpokenMinutes } from '@/lib/ai/podcast';
@@ -28,6 +29,8 @@ import {
   AiFlashcardsResponseSchema,
   AiMindMapResponseSchema,
   AiPodcastResponseSchema,
+  answerable,
+  FlashcardDeckSchema,
   type FlashcardDeck,
   type MindMap,
 } from '@/lib/schema';
@@ -208,6 +211,40 @@ describe('a mind map in a note', () => {
   });
 });
 
+/**
+ * The viewer's zoom is a multiple of the map's intrinsic size, so reading that
+ * size back out of the string is what makes "100%" mean 1:1 rather than
+ * whatever the browser guessed.
+ */
+describe('reading a rendered map back', () => {
+  it('takes its size from the viewBox, which is centred on the root', () => {
+    const svg = mindMapToSvg({
+      title: 'T',
+      nodes: [
+        { id: 'a', label: 'Root' },
+        { id: 'b', label: 'Child' },
+      ],
+      edges: [{ from: 'a', to: 'b' }],
+    });
+    const { width, height } = svgSize(svg);
+    expect(width).toBeGreaterThan(0);
+    expect(height).toBeGreaterThan(0);
+    expect(svg).toContain(`viewBox="${-width / 2} ${-height / 2} ${width} ${height}"`);
+  });
+
+  it('falls back rather than returning a zero-sized map', () => {
+    expect(svgSize('<svg xmlns="http://www.w3.org/2000/svg"></svg>').width).toBeGreaterThan(
+      0,
+    );
+  });
+
+  /** Every colour in the render is a `#` literal, which a data URI would read
+   * as the start of a fragment if it were not escaped. */
+  it('escapes the colour literals when building a data URI', () => {
+    expect(svgDataUri('<svg fill="#fbfaf8"/>')).not.toContain('#');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Flashcards
 // ---------------------------------------------------------------------------
@@ -217,7 +254,6 @@ describe('flashcards from a model', () => {
     for (const payload of [
       '{"title": "T", "cards": []}',
       '{"title": "T", "cards": [{"front": "", "back": "b"}]}',
-      '{"title": "T", "cards": [{"front": "a"}]}',
       '{"cards": [{"front": "a", "back": "b"}]}',
     ]) {
       expect(() => parseModelJson(AiFlashcardsResponseSchema, payload)).toThrow();
@@ -230,6 +266,33 @@ describe('flashcards from a model', () => {
       '{"title": "Limits", "cards": [{"front": "What is a limit?", "back": "A value approached."}]}',
     );
     expect(parsed.cards[0]).toMatchObject({ kind: 'basic', tags: [] });
+  });
+
+  /** The regression that made a whole generation fail: a cloze card's `back` is
+   * Anki's Extra field, and a model is right to leave it out. */
+  it('accepts a cloze card with no back', () => {
+    const parsed = parseModelJson(
+      AiFlashcardsResponseSchema,
+      '{"title": "T", "cards": [{"kind": "cloze", "front": "Water boils at {{c1::100°C}}"}]}',
+    );
+    expect(parsed.cards[0]?.back).toBe('');
+    expect(answerable(parsed.cards[0]!)).toBe(true);
+  });
+
+  /** The wire shape is permissive so one fumbled card does not cost the deck;
+   * the app-facing contract is not, and is what the dialog is handed. */
+  it('still refuses a card with neither a deletion nor a back', () => {
+    const parsed = parseModelJson(
+      AiFlashcardsResponseSchema,
+      '{"title": "T", "cards": [{"front": "a"}]}',
+    );
+    expect(answerable(parsed.cards[0]!)).toBe(false);
+    expect(() =>
+      FlashcardDeckSchema.parse({
+        title: 'T',
+        cards: [{ id: '1', kind: 'basic', front: 'a', back: '', tags: [] }],
+      }),
+    ).toThrow();
   });
 });
 

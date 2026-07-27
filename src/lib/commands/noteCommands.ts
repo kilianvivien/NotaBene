@@ -14,6 +14,7 @@ import {
   NoteDocSchema,
   type Note,
   type NoteDoc,
+  type NoteSummary,
   type SnapshotCause,
 } from '@/lib/schema';
 import { deriveTitle, flattenDoc } from '@/lib/notes/docText';
@@ -65,6 +66,29 @@ function causeFor(context: CommandContext): SnapshotCause {
  * creating a note inside a course would kick the list back to "all notes". */
 async function refreshCurrentView(): Promise<void> {
   await useLibraryStore.getState().refreshCurrentView();
+}
+
+/**
+ * A read, not a mutation — and deliberately not `libraryStore.refreshNotes`.
+ *
+ * The command palette searches while you type, and `refreshNotes` replaces the
+ * note list the palette is floating over. Typing three letters would leave the
+ * app showing the results of a search the user abandoned as soon as they picked
+ * something. This returns results and touches no state at all.
+ */
+export async function searchNotesCommand(
+  text: string,
+  limit = 8,
+): Promise<CommandResult<NoteSummary[]>> {
+  const query = text.trim();
+  if (!query) return ok([]);
+  try {
+    return ok(
+      await library.queryNotes({ text: query, scope: 'live', sort: 'relevance', limit }),
+    );
+  } catch (error) {
+    return fail('storage_failed', error instanceof Error ? error.message : String(error));
+  }
 }
 
 export async function createNoteCommand(

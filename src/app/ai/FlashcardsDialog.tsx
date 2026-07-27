@@ -22,7 +22,7 @@ import {
   proposeFlashcardsCommand,
   saveFlashcardsToNoteCommand,
 } from '@/lib/commands';
-import { newId, type Flashcard, type FlashcardDeck } from '@/lib/schema';
+import { answerable, newId, type Flashcard, type FlashcardDeck } from '@/lib/schema';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -106,11 +106,12 @@ export function FlashcardsDialog() {
   }
 
   /** Blank cards would import into Anki as cards with nothing on them, so they
-   * are dropped on the way out rather than blocking the export. */
+   * are dropped on the way out rather than blocking the export. A cloze card
+   * with an empty back is not blank — its answer is the deletion on the front. */
   function filled(source: FlashcardDeck): FlashcardDeck {
     return {
       ...source,
-      cards: source.cards.filter((card) => card.front.trim() && card.back.trim()),
+      cards: source.cards.filter((card) => card.front.trim() && answerable(card)),
     };
   }
 

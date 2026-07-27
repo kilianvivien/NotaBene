@@ -17,6 +17,11 @@
 //! deliberate: the TypeScript side joins segments into one episode by
 //! concatenating their samples, which is only sound when every segment shares a
 //! format.
+//!
+//! Every command here is `async` and does its work inside `spawn_blocking`.
+//! Tauri runs a synchronous command on the main thread, and `say` on a
+//! paragraph takes seconds — long enough that a synchronous version of this
+//! file beachballed the whole window rather than only the panel that asked.
 
 use std::process::Command;
 
@@ -83,14 +88,32 @@ pub struct TtsSegment {
 #[cfg(target_os = "macos")]
 const BASE_WORDS_PER_MINUTE: f32 = 175.0;
 
+/// Run `f` off the main thread. Every entry point here shells out, and a
+/// subprocess on the main thread is a frozen window.
+async fn off_thread<T, F>(what: &'static str, f: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|error| format!("{what} failed: {error}"))?
+}
+
 #[tauri::command]
-pub fn tts_system_available() -> bool {
-    cfg!(target_os = "macos")
-        && Command::new("/usr/bin/say")
+pub async fn tts_system_available() -> bool {
+    if !cfg!(target_os = "macos") {
+        return false;
+    }
+    off_thread("listing voices", || {
+        Ok(Command::new("/usr/bin/say")
             .arg("-v")
             .arg("?")
             .output()
-            .is_ok_and(|output| output.status.success())
+            .is_ok_and(|output| output.status.success()))
+    })
+    .await
+    .unwrap_or(false)
 }
 
 /// Parse `say -v '?'`, whose lines look like:
@@ -145,19 +168,22 @@ fn parse_voices(listing: &str) -> Vec<TtsVoice> {
 }
 
 #[tauri::command]
-pub fn tts_system_voices() -> Result<Vec<TtsVoice>, String> {
+pub async fn tts_system_voices() -> Result<Vec<TtsVoice>, String> {
     if !cfg!(target_os = "macos") {
         return Err("system speech is only available on macOS".into());
     }
-    let output = Command::new("/usr/bin/say")
-        .arg("-v")
-        .arg("?")
-        .output()
-        .map_err(|error| format!("could not run say: {error}"))?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-    Ok(parse_voices(&String::from_utf8_lossy(&output.stdout)))
+    off_thread("listing voices", || {
+        let output = Command::new("/usr/bin/say")
+            .arg("-v")
+            .arg("?")
+            .output()
+            .map_err(|error| format!("could not run say: {error}"))?;
+        if !output.status.success() {
+            return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+        }
+        Ok(parse_voices(&String::from_utf8_lossy(&output.stdout)))
+    })
+    .await
 }
 
 /// Duration from the WAVE header, rather than from a word count.
@@ -188,14 +214,29 @@ fn duration_ms(wav: &[u8]) -> u64 {
 
 #[cfg(target_os = "macos")]
 #[tauri::command]
-pub fn tts_system_synthesize(request: TtsRequest) -> Result<TtsSegment, String> {
+pub async fn tts_system_synthesize(request: TtsRequest) -> Result<TtsSegment, String> {
+    off_thread("speech synthesis", move || synthesize(request)).await
+}
+
+/// Segments are no longer strictly sequential — read-aloud can be speaking one
+/// while the podcast panel synthesises another — so the scratch file needs more
+/// than the process id to be unique.
+#[cfg(target_os = "macos")]
+static SEGMENT_SERIAL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[cfg(target_os = "macos")]
+fn synthesize(request: TtsRequest) -> Result<TtsSegment, String> {
     if request.text.trim().is_empty() {
         return Err("nothing to say".into());
     }
 
     // A temporary file rather than a pipe: `say` will not write audio to
     // stdout, and a named output is also what lets it choose the container.
-    let path = std::env::temp_dir().join(format!("notabene-tts-{}.wav", std::process::id()));
+    let serial = SEGMENT_SERIAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let path = std::env::temp_dir().join(format!(
+        "notabene-tts-{}-{serial}.wav",
+        std::process::id()
+    ));
     let _ = std::fs::remove_file(&path);
 
     let mut command = Command::new("/usr/bin/say");
@@ -230,7 +271,10 @@ pub fn tts_system_synthesize(request: TtsRequest) -> Result<TtsSegment, String> 
         .map_err(|error| format!("could not run say: {error}"))?;
     {
         use std::io::Write;
-        let stdin = child.stdin.as_mut().ok_or("say refused stdin")?;
+        // `take` rather than `as_mut`: the pipe has to be *dropped* for `say` to
+        // see EOF and start speaking. Borrowing it left the handle alive on the
+        // child, so every segment ran to the timeout below and returned nothing.
+        let mut stdin = child.stdin.take().ok_or("say refused stdin")?;
         stdin
             .write_all(request.text.as_bytes())
             .map_err(|error| error.to_string())?;

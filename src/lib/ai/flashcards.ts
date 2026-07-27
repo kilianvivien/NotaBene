@@ -10,6 +10,8 @@
 import { docToMarkdown } from '@/editor/markdown';
 import {
   AiFlashcardsResponseSchema,
+  answerable,
+  CLOZE_DELETION,
   newId,
   type Flashcard,
   type FlashcardDeck,
@@ -33,8 +35,6 @@ export interface FlashcardRequest {
   language: string;
 }
 
-const CLOZE = /\{\{c\d+::[^}]*\}\}/;
-
 /**
  * Reconcile the declared kind with the card itself.
  *
@@ -44,7 +44,11 @@ const CLOZE = /\{\{c\d+::[^}]*\}\}/;
  * making a claim about text we can simply check.
  */
 function kindOf(card: { kind: 'basic' | 'cloze'; front: string }): 'basic' | 'cloze' {
-  return CLOZE.test(card.front) ? 'cloze' : card.kind === 'cloze' ? 'basic' : card.kind;
+  return CLOZE_DELETION.test(card.front)
+    ? 'cloze'
+    : card.kind === 'cloze'
+      ? 'basic'
+      : card.kind;
 }
 
 export async function requestFlashcards(
@@ -74,11 +78,16 @@ export async function requestFlashcards(
   );
 
   const response = parseModelJson(AiFlashcardsResponseSchema, text);
-  const cards: Flashcard[] = response.cards.map((card) => ({
-    ...card,
-    id: newId(),
-    kind: kindOf(card),
-  }));
+
+  // A card with neither a deletion on the front nor anything on the back has no
+  // answer in it, and would import into Anki as a blank. Dropping it costs the
+  // student one card out of twenty; rejecting the response costs them all
+  // twenty and a second provider call.
+  const cards: Flashcard[] = response.cards
+    .filter(answerable)
+    .map((card) => ({ ...card, id: newId(), kind: kindOf(card) }));
+
+  if (!cards.length) throw new Error('the model returned no answerable cards');
 
   return { title: response.title.trim(), cards };
 }

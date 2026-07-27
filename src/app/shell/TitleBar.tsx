@@ -6,6 +6,7 @@ import {
   Save,
   Search,
   Settings,
+  X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -100,11 +101,28 @@ export function TitleBar() {
             placeholder={t('search.placeholder')}
             aria-label={t('search.placeholder')}
             autoComplete="off"
-            className="glass-thin h-7 w-full rounded-nb-sm border-[0.5px] border-[var(--nb-glass-border)] pl-8 pr-8 text-[13px] placeholder:text-nb-text-3 focus:outline-none"
+            className="nb-search-input glass-thin h-7 w-full rounded-nb-sm border-[0.5px] border-[var(--nb-glass-border)] pl-8 pr-12 text-[13px] placeholder:text-nb-text-3 focus:outline-none"
             aria-expanded={historyOpen && historyMatches.length > 0}
             aria-controls="notabene-recent-searches"
             role="combobox"
           />
+          {/* Ours, not WebKit's. The native search-cancel button is a bright
+              blue disc that belongs to Safari's palette and to no theme this
+              app has. */}
+          {searchQuery && (
+            <button
+              type="button"
+              aria-label={t('common.clear')}
+              title={t('common.clear')}
+              onClick={() => {
+                setSearchQuery('');
+                setHistoryOpen(false);
+              }}
+              className="absolute right-[26px] top-1/2 grid size-[18px] -translate-y-1/2 place-items-center rounded-nb-xs text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text"
+            >
+              <X size={12} />
+            </button>
+          )}
           {historyOpen && historyMatches.length > 0 && (
             <div
               id="notabene-recent-searches"

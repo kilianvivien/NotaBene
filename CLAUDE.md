@@ -101,18 +101,30 @@ surface, client setup, agent activity, versioned writes, and optimistic
 concurrency protection. G adds mind maps (a real editor block that survives
 every export), flashcards with Anki export, and note-to-podcast over macOS
 system voices. Section 3 of the implementation plan tracks the remaining gaps
-honestly — read it before assuming something works.
+honestly — read it before assuming something works. In particular a generated
+mind map is **not yet editable**, and no deck has an in-app review mode.
 
 Phase G notes worth knowing before touching it:
 
 - A mind map node carries both `data` (the tree) and `svg` (the render from
   `src/lib/mindmap/layout.ts`). The SVG is what HTML, PDF, DOCX and Markdown
   export draw, exactly as `drawing` works — never re-render at export time.
+  Reading one happens in `src/app/mindmap/MindMapViewer.tsx`, which portals to
+  `document.body`: a `position: fixed` overlay rendered inside a ProseMirror
+  node view is laid out against the editor's scroll container, not the window.
 - Decks are not library entities and must not become them. They live in a note
   or in Anki, which is why G needed no `SCHEMA_VERSION` bump.
+- A flashcard's `back` may be empty, and only for a cloze card — it is Anki's
+  *Extra* field, not the answer. `answerable()` in `src/lib/schema/` is the
+  check that matters; requiring `back` rejected whole decks.
 - TTS is `say(1)` behind `src-tauri/src/tts.rs`, writing 16-bit PCM at 22.05 kHz
   so `src/lib/podcast/wav.ts` can join segments by concatenating samples. Change
-  one of those two and you must change the other.
+  one of those two and you must change the other. Every command in that file is
+  `async` over `spawn_blocking` — a synchronous Tauri command runs on the main
+  thread, and `say` on a paragraph freezes the window if it does.
+- Tags are stored as `namespace:name` because that is what makes them
+  facetable, and displayed through `tagLabel()` because `type:summary` is not a
+  label. Query with `tagQuery()`, show with `tagLabel()`.
 
 ## House rules
 

@@ -189,6 +189,15 @@ describe('Phase D versions, backups, and exports', () => {
     expect(relationships).toContain('https://example.com');
   });
 
+  /**
+   * Note what this does *not* cover: how pdfmake is imported. Vitest resolves
+   * the CJS bundle through Node's interop and gets the whole `module.exports`;
+   * Vite's browser dep-optimizer builds a namespace object by enumerating
+   * exports, and pdfmake's `createPdf` and `addVirtualFileSystem` are
+   * non-enumerable. This test passed for the entire time PDF export was dead in
+   * the app. `pdf.ts` now uses a default import, which behaves the same either
+   * way — but the gap is real and lives in an e2e run, not here.
+   */
   it('builds a real PDF with structured note content', async () => {
     const note = createNote({ title: 'Fidelity', doc: fullVocabulary });
     const blob = await notesToPdf([note], new Map(), new Map(), { language: 'en' });

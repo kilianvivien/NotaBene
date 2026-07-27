@@ -16,6 +16,7 @@
  * *Calqo's `APP_COMMAND_IDS` is the pattern; the phase column is ours.*
  */
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useSpeechStore } from '@/lib/state/speechStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { createNoteCommand } from './noteCommands';
 import { createCourseCommand } from './organizationCommands';
@@ -23,6 +24,7 @@ import { fail, ok, USER, type CommandContext, type CommandResult } from './types
 import { runEditorCommand, type EditorCommand } from '@/editor/commandBridge';
 
 export const APP_COMMAND_IDS = [
+  'app.commandPalette',
   'app.settings',
   'note.new',
   'note.quick',
@@ -44,6 +46,7 @@ export const APP_COMMAND_IDS = [
   'insert.callout',
   'insert.math',
   'insert.link',
+  'note.readAloud',
   'view.toggleSidebar',
   'view.toggleInspector',
   'view.focusMode',
@@ -120,6 +123,23 @@ function editorAction(command: EditorCommand) {
 }
 
 export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
+  /**
+   * One field for "find a note" and "do a thing".
+   *
+   * ⌘K, because that is where a student's hands already go. It is the only
+   * command that must never be unavailable — a palette that cannot open is a
+   * palette nobody learns to trust — so it has no note or provider precondition.
+   */
+  'app.commandPalette': {
+    id: 'app.commandPalette',
+    labelKey: 'menu.commandPalette',
+    accelerator: 'CmdOrCtrl+K',
+    landsIn: 'A',
+    run: () => {
+      useUiStore.getState().setCommandPaletteOpen(true);
+      return ok(undefined);
+    },
+  },
   'app.settings': {
     id: 'app.settings',
     labelKey: 'menu.settings',
@@ -187,6 +207,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'backup.create': {
     id: 'backup.create',
     labelKey: 'menu.backupNow',
+    accelerator: 'CmdOrCtrl+Shift+B',
     landsIn: 'D',
     run: () => {
       useUiStore.getState().setSettingsTab('backups');
@@ -197,6 +218,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'backup.restore': {
     id: 'backup.restore',
     labelKey: 'menu.restoreBackup',
+    accelerator: 'CmdOrCtrl+Alt+B',
     landsIn: 'D',
     run: () => {
       useUiStore.getState().setSettingsTab('backups');
@@ -252,39 +274,71 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'insert.image': {
     id: 'insert.image',
     labelKey: 'menu.image',
+    accelerator: 'CmdOrCtrl+Shift+I',
     landsIn: 'B',
     run: editorAction('image'),
   },
   'insert.drawing': {
     id: 'insert.drawing',
     labelKey: 'menu.drawing',
+    accelerator: 'CmdOrCtrl+Shift+D',
     landsIn: 'B',
     run: editorAction('drawing'),
   },
   'insert.table': {
     id: 'insert.table',
     labelKey: 'menu.table',
+    accelerator: 'CmdOrCtrl+Shift+T',
     landsIn: 'B',
     run: editorAction('table'),
   },
   'insert.callout': {
     id: 'insert.callout',
     labelKey: 'menu.callout',
+    accelerator: 'CmdOrCtrl+Shift+C',
     landsIn: 'B',
     run: editorAction('callout'),
   },
   'insert.math': {
     id: 'insert.math',
     labelKey: 'menu.math',
+    accelerator: 'CmdOrCtrl+Shift+M',
     landsIn: 'B',
     run: editorAction('math'),
   },
   'insert.link': {
     id: 'insert.link',
     labelKey: 'menu.link',
-    accelerator: 'CmdOrCtrl+K',
+    // ⌘K is the command palette, as it is nearly everywhere else now.
+    accelerator: 'CmdOrCtrl+Shift+K',
     landsIn: 'B',
     run: editorAction('link'),
+  },
+
+  /**
+   * Speak the open note.
+   *
+   * In the File-adjacent part of the table rather than under AI, because no
+   * provider is involved: this is the note's own words through a macOS voice.
+   * Pressing it while it is speaking stops it, which is what makes one shortcut
+   * enough.
+   */
+  'note.readAloud': {
+    id: 'note.readAloud',
+    labelKey: 'menu.readAloud',
+    accelerator: 'CmdOrCtrl+Shift+L',
+    landsIn: 'G',
+    run: async () => {
+      const speech = useSpeechStore.getState();
+      if (speech.status !== 'idle') {
+        speech.stop();
+        return ok(undefined);
+      }
+      const note = useEditorStore.getState().note;
+      if (!note) return fail('not_found', 'open a note first');
+      await speech.speak(note.plainText);
+      return ok(undefined);
+    },
   },
 
   'view.toggleSidebar': {
@@ -331,6 +385,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'ai.synthesize': {
     id: 'ai.synthesize',
     labelKey: 'ai.synthesis',
+    accelerator: 'CmdOrCtrl+Shift+S',
     landsIn: 'E',
     run: requireNote(() => {
       useUiStore.getState().setAiSynthesisOpen(true);
@@ -350,6 +405,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'ai.mindMap': {
     id: 'ai.mindMap',
     labelKey: 'ai.mindMap',
+    accelerator: 'CmdOrCtrl+Shift+G',
     landsIn: 'G',
     run: requireNote(() => {
       useUiStore.getState().setAiMindMapOpen(true);
@@ -358,6 +414,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'ai.flashcards': {
     id: 'ai.flashcards',
     labelKey: 'ai.flashcards',
+    accelerator: 'CmdOrCtrl+Alt+F',
     landsIn: 'G',
     run: requireNote(() => {
       useUiStore.getState().setAiFlashcardsOpen(true);
@@ -366,6 +423,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'ai.podcast': {
     id: 'ai.podcast',
     labelKey: 'ai.podcast',
+    accelerator: 'CmdOrCtrl+Alt+P',
     landsIn: 'G',
     run: requireNote(() => {
       useUiStore.getState().setAiPodcastOpen(true);
@@ -375,6 +433,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'help.documentation': {
     id: 'help.documentation',
     labelKey: 'menu.documentation',
+    accelerator: 'CmdOrCtrl+Shift+Slash',
     landsIn: 'H',
   },
 };
@@ -427,11 +486,27 @@ interface Accelerator {
   alt: boolean;
 }
 
+/**
+ * Tauri's names for keys that are not a letter, mapped to what a
+ * `KeyboardEvent` actually reports. The native menu wants `Slash`; the webview
+ * reports `/`, and without this the web keybinding layer silently never fires.
+ */
+const KEY_NAMES: Record<string, string> = {
+  slash: '/',
+  comma: ',',
+  period: '.',
+  minus: '-',
+  plus: '+',
+  equal: '=',
+  space: ' ',
+};
+
 /** Parse Tauri accelerator syntax. `CmdOrCtrl` maps to the platform's own
  * modifier, which on the only platform we ship is Command. */
 function parseAccelerator(accelerator: string): Accelerator {
   const parts = accelerator.split('+');
-  const key = parts[parts.length - 1] ?? '';
+  const raw = (parts[parts.length - 1] ?? '').toLowerCase();
+  const key = KEY_NAMES[raw] ?? raw;
   const modifiers = parts.slice(0, -1).map((part) => part.toLowerCase());
   return {
     key: key.toLowerCase(),
