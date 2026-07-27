@@ -24,6 +24,7 @@ import {
   requestRewrite,
   requestSynthesis,
   resolveFeature,
+  type AiFeature,
   type AiRunOptions,
   type AiUnavailableReason,
   type AskTurn,
@@ -45,14 +46,17 @@ import { fail, ok, type CommandResult } from './types';
  * the version history entry both depend on it. */
 const AI = { source: 'ai' } as const;
 
-type ProviderLookup =
+export type ProviderLookup =
   | { ok: true; provider: ResolvedProvider }
   | { ok: false; reason: AiUnavailableReason | string };
 
 /** `not_supported` carries the reason verbatim so the UI can turn it into the
  * right sentence — "connect a provider" and "that provider has no address" send
- * the user to different places. */
-async function providerFor(feature: 'rewrite' | 'synthesis' | 'ask'): Promise<ProviderLookup> {
+ * the user to different places.
+ *
+ * Exported because the study features in `studyCommands.ts` resolve providers
+ * the same way; "which provider answers what" gets one implementation. */
+export async function providerFor(feature: AiFeature): Promise<ProviderLookup> {
   const settings = useSettingsStore.getState().settings;
   const keyed = useAiStore.getState().configuredProviderIds;
   const availability = resolveFeature(feature, settings, keyed);
@@ -64,7 +68,7 @@ async function providerFor(feature: 'rewrite' | 'synthesis' | 'ask'): Promise<Pr
   }
 }
 
-function language(): string {
+export function language(): string {
   return useSettingsStore.getState().settings.locale;
 }
 
@@ -195,7 +199,8 @@ export async function synthesizeNotesCommand(
   const courseIds = new Set(notes.map((note) => note.courseId ?? null));
   const courseId = courseIds.size === 1 ? (notes[0]?.courseId ?? null) : null;
   const sectionIds = new Set(notes.map((note) => note.sectionId ?? null));
-  const sectionId = courseId && sectionIds.size === 1 ? (notes[0]?.sectionId ?? null) : null;
+  const sectionId =
+    courseId && sectionIds.size === 1 ? (notes[0]?.sectionId ?? null) : null;
 
   const tag = await ensureTagCommand({ name: 'summary', namespace: 'type' });
 

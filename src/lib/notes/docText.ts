@@ -21,6 +21,22 @@ const BLOCK_TYPES = new Set([
   'horizontalRule',
 ]);
 
+/** Pull node labels out of a stored mind map. Defensive because the attribute
+ * is `unknown` at this level — the doc schema is structural, and a map that
+ * arrived in a restored backup is not guaranteed to be well formed. */
+function mindMapLabels(data: unknown): string[] {
+  if (typeof data !== 'object' || data === null) return [];
+  const nodes = (data as { nodes?: unknown }).nodes;
+  if (!Array.isArray(nodes)) return [];
+  return nodes
+    .map((node) =>
+      typeof node === 'object' && node !== null
+        ? (node as { label?: unknown }).label
+        : undefined,
+    )
+    .filter((label): label is string => typeof label === 'string');
+}
+
 function walk(node: DocNode, out: string[]): void {
   if (node.text) out.push(node.text);
 
@@ -35,6 +51,12 @@ function walk(node: DocNode, out: string[]): void {
     const alt = node.attrs?.alt;
     if (typeof caption === 'string') out.push(caption);
     else if (typeof alt === 'string') out.push(alt);
+  }
+  // A mind map's labels are the concepts of the lecture, so they are exactly
+  // what a student searches for. The rendered SVG is not indexed — it would
+  // put a wall of path data into FTS5 and into every list snippet.
+  if (node.type === 'mindMap') {
+    for (const label of mindMapLabels(node.attrs?.data)) out.push(`${label} `);
   }
 
   for (const child of node.content ?? []) walk(child, out);

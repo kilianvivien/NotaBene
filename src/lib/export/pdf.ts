@@ -300,7 +300,8 @@ function blocks(
         break;
       }
       case 'drawing':
-        if (typeof node.attrs?.svg === 'string') {
+      case 'mindMap':
+        if (typeof node.attrs?.svg === 'string' && node.attrs.svg) {
           result.push({
             svg: printableSvg(node.attrs.svg),
             fit: [470, 330],

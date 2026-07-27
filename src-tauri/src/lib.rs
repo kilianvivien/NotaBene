@@ -11,6 +11,7 @@ mod db;
 mod mcp;
 mod menu;
 mod settings;
+mod tts;
 
 use tauri::{Emitter, Manager};
 #[cfg(desktop)]
@@ -126,6 +127,9 @@ pub fn run() {
             ai::ai_request,
             ai::ai_stream,
             ai::ai_cancel,
+            tts::tts_system_available,
+            tts::tts_system_voices,
+            tts::tts_system_synthesize,
             menu::menu_apply,
             mcp::mcp_start_server,
             mcp::mcp_stop_server,

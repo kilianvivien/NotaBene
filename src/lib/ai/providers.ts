@@ -170,7 +170,15 @@ export function secretKeyFor(providerId: string): string {
 }
 
 /** The features that pick their own model. `default` is the fallback every
- * other feature — including the Phase G ones — resolves through, so a user who
- * configures one provider gets a working app without visiting a matrix. */
-export const AI_FEATURES = ['default', 'rewrite', 'synthesis', 'ask'] as const;
+ * other feature resolves through, so a user who configures one provider gets a
+ * working app without visiting a matrix. */
+export const AI_FEATURES = [
+  'default',
+  'rewrite',
+  'synthesis',
+  'ask',
+  'mindMap',
+  'flashcards',
+  'podcast',
+] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];

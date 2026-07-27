@@ -7,3 +7,6 @@ export * from './prompts';
 export * from './rewrite';
 export * from './synthesis';
 export * from './ask';
+export * from './mindmap';
+export * from './flashcards';
+export * from './podcast';

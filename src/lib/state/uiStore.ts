@@ -24,13 +24,7 @@ export type InspectorTab =
 /** Settings sections. Future sections stay addressable while their panes are
  * placeholders, so commands and navigation do not change shape between phases. */
 export type SettingsTab =
-  | 'general'
-  | 'appearance'
-  | 'editor'
-  | 'aiProviders'
-  | 'backups'
-  | 'agent'
-  | 'about';
+  'general' | 'appearance' | 'editor' | 'aiProviders' | 'backups' | 'agent' | 'about';
 
 interface UiState {
   view: ViewKind;
@@ -48,6 +42,9 @@ interface UiState {
   exportOpen: boolean;
   aiRewriteOpen: boolean;
   aiSynthesisOpen: boolean;
+  aiMindMapOpen: boolean;
+  aiFlashcardsOpen: boolean;
+  aiPodcastOpen: boolean;
   settingsOpen: boolean;
   settingsTab: SettingsTab;
   searchQuery: string;
@@ -70,6 +67,9 @@ interface UiState {
   setExportOpen(open: boolean): void;
   setAiRewriteOpen(open: boolean): void;
   setAiSynthesisOpen(open: boolean): void;
+  setAiMindMapOpen(open: boolean): void;
+  setAiFlashcardsOpen(open: boolean): void;
+  setAiPodcastOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
   setSearchQuery(query: string): void;
@@ -92,6 +92,9 @@ export const useUiStore = create<UiState>()(
     exportOpen: false,
     aiRewriteOpen: false,
     aiSynthesisOpen: false,
+    aiMindMapOpen: false,
+    aiFlashcardsOpen: false,
+    aiPodcastOpen: false,
     settingsOpen: false,
     settingsTab: 'general',
     searchQuery: '',
@@ -188,6 +191,24 @@ export const useUiStore = create<UiState>()(
     setAiSynthesisOpen(open) {
       set((state) => {
         state.aiSynthesisOpen = open;
+      });
+    },
+
+    setAiMindMapOpen(open) {
+      set((state) => {
+        state.aiMindMapOpen = open;
+      });
+    },
+
+    setAiFlashcardsOpen(open) {
+      set((state) => {
+        state.aiFlashcardsOpen = open;
+      });
+    },
+
+    setAiPodcastOpen(open) {
+      set((state) => {
+        state.aiPodcastOpen = open;
       });
     },
 

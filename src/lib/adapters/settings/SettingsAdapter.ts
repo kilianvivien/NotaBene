@@ -22,6 +22,17 @@ export interface AiProviderSettings {
   extraModels: string[];
 }
 
+export interface PodcastSettings {
+  /** A macOS voice id, or `null` until the user has picked one — the installed
+   * voices differ per machine, so there is no default worth baking in. */
+  voiceId: string | null;
+  /** Multiplier on the voice's natural rate. */
+  rate: number;
+  mode: 'narrator' | 'dialogue';
+  /** Target episode length, in minutes. */
+  minutes: number;
+}
+
 export interface AppSettings {
   locale: 'en' | 'fr';
   theme: 'light' | 'dark' | 'system';
@@ -49,6 +60,9 @@ export interface AppSettings {
   /** Per-provider configuration that is *not* a secret. Keys live in the
    * Keychain and have no representation here — see the schema note in §1.6. */
   aiProviders: Record<string, AiProviderSettings>;
+  /** Remembered between episodes, because picking a voice from a list of forty
+   * is not something anyone wants to do twice. */
+  podcast: PodcastSettings;
   mcpEnabled: boolean;
   mcpPort: number;
   checkForUpdates: boolean;
@@ -95,6 +109,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   aiFeatureModels: {},
   aiProviders: {},
+  podcast: { voiceId: null, rate: 1, mode: 'narrator', minutes: 6 },
   mcpEnabled: false,
   mcpPort: 22600,
   checkForUpdates: true,

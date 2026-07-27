@@ -392,3 +392,29 @@ export const AiSynthesisResponseSchema = z.object({
   markdown: z.string().min(1),
 });
 export type AiSynthesisResponse = z.infer<typeof AiSynthesisResponseSchema>;
+
+/**
+ * Cards as a model emits them: no ids.
+ *
+ * `FlashcardSchema` requires one, and asking a model for unique identifiers
+ * across thirty objects is asking for the one duplicate that makes two cards
+ * share a row in the review list. `src/lib/ai/flashcards.ts` mints them
+ * instead, which is also what makes a card the user edited keep its identity.
+ */
+export const AiFlashcardsResponseSchema = z.object({
+  title: z.string().min(1).max(200),
+  cards: z
+    .array(FlashcardSchema.omit({ id: true }))
+    .min(1)
+    .max(200),
+});
+export type AiFlashcardsResponse = z.infer<typeof AiFlashcardsResponseSchema>;
+
+/**
+ * Mind maps and podcast scripts need no separate wire shape: `MindMapSchema`
+ * and `PodcastScriptSchema` are already exactly what the prompt asks for, and
+ * the mind map's edge check is the validation that matters most on the way in.
+ * A second near-identical schema would only be somewhere for the two to drift.
+ */
+export const AiMindMapResponseSchema = MindMapSchema;
+export const AiPodcastResponseSchema = PodcastScriptSchema;

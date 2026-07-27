@@ -73,7 +73,7 @@ Four rules carry most of the weight:
 - Shell layout lives in `src/app/shell/`; the view → query mapping is
   `viewQuery.ts`, shared with export selection and the MCP search tool.
 - Menu items, shortcuts, and chrome buttons all resolve to one id in
-  `src/lib/commands/appCommands.ts`. The native menu bar is *generated* from
+  `src/lib/commands/appCommands.ts`. The native menu bar is _generated_ from
   that table (`src/app/menuBar.ts` → `MenuAdapter` → Rust), so a new command is
   added there and nowhere else. Commands from later phases belong in the table
   too, with their `landsIn` phase — they render disabled.
@@ -91,18 +91,31 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A–F are code-complete: foundation, the TipTap authoring surface, course
-organization/search, versions/backups/exports, the AI core, and the local MCP
-server. E adds the
+Phases A–G are code-complete: foundation, the TipTap authoring surface, course
+organization/search, versions/backups/exports, the AI core, the local MCP
+server, and the study features. E adds the
 provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
 Studio, custom), Keychain key storage, rewrite-with-diff-gate, synthesis, and
 an Ask panel for questions about a note. F adds the authenticated 11-tool MCP
 surface, client setup, agent activity, versioned writes, and optimistic
-concurrency protection. Section 3 of the implementation plan tracks the
-remaining gaps honestly — read it before assuming something works.
+concurrency protection. G adds mind maps (a real editor block that survives
+every export), flashcards with Anki export, and note-to-podcast over macOS
+system voices. Section 3 of the implementation plan tracks the remaining gaps
+honestly — read it before assuming something works.
+
+Phase G notes worth knowing before touching it:
+
+- A mind map node carries both `data` (the tree) and `svg` (the render from
+  `src/lib/mindmap/layout.ts`). The SVG is what HTML, PDF, DOCX and Markdown
+  export draw, exactly as `drawing` works — never re-render at export time.
+- Decks are not library entities and must not become them. They live in a note
+  or in Anki, which is why G needed no `SCHEMA_VERSION` bump.
+- TTS is `say(1)` behind `src-tauri/src/tts.rs`, writing 16-bit PCM at 22.05 kHz
+  so `src/lib/podcast/wav.ts` can join segments by concatenating samples. Change
+  one of those two and you must change the other.
 
 ## House rules
 
-- Match surrounding style; keep comments purposeful — explain *why*, not *what*.
+- Match surrounding style; keep comments purposeful — explain _why_, not _what_.
 - Do not commit or push unless asked. Default branch: `main`.
 - Keep changes scoped and update the phased plan when work changes status.
