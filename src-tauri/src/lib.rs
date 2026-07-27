@@ -5,6 +5,7 @@
 //! and QuickLook. Everything else — the editor, rendering, export composition,
 //! AI orchestration — stays in TypeScript so the core remains web-ready.
 
+mod ai;
 mod commands;
 mod db;
 mod mcp;
@@ -61,6 +62,14 @@ pub fn run() {
             #[cfg(desktop)]
             app.global_shortcut().register("CmdOrCtrl+Shift+Q")?;
 
+            // Unlike the store, a failed secrets migration is not fatal: the
+            // keys are still readable where they are, and refusing to launch
+            // over housekeeping would be the worse outcome.
+            if let Err(error) = settings::migrate_secrets(handle) {
+                eprintln!("secrets migration skipped: {error}");
+            }
+
+            ai::init(handle);
             mcp::init(handle);
             Ok(())
         })
@@ -114,6 +123,9 @@ pub fn run() {
             settings::secrets_set,
             settings::secrets_remove,
             settings::secrets_list_keys,
+            ai::ai_request,
+            ai::ai_stream,
+            ai::ai_cancel,
             menu::menu_apply,
             mcp::mcp_start_server,
             mcp::mcp_stop_server,

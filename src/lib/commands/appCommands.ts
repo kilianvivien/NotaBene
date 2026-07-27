@@ -49,6 +49,7 @@ export const APP_COMMAND_IDS = [
   'view.focusMode',
   'ai.rewrite',
   'ai.synthesize',
+  'ai.ask',
   'ai.mindMap',
   'ai.flashcards',
   'ai.podcast',
@@ -97,6 +98,18 @@ async function openQuickNote(): Promise<CommandResult<unknown>> {
   useUiStore.getState().selectNote(result.value.id);
   await useEditorStore.getState().openNote(result.value.id);
   return result;
+}
+
+/** AI actions all need something to work on. Refusing with a named reason beats
+ * opening a dialog that can only say "no note selected". */
+function requireNote(open: () => void) {
+  return (): CommandResult<unknown> => {
+    if (!useEditorStore.getState().note) {
+      return fail('not_found', 'open a note first');
+    }
+    open();
+    return ok(undefined);
+  };
 }
 
 function editorAction(command: EditorCommand) {
@@ -306,8 +319,34 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     },
   },
 
-  'ai.rewrite': { id: 'ai.rewrite', labelKey: 'ai.rewrite', landsIn: 'E' },
-  'ai.synthesize': { id: 'ai.synthesize', labelKey: 'ai.synthesis', landsIn: 'E' },
+  'ai.rewrite': {
+    id: 'ai.rewrite',
+    labelKey: 'ai.rewrite',
+    accelerator: 'CmdOrCtrl+Shift+R',
+    landsIn: 'E',
+    run: requireNote(() => {
+      useUiStore.getState().setAiRewriteOpen(true);
+    }),
+  },
+  'ai.synthesize': {
+    id: 'ai.synthesize',
+    labelKey: 'ai.synthesis',
+    landsIn: 'E',
+    run: requireNote(() => {
+      useUiStore.getState().setAiSynthesisOpen(true);
+    }),
+  },
+  'ai.ask': {
+    id: 'ai.ask',
+    labelKey: 'ai.ask',
+    accelerator: 'CmdOrCtrl+Shift+A',
+    landsIn: 'E',
+    run: requireNote(() => {
+      // The Ask panel is a tab, not a modal: the question is usually about the
+      // paragraph you are looking at, and a dialog over the note would hide it.
+      useUiStore.getState().setInspectorTab('ai');
+    }),
+  },
   'ai.mindMap': { id: 'ai.mindMap', labelKey: 'ai.mindMap', landsIn: 'G' },
   'ai.flashcards': { id: 'ai.flashcards', labelKey: 'ai.flashcards', landsIn: 'G' },
   'ai.podcast': { id: 'ai.podcast', labelKey: 'ai.podcast', landsIn: 'G' },

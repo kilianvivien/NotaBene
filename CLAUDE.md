@@ -80,17 +80,23 @@ Four rules carry most of the weight:
 - Backups and exports must never contain secrets. `LibrarySchema` has no field
   a key could occupy — keep it that way. Keys go through `SecretsAdapter`.
 - MCP exposes no destructive tool. Agents archive; they do not delete.
+- AI provider traffic goes through `src-tauri/src/ai.rs`, not the webview's
+  `fetch`, so no provider host appears in `connect-src`. Prompts, parsing and
+  provider definitions stay in `src/lib/ai/`; the transport only carries bytes.
+  Anything a model returns is parsed through `src/lib/schema/` before it can
+  reach a note, and AI writes go through `src/lib/commands/aiCommands.ts` with
+  `source: 'ai'`.
 - Prefer failing loudly over a silent fallback. Unimplemented Rust commands
   return a named "lands in phase X" error rather than empty data.
 
 ## Status
 
-Phases A–D are complete: foundation, the TipTap authoring surface, course
-organization/search, and versions/backups/exports. This includes the history
-browser and retention, integrity-checked backup/restore, Trash lifecycle, and
-single/bundle Markdown, HTML, PDF, and DOCX export. Section 3 of the
-implementation plan tracks the remaining gaps honestly — read it before
-assuming something works.
+Phases A–E are complete: foundation, the TipTap authoring surface, course
+organization/search, versions/backups/exports, and the AI core. E adds the
+provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
+Studio, custom), Keychain key storage, rewrite-with-diff-gate, synthesis, and
+an Ask panel for questions about a note. Section 3 of the implementation plan
+tracks the remaining gaps honestly — read it before assuming something works.
 
 ## House rules
 

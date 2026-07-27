@@ -15,6 +15,8 @@ import { setLocale } from '@/lib/i18n';
 import { CollapsiblePane } from './shell/CollapsiblePane';
 import { TemplatePicker } from './organization/TemplatePicker';
 import { ExportDialog } from './export/ExportDialog';
+import { RewriteDialog } from './ai/RewriteDialog';
+import { SynthesisDialog } from './ai/SynthesisDialog';
 import { purgeExpiredTrashCommand, runScheduledBackupCommand } from '@/lib/commands';
 
 /** Pane widths live here rather than in each pane's class list, because the
@@ -88,6 +90,8 @@ export function App() {
       <RecoveryPrompt />
       <TemplatePicker />
       <ExportDialog />
+      <RewriteDialog />
+      <SynthesisDialog />
     </div>
   );
 }

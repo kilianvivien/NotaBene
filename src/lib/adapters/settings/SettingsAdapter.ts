@@ -8,6 +8,20 @@
  */
 export type AccentColor = 'orange' | 'blue' | 'purple' | 'pink' | 'green' | 'graphite';
 
+export interface AiProviderSettings {
+  /** Only meaningful for providers that need no key. Pasting a key is itself
+   * an opt-in; a local runtime has no equivalent gesture, and without one the
+   * app would silently resolve to an Ollama that may not be installed instead
+   * of saying "connect a provider". */
+  enabled?: boolean;
+  /** Overrides the catalogue's default; the only field a self-hosted or
+   * proxied endpoint needs. `null` means "use the built-in address". */
+  baseUrl: string | null;
+  /** Model ids the user typed that the catalogue does not list. A baked-in
+   * catalogue goes stale between releases; this is how it keeps up. */
+  extraModels: string[];
+}
+
 export interface AppSettings {
   locale: 'en' | 'fr';
   theme: 'light' | 'dark' | 'system';
@@ -29,8 +43,12 @@ export interface AppSettings {
     includeToc: boolean;
   };
   /** Provider id per AI feature, so synthesis can use a stronger model than
-   * spell-fixing without the user re-picking every time. */
+   * spell-fixing without the user re-picking every time. The `default` entry is
+   * what every unlisted feature resolves through. */
   aiFeatureModels: Record<string, { providerId: string; model: string }>;
+  /** Per-provider configuration that is *not* a secret. Keys live in the
+   * Keychain and have no representation here — see the schema note in §1.6. */
+  aiProviders: Record<string, AiProviderSettings>;
   mcpEnabled: boolean;
   mcpPort: number;
   checkForUpdates: boolean;
@@ -76,6 +94,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     includeToc: true,
   },
   aiFeatureModels: {},
+  aiProviders: {},
   mcpEnabled: false,
   mcpPort: 22600,
   checkForUpdates: true,

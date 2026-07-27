@@ -20,6 +20,7 @@ import { browserExportAdapter } from './export/browserExportAdapter';
 import { tauriExportAdapter } from './export/tauriExportAdapter';
 import { tauriMenuAdapter, unavailableMenuAdapter } from './menu/tauriMenuAdapter';
 import { fetchAiTransport } from './ai/fetchAiTransport';
+import { tauriAiTransport } from './ai/tauriAiTransport';
 import { systemTtsEngine, unavailableTtsEngine } from './tts/systemTtsEngine';
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
 import { isTauri } from '@/lib/platform/runtime';
@@ -44,10 +45,10 @@ export const dialog: DialogAdapter = isTauri ? tauriDialogAdapter : browserDialo
 export const exporter: ExportAdapter = isTauri ? tauriExportAdapter : browserExportAdapter;
 export const mcp: McpAdapter = isTauri ? tauriMcpAdapter : unavailableMcpAdapter;
 export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenuAdapter;
-// Desktop AI still goes over `fetch`; the CSP connect-src list in
-// tauri.conf.json is the allowlist. A Rust-side transport becomes worthwhile
-// only if we move keys out of the webview entirely (see plan §E).
-export const aiTransport: AiTransport = fetchAiTransport;
+// Desktop AI leaves through Rust so that a self-hosted or otherwise unusual
+// base URL does not require widening `connect-src` for the whole webview; the
+// browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
+export const aiTransport: AiTransport = isTauri ? tauriAiTransport : fetchAiTransport;
 export const tts: TtsEngine = isTauri ? systemTtsEngine : unavailableTtsEngine;
 
 export type {
@@ -58,6 +59,7 @@ export type {
 export type { AssetAdapter } from './assets/AssetAdapter';
 export type {
   AccentColor,
+  AiProviderSettings,
   AppSettings,
   SecretsAdapter,
   SettingsAdapter,

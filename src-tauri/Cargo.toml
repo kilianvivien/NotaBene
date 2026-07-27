@@ -47,3 +47,14 @@ axum = "0.8"
 schemars = "1.0"
 tokio = { version = "1", features = ["net", "sync", "time", "macros", "rt"] }
 tokio-util = "0.7"
+
+# AI provider traffic leaves through Rust rather than the webview's `fetch`, so
+# a user-supplied base URL is not also a CSP edit (see plan §E). Same feature
+# set the updater plugin already pulls, so this costs no extra compilation.
+reqwest = { version = "0.13", default-features = false, features = [
+    "json",
+    "stream",
+    "rustls-no-provider",
+] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+futures-util = "0.3"

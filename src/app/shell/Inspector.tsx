@@ -5,12 +5,14 @@ import {
   Paperclip,
   Plus,
   RotateCcw,
+  Sparkles,
   Tag,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlassButton, GlassSegmentedControl } from '@/components/glass';
+import { AskPanel } from '@/app/ai/AskPanel';
 import { AttachmentPanel } from '@/editor/attachments/AttachmentPanel';
 import { library } from '@/lib/adapters';
 import {
@@ -24,7 +26,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 
-type VisibleTab = 'info' | 'versions' | 'backlinks' | 'attachments';
+type VisibleTab = 'info' | 'versions' | 'backlinks' | 'attachments' | 'ai';
 
 export function Inspector() {
   const { t } = useTranslation();
@@ -32,7 +34,7 @@ export function Inspector() {
   const tab = useUiStore((state) => state.inspectorTab);
   const setTab = useUiStore((state) => state.setInspectorTab);
   const visibleTab: VisibleTab = (
-    ['info', 'versions', 'backlinks', 'attachments'] as const
+    ['info', 'versions', 'backlinks', 'attachments', 'ai'] as const
   ).includes(tab as VisibleTab)
     ? (tab as VisibleTab)
     : 'info';
@@ -55,6 +57,7 @@ export function Inspector() {
             label: t('inspector.attachments'),
             icon: Paperclip,
           },
+          { value: 'ai', label: t('ai.ask'), icon: Sparkles },
         ]}
         iconOnly
         className="nb-inspector-tabs w-full"
@@ -62,6 +65,8 @@ export function Inspector() {
 
       {!note ? (
         <p className="text-[12px] text-nb-text-3">{t('editor.noSelection')}</p>
+      ) : visibleTab === 'ai' ? (
+        <AskPanel noteId={note.id} />
       ) : visibleTab === 'attachments' ? (
         <AttachmentPanel noteId={note.id} />
       ) : visibleTab === 'backlinks' ? (

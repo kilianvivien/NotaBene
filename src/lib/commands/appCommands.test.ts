@@ -81,11 +81,11 @@ describe('runAppCommand', () => {
   });
 
   it('refuses a command whose feature has not shipped, naming the phase', async () => {
-    const result = await runAppCommand('ai.rewrite');
+    const result = await runAppCommand('ai.mindMap');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe('not_supported');
-      expect(result.message).toContain('phase E');
+      expect(result.message).toContain('phase G');
     }
   });
 });

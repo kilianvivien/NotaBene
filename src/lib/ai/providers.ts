@@ -1,0 +1,165 @@
+/**
+ * The provider catalogue.
+ *
+ * Three wire protocols cover every provider worth shipping: Anthropic's
+ * Messages API, the OpenAI chat-completions shape that most of the industry
+ * cloned, and Gemini's. So a "provider" here is mostly a base URL, an auth
+ * header, and a handful of quirks — which is why adding Mistral, or a
+ * self-hosted vLLM box, is an entry in a table rather than a new module.
+ *
+ * Model lists are *suggestions*. They go into a datalist, never a closed
+ * select: a catalogue baked into a desktop app is stale the week after it
+ * ships, and a student who wants a model released yesterday should be able to
+ * type its id rather than wait for us. `defaultModel` is only what a freshly
+ * configured provider starts on.
+ */
+export type AiProtocol = 'anthropic' | 'openai' | 'gemini';
+
+export interface ProviderDefinition {
+  id: string;
+  label: string;
+  protocol: AiProtocol;
+  /** Includes the version segment, so a custom endpoint can point anywhere. */
+  defaultBaseUrl: string;
+  /** Local runtimes authenticate by being on loopback and nothing else. */
+  requiresKey: boolean;
+  /** Whether Settings lets the user rewrite the base URL. */
+  editableBaseUrl: boolean;
+  models: string[];
+  defaultModel: string;
+  /** Where to go and get a key. Opened in the system browser, never in-app. */
+  keyUrl?: string;
+  quirks?: ProviderQuirks;
+}
+
+export interface ProviderQuirks {
+  /** OpenAI renamed the field and rejects the old one on newer models. */
+  maxTokensField?: 'max_tokens' | 'max_completion_tokens';
+  /** OpenAI's reasoning models accept only the default temperature, and answer
+   * a request that sets one with a 400 rather than ignoring it. */
+  sendTemperature?: boolean;
+  /** Not every OpenAI-compatible server implements `response_format`; asking
+   * an Ollama build that does not for one is a hard error, not a downgrade. */
+  jsonMode?: boolean;
+}
+
+export const AI_PROVIDERS: ProviderDefinition[] = [
+  {
+    id: 'anthropic',
+    label: 'Anthropic',
+    protocol: 'anthropic',
+    defaultBaseUrl: 'https://api.anthropic.com',
+    requiresKey: true,
+    editableBaseUrl: false,
+    models: ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
+    defaultModel: 'claude-sonnet-5',
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+  },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    protocol: 'openai',
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    requiresKey: true,
+    editableBaseUrl: false,
+    models: ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini'],
+    defaultModel: 'gpt-5-mini',
+    keyUrl: 'https://platform.openai.com/api-keys',
+    quirks: { maxTokensField: 'max_completion_tokens', sendTemperature: false },
+  },
+  {
+    id: 'mistral',
+    label: 'Mistral AI',
+    protocol: 'openai',
+    defaultBaseUrl: 'https://api.mistral.ai/v1',
+    requiresKey: true,
+    editableBaseUrl: false,
+    // The `-latest` aliases on purpose: they keep pointing at the current
+    // generation, which is the right default for a list we cannot update
+    // between releases.
+    models: [
+      'mistral-large-latest',
+      'mistral-medium-latest',
+      'mistral-small-latest',
+      'magistral-medium-latest',
+      'open-mistral-nemo',
+    ],
+    defaultModel: 'mistral-medium-latest',
+    keyUrl: 'https://console.mistral.ai/api-keys',
+  },
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
+    protocol: 'gemini',
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    requiresKey: true,
+    editableBaseUrl: false,
+    models: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+    defaultModel: 'gemini-2.5-flash',
+    keyUrl: 'https://aistudio.google.com/apikey',
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    protocol: 'openai',
+    defaultBaseUrl: 'https://openrouter.ai/api/v1',
+    requiresKey: true,
+    editableBaseUrl: false,
+    models: [
+      'anthropic/claude-sonnet-4.5',
+      'openai/gpt-4.1',
+      'mistralai/mistral-large',
+      'google/gemini-2.5-flash',
+    ],
+    defaultModel: 'anthropic/claude-sonnet-4.5',
+    keyUrl: 'https://openrouter.ai/keys',
+  },
+  {
+    id: 'ollama',
+    label: 'Ollama',
+    protocol: 'openai',
+    defaultBaseUrl: 'http://localhost:11434/v1',
+    requiresKey: false,
+    editableBaseUrl: true,
+    models: ['llama3.2', 'qwen2.5', 'mistral', 'gemma3'],
+    defaultModel: 'llama3.2',
+  },
+  {
+    id: 'lmstudio',
+    label: 'LM Studio',
+    protocol: 'openai',
+    defaultBaseUrl: 'http://localhost:1234/v1',
+    requiresKey: false,
+    editableBaseUrl: true,
+    models: [],
+    defaultModel: '',
+  },
+  {
+    id: 'custom',
+    label: 'OpenAI-compatible',
+    protocol: 'openai',
+    defaultBaseUrl: '',
+    requiresKey: true,
+    editableBaseUrl: true,
+    models: [],
+    defaultModel: '',
+  },
+];
+
+const BY_ID = new Map(AI_PROVIDERS.map((provider) => [provider.id, provider]));
+
+export function providerById(id: string): ProviderDefinition | undefined {
+  return BY_ID.get(id);
+}
+
+/** The Keychain account name a provider's key is stored under. Prefixed so a
+ * future non-AI secret cannot collide with a provider id. */
+export function secretKeyFor(providerId: string): string {
+  return `ai.${providerId}.apiKey`;
+}
+
+/** The features that pick their own model. `default` is the fallback every
+ * other feature — including the Phase G ones — resolves through, so a user who
+ * configures one provider gets a working app without visiting a matrix. */
+export const AI_FEATURES = ['default', 'rewrite', 'synthesis', 'ask'] as const;
+export type AiFeature = (typeof AI_FEATURES)[number];

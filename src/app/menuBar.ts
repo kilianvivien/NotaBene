@@ -125,6 +125,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
       items: [
         command('ai.rewrite', t),
         command('ai.synthesize', t),
+        command('ai.ask', t),
         separator,
         command('ai.mindMap', t),
         command('ai.flashcards', t),

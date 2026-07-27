@@ -333,3 +333,47 @@ export const RewriteProposalSchema = z.object({
     .default([]),
 });
 export type RewriteProposal = z.infer<typeof RewriteProposalSchema>;
+
+// ---------------------------------------------------------------------------
+// AI wire shapes
+//
+// What a model is actually asked to emit, as opposed to what the app then
+// works with. Models are reliable at Markdown and unreliable at ProseMirror
+// JSON, so every one of these speaks Markdown and `src/lib/ai/` converts. The
+// schemas above stay the app-facing contract; these are the trust boundary.
+// ---------------------------------------------------------------------------
+
+export const AiRewriteResponseSchema = z.object({
+  blocks: z
+    .array(
+      z.object({
+        /** Index into the numbered block list the prompt showed the model. */
+        index: z.number().int().nonnegative(),
+        action: z.enum(['replace', 'insert', 'remove']),
+        /** Absent for `remove`; required for the other two, checked below. */
+        markdown: z.string().optional(),
+        rationale: z.string().max(400).optional(),
+      }),
+    )
+    .superRefine((blocks, ctx) => {
+      for (const [index, block] of blocks.entries()) {
+        if (block.action !== 'remove' && !block.markdown?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, 'markdown'],
+            message: `"${block.action}" needs replacement text`,
+          });
+        }
+      }
+    })
+    .default([]),
+  /** One line the diff panel shows above the blocks. */
+  summary: z.string().max(400).optional(),
+});
+export type AiRewriteResponse = z.infer<typeof AiRewriteResponseSchema>;
+
+export const AiSynthesisResponseSchema = z.object({
+  title: z.string().min(1).max(200),
+  markdown: z.string().min(1),
+});
+export type AiSynthesisResponse = z.infer<typeof AiSynthesisResponseSchema>;

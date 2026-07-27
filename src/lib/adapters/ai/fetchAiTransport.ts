@@ -1,6 +1,8 @@
-/** `fetch`-based AI transport. Used by the browser build, and by the desktop
- * build for providers already allowed by the CSP connect-src list. */
+/** `fetch`-based AI transport. Used by the browser build, where the page's own
+ * connect-src is the only policy there is. The desktop build uses the Rust
+ * transport instead, so a user-supplied base URL is not also a CSP edit. */
 import type { AiRequest, AiResponse, AiTransport } from './AiTransport';
+import { SseBuffer } from './sse';
 
 export const fetchAiTransport: AiTransport = {
   async request(request: AiRequest): Promise<AiResponse> {
@@ -25,28 +27,21 @@ export const fetchAiTransport: AiTransport = {
       signal: request.signal,
     });
     if (!response.ok || !response.body) {
-      throw new Error(`stream failed with status ${response.status}`);
+      // The body of a failed streaming call is an ordinary error document, and
+      // it is the only place the provider says *why*.
+      const detail = response.body ? await response.text() : '';
+      throw new Error(`${response.status} ${detail}`.trim());
     }
 
     const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = '';
+    const frames = new SseBuffer();
     try {
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += value;
-        // SSE events are separated by a blank line; anything short of that is
-        // a partial frame we must hold onto.
-        let boundary = buffer.indexOf('\n\n');
-        while (boundary !== -1) {
-          const frame = buffer.slice(0, boundary);
-          buffer = buffer.slice(boundary + 2);
-          for (const line of frame.split('\n')) {
-            if (line.startsWith('data:')) yield line.slice(5).trim();
-          }
-          boundary = buffer.indexOf('\n\n');
-        }
+        yield* frames.push(value);
       }
+      yield* frames.flush();
     } finally {
       reader.releaseLock();
     }

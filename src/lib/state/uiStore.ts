@@ -41,6 +41,8 @@ interface UiState {
   quickSwitcherOpen: boolean;
   templatePickerOpen: boolean;
   exportOpen: boolean;
+  aiRewriteOpen: boolean;
+  aiSynthesisOpen: boolean;
   settingsOpen: boolean;
   settingsTab: SettingsTab;
   searchQuery: string;
@@ -61,6 +63,8 @@ interface UiState {
   setQuickSwitcherOpen(open: boolean): void;
   setTemplatePickerOpen(open: boolean): void;
   setExportOpen(open: boolean): void;
+  setAiRewriteOpen(open: boolean): void;
+  setAiSynthesisOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
   setSearchQuery(query: string): void;
@@ -81,6 +85,8 @@ export const useUiStore = create<UiState>()(
     quickSwitcherOpen: false,
     templatePickerOpen: false,
     exportOpen: false,
+    aiRewriteOpen: false,
+    aiSynthesisOpen: false,
     settingsOpen: false,
     settingsTab: 'general',
     searchQuery: '',
@@ -165,6 +171,18 @@ export const useUiStore = create<UiState>()(
     setExportOpen(open) {
       set((state) => {
         state.exportOpen = open;
+      });
+    },
+
+    setAiRewriteOpen(open) {
+      set((state) => {
+        state.aiRewriteOpen = open;
+      });
+    },
+
+    setAiSynthesisOpen(open) {
+      set((state) => {
+        state.aiSynthesisOpen = open;
       });
     },
 
