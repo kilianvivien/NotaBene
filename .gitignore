@@ -47,3 +47,6 @@ pnpm-debug.log*
 
 # Working documents (PRD, plans, design notes) stay local
 docs/
+
+# Vite cache
+.vite/
