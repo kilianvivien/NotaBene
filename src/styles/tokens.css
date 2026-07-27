@@ -51,8 +51,14 @@
   --nb-blur-sm: 20px;
 
   /* Leading inset of the title bar's content, so the toolbar clears the
-     native macOS traffic lights. */
-  --nb-titlebar-leading: 84px;
+     native macOS traffic lights.
+
+     The lights are three 12px dots on a 20px pitch starting at
+     `trafficLightPosition.x` (18), so the green one ends at 70px. The first
+     toolbar button's hit area starts here — 30px of clearance, which is what
+     Notes and Mail leave. At the old 84px the gap was 14px and the button
+     read as a fourth traffic light. */
+  --nb-titlebar-leading: 100px;
   --nb-titlebar-height: 44px;
 }
 

@@ -44,7 +44,7 @@
     "shortDescription": "Privacy-first class notes",
     "longDescription": "NotaBene is a local-first note-taking app for students: rich class notes, course organization, fast search, clean exports, and bring-your-own-key AI.",
     "copyright": "Copyright © 2026 NotaBene contributors",
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "icon": ["icons/icon.icns", "icons/128x128@2x.png", "icons/128x128.png"],
     "macOS": {
       "minimumSystemVersion": "13.0",
