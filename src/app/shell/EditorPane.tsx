@@ -1,16 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '@/lib/state/editorStore';
-import { flattenDoc } from '@/lib/notes/docText';
+import { RichTextEditor } from '@/editor/RichTextEditor';
 
-/**
- * Phase A editor: a plain textarea over the document's flattened text, enough
- * to prove the open → type → autosave → reopen loop end to end.
- *
- * Phase B replaces the body with the real TipTap editor and its extensions
- * (`src/editor/`). The title field, the save wiring, and the reading measure
- * stay exactly as they are — this pane's contract with `editorStore` does not
- * change.
- */
 export function EditorPane() {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
@@ -27,9 +18,9 @@ export function EditorPane() {
   }
 
   return (
-    <div className="flex flex-1 justify-center overflow-y-auto">
+    <div className="nb-editor-scroll flex flex-1 justify-center overflow-y-auto">
       <div
-        className="w-full px-10 py-10"
+        className="w-full px-10 pb-28 pt-9"
         style={{ maxWidth: 'calc(var(--nb-editor-measure) + 5rem)' }}
       >
         <input
@@ -38,32 +29,9 @@ export function EditorPane() {
           placeholder={t('editor.titlePlaceholder')}
           aria-label={t('editor.titlePlaceholder')}
           autoComplete="off"
-          className="mb-4 w-full bg-transparent text-[26px] font-semibold tracking-tight placeholder:text-nb-text-3 focus:outline-none"
+          className="mb-2 w-full bg-transparent text-[28px] font-semibold tracking-[-0.025em] placeholder:text-nb-text-3 focus:outline-none"
         />
-
-        <textarea
-          value={flattenDoc(note.doc)}
-          onChange={(event) =>
-            applyDoc({
-              type: 'doc',
-              content: event.target.value
-                .split('\n')
-                .map((line) =>
-                  line
-                    ? { type: 'paragraph', content: [{ type: 'text', text: line }] }
-                    : { type: 'paragraph' },
-                ),
-            })
-          }
-          placeholder={t('editor.bodyPlaceholder')}
-          aria-label={t('editor.bodyPlaceholder')}
-          className="min-h-[60vh] w-full resize-none bg-transparent placeholder:text-nb-text-3 focus:outline-none"
-          style={{
-            fontFamily: 'var(--nb-editor-font)',
-            fontSize: 'var(--nb-editor-size)',
-            lineHeight: 'var(--nb-editor-leading)',
-          }}
-        />
+        <RichTextEditor key={note.id} doc={note.doc} onChange={applyDoc} />
       </div>
     </div>
   );

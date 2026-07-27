@@ -52,7 +52,12 @@ export const tts: TtsEngine = isTauri ? systemTtsEngine : unavailableTtsEngine;
 
 export type { LibraryAdapter, NoteQuery } from './library/LibraryAdapter';
 export type { AssetAdapter } from './assets/AssetAdapter';
-export type { AppSettings, SecretsAdapter, SettingsAdapter } from './settings/SettingsAdapter';
+export type {
+  AccentColor,
+  AppSettings,
+  SecretsAdapter,
+  SettingsAdapter,
+} from './settings/SettingsAdapter';
 export { DEFAULT_SETTINGS } from './settings/SettingsAdapter';
 export type { DialogAdapter, FileFilter } from './dialog/DialogAdapter';
 export type {

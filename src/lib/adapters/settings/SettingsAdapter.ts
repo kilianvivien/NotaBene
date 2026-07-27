@@ -6,10 +6,13 @@
  * backup, an export, or `localStorage` (PRD §8, DiploRevue lesson). Different
  * storage, different lifetime, different blast radius — so, different type.
  */
+export type AccentColor = 'orange' | 'blue' | 'purple' | 'pink' | 'green' | 'graphite';
+
 export interface AppSettings {
   locale: 'en' | 'fr';
   theme: 'light' | 'dark' | 'system';
   transparency: 'auto' | 'solid';
+  accentColor: AccentColor;
   editorFont: 'sans' | 'serif';
   editorFontSize: number;
   focusMode: boolean;
@@ -47,6 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   locale: 'en',
   theme: 'system',
   transparency: 'auto',
+  accentColor: 'orange',
   editorFont: 'sans',
   editorFontSize: 16,
   focusMode: false,

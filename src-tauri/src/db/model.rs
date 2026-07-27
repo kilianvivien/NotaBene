@@ -102,6 +102,29 @@ pub struct SnapshotMeta {
     pub created_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Asset {
+    pub id: String,
+    pub mime: String,
+    pub bytes: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<i64>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    pub id: String,
+    pub note_id: String,
+    pub asset_id: String,
+    pub name: String,
+    pub created_at: String,
+}
+
 /// Mirrors `NoteQuery` in `LibraryAdapter.ts`. Every field is optional, and
 /// `None` means "no constraint" rather than "match null" — except `course_id`,
 /// where the inbox genuinely needs to ask for notes with no course. That is

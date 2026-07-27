@@ -41,11 +41,18 @@ export function App() {
     setLocale(locale);
   }, [locale]);
 
+  useEffect(() => {
+    document.documentElement.dataset.focus = String(focusMode);
+    return () => {
+      delete document.documentElement.dataset.focus;
+    };
+  }, [focusMode]);
+
   // The shell fills the window edge to edge. The OS draws the actual window
   // frame under Tauri, so nothing here simulates one — a rounded, inset panel
   // would be a second window drawn inside the real one.
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-[var(--nb-surface)]">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <CollapsiblePane open={sidebarVisible && !focusMode} width={SIDEBAR_WIDTH}>
@@ -54,7 +61,7 @@ export function App() {
         <CollapsiblePane open={!focusMode} width={NOTE_LIST_WIDTH}>
           <NoteList />
         </CollapsiblePane>
-        <main className="flex min-w-0 flex-1 flex-col">
+        <main className="flex min-w-0 flex-1 flex-col bg-[var(--nb-paper)]">
           <EditorPane />
         </main>
         <CollapsiblePane open={inspectorVisible && !focusMode} width={INSPECTOR_WIDTH}>

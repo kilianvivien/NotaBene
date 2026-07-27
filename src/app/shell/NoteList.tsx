@@ -32,7 +32,7 @@ export function NoteList() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col border-r border-[var(--nb-divider)]">
+    <div className="flex h-full w-full flex-col border-r border-[var(--nb-divider)] bg-[var(--nb-list-surface)]">
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--nb-divider)] px-3">
         <span className="text-[12px] text-nb-text-3">
           {t('noteList.count', { count: notes.length })}

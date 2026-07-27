@@ -59,8 +59,9 @@ Four rules carry most of the weight:
 ## Conventions
 
 - Build UI from `src/components/glass/` and the tokens in
-  `src/styles/tokens.css`. Support light, dark, and
-  `html[data-transparency="solid"]`. Token prefix is `--nb-`.
+  `src/styles/tokens.css`. Support light and dark themes plus the selectable
+  accent palette. NotaBene uses opaque, readable surfaces; do not imitate
+  transparency with coloured gradients. Token prefix is `--nb-`.
 - The shell fills the window edge to edge — the OS draws the frame. Do not
   reintroduce an inset, rounded "window" panel.
 - Split state in `src/lib/state/`: `uiStore` (chrome), `libraryStore` (read
@@ -84,11 +85,11 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phase A (foundation) is complete: shell, tokens, stores, schema, adapters,
-command layer, autosave, crash-recovery journal, native menu bar, settings,
-SQLite + FTS5, MCP server and tool surface, CI. 51 TS tests, 3 Rust tests.
-Phase B (TipTap editor and its blocks) is next. Section 3 of the implementation
-plan tracks the known gaps honestly — read it before assuming something works.
+Phases A and B are complete: foundation plus the TipTap authoring surface,
+custom blocks, Markdown bridge, content-addressed assets, attachments, focus
+mode, document statistics, opaque light/near-black themes, and selectable
+accent colours. Section 3 of the implementation plan tracks the remaining gaps
+honestly — read it before assuming something works.
 
 ## House rules
 

@@ -15,7 +15,7 @@ export function StatusBar() {
   const stats = note ? docStats(note.doc) : null;
 
   return (
-    <footer className="flex h-6 shrink-0 items-center gap-3 border-t border-[var(--nb-divider)] px-3 text-[11px] text-nb-text-3">
+    <footer className="flex h-6 shrink-0 items-center gap-3 border-t border-[var(--nb-divider)] bg-[var(--nb-chrome-surface)] px-3 text-[11px] text-nb-text-3">
       <span
         aria-live="polite"
         className={saveState === 'error' ? 'text-[var(--nb-danger)]' : undefined}
@@ -26,6 +26,7 @@ export function StatusBar() {
       {stats && (
         <>
           <span>{t('editor.words', { count: stats.words })}</span>
+          <span>{t('editor.characters', { count: stats.characters })}</span>
           <span>{t('editor.readingTime', { count: stats.readingMinutes })}</span>
         </>
       )}

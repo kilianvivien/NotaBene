@@ -22,6 +22,7 @@ export function applySettingsToDom(settings: AppSettings): void {
   const root = document.documentElement;
   root.dataset.theme = resolveTheme(settings.theme);
   root.dataset.transparency = settings.transparency;
+  root.dataset.accent = settings.accentColor;
   root.lang = settings.locale;
   root.style.setProperty('--nb-editor-size', `${settings.editorFontSize}px`);
   root.style.setProperty(

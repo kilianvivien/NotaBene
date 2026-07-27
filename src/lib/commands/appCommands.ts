@@ -20,6 +20,10 @@ import { useUiStore } from '@/lib/state/uiStore';
 import { createNoteCommand } from './noteCommands';
 import { createCourseCommand } from './organizationCommands';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
+import {
+  runEditorCommand,
+  type EditorCommand,
+} from '@/editor/commandBridge';
 
 export const APP_COMMAND_IDS = [
   'app.settings',
@@ -75,6 +79,13 @@ async function openNewNote(): Promise<CommandResult<unknown>> {
   return result;
 }
 
+function editorAction(command: EditorCommand) {
+  return async (): Promise<CommandResult<unknown>> =>
+    (await runEditorCommand(command))
+      ? ok(undefined)
+      : fail('not_supported', 'Open a note to use editor commands');
+}
+
 export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   'app.settings': {
     id: 'app.settings',
@@ -126,42 +137,73 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     labelKey: 'menu.bold',
     accelerator: 'CmdOrCtrl+B',
     landsIn: 'B',
+    run: editorAction('bold'),
   },
   'format.italic': {
     id: 'format.italic',
     labelKey: 'menu.italic',
     accelerator: 'CmdOrCtrl+I',
     landsIn: 'B',
+    run: editorAction('italic'),
   },
   'format.underline': {
     id: 'format.underline',
     labelKey: 'menu.underline',
     accelerator: 'CmdOrCtrl+U',
     landsIn: 'B',
+    run: editorAction('underline'),
   },
   'format.highlight': {
     id: 'format.highlight',
     labelKey: 'menu.highlight',
     accelerator: 'CmdOrCtrl+Shift+H',
     landsIn: 'B',
+    run: editorAction('highlight'),
   },
   'format.code': {
     id: 'format.code',
     labelKey: 'menu.code',
     accelerator: 'CmdOrCtrl+E',
     landsIn: 'B',
+    run: editorAction('code'),
   },
 
-  'insert.image': { id: 'insert.image', labelKey: 'menu.image', landsIn: 'B' },
-  'insert.drawing': { id: 'insert.drawing', labelKey: 'menu.drawing', landsIn: 'B' },
-  'insert.table': { id: 'insert.table', labelKey: 'menu.table', landsIn: 'B' },
-  'insert.callout': { id: 'insert.callout', labelKey: 'menu.callout', landsIn: 'B' },
-  'insert.math': { id: 'insert.math', labelKey: 'menu.math', landsIn: 'B' },
+  'insert.image': {
+    id: 'insert.image',
+    labelKey: 'menu.image',
+    landsIn: 'B',
+    run: editorAction('image'),
+  },
+  'insert.drawing': {
+    id: 'insert.drawing',
+    labelKey: 'menu.drawing',
+    landsIn: 'B',
+    run: editorAction('drawing'),
+  },
+  'insert.table': {
+    id: 'insert.table',
+    labelKey: 'menu.table',
+    landsIn: 'B',
+    run: editorAction('table'),
+  },
+  'insert.callout': {
+    id: 'insert.callout',
+    labelKey: 'menu.callout',
+    landsIn: 'B',
+    run: editorAction('callout'),
+  },
+  'insert.math': {
+    id: 'insert.math',
+    labelKey: 'menu.math',
+    landsIn: 'B',
+    run: editorAction('math'),
+  },
   'insert.link': {
     id: 'insert.link',
     labelKey: 'menu.link',
     accelerator: 'CmdOrCtrl+K',
     landsIn: 'B',
+    run: editorAction('link'),
   },
 
   'view.toggleSidebar': {

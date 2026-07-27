@@ -5,6 +5,7 @@
 //! itself, and serialising writes is exactly what makes "never lose a
 //! keystroke" easy to reason about.
 
+pub mod assets;
 pub mod journal;
 pub mod migrations;
 pub mod model;
@@ -93,4 +94,12 @@ pub fn database_path(app: &AppHandle) -> DbResult<PathBuf> {
         .app_data_dir()
         .map_err(|err| DbError::Other(err.to_string()))?;
     Ok(dir.join("notabene.sqlite3"))
+}
+
+pub fn assets_path(app: &AppHandle) -> DbResult<PathBuf> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| DbError::Other(err.to_string()))?;
+    Ok(dir.join("assets"))
 }

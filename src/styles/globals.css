@@ -40,11 +40,21 @@ body {
   font-family: var(--nb-font-sans);
   color: var(--nb-text);
   background: var(--nb-wallpaper);
-  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   /* The window chrome owns scrolling; panes scroll individually. */
   overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: default;
 }
 
 /* macOS-style overlay scrollbars that stay out of the way. */
@@ -60,6 +70,45 @@ body {
 :focus-visible {
   outline: 2px solid var(--nb-accent-ring);
   outline-offset: 2px;
+}
+
+.nb-accent-picker {
+  display: flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: 9px;
+  background: var(--nb-glass-thin);
+}
+
+.nb-accent-picker button {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  place-items: center;
+}
+
+.nb-accent-picker button:hover,
+.nb-accent-picker button[aria-checked='true'] {
+  background: var(--nb-active);
+}
+
+.nb-accent-picker button span {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 50%;
+  background: var(--accent-swatch);
+}
+
+.nb-accent-picker button[aria-checked='true'] span {
+  box-shadow:
+    0 0 0 2px var(--nb-glass-strong),
+    0 0 0 3px var(--nb-text-3);
 }
 
 /* Drag region for the frameless macOS title bar. Interactive children opt out

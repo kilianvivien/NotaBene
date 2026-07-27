@@ -23,7 +23,7 @@ import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils/cn';
-import type { AppSettings } from '@/lib/adapters';
+import type { AccentColor, AppSettings } from '@/lib/adapters';
 
 /** Sections, their icons, and the phase that makes each real. */
 const TABS: { id: SettingsTab; icon: LucideIcon; landsIn?: string }[] = [
@@ -38,6 +38,14 @@ const TABS: { id: SettingsTab; icon: LucideIcon; landsIn?: string }[] = [
 ];
 
 const EDITOR_FONT_SIZES = { min: 13, max: 22 };
+const ACCENTS: { value: AccentColor; color: string }[] = [
+  { value: 'orange', color: '#c17a47' },
+  { value: 'blue', color: '#3478c7' },
+  { value: 'purple', color: '#8b68b8' },
+  { value: 'pink', color: '#bc5c7c' },
+  { value: 'green', color: '#568b64' },
+  { value: 'graphite', color: '#77736d' },
+];
 
 export function SettingsWindow() {
   const { t } = useTranslation();
@@ -127,6 +135,28 @@ export function SettingsWindow() {
                       { value: 'system', label: t('settings.themeSystem') },
                     ]}
                   />
+                </Row>
+                <Row label={t('settings.accentColor')}>
+                  <div
+                    role="radiogroup"
+                    aria-label={t('settings.accentColor')}
+                    className="nb-accent-picker"
+                  >
+                    {ACCENTS.map((accent) => (
+                      <button
+                        key={accent.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={settings.accentColor === accent.value}
+                        aria-label={t(`settings.accent_${accent.value}`)}
+                        title={t(`settings.accent_${accent.value}`)}
+                        onClick={() => set('accentColor', accent.value)}
+                        style={{ '--accent-swatch': accent.color } as React.CSSProperties}
+                      >
+                        <span />
+                      </button>
+                    ))}
+                  </div>
                 </Row>
                 <Row label={t('settings.transparency')} hint={t('settings.transparencyHint')}>
                   <GlassSegmentedControl<AppSettings['transparency']>

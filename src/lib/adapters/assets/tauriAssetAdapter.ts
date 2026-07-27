@@ -40,7 +40,10 @@ export const tauriAssetAdapter: AssetAdapter = {
     return payload ? fromBase64(payload.data, payload.mime) : null;
   },
 
-  urlFor: (assetId: string) => invoke<string | null>('assets_url', { assetId }),
+  async urlFor(assetId) {
+    const blob = await this.get(assetId);
+    return blob ? URL.createObjectURL(blob) : null;
+  },
   stat: (assetId: string) => invoke<Asset | null>('assets_stat', { assetId }),
 
   collectGarbage: (referencedIds: Set<string>) =>

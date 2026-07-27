@@ -3,3 +3,4 @@ export * from './noteCommands';
 export * from './organizationCommands';
 export * from './recoveryCommands';
 export * from './appCommands';
+export * from './assetCommands';

@@ -18,7 +18,7 @@ export function TitleBar() {
   return (
     <header
       data-tauri-drag-region="true"
-      className="flex h-[var(--nb-titlebar-height)] shrink-0 items-center gap-2 border-b border-[var(--nb-divider)] pr-3"
+      className="flex h-[var(--nb-titlebar-height)] shrink-0 items-center gap-2 border-b border-[var(--nb-divider)] bg-[var(--nb-chrome-surface)] pr-3"
       style={{ paddingLeft: 'var(--nb-titlebar-leading)' }}
     >
       <GlassIconButton

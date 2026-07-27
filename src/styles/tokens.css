@@ -1,11 +1,9 @@
-/* NotaBene design tokens — macOS "Liquid Glass" language.
- * Shared visual vocabulary with Calqo and GeoCarto: translucent surfaces, soft
- * refractive highlights, generous radii, a single system-blue accent. Switching
- * theme swaps the variable set on html[data-theme="…"] — no DOM redraw.
+/* NotaBene design tokens.
  *
- * NotaBene's own additions on top of the shared set are the reading-surface and
- * editor-typography tokens: unlike a canvas app, the primary surface here is a
- * page of text that must stay legible for hours. */
+ * The note is the product, so the palette uses quiet opaque surfaces instead
+ * of simulating transparency with colourful gradients. Light mode is warm
+ * paper; dark mode is genuinely near-black. A muted copper accent keeps state
+ * legible without bathing the whole application in system blue. */
 
 :root {
   /* Radii — descend with nesting: window 14 → panel 14 → input/tab 10 → row 6 */
@@ -64,87 +62,191 @@
 
 /* Light theme */
 html[data-theme='light'] {
-  --nb-text: #1d1d1f;
-  --nb-text-2: #4a4a4f;
-  --nb-text-3: #86868b;
+  --nb-text: #20201e;
+  --nb-text-2: #55534f;
+  --nb-text-3: #85817a;
   --nb-text-on-accent: #ffffff;
 
-  --nb-accent: #007aff;
-  --nb-accent-strong: #0a6fe3;
-  --nb-accent-soft: rgba(0, 122, 255, 0.16);
-  --nb-accent-ring: rgba(0, 122, 255, 0.35);
+  --nb-accent: #9b5c2f;
+  --nb-accent-strong: #814823;
+  --nb-accent-soft: #eee0d4;
+  --nb-accent-ring: rgba(155, 92, 47, 0.3);
+  --nb-link: #8d4f26;
 
-  --nb-glass: rgba(255, 255, 255, 0.55);
-  --nb-glass-strong: rgba(255, 255, 255, 0.78);
-  --nb-glass-thin: rgba(255, 255, 255, 0.35);
-  --nb-glass-border: rgba(255, 255, 255, 0.85);
-  --nb-glass-sheen: rgba(255, 255, 255, 0.9);
-  --nb-surface-modal: rgba(248, 249, 252, 0.72);
-  --nb-scrim: rgba(20, 30, 60, 0.18);
+  --nb-glass: #f7f6f3;
+  --nb-glass-strong: #ffffff;
+  --nb-glass-thin: #efeeea;
+  --nb-glass-border: #d8d5cf;
+  --nb-glass-sheen: transparent;
+  --nb-surface-modal: #f7f6f3;
+  --nb-scrim: rgba(20, 18, 15, 0.22);
 
   /* Solid surfaces used when transparency is reduced. */
-  --nb-solid-surface: #f4f5f8;
+  --nb-solid-surface: #f7f6f3;
   --nb-solid-surface-strong: #ffffff;
 
-  --nb-divider: rgba(0, 0, 0, 0.07);
-  --nb-hover: rgba(0, 0, 0, 0.04);
-  --nb-active: rgba(0, 0, 0, 0.07);
+  --nb-divider: #e2dfda;
+  --nb-divider-strong: #ccc8c0;
+  --nb-hover: #ebe9e4;
+  --nb-active: #e1ded8;
 
-  /* The page the note is written on — deliberately near-opaque so long-form
-     text never sits on a busy backdrop. */
-  --nb-paper: rgba(255, 255, 255, 0.92);
-  --nb-code-bg: rgba(0, 0, 0, 0.045);
-  --nb-mark: rgba(255, 214, 10, 0.45);
+  --nb-wallpaper: #f1f0ed;
+  --nb-surface: #f7f6f3;
+  --nb-chrome-surface: #f1f0ed;
+  --nb-sidebar-surface: #efeeea;
+  --nb-list-surface: #f6f5f2;
+  --nb-paper: #fdfcf9;
+  --nb-inset-surface: #f3f1ec;
+  --nb-toolbar-surface: #f8f7f4;
+  --nb-menu-surface: #fbfaf7;
+  --nb-control-surface: #f6f5f2;
+  --nb-control-border: #d5d1ca;
+  --nb-code-surface: #f3f1ec;
+  --nb-code-bg: #efede7;
+  --nb-mark: #f3df8f;
 
-  --nb-danger: #ff3b30;
-  --nb-warn: #ff9f0a;
-  --nb-success: #30d158;
+  --nb-danger: #c6372f;
+  --nb-warn: #bd7219;
+  --nb-success: #3d7b4b;
+  --nb-important: #9a4d67;
+  --nb-callout-info: #7d756c;
 
-  --nb-wallpaper:
-    radial-gradient(1200px 800px at 15% 10%, #cfe1ff 0%, transparent 55%),
-    radial-gradient(1000px 700px at 90% 20%, #ffd9e7 0%, transparent 50%),
-    radial-gradient(1100px 800px at 70% 95%, #d2f0e1 0%, transparent 55%),
-    linear-gradient(135deg, #eef2f8 0%, #e7ecf3 100%);
+  --nb-shadow-sm: 0 2px 8px rgba(35, 30, 24, 0.08);
+  --nb-shadow-lg: 0 18px 60px rgba(35, 30, 24, 0.2);
 }
 
 /* Dark theme */
 html[data-theme='dark'] {
-  --nb-text: #f5f5f7;
-  --nb-text-2: #c4c4c9;
-  --nb-text-3: #86868b;
+  --nb-text: #f1f0ed;
+  --nb-text-2: #bbb8b2;
+  --nb-text-3: #77736d;
   --nb-text-on-accent: #ffffff;
 
-  --nb-accent: #0a84ff;
-  --nb-accent-strong: #0a6fe3;
-  --nb-accent-soft: rgba(10, 132, 255, 0.22);
-  --nb-accent-ring: rgba(10, 132, 255, 0.45);
+  --nb-accent: #d19a70;
+  --nb-accent-strong: #b77d54;
+  --nb-accent-soft: #342319;
+  --nb-accent-ring: rgba(209, 154, 112, 0.35);
+  --nb-link: #dda274;
 
-  --nb-glass: rgba(40, 42, 52, 0.55);
-  --nb-glass-strong: rgba(40, 42, 52, 0.78);
-  --nb-glass-thin: rgba(255, 255, 255, 0.06);
-  --nb-glass-border: rgba(255, 255, 255, 0.12);
-  --nb-glass-sheen: rgba(255, 255, 255, 0.06);
-  --nb-surface-modal: rgba(28, 30, 38, 0.72);
-  --nb-scrim: rgba(0, 0, 0, 0.45);
+  --nb-glass: #10100f;
+  --nb-glass-strong: #171716;
+  --nb-glass-thin: #181816;
+  --nb-glass-border: #2b2a28;
+  --nb-glass-sheen: transparent;
+  --nb-surface-modal: #121211;
+  --nb-scrim: rgba(0, 0, 0, 0.72);
 
-  --nb-solid-surface: #1c1e26;
-  --nb-solid-surface-strong: #24262f;
+  --nb-solid-surface: #10100f;
+  --nb-solid-surface-strong: #171716;
 
-  --nb-divider: rgba(255, 255, 255, 0.08);
-  --nb-hover: rgba(255, 255, 255, 0.05);
-  --nb-active: rgba(255, 255, 255, 0.09);
+  --nb-divider: #242321;
+  --nb-divider-strong: #383633;
+  --nb-hover: #191918;
+  --nb-active: #242321;
 
-  --nb-paper: rgba(26, 28, 35, 0.9);
-  --nb-code-bg: rgba(255, 255, 255, 0.07);
-  --nb-mark: rgba(255, 214, 10, 0.3);
+  --nb-wallpaper: #080808;
+  --nb-surface: #0e0e0d;
+  --nb-chrome-surface: #0b0b0a;
+  --nb-sidebar-surface: #0b0b0a;
+  --nb-list-surface: #0d0d0c;
+  --nb-paper: #10100f;
+  --nb-inset-surface: #171716;
+  --nb-toolbar-surface: #161615;
+  --nb-menu-surface: #171716;
+  --nb-control-surface: #171716;
+  --nb-control-border: #32302d;
+  --nb-code-surface: #151514;
+  --nb-code-bg: #1d1c1a;
+  --nb-mark: #665426;
 
-  --nb-danger: #ff453a;
-  --nb-warn: #ffd60a;
-  --nb-success: #32d74b;
+  --nb-danger: #f06a60;
+  --nb-warn: #dfa85d;
+  --nb-success: #71b57d;
+  --nb-important: #d589a1;
+  --nb-callout-info: #91887e;
 
-  --nb-wallpaper:
-    radial-gradient(1200px 800px at 15% 10%, #1a2647 0%, transparent 55%),
-    radial-gradient(1000px 700px at 90% 20%, #3a1f33 0%, transparent 50%),
-    radial-gradient(1100px 800px at 70% 95%, #142a22 0%, transparent 55%),
-    linear-gradient(135deg, #0c0d12 0%, #111218 100%);
+  --nb-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --nb-shadow-lg: 0 22px 70px rgba(0, 0, 0, 0.62);
+}
+
+/* User-selectable macOS-style accents. Only interactive emphasis changes;
+   reading surfaces stay neutral whichever colour is chosen. */
+html[data-theme='light'][data-accent='blue'] {
+  --nb-accent: #3478c7;
+  --nb-accent-strong: #2864ab;
+  --nb-accent-soft: #dce8f5;
+  --nb-accent-ring: rgba(52, 120, 199, 0.3);
+  --nb-link: #2f6eaf;
+}
+
+html[data-theme='dark'][data-accent='blue'] {
+  --nb-accent: #64a7ed;
+  --nb-accent-strong: #438bd4;
+  --nb-accent-soft: #17293b;
+  --nb-accent-ring: rgba(100, 167, 237, 0.34);
+  --nb-link: #73b1f0;
+}
+
+html[data-theme='light'][data-accent='purple'] {
+  --nb-accent: #7d5aa8;
+  --nb-accent-strong: #68468f;
+  --nb-accent-soft: #e8dff1;
+  --nb-accent-ring: rgba(125, 90, 168, 0.3);
+  --nb-link: #704d99;
+}
+
+html[data-theme='dark'][data-accent='purple'] {
+  --nb-accent: #b69add;
+  --nb-accent-strong: #9778c3;
+  --nb-accent-soft: #2b2236;
+  --nb-accent-ring: rgba(182, 154, 221, 0.34);
+  --nb-link: #c0a6e3;
+}
+
+html[data-theme='light'][data-accent='pink'] {
+  --nb-accent: #aa4e6e;
+  --nb-accent-strong: #8f3c59;
+  --nb-accent-soft: #f1dde4;
+  --nb-accent-ring: rgba(170, 78, 110, 0.3);
+  --nb-link: #98435f;
+}
+
+html[data-theme='dark'][data-accent='pink'] {
+  --nb-accent: #e08aa7;
+  --nb-accent-strong: #c66b8a;
+  --nb-accent-soft: #37202a;
+  --nb-accent-ring: rgba(224, 138, 167, 0.34);
+  --nb-link: #e89bb5;
+}
+
+html[data-theme='light'][data-accent='green'] {
+  --nb-accent: #4b7c58;
+  --nb-accent-strong: #3b6847;
+  --nb-accent-soft: #deeadf;
+  --nb-accent-ring: rgba(75, 124, 88, 0.3);
+  --nb-link: #416f4d;
+}
+
+html[data-theme='dark'][data-accent='green'] {
+  --nb-accent: #7fba8b;
+  --nb-accent-strong: #629d6e;
+  --nb-accent-soft: #1e3022;
+  --nb-accent-ring: rgba(127, 186, 139, 0.34);
+  --nb-link: #8ac595;
+}
+
+html[data-theme='light'][data-accent='graphite'] {
+  --nb-accent: #68645e;
+  --nb-accent-strong: #504d48;
+  --nb-accent-soft: #e4e2de;
+  --nb-accent-ring: rgba(104, 100, 94, 0.28);
+  --nb-link: #5c5853;
+}
+
+html[data-theme='dark'][data-accent='graphite'] {
+  --nb-accent: #aaa69f;
+  --nb-accent-strong: #8c8881;
+  --nb-accent-soft: #292825;
+  --nb-accent-ring: rgba(170, 166, 159, 0.3);
+  --nb-link: #bbb7b0;
 }

@@ -21,6 +21,7 @@ import {
 import { parseQuery, resolveQuery } from '@/lib/search/query';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { docToMarkdown, markdownToDoc } from '@/editor/markdown';
 
 type Handler = (args: unknown, context: CommandContext) => Promise<CommandResult<unknown>>;
 
@@ -72,24 +73,6 @@ const CreateCourseArgs = z.object({
 
 function invalid(issues: unknown): CommandResult<never> {
   return fail('invalid_input', 'invalid arguments', issues);
-}
-
-/**
- * Markdown ⇄ document conversion.
- *
- * Phase A treats markdown as plain paragraphs so the write path is exercised
- * end to end. Phase B swaps in the real TipTap markdown parser from
- * `src/editor/markdown/` — the handler signature does not change.
- */
-function markdownToDoc(markdown: string) {
-  return {
-    type: 'doc' as const,
-    content: markdown.split('\n').map((line) =>
-      line
-        ? { type: 'paragraph', content: [{ type: 'text', text: line }] }
-        : { type: 'paragraph' },
-    ),
-  };
 }
 
 export const TOOL_HANDLERS = {
@@ -147,7 +130,7 @@ export const TOOL_HANDLERS = {
       tagIds: note.tagIds,
       updatedAt: note.updatedAt,
       doc: parsed.data.format === 'markdown' ? undefined : note.doc,
-      markdown: parsed.data.format === 'json' ? undefined : note.plainText,
+      markdown: parsed.data.format === 'json' ? undefined : docToMarkdown(note.doc),
     });
   },
 

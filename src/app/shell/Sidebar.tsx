@@ -44,7 +44,7 @@ export function Sidebar() {
   return (
     <nav
       aria-label={t('sidebar.courses')}
-      className="flex h-full w-full flex-col gap-4 overflow-y-auto border-r border-[var(--nb-divider)] px-2 py-3"
+      className="flex h-full w-full flex-col gap-4 overflow-y-auto border-r border-[var(--nb-divider)] bg-[var(--nb-sidebar-surface)] px-2 py-3"
     >
       <ul className="flex flex-col gap-0.5">
         {SMART_VIEWS.map(({ view: target, icon: Icon, labelKey }) => (
