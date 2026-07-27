@@ -18,6 +18,17 @@ function itemIds(nodes: MenuNode[]): string[] {
   });
 }
 
+function findPredefined(nodes: MenuNode[], role: string): MenuNode | undefined {
+  for (const node of nodes) {
+    if (node.kind === 'predefined' && node.role === role) return node;
+    if (node.kind === 'submenu') {
+      const match = findPredefined(node.items, role);
+      if (match) return match;
+    }
+  }
+  return undefined;
+}
+
 beforeEach(() => {
   memoryLibraryAdapter.reset();
 });
@@ -63,6 +74,15 @@ describe('the menu bar', () => {
     for (const node of buildMenuBar((key) => key)) {
       expect(node.kind).toBe('submenu');
     }
+  });
+
+  it('passes a localized label to the native fullscreen item', () => {
+    const fullscreen = findPredefined(buildMenuBar((key) => `translated:${key}`), 'fullscreen');
+    expect(fullscreen).toMatchObject({
+      kind: 'predefined',
+      role: 'fullscreen',
+      label: 'translated:menu.fullscreen',
+    });
   });
 });
 

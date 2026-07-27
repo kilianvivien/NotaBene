@@ -9,6 +9,7 @@
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
+  AI_PROVIDERS,
   applyProposal,
   buildRequest,
   estimateTokens,
@@ -84,7 +85,8 @@ describe('a malformed model response never reaches a note', () => {
     const fenced = '```json\n{"title": "T", "markdown": "body"}\n```';
     expect(parseModelJson(AiSynthesisResponseSchema, fenced).title).toBe('T');
 
-    const chatty = 'Here you go:\n{"title": "T", "markdown": "with a { brace }"}\nHope that helps!';
+    const chatty =
+      'Here you go:\n{"title": "T", "markdown": "with a { brace }"}\nHope that helps!';
     expect(parseModelJson(AiSynthesisResponseSchema, chatty).markdown).toBe(
       'with a { brace }',
     );
@@ -177,6 +179,31 @@ describe('applying a rewrite proposal', () => {
 // Wire formats
 // ---------------------------------------------------------------------------
 
+describe('provider catalogue', () => {
+  it('keeps every built-in default in its suggested model list', () => {
+    for (const provider of AI_PROVIDERS) {
+      if (provider.defaultModel) {
+        expect(provider.models).toContain(provider.defaultModel);
+      }
+    }
+  });
+
+  it('offers the current balanced cloud-provider defaults', () => {
+    expect(providerById('anthropic')).toMatchObject({
+      defaultModel: 'claude-sonnet-5',
+      models: expect.arrayContaining(['claude-sonnet-5', 'claude-haiku-4-5-20251001']),
+    });
+    expect(providerById('openai')).toMatchObject({
+      defaultModel: 'gpt-5.6-terra',
+      models: expect.arrayContaining(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']),
+    });
+    expect(providerById('gemini')).toMatchObject({
+      defaultModel: 'gemini-3.6-flash',
+      models: expect.arrayContaining(['gemini-3.6-flash', 'gemini-3.5-flash-lite']),
+    });
+  });
+});
+
 describe('provider requests', () => {
   const messages = [
     { role: 'system' as const, content: 'be brief' },
@@ -202,6 +229,7 @@ describe('provider requests', () => {
     const body = JSON.parse(built.body!);
     expect(body.system).toBe('be brief');
     expect(body.messages).toHaveLength(1);
+    expect(body.temperature).toBeUndefined();
   });
 
   it('sends Mistral a bearer token at its own base URL', () => {
@@ -216,7 +244,7 @@ describe('provider requests', () => {
     expect(body.messages).toHaveLength(2);
   });
 
-  it('honours OpenAI\'s renamed token field and its temperature restriction', () => {
+  it("honours OpenAI's renamed token field and its temperature restriction", () => {
     const body = JSON.parse(request('openai').body!);
     expect(body.max_completion_tokens).toBe(100);
     expect(body.max_tokens).toBeUndefined();
@@ -227,7 +255,9 @@ describe('provider requests', () => {
     const built = request('gemini');
     expect(built.url).not.toContain('sk-test');
     expect(built.headers['x-goog-api-key']).toBe('sk-test');
-    expect(JSON.parse(built.body!).systemInstruction.parts[0].text).toBe('be brief');
+    const body = JSON.parse(built.body!);
+    expect(body.systemInstruction.parts[0].text).toBe('be brief');
+    expect(body.generationConfig.temperature).toBeUndefined();
   });
 
   it('sends no Authorization header to a keyless local runtime', () => {
@@ -274,7 +304,7 @@ describe('provider responses', () => {
     ).toBe('hi');
   });
 
-  it('surfaces the provider\'s own error message', () => {
+  it("surfaces the provider's own error message", () => {
     expect(() =>
       parseResponse(resolved('mistral'), '{"error":{"message":"no credit"}}'),
     ).toThrow(/no credit/);
@@ -358,7 +388,9 @@ describe('feature resolution', () => {
 
   it('uses the default row for a feature that has no row of its own', () => {
     const settings = settingsWith({
-      aiFeatureModels: { default: { providerId: 'mistral', model: 'mistral-large-latest' } },
+      aiFeatureModels: {
+        default: { providerId: 'mistral', model: 'mistral-large-latest' },
+      },
     });
     const result = resolveFeature('ask', settings, ['mistral']);
     if (!result.available) throw new Error('expected a provider');

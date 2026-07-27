@@ -4,7 +4,7 @@
  * Rendering — doc JSON → HTML → Markdown/PDF/DOCX — happens in shared TypeScript
  * under `src/lib/export/`, because that is what keeps the four formats faithful
  * to one another. This adapter only covers the part that genuinely differs by
- * platform: where the bytes land, and who can print a PDF.
+ * platform: where the bytes land.
  */
 export type ExportFormat = 'markdown' | 'html' | 'pdf' | 'docx' | 'backup';
 
@@ -34,7 +34,4 @@ export interface ExportResult {
 
 export interface ExportAdapter {
   write(request: ExportRequest): Promise<ExportResult>;
-  /** Render print-ready HTML to a PDF. Separate from `write` because it needs
-   * a real print engine, which the browser only exposes via `window.print`. */
-  printToPdf(html: string, destination?: string): Promise<ExportResult>;
 }

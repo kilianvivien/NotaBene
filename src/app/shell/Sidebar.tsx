@@ -13,13 +13,13 @@ import {
   Plus,
   Search,
   Settings2,
-  Tags,
   Trash2,
   X,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ContextMenu, GlassIconButton, type ContextPoint } from '@/components/glass';
+import { dialog } from '@/lib/adapters';
 import {
   createNoteCommand,
   createNoteFromTemplateCommand,
@@ -49,7 +49,7 @@ import {
   SavedSearchDialog,
   TagManagerDialog,
 } from '@/app/organization/OrganizationModals';
-import { startDrag, useDropTarget } from './dnd';
+import { endDrag, startDrag, useDropTarget } from './dnd';
 
 interface SmartView {
   view: ViewKind;
@@ -129,6 +129,14 @@ export function Sidebar() {
 
   const closeMenu = useCallback(() => setMenu(null), []);
 
+  async function confirmEmptyTrash() {
+    const confirmed = await dialog.confirm(t('backups.emptyTrashConfirm'), {
+      title: t('backups.emptyTrashTitle'),
+      danger: true,
+    });
+    if (confirmed) await emptyTrashCommand();
+  }
+
   const expand = useCallback(
     async (courseId: string) => {
       await refreshSections(courseId);
@@ -198,11 +206,7 @@ export function Sidebar() {
                         label: t('backups.emptyTrash'),
                         icon: Trash2,
                         danger: true,
-                        onSelect: () => {
-                          if (window.confirm(t('backups.emptyTrashConfirm'))) {
-                            void emptyTrashCommand();
-                          }
-                        },
+                        onSelect: () => void confirmEmptyTrash(),
                       },
                     ]}
                   />
@@ -288,7 +292,11 @@ export function Sidebar() {
                       ))
                     }
                   >
-                    <Tags size={12} className="shrink-0" />
+                    <span
+                      aria-hidden
+                      className="size-2.5 shrink-0 rounded-full border border-black/10"
+                      style={{ backgroundColor: tag.color }}
+                    />
                     <span className="truncate">
                       {tag.namespace ? `${tag.namespace}:` : ''}
                       {tag.name}
@@ -566,6 +574,7 @@ function CourseRow({
           type="button"
           draggable
           onDragStart={(event) => startDrag(event, 'course', course.id, course.name)}
+          onDragEnd={endDrag}
           onClick={() => onSelect(courseView)}
           onDoubleClick={onEdit}
           aria-current={selected ? 'page' : undefined}
@@ -715,6 +724,7 @@ function SectionRow({
         type="button"
         draggable
         onDragStart={(event) => startDrag(event, 'section', section.id, section.name)}
+        onDragEnd={endDrag}
         className={cn(
           rowClass,
           'min-w-0 flex-1 text-[12px]',

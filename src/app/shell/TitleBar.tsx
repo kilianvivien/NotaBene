@@ -1,4 +1,12 @@
-import { PanelLeft, PanelRight, Plus, Save, Search, Settings } from 'lucide-react';
+import {
+  History,
+  PanelLeft,
+  PanelRight,
+  Plus,
+  Save,
+  Search,
+  Settings,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlassIconButton, GlassSelect } from '@/components/glass';
@@ -22,6 +30,14 @@ export function TitleBar() {
   const recentSearches = useSettingsStore((state) => state.settings.recentSearches);
   const updateSettings = useSettingsStore((state) => state.update);
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const historyMatches = recentSearches
+    .filter(
+      (entry) =>
+        !searchQuery.trim() ||
+        entry.toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()),
+    )
+    .slice(0, 6);
 
   // Through the command router, not straight at the store: a toolbar button and
   // its menu item must be the same action, or they drift.
@@ -50,34 +66,74 @@ export function TitleBar() {
           it. Overlaid on the input it had to be capped at 72px, which cut
           "Everywhere" in half and left no room at all for "Dans ce cours". */}
       <div className="mx-auto flex w-[min(460px,48vw)] min-w-0 items-center gap-1.5">
-        <div className="relative min-w-0 flex-1">
+        <div
+          className="relative min-w-0 flex-1"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setHistoryOpen(false);
+          }}
+        >
           <Search
             size={14}
             className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-nb-text-3"
           />
           <input
             type="search"
-            list="notabene-recent-searches"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setHistoryOpen(true);
+            }}
+            onFocus={() => setHistoryOpen(true)}
             onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setHistoryOpen(false);
+                return;
+              }
               if (event.key !== 'Enter' || !searchQuery.trim()) return;
               const recent = [
                 searchQuery.trim(),
                 ...recentSearches.filter((entry) => entry !== searchQuery.trim()),
               ].slice(0, 10);
               void updateSettings({ recentSearches: recent });
+              setHistoryOpen(false);
             }}
             placeholder={t('search.placeholder')}
             aria-label={t('search.placeholder')}
             autoComplete="off"
             className="glass-thin h-7 w-full rounded-nb-sm border-[0.5px] border-[var(--nb-glass-border)] pl-8 pr-8 text-[13px] placeholder:text-nb-text-3 focus:outline-none"
+            aria-expanded={historyOpen && historyMatches.length > 0}
+            aria-controls="notabene-recent-searches"
+            role="combobox"
           />
-          <datalist id="notabene-recent-searches">
-            {recentSearches.map((entry) => (
-              <option key={entry} value={entry} />
-            ))}
-          </datalist>
+          {historyOpen && historyMatches.length > 0 && (
+            <div
+              id="notabene-recent-searches"
+              role="listbox"
+              aria-label={t('search.recent')}
+              className="absolute left-0 right-0 top-[calc(100%+6px)] z-[80] overflow-hidden rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-menu-surface)] p-1.5 text-nb-text shadow-[var(--nb-shadow-lg)]"
+            >
+              <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-[0.06em] text-nb-text-3">
+                {t('search.recent')}
+              </p>
+              {historyMatches.map((entry) => (
+                <button
+                  key={entry}
+                  type="button"
+                  role="option"
+                  aria-selected={entry === searchQuery}
+                  className="flex h-8 w-full items-center gap-2 rounded-nb-xs px-2 text-left text-[12px] text-nb-text-2 hover:bg-[var(--nb-hover)] hover:text-nb-text focus:bg-[var(--nb-hover)] focus:outline-none"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setSearchQuery(entry);
+                    setHistoryOpen(false);
+                  }}
+                >
+                  <History size={12} className="shrink-0 text-nb-text-3" aria-hidden />
+                  <span className="truncate">{entry}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {searchQuery.trim() && (
             <button
               type="button"

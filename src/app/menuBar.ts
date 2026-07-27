@@ -116,7 +116,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('view.toggleInspector', t),
         separator,
         command('view.focusMode', t),
-        { kind: 'predefined', role: 'fullscreen' },
+        { kind: 'predefined', role: 'fullscreen', label: t('menu.fullscreen') },
       ],
     },
     {

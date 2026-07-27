@@ -27,6 +27,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import { AiStatusPill } from './AiStatusPill';
+import { AiRichText } from './AiRichText';
 import { useAiAvailability } from './useAiAvailability';
 
 export function AskPanel({ noteId }: { noteId: string }) {
@@ -182,18 +183,22 @@ function Bubble({
   return (
     <div
       className={cn(
-        'group rounded-nb-sm p-2 text-[12px] leading-relaxed',
+        'group rounded-nb-sm',
         role === 'user'
-          ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
-          : 'bg-[var(--nb-hover)] text-nb-text-1',
+          ? 'ml-5 bg-[var(--nb-accent-soft)] px-3 py-2.5 text-[13px] leading-relaxed text-[var(--nb-accent)]'
+          : 'border border-[var(--nb-divider)] bg-[var(--nb-paper)] px-3 py-3 text-nb-text',
       )}
     >
-      <p className="whitespace-pre-wrap break-words">{content}</p>
+      {role === 'assistant' ? (
+        <AiRichText markdown={content} />
+      ) : (
+        <p className="whitespace-pre-wrap break-words">{content}</p>
+      )}
       {onSave && (
         <button
           type="button"
           onClick={onSave}
-          className="mt-1 inline-flex items-center gap-1 text-[11px] text-nb-text-3 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+          className="mt-2 inline-flex items-center gap-1 border-t border-[var(--nb-divider)] pt-2 text-[11px] text-nb-text-3 transition-colors hover:text-nb-text focus:text-nb-text"
         >
           <StickyNote size={10} />
           {t('ai.saveAsNote')}

@@ -69,6 +69,7 @@ export function buildRequest(call: AiCall): AiRequest {
 
 function anthropicRequest(call: AiCall): AiRequest {
   const { system, rest } = splitSystem(call.messages);
+  const quirks = call.provider.definition.quirks ?? {};
   return {
     url: `${base(call.provider)}/v1/messages`,
     method: 'POST',
@@ -83,7 +84,7 @@ function anthropicRequest(call: AiCall): AiRequest {
     body: JSON.stringify({
       model: call.provider.model,
       max_tokens: call.maxTokens,
-      temperature: call.temperature,
+      ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
       ...(system ? { system } : {}),
       messages: rest.map((message) => ({
         role: message.role,
@@ -125,6 +126,7 @@ function openAiRequest(call: AiCall): AiRequest {
 
 function geminiRequest(call: AiCall): AiRequest {
   const { system, rest } = splitSystem(call.messages);
+  const quirks = call.provider.definition.quirks ?? {};
   const method = call.stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
   return {
     // The key goes in a header, not the query string, so it cannot end up in a
@@ -143,7 +145,7 @@ function geminiRequest(call: AiCall): AiRequest {
       })),
       generationConfig: {
         maxOutputTokens: call.maxTokens,
-        temperature: call.temperature,
+        ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
         ...(call.json ? { responseMimeType: 'application/json' } : {}),
       },
     }),
@@ -225,7 +227,10 @@ function extractText(protocol: string, payload: unknown): string | null {
  * stream is best-effort progress, and the non-streamed path is what the
  * features fall back on.
  */
-export function parseStreamFrame(provider: ResolvedProvider, payload: string): string | null {
+export function parseStreamFrame(
+  provider: ResolvedProvider,
+  payload: string,
+): string | null {
   if (!payload || payload === '[DONE]') return null;
 
   let frame: unknown;

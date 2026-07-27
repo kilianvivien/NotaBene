@@ -1,5 +1,4 @@
-/** Desktop export: writes to a user-chosen path, zipping bundles, and drives
- * the Rust-side print engine for PDF. */
+/** Desktop export: writes to a user-chosen path and zips bundles. */
 import { invoke } from '@tauri-apps/api/core';
 import type { ExportAdapter, ExportRequest, ExportResult } from './ExportAdapter';
 
@@ -30,21 +29,5 @@ export const tauriExportAdapter: ExportAdapter = {
         files,
       },
     });
-  },
-
-  async printToPdf(html: string): Promise<ExportResult> {
-    const frame = document.createElement('iframe');
-    frame.style.cssText =
-      'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none';
-    frame.srcdoc = html;
-    const loaded = new Promise<void>((resolve) =>
-      frame.addEventListener('load', () => resolve(), { once: true }),
-    );
-    document.body.append(frame);
-    await loaded;
-    frame.contentWindow?.focus();
-    frame.contentWindow?.print();
-    window.setTimeout(() => frame.remove(), 60_000);
-    return { ok: true };
   },
 };

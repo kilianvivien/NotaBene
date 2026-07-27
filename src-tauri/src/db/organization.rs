@@ -129,13 +129,14 @@ pub fn delete_section(store: &Store, section_id: &str) -> DbResult<()> {
 pub fn list_tags(store: &Store) -> DbResult<Vec<Tag>> {
     store.with(|connection| {
         let mut statement =
-            connection.prepare("SELECT id, namespace, name FROM tags ORDER BY name")?;
+            connection.prepare("SELECT id, namespace, name, color FROM tags ORDER BY name")?;
         let rows = statement
             .query_map([], |row| {
                 Ok(Tag {
                     id: row.get(0)?,
                     namespace: row.get(1)?,
                     name: row.get(2)?,
+                    color: row.get(3)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -146,9 +147,10 @@ pub fn list_tags(store: &Store) -> DbResult<Vec<Tag>> {
 pub fn upsert_tag(store: &Store, tag: &Tag) -> DbResult<()> {
     store.transact(|connection| {
         connection.execute(
-            "INSERT INTO tags (id, namespace, name) VALUES (?1, ?2, ?3) \
-             ON CONFLICT(id) DO UPDATE SET namespace = excluded.namespace, name = excluded.name",
-            rusqlite::params![tag.id, tag.namespace, tag.name],
+            "INSERT INTO tags (id, namespace, name, color) VALUES (?1, ?2, ?3, ?4) \
+             ON CONFLICT(id) DO UPDATE SET namespace = excluded.namespace, \
+             name = excluded.name, color = excluded.color",
+            rusqlite::params![tag.id, tag.namespace, tag.name, tag.color],
         )?;
         let note_ids = note_ids(
             connection,

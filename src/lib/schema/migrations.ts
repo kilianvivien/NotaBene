@@ -17,6 +17,18 @@ const MIGRATIONS: Record<number, Migration> = {
   // backup envelope. The explicit identity step still matters: old backups
   // must advance through the same numbered ladder as the database.
   1: (input) => input,
+  // v3 adds a visual color to tags. Existing backups predate the field, so
+  // they inherit the same warm neutral used for newly created tags.
+  2: (input) => ({
+    ...input,
+    tags: Array.isArray(input.tags)
+      ? input.tags.map((tag) =>
+          typeof tag === 'object' && tag !== null
+            ? { color: '#9b5c2f', ...(tag as Record<string, unknown>) }
+            : tag,
+        )
+      : input.tags,
+  }),
 };
 
 export type ImportResult =

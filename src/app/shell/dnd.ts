@@ -31,6 +31,16 @@ const MIME_FOR: Record<DragKind, string> = {
   section: SECTION_MIME,
 };
 
+interface ActiveDrag {
+  kind: DragKind;
+  id: string;
+}
+
+// WKWebView may omit application/* entries from DataTransfer.types while an
+// internal drag is in flight. Keep the same typed payload in memory so Tauri
+// and the browser follow one drop path without weakening external drops.
+let activeDrag: ActiveDrag | null = null;
+
 /**
  * Start a drag of one of our own things.
  *
@@ -43,20 +53,31 @@ export function startDrag(
   id: string,
   label?: string,
 ): void {
+  activeDrag = { kind, id };
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData(MIME_FOR[kind], id);
   event.dataTransfer.setData('text/plain', label ?? id);
 }
 
+export function endDrag(): void {
+  activeDrag = null;
+}
+
 /** Whether a drag in flight carries the given kind. Safe to call in
  * `dragover`, where the values themselves are hidden. */
 export function dragCarries(event: DragEvent, kind: DragKind): boolean {
-  return event.dataTransfer.types.includes(MIME_FOR[kind]);
+  return (
+    Array.from(event.dataTransfer.types).includes(MIME_FOR[kind]) ||
+    activeDrag?.kind === kind
+  );
 }
 
 /** The id a drop carries, or `null`. Only meaningful in `drop`. */
 export function readDrag(event: DragEvent, kind: DragKind): string | null {
-  return event.dataTransfer.getData(MIME_FOR[kind]) || null;
+  return (
+    event.dataTransfer.getData(MIME_FOR[kind]) ||
+    (activeDrag?.kind === kind ? activeDrag.id : null)
+  );
 }
 
 export interface DropTargetOptions {
@@ -135,6 +156,7 @@ export function useDropTarget(options: DropTargetOptions): DropTarget {
         event.preventDefault();
         event.stopPropagation();
         const id = readDrag(event, kind);
+        endDrag();
         if (id) onDrop(kind, id, event);
       },
     },

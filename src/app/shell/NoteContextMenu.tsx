@@ -1,9 +1,10 @@
-import { Archive, FolderOpen, Pin, PinOff, RotateCcw, Trash2 } from 'lucide-react';
+import { Archive, FolderOpen, Pin, PinOff, RotateCcw, Tag, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ContextMenu, type ContextPoint } from '@/components/glass';
 import { restoreNoteCommand, trashNoteCommand, updateNoteCommand } from '@/lib/commands';
 import type { NoteSummary } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 
 export type { ContextPoint };
@@ -20,8 +21,14 @@ export function NoteContextMenu({
   const { t } = useTranslation();
   const selectNote = useUiStore((state) => state.selectNote);
   const openNote = useEditorStore((state) => state.openNote);
+  const tags = useLibraryStore((state) => state.tags);
+  const availableTags = tags.filter((tag) => !note.tagIds.includes(tag.id));
 
-  async function update(patch: { pinned?: boolean; archived?: boolean }) {
+  async function update(patch: {
+    pinned?: boolean;
+    archived?: boolean;
+    tagIds?: string[];
+  }) {
     await useEditorStore.getState().flush();
     const result = await updateNoteCommand({ noteId: note.id, ...patch });
     if (!result.ok) return;
@@ -74,6 +81,20 @@ export function NoteContextMenu({
                 icon: Archive,
                 onSelect: () => void update({ archived: !note.archived }),
               },
+              ...(availableTags.length
+                ? [
+                    null,
+                    ...availableTags.map((tag) => ({
+                      id: `tag-${tag.id}`,
+                      label: t('noteActions.addTag', {
+                        tag: `${tag.namespace ? `${tag.namespace}:` : ''}${tag.name}`,
+                      }),
+                      icon: Tag,
+                      swatch: tag.color,
+                      onSelect: () => void update({ tagIds: [...note.tagIds, tag.id] }),
+                    })),
+                  ]
+                : []),
               null,
               {
                 id: 'trash',

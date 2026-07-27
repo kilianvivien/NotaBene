@@ -26,6 +26,8 @@ export interface ContextMenuItem {
   icon?: LucideIcon;
   danger?: boolean;
   disabled?: boolean;
+  /** Optional persisted color, used for tag entries without sacrificing text contrast. */
+  swatch?: string;
   onSelect(): void;
 }
 
@@ -87,7 +89,8 @@ export function ContextMenu({
   const visible = items.filter(
     (entry, index) =>
       // Drop separators that would land first, last, or beside another.
-      entry !== null || (index > 0 && items[index - 1] !== null && hasLater(items, index)),
+      entry !== null ||
+      (index > 0 && items[index - 1] !== null && hasLater(items, index)),
   );
 
   return (
@@ -95,7 +98,7 @@ export function ContextMenu({
       ref={panel}
       role="menu"
       className={cn(
-        'fixed z-[70] min-w-[188px] max-w-[280px] rounded-nb-sm p-1.5',
+        'fixed z-[70] max-h-[min(70vh,520px)] min-w-[188px] max-w-[280px] overflow-y-auto rounded-nb-sm p-1.5',
         'border border-[var(--nb-control-border)] bg-[var(--nb-menu-surface)]',
         'shadow-[var(--nb-shadow-lg)]',
       )}
@@ -131,7 +134,15 @@ export function ContextMenu({
               onClose();
             }}
           >
-            {entry.icon && <entry.icon size={14} className="shrink-0" aria-hidden />}
+            {entry.swatch ? (
+              <span
+                aria-hidden
+                className="size-2.5 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: entry.swatch }}
+              />
+            ) : (
+              entry.icon && <entry.icon size={14} className="shrink-0" aria-hidden />
+            )}
             <span className="truncate">{entry.label}</span>
           </button>
         ),

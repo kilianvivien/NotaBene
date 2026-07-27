@@ -43,6 +43,7 @@ pub struct Tag {
     pub id: String,
     pub namespace: Option<String>,
     pub name: String,
+    pub color: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

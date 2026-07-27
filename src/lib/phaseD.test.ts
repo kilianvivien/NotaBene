@@ -3,6 +3,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { createBackupArchive, parseBackupArchive } from '@/lib/backup';
 import { assets } from '@/lib/adapters';
 import { notesToDocx } from '@/lib/export/docx';
+import { notesToPdf } from '@/lib/export/pdf';
 import { docToSemanticHtml } from '@/lib/export/render';
 import { retainedSnapshotIds } from '@/lib/history/retention';
 import { createNote, emptyLibrary, type NoteDoc } from '@/lib/schema';
@@ -29,7 +30,18 @@ const fullVocabulary: NoteDoc = {
       content: [
         {
           type: 'listItem',
-          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Item' }] }],
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Item',
+                  marks: [{ type: 'link', attrs: { href: 'https://example.com' } }],
+                },
+              ],
+            },
+          ],
         },
       ],
     },
@@ -164,10 +176,24 @@ describe('Phase D versions, backups, and exports', () => {
     const blob = await notesToDocx([note], new Map());
     const files = unzipSync(new Uint8Array(await bytes(blob)));
     const document = strFromU8(files['word/document.xml']!);
+    const styles = strFromU8(files['word/styles.xml']!);
+    const relationships = strFromU8(files['word/_rels/document.xml.rels']!);
 
     expect(document).toContain('<w:tbl>');
     expect(document).toContain('<m:oMath>');
     expect(document).toContain('<w:drawing>');
     expect(document).toContain('Heading');
+    expect(document).toContain('IMPORTANT');
+    expect(document).toContain('FAEFF3');
+    expect(styles).toContain('Arial');
+    expect(relationships).toContain('https://example.com');
+  });
+
+  it('builds a real PDF with structured note content', async () => {
+    const note = createNote({ title: 'Fidelity', doc: fullVocabulary });
+    const blob = await notesToPdf([note], new Map(), new Map(), { language: 'en' });
+    const data = new Uint8Array(await bytes(blob));
+    expect(new TextDecoder().decode(data.slice(0, 5))).toBe('%PDF-');
+    expect(data.byteLength).toBeGreaterThan(10_000);
   });
 });

@@ -16,7 +16,10 @@ describe('library import', () => {
   });
 
   it('refuses a library from a newer build rather than guessing', () => {
-    const result = safeImportLibrary({ ...emptyLibrary(), schemaVersion: SCHEMA_VERSION + 1 });
+    const result = safeImportLibrary({
+      ...emptyLibrary(),
+      schemaVersion: SCHEMA_VERSION + 1,
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/newer NotaBene/);
   });
@@ -37,6 +40,17 @@ describe('library import', () => {
     const result = safeImportLibrary({ schemaVersion: 1 });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.issues?.[0]).toMatch(/^exportedAt:/);
+  });
+
+  it('adds the default tag color when importing a v2 library', () => {
+    const library = {
+      ...emptyLibrary(),
+      schemaVersion: 2,
+      tags: [{ id: 'tag-1', namespace: null, name: 'Important' }],
+    };
+    const result = safeImportLibrary(library);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.library.tags[0]?.color).toBe('#9b5c2f');
   });
 });
 

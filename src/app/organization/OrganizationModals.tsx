@@ -13,6 +13,8 @@ import {
 } from '@/lib/commands';
 import {
   COURSE_COLORS,
+  DEFAULT_TAG_COLOR,
+  TAG_COLORS,
   TAG_NAMESPACES,
   type Course,
   type SavedSearch,
@@ -242,11 +244,15 @@ export function TagManagerDialog({ open, onClose }: { open: boolean; onClose(): 
   const tags = useLibraryStore((state) => state.tags);
   const [name, setName] = useState('');
   const [namespace, setNamespace] = useState<Tag['namespace']>(null);
+  const [color, setColor] = useState(DEFAULT_TAG_COLOR);
 
   async function add(event: FormEvent) {
     event.preventDefault();
-    const result = await ensureTagCommand({ name: name.trim(), namespace });
-    if (result.ok) setName('');
+    const result = await ensureTagCommand({ name: name.trim(), namespace, color });
+    if (result.ok) {
+      setName('');
+      setColor(DEFAULT_TAG_COLOR);
+    }
   }
 
   return (
@@ -263,7 +269,7 @@ export function TagManagerDialog({ open, onClose }: { open: boolean; onClose(): 
     >
       <form
         onSubmit={(event) => void add(event)}
-        className="mb-3 grid grid-cols-[150px_minmax(0,1fr)_auto] gap-2"
+        className="mb-3 grid grid-cols-[140px_minmax(0,1fr)_auto_auto] items-end gap-2"
       >
         <GlassSelect
           label={t('organization.freeTag')}
@@ -286,6 +292,7 @@ export function TagManagerDialog({ open, onClose }: { open: boolean; onClose(): 
           placeholder={t('organization.tagName')}
           onChange={(event) => setName(event.target.value)}
         />
+        <TagColorPicker value={color} onChange={setColor} />
         <GlassButton type="submit" size="sm" variant="accent">
           {t('organization.addTag')}
         </GlassButton>
@@ -300,6 +307,11 @@ export function TagManagerDialog({ open, onClose }: { open: boolean; onClose(): 
           </p>
         )}
       </div>
+      <datalist id="notabene-tag-colors">
+        {TAG_COLORS.map((color) => (
+          <option key={color} value={color} />
+        ))}
+      </datalist>
     </Dialog>
   );
 }
@@ -307,9 +319,11 @@ export function TagManagerDialog({ open, onClose }: { open: boolean; onClose(): 
 function TagRow({ tag, tags }: { tag: Tag; tags: Tag[] }) {
   const { t } = useTranslation();
   const [name, setName] = useState(tag.name);
+  const [color, setColor] = useState(tag.color);
   const [mergeInto, setMergeInto] = useState('');
   return (
-    <div className="grid grid-cols-[92px_minmax(0,1fr)_150px_auto_auto] items-center gap-2 rounded-nb-sm bg-[var(--nb-inset-surface)] p-2">
+    <div className="grid grid-cols-[auto_82px_minmax(0,1fr)_140px_auto_auto] items-center gap-2 rounded-nb-sm bg-[var(--nb-inset-surface)] p-2">
+      <TagColorPicker value={color} onChange={setColor} compact />
       <span className="truncate text-[12px] text-nb-text-3">
         {tag.namespace ? `${tag.namespace}:` : t('organization.freeTag')}
       </span>
@@ -336,10 +350,10 @@ function TagRow({ tag, tags }: { tag: Tag; tags: Tag[] }) {
       </GlassSelect>
       <GlassButton
         size="sm"
-        disabled={!name.trim() || name.trim() === tag.name}
-        onClick={() => void updateTagCommand({ ...tag, name: name.trim() })}
+        disabled={!name.trim() || (name.trim() === tag.name && color === tag.color)}
+        onClick={() => void updateTagCommand({ ...tag, name: name.trim(), color })}
       >
-        {t('common.rename')}
+        {t('common.save')}
       </GlassButton>
       <GlassButton
         size="sm"
@@ -353,6 +367,38 @@ function TagRow({ tag, tags }: { tag: Tag; tags: Tag[] }) {
         {mergeInto ? t('organization.merge') : t('common.delete')}
       </GlassButton>
     </div>
+  );
+}
+
+function TagColorPicker({
+  value,
+  onChange,
+  compact = false,
+}: {
+  value: string;
+  onChange(value: string): void;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <label
+      className="relative inline-grid shrink-0 place-items-center"
+      title={t('organization.tagColor')}
+    >
+      <span
+        aria-hidden
+        className={compact ? 'size-5 rounded-full border' : 'size-8 rounded-nb-sm border'}
+        style={{ backgroundColor: value, borderColor: 'var(--nb-control-border)' }}
+      />
+      <input
+        type="color"
+        aria-label={t('organization.tagColor')}
+        className="absolute inset-0 size-full cursor-pointer opacity-0"
+        value={value}
+        list="notabene-tag-colors"
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }
 

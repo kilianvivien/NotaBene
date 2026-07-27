@@ -32,7 +32,12 @@ describe('Phase C library behavior', () => {
 
   it('includes course, typed-tag, and attachment names in free-text search', async () => {
     const course = createCourse({ name: 'Mathématiques' });
-    const tag: Tag = { id: newId(), namespace: 'prof', name: 'Élodie' };
+    const tag: Tag = {
+      id: newId(),
+      namespace: 'prof',
+      name: 'Élodie',
+      color: '#3478c7',
+    };
     const note = createNote({ courseId: course.id, tagIds: [tag.id] });
     await memoryLibraryAdapter.upsertCourse(course);
     await memoryLibraryAdapter.upsertTag(tag);
@@ -80,7 +85,12 @@ describe('Phase C library behavior', () => {
 
   it('resolves named filters and persisted smart folders through the shared query map', () => {
     const course = createCourse({ name: 'Droit public' });
-    const tag: Tag = { id: newId(), namespace: 'type', name: 'lecture' };
+    const tag: Tag = {
+      id: newId(),
+      namespace: 'type',
+      name: 'lecture',
+      color: '#4b7c58',
+    };
     const query = viewToQuery(
       { kind: 'savedSearch', savedSearchId: 'saved' },
       {

@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -88,12 +88,27 @@ export type Section = z.infer<typeof SectionSchema>;
 export const TAG_NAMESPACES = ['topic', 'prof', 'semester', 'exam', 'type'] as const;
 export const TagNamespaceSchema = z.enum(TAG_NAMESPACES);
 export type TagNamespace = z.infer<typeof TagNamespaceSchema>;
+export const DEFAULT_TAG_COLOR = '#9b5c2f';
+export const TAG_COLORS = [
+  '#9b5c2f',
+  '#3478c7',
+  '#7d5aa8',
+  '#aa4e6e',
+  '#4b7c58',
+  '#b56b22',
+  '#4d7f8d',
+  '#6f6b64',
+] as const;
 
 export const TagSchema = z.object({
   id,
   /** `null` for a plain free tag; a namespace makes it facetable in search. */
   namespace: TagNamespaceSchema.nullable().default(null),
   name: z.string().min(1),
+  color: z
+    .string()
+    .regex(/^#[0-9a-f]{6}$/i)
+    .default(DEFAULT_TAG_COLOR),
 });
 export type Tag = z.infer<typeof TagSchema>;
 

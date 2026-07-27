@@ -35,8 +35,8 @@ export interface ProviderDefinition {
 export interface ProviderQuirks {
   /** OpenAI renamed the field and rejects the old one on newer models. */
   maxTokensField?: 'max_tokens' | 'max_completion_tokens';
-  /** OpenAI's reasoning models accept only the default temperature, and answer
-   * a request that sets one with a 400 rather than ignoring it. */
+  /** Newer reasoning models accept only their default sampling behavior, and
+   * may answer a request that sets a temperature with a 400. */
   sendTemperature?: boolean;
   /** Not every OpenAI-compatible server implements `response_format`; asking
    * an Ollama build that does not for one is a hard error, not a downgrade. */
@@ -51,9 +51,15 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     defaultBaseUrl: 'https://api.anthropic.com',
     requiresKey: true,
     editableBaseUrl: false,
-    models: ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
+    models: [
+      'claude-fable-5',
+      'claude-opus-5',
+      'claude-sonnet-5',
+      'claude-haiku-4-5-20251001',
+    ],
     defaultModel: 'claude-sonnet-5',
     keyUrl: 'https://console.anthropic.com/settings/keys',
+    quirks: { sendTemperature: false },
   },
   {
     id: 'openai',
@@ -62,8 +68,8 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     defaultBaseUrl: 'https://api.openai.com/v1',
     requiresKey: true,
     editableBaseUrl: false,
-    models: ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini'],
-    defaultModel: 'gpt-5-mini',
+    models: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.6'],
+    defaultModel: 'gpt-5.6-terra',
     keyUrl: 'https://platform.openai.com/api-keys',
     quirks: { maxTokensField: 'max_completion_tokens', sendTemperature: false },
   },
@@ -79,10 +85,11 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     // between releases.
     models: [
       'mistral-large-latest',
+      'mistral-large-2512',
       'mistral-medium-latest',
+      'mistral-medium-3-5',
       'mistral-small-latest',
-      'magistral-medium-latest',
-      'open-mistral-nemo',
+      'mistral-small-2603',
     ],
     defaultModel: 'mistral-medium-latest',
     keyUrl: 'https://console.mistral.ai/api-keys',
@@ -94,9 +101,10 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     requiresKey: true,
     editableBaseUrl: false,
-    models: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
-    defaultModel: 'gemini-2.5-flash',
+    models: ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'],
+    defaultModel: 'gemini-3.6-flash',
     keyUrl: 'https://aistudio.google.com/apikey',
+    quirks: { sendTemperature: false },
   },
   {
     id: 'openrouter',
@@ -106,12 +114,15 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     requiresKey: true,
     editableBaseUrl: false,
     models: [
-      'anthropic/claude-sonnet-4.5',
-      'openai/gpt-4.1',
-      'mistralai/mistral-large',
-      'google/gemini-2.5-flash',
+      'anthropic/claude-sonnet-5',
+      'openai/gpt-5.6-sol',
+      'openai/gpt-5.6-terra',
+      'openai/gpt-5.6-luna',
+      'mistralai/mistral-medium-3-5',
+      'google/gemini-3.6-flash',
+      'google/gemini-3.5-flash-lite',
     ],
-    defaultModel: 'anthropic/claude-sonnet-4.5',
+    defaultModel: 'anthropic/claude-sonnet-5',
     keyUrl: 'https://openrouter.ai/keys',
   },
   {

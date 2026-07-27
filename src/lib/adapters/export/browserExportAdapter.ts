@@ -19,23 +19,10 @@ export const browserExportAdapter: ExportAdapter = {
     }
     const file = request.files[0];
     if (!file) return { ok: false, error: 'nothing to export' };
-    download(file.contents, request.suggestedName ?? file.path.split('/').pop() ?? 'export');
-    return { ok: true };
-  },
-
-  async printToPdf(html): Promise<ExportResult> {
-    const frame = document.createElement('iframe');
-    frame.style.cssText =
-      'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none';
-    frame.srcdoc = html;
-    const loaded = new Promise<void>((resolve) =>
-      frame.addEventListener('load', () => resolve(), { once: true }),
+    download(
+      file.contents,
+      request.suggestedName ?? file.path.split('/').pop() ?? 'export',
     );
-    document.body.append(frame);
-    await loaded;
-    frame.contentWindow?.focus();
-    frame.contentWindow?.print();
-    window.setTimeout(() => frame.remove(), 60_000);
     return { ok: true };
   },
 };

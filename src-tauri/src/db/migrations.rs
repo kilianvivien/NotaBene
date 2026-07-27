@@ -8,7 +8,7 @@
 use super::{DbResult, Store};
 
 /// Must match `SCHEMA_VERSION` in `src/lib/schema/schema.ts`.
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 const V1: &str = include_str!("schema.sql");
 const V2: &str = r#"
@@ -54,6 +54,10 @@ CREATE TABLE IF NOT EXISTS template_tags (
 );
 "#;
 
+const V3: &str = r#"
+ALTER TABLE tags ADD COLUMN color TEXT NOT NULL DEFAULT '#9b5c2f';
+"#;
+
 pub fn run(store: &Store) -> DbResult<()> {
     let current: i64 = store.with(|connection| {
         Ok(connection.query_row("PRAGMA user_version", [], |row| row.get(0))?)
@@ -70,6 +74,16 @@ pub fn run(store: &Store) -> DbResult<()> {
         if current < 2 {
             transaction.execute_batch(V2)?;
         }
+        if current < 3 {
+            let has_color = transaction.query_row(
+                "SELECT count(*) FROM pragma_table_info('tags') WHERE name = 'color'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )? > 0;
+            if !has_color {
+                transaction.execute_batch(V3)?;
+            }
+        }
         transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         Ok(())
     })
@@ -77,7 +91,12 @@ pub fn run(store: &Store) -> DbResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::SCHEMA_VERSION;
+    use std::sync::Mutex;
+
+    use rusqlite::Connection;
+
+    use super::{run, SCHEMA_VERSION, V1, V2};
+    use crate::db::Store;
 
     /// "Must match" in the doc comment above is only true if something checks.
     /// Reading the TypeScript source is blunt, but it is the cheapest way to
@@ -95,5 +114,37 @@ mod tests {
             declared, SCHEMA_VERSION,
             "schema.ts and migrations.rs disagree about the schema version"
         );
+    }
+
+    #[test]
+    fn v2_database_gains_a_default_tag_color() {
+        let connection = Connection::open_in_memory().expect("failed to open database");
+        connection.execute_batch(V1).expect("failed to apply v1");
+        connection.execute_batch(V2).expect("failed to apply v2");
+        connection
+            .execute(
+                "INSERT INTO tags (id, namespace, name) VALUES ('tag-1', NULL, 'Important')",
+                [],
+            )
+            .expect("failed to seed tag");
+        connection
+            .pragma_update(None, "user_version", 2)
+            .expect("failed to set schema version");
+        let store = Store {
+            connection: Mutex::new(connection),
+        };
+
+        run(&store).expect("failed to migrate");
+
+        let color: String = store
+            .with(|database| {
+                Ok(
+                    database.query_row("SELECT color FROM tags WHERE id = 'tag-1'", [], |row| {
+                        row.get(0)
+                    })?,
+                )
+            })
+            .expect("failed to read migrated tag");
+        assert_eq!(color, "#9b5c2f");
     }
 }

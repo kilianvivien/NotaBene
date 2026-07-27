@@ -10,7 +10,7 @@ import { reorderNotesCommand } from '@/lib/commands';
 import { viewToQuery } from './viewQuery';
 import { cn } from '@/lib/utils/cn';
 import { NoteContextMenu } from './NoteContextMenu';
-import { readDrag, startDrag } from './dnd';
+import { endDrag, readDrag, startDrag } from './dnd';
 import type { NoteSummary } from '@/lib/schema';
 
 function formatDate(iso: string, locale: string): string {
@@ -121,7 +121,10 @@ export function NoteList() {
                 setDraggedNoteId(note.id);
                 startDrag(event, 'note', note.id, note.title || t('noteList.untitled'));
               }}
-              onDragEnd={() => setDraggedNoteId(null)}
+              onDragEnd={() => {
+                endDrag();
+                setDraggedNoteId(null);
+              }}
               onDragOver={(event) => {
                 // Reordering is a course-view affordance only; everywhere else
                 // the order is the query's to decide.
@@ -140,6 +143,7 @@ export function NoteList() {
                 void updateSettings({
                   viewSorts: { ...viewSorts, [key]: 'manual' },
                 }).then(() => reorderNotesCommand(ids));
+                endDrag();
                 setDraggedNoteId(null);
               }}
               onContextMenu={(event) => {

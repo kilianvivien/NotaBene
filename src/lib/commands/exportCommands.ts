@@ -140,22 +140,36 @@ export async function exportNotesCommand(
       notes.length === 1 ? slug(notes[0]?.title ?? '', notes[0]?.id ?? 'note') : 'notes';
 
     if (options.format === 'pdf') {
+      const { notesToPdf } = await import('@/lib/export/pdf');
       const urls = new Map<string, string>();
       for (const [id, blob] of assetBlobs) urls.set(id, await blobDataUrl(blob));
-      const body = notes
-        .map(
-          (note) =>
-            `<article class="note" id="note-${htmlText(note.id)}"><h1>${htmlText(note.title || 'Untitled note')}</h1><p class="metadata">${htmlText(courses.find((course) => course.id === note.courseId)?.name ?? '')} · ${htmlText(new Date(note.updatedAt).toLocaleDateString(options.language))}</p>${docToSemanticHtml(note.doc, urls)}</article>`,
-        )
-        .join('');
-      const toc =
-        options.includeToc && notes.length > 1
-          ? `<nav class="toc"><h1>Contents</h1><ol>${notes.map((note) => `<li><a href="#note-${htmlText(note.id)}">${htmlText(note.title || 'Untitled note')}</a></li>`).join('')}</ol></nav>`
-          : undefined;
-      const result = await exporter.printToPdf(
-        completeHtmlDocument(baseName, body, { toc, language: options.language }),
-        options.destination,
+      const metadata = new Map(
+        notes.map((note) => [
+          note.id,
+          {
+            course: courses.find((course) => course.id === note.courseId)?.name,
+            updated: new Date(note.updatedAt).toLocaleDateString(options.language),
+          },
+        ]),
       );
+      const contents = await notesToPdf(notes, urls, metadata, {
+        includeToc: options.includeToc,
+        language: options.language,
+      });
+      const name = `${baseName}.pdf`;
+      const destination =
+        options.destination ??
+        (await dialog.saveFile({
+          defaultPath: name,
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        }));
+      if (!destination) return fail('not_supported', 'Export cancelled');
+      const result = await exporter.write({
+        format: 'pdf',
+        destination,
+        suggestedName: name,
+        files: [{ path: name, contents }],
+      });
       return result.ok
         ? ok(result.path)
         : fail('storage_failed', result.error ?? 'PDF export failed');

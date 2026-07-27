@@ -11,7 +11,7 @@
  * re-render of the note — if those two ever disagreed, the diff would be lying
  * about what the model saw.
  */
-import { Check, Loader2, X } from 'lucide-react';
+import { Check, Loader2, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlassButton, GlassSegmentedControl, ModalOverlay } from '@/components/glass';
@@ -23,6 +23,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import { AiStatusPill } from './AiStatusPill';
+import { AiRichText } from './AiRichText';
 import { useAiAvailability } from './useAiAvailability';
 
 export function RewriteDialog() {
@@ -61,9 +62,7 @@ export function RewriteDialog() {
 
     if (!response.ok) {
       setError(
-        response.code === 'not_supported'
-          ? t('ai.notConfiguredHint')
-          : response.message,
+        response.code === 'not_supported' ? t('ai.notConfiguredHint') : response.message,
       );
       return;
     }
@@ -106,9 +105,9 @@ export function RewriteDialog() {
         setOpen(false);
       }}
       label={t('ai.rewrite')}
-      className="w-[min(640px,92vw)]"
+      className="w-[min(900px,94vw)]"
     >
-      <div className="flex max-h-[min(640px,80vh)] w-full flex-col">
+      <div className="flex max-h-[min(760px,86vh)] w-full flex-col">
         <header className="flex items-center gap-3 border-b border-[var(--nb-divider)] p-4">
           <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold">
             {t('ai.rewrite')}
@@ -136,7 +135,7 @@ export function RewriteDialog() {
               className="h-8 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
             />
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <GlassButton
               size="sm"
               variant="accent"
@@ -156,12 +155,17 @@ export function RewriteDialog() {
                 {t('ai.cancel')}
               </GlassButton>
             )}
-            {result?.summary && (
-              <p className="min-w-0 flex-1 truncate text-[11px] text-nb-text-3">
-                {result.summary}
-              </p>
-            )}
           </div>
+          {result?.summary && (
+            <div className="flex items-start gap-2 rounded-nb-xs bg-[var(--nb-inset-surface)] px-3 py-2 text-[12px] leading-relaxed text-nb-text-2">
+              <Sparkles
+                size={13}
+                aria-hidden
+                className="mt-[3px] shrink-0 text-[var(--nb-accent)]"
+              />
+              <p>{result.summary}</p>
+            </div>
+          )}
           {error && <p className="text-[12px] text-[var(--nb-danger)]">{error}</p>}
         </div>
 
@@ -240,32 +244,38 @@ function BlockDiff({
   return (
     <li
       className={cn(
-        'rounded-nb-sm border p-2 transition-colors duration-[var(--nb-t-fast)]',
+        'rounded-nb-sm border bg-[var(--nb-paper)] p-3 transition-colors duration-[var(--nb-t-fast)]',
         accepted
-          ? 'border-[var(--nb-accent)] bg-[var(--nb-accent-soft)]'
+          ? 'border-[color-mix(in_srgb,var(--nb-accent)_60%,var(--nb-divider))] shadow-[0_0_0_1px_color-mix(in_srgb,var(--nb-accent)_12%,transparent)]'
           : 'border-[var(--nb-divider)]',
       )}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <span className="rounded-full bg-[var(--nb-hover)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-nb-text-3">
           {t(`ai.action_${block.action}`)}
         </span>
         {block.rationale && (
-          <span className="min-w-0 flex-1 truncate text-[11px] text-nb-text-3">
+          <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-nb-text-2">
             {block.rationale}
-          </span>
+          </p>
         )}
         <button
           type="button"
           aria-label={accepted ? t('ai.reject') : t('ai.accept')}
           aria-pressed={accepted}
           onClick={onToggle}
-          className="ml-auto rounded-nb-xs p-1 hover:bg-[var(--nb-hover)]"
+          className={cn(
+            'ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium transition-colors',
+            accepted
+              ? 'border-[color-mix(in_srgb,var(--nb-success)_35%,var(--nb-divider))] bg-[color-mix(in_srgb,var(--nb-success)_10%,transparent)] text-[var(--nb-success)]'
+              : 'border-[var(--nb-divider)] bg-[var(--nb-hover)] text-nb-text-3 hover:text-nb-text',
+          )}
         >
-          {accepted ? <Check size={13} /> : <X size={13} />}
+          {accepted ? <Check size={12} /> : <X size={12} />}
+          {accepted ? t('ai.included') : t('ai.excluded')}
         </button>
       </div>
-      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {block.action !== 'insert' && (
           <Side label={t('ai.before')} text={before} tone="removed" />
         )}
@@ -287,19 +297,20 @@ function Side({
   tone: 'removed' | 'added';
 }) {
   return (
-    <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-wide text-nb-text-3">{label}</p>
-      <pre
+    <section className="min-w-0">
+      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.06em] text-nb-text-3">
+        {label}
+      </p>
+      <div
         className={cn(
-          'mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-nb-xs p-1.5',
-          'font-[var(--nb-font-mono)] text-[11px] leading-snug',
+          'min-h-full rounded-nb-xs border p-3',
           tone === 'removed'
-            ? 'bg-[color-mix(in_srgb,var(--nb-danger)_12%,transparent)]'
-            : 'bg-[color-mix(in_srgb,var(--nb-accent)_12%,transparent)]',
+            ? 'border-[color-mix(in_srgb,var(--nb-danger)_22%,var(--nb-divider))] bg-[color-mix(in_srgb,var(--nb-danger)_5%,transparent)]'
+            : 'border-[color-mix(in_srgb,var(--nb-success)_22%,var(--nb-divider))] bg-[color-mix(in_srgb,var(--nb-success)_5%,transparent)]',
         )}
       >
-        {text}
-      </pre>
-    </div>
+        <AiRichText markdown={text} />
+      </div>
+    </section>
   );
 }

@@ -42,6 +42,7 @@
     "unpin": "Désépingler",
     "archive": "Archiver",
     "unarchive": "Désarchiver",
+    "addTag": "Ajouter l’étiquette « {{tag}} »",
     "moveToTrash": "Mettre à la corbeille",
     "restore": "Restaurer"
   },
@@ -124,6 +125,20 @@
     "current": "Note actuelle",
     "restore": "Restaurer cette version",
     "restoring": "Restauration…",
+    "overview": "Aperçu des changements",
+    "title": "Titre",
+    "titleChanged": "Titre modifié",
+    "words": "Mots",
+    "characters": "Caractères",
+    "sections": "Sections",
+    "outline": "Structure de la note",
+    "noSections": "Aucun titre de section dans ces versions",
+    "longer": "{{percent}} % plus longue",
+    "shorter": "{{percent}} % plus courte",
+    "sameLength": "Même longueur",
+    "added": "Section ajoutée",
+    "removed": "Section supprimée",
+    "unchanged": "Section inchangée",
     "cause": {
       "auto": "automatique",
       "session": "modification",
@@ -167,6 +182,7 @@
     "backupNow": "Sauvegarder…",
     "restore": "Restaurer une sauvegarde…",
     "emptyTrash": "Vider la corbeille…",
+    "emptyTrashTitle": "Vider la corbeille",
     "created": "Sauvegarde créée",
     "restored": "Bibliothèque restaurée",
     "lastBackup": "Dernière sauvegarde : {{date}}",
@@ -189,6 +205,7 @@
     "scopeCourse": "Ce cours",
     "noResults": "Aucune note ne correspond",
     "saveSearch": "Enregistrer comme dossier intelligent",
+    "recent": "Recherches récentes",
     "scope": "Portée de la recherche"
   },
   "organization": {
@@ -210,6 +227,7 @@
     "tagManager": "Gérer les étiquettes",
     "freeTag": "Étiquette libre",
     "tagName": "Nom de l’étiquette",
+    "tagColor": "Couleur de l’étiquette",
     "addTag": "Ajouter",
     "mergeInto": "Fusionner dans…",
     "merge": "Fusionner",
@@ -246,6 +264,8 @@
     "cancel": "Annuler",
     "accept": "Accepter",
     "reject": "Refuser",
+    "included": "Incluse",
+    "excluded": "Exclue",
     "acceptAll": "Tout accepter",
     "rejectAll": "Tout refuser",
     "apply": "Appliquer la sélection",
@@ -430,6 +450,7 @@
     "toggleSidebar": "Afficher la barre latérale",
     "toggleInspector": "Afficher l'inspecteur",
     "focusMode": "Mode concentration",
+    "fullscreen": "Activer/désactiver le plein écran",
     "documentation": "Aide NotaBene"
   },
   "recovery": {
@@ -444,6 +465,7 @@
     "confirm": "Confirmer",
     "delete": "Supprimer",
     "rename": "Renommer",
+    "save": "Enregistrer",
     "close": "Fermer",
     "retry": "Réessayer"
   },

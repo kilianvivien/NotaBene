@@ -1,6 +1,8 @@
 import {
+  ArrowRight,
   History,
   Info,
+  ListTree,
   Link2,
   Paperclip,
   Plus,
@@ -20,7 +22,8 @@ import {
   restoreSnapshotCommand,
   updateNoteCommand,
 } from '@/lib/commands';
-import { docStats, flattenDoc } from '@/lib/notes/docText';
+import { compareDocuments } from '@/lib/history/comparison';
+import { docStats } from '@/lib/notes/docText';
 import type { Backlink, Snapshot, Tag as NoteTag } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -142,18 +145,12 @@ function VersionsPanel({ noteId }: { noteId: string }) {
         ))}
       </select>
       {selected && current && (
-        <div className="grid grid-cols-2 gap-2">
-          <VersionPreview
-            label={t('versions.saved')}
-            title={selected.title}
-            text={flattenDoc(selected.doc)}
-          />
-          <VersionPreview
-            label={t('versions.current')}
-            title={current.title}
-            text={flattenDoc(current.doc)}
-          />
-        </div>
+        <VersionComparison
+          savedTitle={selected.title}
+          currentTitle={current.title}
+          savedDoc={selected.doc}
+          currentDoc={current.doc}
+        />
       )}
       <GlassButton
         size="sm"
@@ -168,22 +165,155 @@ function VersionsPanel({ noteId }: { noteId: string }) {
   );
 }
 
-function VersionPreview({
-  label,
-  title,
-  text,
+function VersionComparison({
+  savedTitle,
+  currentTitle,
+  savedDoc,
+  currentDoc,
 }: {
-  label: string;
-  title: string;
-  text: string;
+  savedTitle: string;
+  currentTitle: string;
+  savedDoc: Snapshot['doc'];
+  currentDoc: Snapshot['doc'];
 }) {
+  const { t } = useTranslation();
+  const comparison = compareDocuments(savedDoc, currentDoc);
+  const direction =
+    comparison.delta.words > 0
+      ? 'longer'
+      : comparison.delta.words < 0
+        ? 'shorter'
+        : 'sameLength';
+  const stats = [
+    {
+      label: t('versions.words'),
+      saved: comparison.saved.words,
+      current: comparison.current.words,
+      delta: comparison.delta.words,
+    },
+    {
+      label: t('versions.characters'),
+      saved: comparison.saved.characters,
+      current: comparison.current.characters,
+      delta: comparison.delta.characters,
+    },
+    {
+      label: t('versions.sections'),
+      saved: comparison.saved.sections,
+      current: comparison.current.sections,
+      delta: comparison.delta.sections,
+    },
+  ];
+
   return (
-    <section className="min-w-0 rounded-nb-sm border border-[var(--nb-divider)] p-2">
-      <p className="text-[10px] uppercase tracking-wide text-nb-text-3">{label}</p>
-      <p className="mt-1 truncate text-[11px] font-semibold">{title}</p>
-      <p className="mt-1 max-h-44 overflow-y-auto whitespace-pre-wrap text-[11px] text-nb-text-2">
-        {text}
-      </p>
+    <section className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-paper)] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-nb-text-3">
+          {t('versions.overview')}
+        </p>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            comparison.delta.words === 0
+              ? 'bg-[var(--nb-hover)] text-nb-text-2'
+              : comparison.delta.words > 0
+                ? 'bg-[color-mix(in_srgb,var(--nb-success)_12%,transparent)] text-[var(--nb-success)]'
+                : 'bg-[color-mix(in_srgb,var(--nb-warn)_12%,transparent)] text-[var(--nb-warn)]'
+          }`}
+        >
+          {t(`versions.${direction}`, {
+            percent: Math.abs(comparison.delta.wordPercent),
+          })}
+        </span>
+      </div>
+
+      <div className="mt-3 rounded-nb-xs bg-[var(--nb-inset-surface)] p-2.5">
+        <p className="text-[10px] uppercase tracking-wide text-nb-text-3">
+          {savedTitle === currentTitle ? t('versions.title') : t('versions.titleChanged')}
+        </p>
+        {savedTitle === currentTitle ? (
+          <p className="mt-1 text-[12px] font-semibold">{currentTitle}</p>
+        ) : (
+          <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 text-[11px]">
+            <span className="line-clamp-2 text-nb-text-3">{savedTitle}</span>
+            <ArrowRight size={11} className="text-nb-text-3" aria-hidden />
+            <span className="line-clamp-2 font-medium">{currentTitle}</span>
+          </div>
+        )}
+      </div>
+
+      <dl className="mt-3 divide-y divide-[var(--nb-divider)]">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5 py-1.5 text-[11px]"
+          >
+            <dt className="text-nb-text-3">{stat.label}</dt>
+            <dd className="tabular-nums text-nb-text-3">{stat.saved}</dd>
+            <ArrowRight size={10} className="text-nb-text-3" aria-hidden />
+            <dd className="min-w-[4.5rem] text-right tabular-nums">
+              <span className="font-medium">{stat.current}</span>
+              {stat.delta !== 0 && (
+                <span
+                  className={
+                    stat.delta > 0
+                      ? 'ml-1 text-[var(--nb-success)]'
+                      : 'ml-1 text-[var(--nb-warn)]'
+                  }
+                >
+                  {stat.delta > 0 ? '+' : ''}
+                  {stat.delta}
+                </span>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-3">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-medium text-nb-text-2">
+          <ListTree size={12} aria-hidden />
+          {t('versions.outline')}
+        </h3>
+        {comparison.outline.length ? (
+          <ul className="mt-1.5 max-h-40 space-y-0.5 overflow-y-auto">
+            {comparison.outline.map((entry, index) => (
+              <li
+                key={`${entry.level}-${entry.text}-${index}`}
+                className="flex items-start gap-1.5 rounded-nb-xs px-1.5 py-1 text-[11px]"
+                style={{ paddingLeft: `${6 + (entry.level - 1) * 7}px` }}
+              >
+                <span
+                  aria-label={t(`versions.${entry.status}`)}
+                  className={
+                    entry.status === 'added'
+                      ? 'text-[var(--nb-success)]'
+                      : entry.status === 'removed'
+                        ? 'text-[var(--nb-warn)]'
+                        : 'text-nb-text-3'
+                  }
+                >
+                  {entry.status === 'added'
+                    ? '+'
+                    : entry.status === 'removed'
+                      ? '−'
+                      : '•'}
+                </span>
+                <span
+                  className={
+                    entry.status === 'removed'
+                      ? 'line-through text-nb-text-3'
+                      : 'text-nb-text-2'
+                  }
+                >
+                  {entry.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1.5 text-[11px] text-nb-text-3">{t('versions.noSections')}</p>
+        )}
+      </div>
     </section>
   );
 }
@@ -365,9 +495,14 @@ function TagsPanel() {
         {selected.map((tag) => (
           <span
             key={tag.id}
-            className="inline-flex items-center gap-1 rounded-full bg-[var(--nb-accent-soft)] px-2 py-1 text-[12px] text-[var(--nb-accent)]"
+            className="inline-flex items-center gap-1.5 rounded-full border bg-[var(--nb-inset-surface)] px-2 py-1 text-[12px] text-nb-text-2"
+            style={{ borderColor: tag.color }}
           >
-            <Tag size={10} />
+            <span
+              aria-hidden
+              className="size-2 rounded-full"
+              style={{ backgroundColor: tag.color }}
+            />
             {tag.namespace ? `${tag.namespace}:` : ''}
             {tag.name}
             <button

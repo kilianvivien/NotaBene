@@ -671,6 +671,7 @@ mod tests {
                     id: tag_id.clone(),
                     namespace: None,
                     name: tag_id.clone(),
+                    color: "#9b5c2f".into(),
                 },
             )
             .expect("failed to seed a tag");

@@ -91,12 +91,6 @@ export function Toolbar({ editor, run }: ToolbarProps) {
       active: editor.isActive('taskList'),
     },
     {
-      label: t('menu.highlight'),
-      icon: Highlighter,
-      action: () => run('highlight'),
-      active: editor.isActive('highlight'),
-    },
-    {
       label: t('menu.code'),
       icon: Code2,
       action: () => run('code'),
@@ -132,7 +126,12 @@ export function Toolbar({ editor, run }: ToolbarProps) {
   ];
 
   return (
-    <div ref={root} className="nb-editor-toolbar" role="toolbar" aria-label={t('editor.toolbar')}>
+    <div
+      ref={root}
+      className="nb-editor-toolbar"
+      role="toolbar"
+      aria-label={t('editor.toolbar')}
+    >
       <label className="nb-block-select">
         <span className="sr-only">{t('editor.blockStyle')}</span>
         <select
@@ -188,6 +187,13 @@ export function Toolbar({ editor, run }: ToolbarProps) {
       >
         <UnderlineIcon size={14} />
       </ToolButton>
+      <ToolButton
+        label={t('menu.highlight')}
+        active={editor.isActive('highlight')}
+        onClick={() => run('highlight')}
+      >
+        <Highlighter size={14} />
+      </ToolButton>
 
       <span className="nb-toolbar-divider nb-toolbar-compact-hide" />
 
@@ -240,7 +246,10 @@ export function Toolbar({ editor, run }: ToolbarProps) {
 
       {editor.isActive('table') && (
         <div className="nb-table-actions">
-          <button type="button" onClick={() => editor.chain().focus().addRowAfter().run()}>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+          >
             {t('editor.addRow')}
           </button>
           <button

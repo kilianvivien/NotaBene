@@ -11,6 +11,7 @@ import {
   SectionSchema,
   TagSchema,
   TAG_NAMESPACES,
+  DEFAULT_TAG_COLOR,
   type Course,
   type Section,
   type Tag,
@@ -155,6 +156,10 @@ export async function reorderSectionsCommand(
 const TagInput = z.object({
   name: z.string().min(1).max(100),
   namespace: z.enum(TAG_NAMESPACES).nullable().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-f]{6}$/i)
+    .optional(),
 });
 
 /**
@@ -181,7 +186,12 @@ export async function ensureTagCommand(
   );
   if (match) return ok(match);
 
-  const tag: Tag = { id: newId(), namespace, name: parsed.data.name };
+  const tag: Tag = {
+    id: newId(),
+    namespace,
+    name: parsed.data.name,
+    color: parsed.data.color ?? DEFAULT_TAG_COLOR,
+  };
   await library.upsertTag(tag);
   await useLibraryStore.getState().refreshTags();
   return ok(tag);

@@ -1,5 +1,6 @@
 import {
   AlignmentType,
+  BorderStyle,
   Document,
   ExternalHyperlink,
   HeadingLevel,
@@ -10,8 +11,10 @@ import {
   Paragraph,
   Table,
   TableCell,
+  TableLayoutType,
   TableRow,
   TextRun,
+  WidthType,
   type FileChild,
   type ParagraphChild,
 } from 'docx';
@@ -56,16 +59,41 @@ function inlineRuns(node: DocNode): ParagraphChild[] {
     font: node.marks?.some((mark) => mark.type === 'code') ? 'SF Mono' : undefined,
   };
   const link = node.marks?.find((mark) => mark.type === 'link');
-  const run = new TextRun(options);
-  return link
+  const href = String(link?.attrs?.href ?? '');
+  return link && /^(https?:|mailto:)/i.test(href)
     ? [
         new ExternalHyperlink({
-          link: String(link.attrs?.href ?? ''),
-          children: [run],
+          link: href,
+          children: [
+            new TextRun({
+              ...options,
+              color: '2768AD',
+              underline: {},
+            }),
+          ],
         }),
       ]
-    : [run];
+    : [new TextRun(options)];
 }
+
+function paragraphRuns(node: DocNode): ParagraphChild[] {
+  return (node.content ?? []).flatMap((child) =>
+    child.type === 'paragraph'
+      ? (child.content ?? []).flatMap(inlineRuns)
+      : inlineRuns(child),
+  );
+}
+
+const tableBorders = {
+  top: { style: BorderStyle.SINGLE, color: 'D1CCC4', size: 4 },
+  bottom: { style: BorderStyle.SINGLE, color: 'D1CCC4', size: 4 },
+  left: { style: BorderStyle.SINGLE, color: 'D1CCC4', size: 4 },
+  right: { style: BorderStyle.SINGLE, color: 'D1CCC4', size: 4 },
+  insideHorizontal: { style: BorderStyle.SINGLE, color: 'D1CCC4', size: 4 },
+  insideVertical: { style: BorderStyle.SINGLE, color: 'D1CCC4', size: 4 },
+};
+
+const noBorder = { style: BorderStyle.NIL, color: 'FFFFFF', size: 0 };
 
 async function imageParagraph(
   node: DocNode,
@@ -113,8 +141,8 @@ async function imageParagraph(
 async function blocks(
   nodes: DocNode[],
   assetData: ReadonlyMap<string, { bytes: Uint8Array; mime: string }>,
-): Promise<FileChild[]> {
-  const result: FileChild[] = [];
+): Promise<Array<Paragraph | Table>> {
+  const result: Array<Paragraph | Table> = [];
   for (const node of nodes) {
     const image = await imageParagraph(node, assetData);
     if (image) {
@@ -123,7 +151,9 @@ async function blocks(
     }
     switch (node.type) {
       case 'paragraph':
-        result.push(new Paragraph({ children: (node.content ?? []).flatMap(inlineRuns) }));
+        result.push(
+          new Paragraph({ children: (node.content ?? []).flatMap(inlineRuns) }),
+        );
         break;
       case 'heading': {
         const levels = [
@@ -146,12 +176,18 @@ async function blocks(
       case 'orderedList':
       case 'taskList':
         for (const [index, item] of (node.content ?? []).entries()) {
+          const prefix =
+            node.type === 'taskList'
+              ? [
+                  new TextRun({
+                    text: item.attrs?.checked ? '☑  ' : '☐  ',
+                    color: 'A8602D',
+                  }),
+                ]
+              : [];
           result.push(
             new Paragraph({
-              text:
-                node.type === 'taskList'
-                  ? `${item.attrs?.checked ? '☑' : '☐'} ${nodeText(item)}`
-                  : nodeText(item),
+              children: [...prefix, ...paragraphRuns(item)],
               bullet: node.type === 'bulletList' ? { level: 0 } : undefined,
               numbering:
                 node.type === 'orderedList'
@@ -165,12 +201,91 @@ async function blocks(
         }
         break;
       case 'blockquote':
-      case 'callout':
+        result.push(
+          new Paragraph({
+            children: paragraphRuns(node),
+            indent: { left: 360 },
+            border: {
+              left: {
+                style: BorderStyle.SINGLE,
+                color: 'AAA59D',
+                size: 14,
+                space: 8,
+              },
+            },
+            spacing: { before: 100, after: 160 },
+          }),
+        );
+        break;
+      case 'callout': {
+        const kind = String(node.attrs?.kind ?? 'info');
+        const accent = kind === 'important' ? '9D4D67' : 'A8602D';
+        const fill = kind === 'important' ? 'FAEFF3' : 'F8F0E9';
+        result.push(
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            layout: TableLayoutType.FIXED,
+            borders: {
+              top: noBorder,
+              bottom: noBorder,
+              left: { style: BorderStyle.SINGLE, color: accent, size: 22 },
+              right: noBorder,
+              insideHorizontal: noBorder,
+              insideVertical: noBorder,
+            },
+            rows: [
+              new TableRow({
+                cantSplit: true,
+                children: [
+                  new TableCell({
+                    shading: { fill },
+                    margins: { top: 150, bottom: 100, left: 190, right: 190 },
+                    borders: {
+                      top: noBorder,
+                      bottom: noBorder,
+                      left: { style: BorderStyle.SINGLE, color: accent, size: 22 },
+                      right: noBorder,
+                    },
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: kind === 'warn' ? 'WARNING' : kind.toUpperCase(),
+                            bold: true,
+                            size: 16,
+                            color: accent,
+                            characterSpacing: 10,
+                          }),
+                        ],
+                        spacing: { after: 80 },
+                      }),
+                      ...(await blocks(node.content ?? [], assetData)),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: '', size: 2 })],
+            spacing: { after: 90, line: 20 },
+          }),
+        );
+        break;
+      }
       case 'toggle':
         result.push(
           new Paragraph({
-            text: `${node.type === 'toggle' ? `${String(node.attrs?.summary ?? 'Details')}: ` : ''}${nodeText(node)}`,
-            indent: { left: 360 },
+            children: [
+              new TextRun({
+                text: `${String(node.attrs?.summary ?? 'Details')}: `,
+                bold: true,
+                color: 'A8602D',
+              }),
+              ...paragraphRuns(node),
+            ],
+            indent: { left: 260 },
+            spacing: { before: 100, after: 120 },
           }),
         );
         break;
@@ -179,6 +294,8 @@ async function blocks(
           new Paragraph({
             children: [new TextRun({ text: nodeText(node), font: 'SF Mono' })],
             shading: { fill: 'F3F1ED' },
+            indent: { left: 180, right: 180 },
+            spacing: { before: 100, after: 180 },
           }),
         );
         break;
@@ -196,13 +313,24 @@ async function blocks(
       case 'table':
         result.push(
           new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            layout: TableLayoutType.FIXED,
+            borders: tableBorders,
             rows: (node.content ?? []).map(
               (row) =>
                 new TableRow({
                   children: (row.content ?? []).map(
                     (cell) =>
                       new TableCell({
-                        children: [new Paragraph(nodeText(cell))],
+                        shading:
+                          cell.type === 'tableHeader' ? { fill: 'F3F1ED' } : undefined,
+                        margins: { top: 90, bottom: 90, left: 110, right: 110 },
+                        children: [
+                          new Paragraph({
+                            children: paragraphRuns(cell),
+                            run: { bold: cell.type === 'tableHeader' },
+                          }),
+                        ],
                       }),
                   ),
                 }),
@@ -211,7 +339,18 @@ async function blocks(
         );
         break;
       case 'horizontalRule':
-        result.push(new Paragraph('────────────────────────'));
+        result.push(
+          new Paragraph({
+            border: {
+              bottom: {
+                style: BorderStyle.SINGLE,
+                color: 'CBC6BE',
+                size: 5,
+              },
+            },
+            spacing: { before: 100, after: 180 },
+          }),
+        );
         break;
       default:
         if (nodeText(node)) result.push(new Paragraph(nodeText(node)));
@@ -236,6 +375,34 @@ export async function notesToDocx(
     );
   }
   const document = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: 'Arial', size: 22, color: '24221F' },
+          paragraph: { spacing: { after: 130, line: 330 } },
+        },
+        title: {
+          run: { font: 'Arial', size: 50, bold: true, color: '24221F' },
+          paragraph: { spacing: { after: 180 }, keepNext: true },
+        },
+        heading1: {
+          run: { font: 'Arial', size: 38, bold: true, color: '24221F' },
+          paragraph: { spacing: { before: 280, after: 120 }, keepNext: true },
+        },
+        heading2: {
+          run: { font: 'Arial', size: 30, bold: true, color: '24221F' },
+          paragraph: { spacing: { before: 240, after: 100 }, keepNext: true },
+        },
+        heading3: {
+          run: { font: 'Arial', size: 25, bold: true, color: 'A8602D' },
+          paragraph: { spacing: { before: 210, after: 90 }, keepNext: true },
+        },
+        heading4: {
+          run: { font: 'Arial', size: 23, bold: true, color: '24221F' },
+          paragraph: { spacing: { before: 190, after: 80 }, keepNext: true },
+        },
+      },
+    },
     numbering: {
       config: [
         {
@@ -251,7 +418,14 @@ export async function notesToDocx(
         },
       ],
     },
-    sections: [{ children }],
+    sections: [
+      {
+        properties: {
+          page: { margin: { top: 960, right: 1080, bottom: 1080, left: 1080 } },
+        },
+        children,
+      },
+    ],
   });
   return Packer.toBlob(document);
 }
