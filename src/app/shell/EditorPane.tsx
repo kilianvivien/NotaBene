@@ -20,7 +20,7 @@ export function EditorPane() {
   return (
     <div className="nb-editor-scroll flex flex-1 justify-center overflow-y-auto">
       <div
-        className="w-full px-10 pb-28 pt-9"
+        className="nb-editor-page w-full px-10 pb-28 pt-9"
         style={{ maxWidth: 'calc(var(--nb-editor-measure) + 5rem)' }}
       >
         <input

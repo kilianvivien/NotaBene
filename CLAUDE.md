@@ -85,12 +85,12 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A, B, and C are complete: foundation, the TipTap authoring surface, and
-course organization/search. This includes custom blocks, Markdown bridge,
-content-addressed assets, course and tag management, wiki links/backlinks,
-FTS5 search, smart folders, templates, quick notes, remembered sorting, and
-in-note find/replace. Section 3 of the implementation plan tracks the remaining
-gaps honestly — read it before assuming something works.
+Phases A–D are complete: foundation, the TipTap authoring surface, course
+organization/search, and versions/backups/exports. This includes the history
+browser and retention, integrity-checked backup/restore, Trash lifecycle, and
+single/bundle Markdown, HTML, PDF, and DOCX export. Section 3 of the
+implementation plan tracks the remaining gaps honestly — read it before
+assuming something works.
 
 ## House rules
 

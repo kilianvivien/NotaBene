@@ -18,8 +18,16 @@ export interface AppSettings {
   focusMode: boolean;
   /** Trash retention, in days. */
   trashRetentionDays: number;
+  /** How aggressively old per-note versions are thinned. */
+  snapshotRetention: 'standard' | 'extended' | 'forever';
   backupSchedule: 'off' | 'daily' | 'weekly';
   backupFolder: string | null;
+  lastBackupAt: string | null;
+  exportPreset: {
+    format: 'markdown' | 'html' | 'pdf' | 'docx';
+    layout: 'combined' | 'separate';
+    includeToc: boolean;
+  };
   /** Provider id per AI feature, so synthesis can use a stronger model than
    * spell-fixing without the user re-picking every time. */
   aiFeatureModels: Record<string, { providerId: string; model: string }>;
@@ -58,8 +66,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
   editorTitleSize: 40,
   focusMode: false,
   trashRetentionDays: 30,
+  snapshotRetention: 'standard',
   backupSchedule: 'off',
   backupFolder: null,
+  lastBackupAt: null,
+  exportPreset: {
+    format: 'pdf',
+    layout: 'combined',
+    includeToc: true,
+  },
   aiFeatureModels: {},
   mcpEnabled: false,
   mcpPort: 22600,

@@ -24,6 +24,7 @@ import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils/cn';
 import type { AccentColor, AppSettings } from '@/lib/adapters';
+import { BackupSettings } from './BackupSettings';
 
 /** Sections, their icons, and the phase that makes each real. */
 const TABS: { id: SettingsTab; icon: LucideIcon; landsIn?: string }[] = [
@@ -31,7 +32,7 @@ const TABS: { id: SettingsTab; icon: LucideIcon; landsIn?: string }[] = [
   { id: 'appearance', icon: Palette },
   { id: 'editor', icon: Type },
   { id: 'aiProviders', icon: Sparkles, landsIn: 'E' },
-  { id: 'backups', icon: DatabaseBackup, landsIn: 'D' },
+  { id: 'backups', icon: DatabaseBackup },
   // The same robot the status bar lights up when an agent is editing.
   { id: 'agent', icon: Bot, landsIn: 'F' },
   { id: 'about', icon: Info, landsIn: 'H' },
@@ -244,9 +245,11 @@ export function SettingsWindow() {
               </Section>
             )}
 
+            {tab === 'backups' && <BackupSettings />}
+
             {/* Sections whose feature has not shipped. Naming the phase beats
                 an empty pane, and beats hiding the section entirely. */}
-            {!['general', 'appearance', 'editor'].includes(tab) && (
+            {!['general', 'appearance', 'editor', 'backups'].includes(tab) && (
               <p className="text-[13px] text-nb-text-3">
                 {t('settings.landsInPhase', {
                   phase: TABS.find((entry) => entry.id === tab)?.landsIn ?? '—',

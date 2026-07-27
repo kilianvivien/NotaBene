@@ -23,6 +23,7 @@ import { library } from '@/lib/adapters';
 import { flattenDoc } from '@/lib/notes/docText';
 import { useLibraryStore } from './libraryStore';
 import type { Note, NoteDoc } from '@/lib/schema';
+import { saveEditorNoteCommand } from '@/lib/commands/editorCommands';
 
 /** Flush after this long without a keystroke. */
 export const AUTOSAVE_IDLE_MS = 800;
@@ -85,7 +86,9 @@ export const useEditorStore = create<EditorState>()(
         state.note = note;
         state.saveState = 'idle';
         state.error = null;
-        state.lastSnapshotAt = note ? Date.now() : null;
+        // The first write in this open session snapshots the state the user
+        // opened, so history exists immediately rather than after ten minutes.
+        state.lastSnapshotAt = null;
       });
     },
 
@@ -135,13 +138,16 @@ export const useEditorStore = create<EditorState>()(
           plainText: flattenDoc(note.doc),
           updatedAt: new Date().toISOString(),
         };
-        await library.upsertNote(updated);
-
-        // Time-based snapshots ride along with a save so the snapshot always
-        // matches something that actually reached disk.
         const now = Date.now();
-        if (lastSnapshotAt === null || now - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS) {
-          await library.createSnapshot(note.id, 'auto');
+        const snapshotCause =
+          lastSnapshotAt === null
+            ? 'session'
+            : now - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS
+              ? 'auto'
+              : null;
+        const saved = await saveEditorNoteCommand(updated, snapshotCause);
+        if (!saved.ok) throw new Error(saved.message);
+        if (snapshotCause) {
           set((state) => {
             state.lastSnapshotAt = now;
           });

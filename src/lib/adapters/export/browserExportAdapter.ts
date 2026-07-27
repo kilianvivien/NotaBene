@@ -23,8 +23,19 @@ export const browserExportAdapter: ExportAdapter = {
     return { ok: true };
   },
 
-  async printToPdf(): Promise<ExportResult> {
-    // `window.print` cannot target a path, so the desktop build owns PDF.
-    return { ok: false, error: 'PDF export requires the desktop app' };
+  async printToPdf(html): Promise<ExportResult> {
+    const frame = document.createElement('iframe');
+    frame.style.cssText =
+      'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none';
+    frame.srcdoc = html;
+    const loaded = new Promise<void>((resolve) =>
+      frame.addEventListener('load', () => resolve(), { once: true }),
+    );
+    document.body.append(frame);
+    await loaded;
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    window.setTimeout(() => frame.remove(), 60_000);
+    return { ok: true };
   },
 };

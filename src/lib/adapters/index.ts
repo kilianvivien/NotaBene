@@ -50,7 +50,11 @@ export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenu
 export const aiTransport: AiTransport = fetchAiTransport;
 export const tts: TtsEngine = isTauri ? systemTtsEngine : unavailableTtsEngine;
 
-export type { LibraryAdapter, NoteQuery } from './library/LibraryAdapter';
+export type {
+  LibraryAdapter,
+  NoteQuery,
+  SnapshotRetentionPolicy,
+} from './library/LibraryAdapter';
 export type { AssetAdapter } from './assets/AssetAdapter';
 export type {
   AccentColor,

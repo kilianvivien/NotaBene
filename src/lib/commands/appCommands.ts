@@ -29,6 +29,9 @@ export const APP_COMMAND_IDS = [
   'note.newFromTemplate',
   'course.new',
   'note.save',
+  'note.export',
+  'backup.create',
+  'backup.restore',
   'edit.find',
   'format.bold',
   'format.italic',
@@ -155,6 +158,36 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     // exporting is genuinely useful.
     run: async () => {
       await useEditorStore.getState().flush();
+      return ok(undefined);
+    },
+  },
+  'note.export': {
+    id: 'note.export',
+    labelKey: 'menu.export',
+    accelerator: 'CmdOrCtrl+Shift+E',
+    landsIn: 'D',
+    run: () => {
+      useUiStore.getState().setExportOpen(true);
+      return ok(undefined);
+    },
+  },
+  'backup.create': {
+    id: 'backup.create',
+    labelKey: 'menu.backupNow',
+    landsIn: 'D',
+    run: () => {
+      useUiStore.getState().setSettingsTab('backups');
+      useUiStore.getState().setSettingsOpen(true);
+      return ok(undefined);
+    },
+  },
+  'backup.restore': {
+    id: 'backup.restore',
+    labelKey: 'menu.restoreBackup',
+    landsIn: 'D',
+    run: () => {
+      useUiStore.getState().setSettingsTab('backups');
+      useUiStore.getState().setSettingsOpen(true);
       return ok(undefined);
     },
   },

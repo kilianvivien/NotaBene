@@ -29,7 +29,12 @@ import {
   type Tag,
 } from '@/lib/schema';
 import { flattenDoc, docHasFeature } from '@/lib/notes/docText';
-import type { LibraryAdapter, NoteQuery } from './LibraryAdapter';
+import { retainedSnapshotIds } from '@/lib/history/retention';
+import type {
+  LibraryAdapter,
+  NoteQuery,
+  SnapshotRetentionPolicy,
+} from './LibraryAdapter';
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -347,8 +352,23 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     return clone(snapshot);
   }
 
-  async pruneSnapshots(_noteId: string): Promise<void> {
-    // Retention thinning lands with the history browser (Phase D).
+  async pruneSnapshots(
+    noteId: string,
+    policy: SnapshotRetentionPolicy,
+  ): Promise<void> {
+    const candidates = this.library.snapshots.filter((entry) => entry.noteId === noteId);
+    const retained = retainedSnapshotIds(candidates, policy);
+    this.library.snapshots = this.library.snapshots.filter(
+      (entry) => entry.noteId !== noteId || retained.has(entry.id),
+    );
+  }
+
+  async purgeTrash(trashedBefore: string): Promise<number> {
+    const ids = this.library.notes
+      .filter((note) => note.trashedAt && note.trashedAt <= trashedBefore)
+      .map((note) => note.id);
+    for (const id of ids) await this.purgeNote(id);
+    return ids.length;
   }
 
   // -- attachments & assets ------------------------------------------------
@@ -426,6 +446,18 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     for (const tag of library.tags) await this.upsertTag(tag);
     for (const note of library.notes) await this.upsertNote(note);
     for (const attachment of library.attachments) await this.upsertAttachment(attachment);
+    for (const asset of library.assets) {
+      const index = this.library.assets.findIndex((entry) => entry.id === asset.id);
+      if (index >= 0) this.library.assets[index] = clone(asset);
+      else this.library.assets.push(clone(asset));
+    }
+    for (const snapshot of library.snapshots) {
+      const index = this.library.snapshots.findIndex(
+        (entry) => entry.id === snapshot.id,
+      );
+      if (index >= 0) this.library.snapshots[index] = clone(snapshot);
+      else this.library.snapshots.push(clone(snapshot));
+    }
     for (const search of library.savedSearches) await this.upsertSavedSearch(search);
     for (const template of library.templates) await this.upsertTemplate(template);
   }

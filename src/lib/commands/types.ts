@@ -16,6 +16,8 @@ export interface CommandContext {
   source: CommandSource;
   /** Agent name from the MCP `initialize` handshake, for the activity log. */
   agentName?: string;
+  /** Internal override for writes such as history restore. */
+  snapshotCause?: 'auto' | 'session' | 'restore' | 'ai' | 'agent';
 }
 
 export const USER: CommandContext = { source: 'user' };

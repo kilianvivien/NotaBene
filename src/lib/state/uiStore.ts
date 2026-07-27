@@ -40,6 +40,7 @@ interface UiState {
   commandPaletteOpen: boolean;
   quickSwitcherOpen: boolean;
   templatePickerOpen: boolean;
+  exportOpen: boolean;
   settingsOpen: boolean;
   settingsTab: SettingsTab;
   searchQuery: string;
@@ -59,6 +60,7 @@ interface UiState {
   setCommandPaletteOpen(open: boolean): void;
   setQuickSwitcherOpen(open: boolean): void;
   setTemplatePickerOpen(open: boolean): void;
+  setExportOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
   setSearchQuery(query: string): void;
@@ -78,6 +80,7 @@ export const useUiStore = create<UiState>()(
     commandPaletteOpen: false,
     quickSwitcherOpen: false,
     templatePickerOpen: false,
+    exportOpen: false,
     settingsOpen: false,
     settingsTab: 'general',
     searchQuery: '',
@@ -156,6 +159,12 @@ export const useUiStore = create<UiState>()(
     setTemplatePickerOpen(open) {
       set((state) => {
         state.templatePickerOpen = open;
+      });
+    },
+
+    setExportOpen(open) {
+      set((state) => {
+        state.exportOpen = open;
       });
     },
 

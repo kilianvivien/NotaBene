@@ -14,6 +14,8 @@ import { useUiStore } from '@/lib/state/uiStore';
 import { setLocale } from '@/lib/i18n';
 import { CollapsiblePane } from './shell/CollapsiblePane';
 import { TemplatePicker } from './organization/TemplatePicker';
+import { ExportDialog } from './export/ExportDialog';
+import { purgeExpiredTrashCommand, runScheduledBackupCommand } from '@/lib/commands';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -33,9 +35,19 @@ export function App() {
   useAppCommands();
 
   useEffect(() => {
-    void loadSettings();
-    void bootstrap();
-    return watchSystemTheme();
+    let active = true;
+    const stopThemeWatch = watchSystemTheme();
+    void (async () => {
+      await loadSettings();
+      await bootstrap();
+      if (!active) return;
+      await purgeExpiredTrashCommand();
+      await runScheduledBackupCommand();
+    })();
+    return () => {
+      active = false;
+      stopThemeWatch();
+    };
   }, [loadSettings, bootstrap]);
 
   useEffect(() => {
@@ -75,6 +87,7 @@ export function App() {
           the choice is still the user's to make. */}
       <RecoveryPrompt />
       <TemplatePicker />
+      <ExportDialog />
     </div>
   );
 }

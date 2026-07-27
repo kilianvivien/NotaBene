@@ -9,6 +9,7 @@ use rusqlite::{params_from_iter, types::Value as SqlValue, Connection, OptionalE
 
 use super::model::{Backlink, Note, NoteQuery, NoteSummary, Snapshot, SnapshotMeta};
 use super::{DbError, DbResult, Store};
+use crate::commands::SnapshotRetentionPolicy;
 
 fn row_to_summary(row: &Row<'_>) -> rusqlite::Result<NoteSummary> {
     Ok(NoteSummary {
@@ -536,6 +537,87 @@ pub fn create_snapshot(
     })
 }
 
+pub fn upsert_snapshot(store: &Store, snapshot: &Snapshot) -> DbResult<()> {
+    let doc_json = serde_json::to_string(&snapshot.doc)?;
+    store.with(|connection| {
+        connection.execute(
+            "INSERT INTO snapshots (id, note_id, doc_json, title, cause, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(id) DO UPDATE SET
+               note_id = excluded.note_id,
+               doc_json = excluded.doc_json,
+               title = excluded.title,
+               cause = excluded.cause,
+               created_at = excluded.created_at",
+            rusqlite::params![
+                snapshot.id,
+                snapshot.note_id,
+                doc_json,
+                snapshot.title,
+                snapshot.cause,
+                snapshot.created_at
+            ],
+        )?;
+        Ok(())
+    })
+}
+
+pub fn prune_snapshots(
+    store: &Store,
+    note_id: &str,
+    policy: &SnapshotRetentionPolicy,
+) -> DbResult<()> {
+    if policy.forever {
+        return Ok(());
+    }
+
+    store.transact(|transaction| {
+        let mut statement = transaction.prepare(
+            "SELECT id, created_at FROM snapshots
+             WHERE note_id = ? ORDER BY created_at DESC",
+        )?;
+        let rows = statement
+            .query_map([note_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        drop(statement);
+
+        let now = chrono::Utc::now();
+        let mut buckets = std::collections::HashSet::new();
+        for (id, created_at) in rows {
+            let date = chrono::DateTime::parse_from_rfc3339(&created_at)
+                .map_err(|error| DbError::Other(format!("invalid snapshot date: {error}")))?
+                .with_timezone(&chrono::Utc);
+            let age_days = (now - date).num_seconds().max(0) as f64 / 86_400.0;
+            if age_days <= policy.keep_all_days {
+                continue;
+            }
+            let bucket = if age_days <= policy.keep_hourly_days {
+                date.format("hour:%Y-%m-%dT%H").to_string()
+            } else if age_days <= policy.keep_daily_days {
+                date.format("day:%Y-%m-%d").to_string()
+            } else {
+                date.format("week:%G-%V").to_string()
+            };
+            if !buckets.insert(bucket) {
+                transaction.execute("DELETE FROM snapshots WHERE id = ?", [&id])?;
+            }
+        }
+        Ok(())
+    })
+}
+
+pub fn purge_trash(store: &Store, trashed_before: &str) -> DbResult<usize> {
+    store.transact(|transaction| {
+        let removed = transaction.execute(
+            "DELETE FROM notes WHERE trashed_at IS NOT NULL AND trashed_at <= ?",
+            [trashed_before],
+        )?;
+        Ok(removed)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -722,6 +804,66 @@ mod tests {
             1,
             "renaming a target must not break an id-backed wiki link"
         );
+    }
+
+    #[test]
+    fn phase_d_snapshot_retention_and_trash_purge_are_destructive_only_on_schedule() {
+        use chrono::Timelike;
+
+        let temporary = temp_store();
+        let store = &temporary.store;
+        let mut note = note_with("phase-d", "History", "Current");
+        upsert(store, &note).unwrap();
+
+        let two_days_ago = chrono::Utc::now() - chrono::Duration::days(2);
+        let same_hour_new = two_days_ago
+            .with_minute(50)
+            .unwrap()
+            .with_second(0)
+            .unwrap();
+        let same_hour_old = two_days_ago
+            .with_minute(10)
+            .unwrap()
+            .with_second(0)
+            .unwrap();
+        create_snapshot(
+            store,
+            "hour-new",
+            &note.id,
+            "auto",
+            &same_hour_new.to_rfc3339(),
+        )
+        .unwrap();
+        create_snapshot(
+            store,
+            "hour-old",
+            &note.id,
+            "auto",
+            &same_hour_old.to_rfc3339(),
+        )
+        .unwrap();
+        prune_snapshots(
+            store,
+            &note.id,
+            &crate::commands::SnapshotRetentionPolicy {
+                keep_all_days: 1.0,
+                keep_hourly_days: 7.0,
+                keep_daily_days: 90.0,
+                forever: false,
+            },
+        )
+        .unwrap();
+        let versions = list_snapshots(store, &note.id).unwrap();
+        assert_eq!(versions.len(), 1);
+        assert_eq!(versions[0].id, "hour-new");
+
+        note.trashed_at = Some("2026-01-01T00:00:00Z".into());
+        upsert(store, &note).unwrap();
+        assert_eq!(
+            purge_trash(store, "2026-02-01T00:00:00Z").unwrap(),
+            1
+        );
+        assert!(get(store, &note.id).unwrap().is_none());
     }
 
     #[test]

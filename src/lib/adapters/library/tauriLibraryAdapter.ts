@@ -24,7 +24,11 @@ import type {
   SnapshotCause,
   Tag,
 } from '@/lib/schema';
-import type { LibraryAdapter, NoteQuery } from './LibraryAdapter';
+import type {
+  LibraryAdapter,
+  NoteQuery,
+  SnapshotRetentionPolicy,
+} from './LibraryAdapter';
 
 export const tauriLibraryAdapter: LibraryAdapter = {
   init: () => invoke('library_init'),
@@ -64,7 +68,10 @@ export const tauriLibraryAdapter: LibraryAdapter = {
     invoke('library_get_snapshot', { snapshotId }),
   createSnapshot: (noteId: string, cause: SnapshotCause): Promise<Snapshot> =>
     invoke('library_create_snapshot', { noteId, cause }),
-  pruneSnapshots: (noteId: string) => invoke('library_prune_snapshots', { noteId }),
+  pruneSnapshots: (noteId: string, policy: SnapshotRetentionPolicy) =>
+    invoke('library_prune_snapshots', { noteId, policy }),
+  purgeTrash: (trashedBefore: string) =>
+    invoke<number>('library_purge_trash', { trashedBefore }),
 
   listAttachments: (noteId: string): Promise<Attachment[]> =>
     invoke('library_list_attachments', { noteId }),

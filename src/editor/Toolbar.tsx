@@ -34,11 +34,13 @@ interface ToolbarProps {
 function ToolButton({
   label,
   active,
+  compactHide,
   onClick,
   children,
 }: {
   label: string;
   active?: boolean;
+  compactHide?: boolean;
   onClick(): void;
   children: React.ReactNode;
 }) {
@@ -50,7 +52,11 @@ function ToolButton({
       aria-pressed={active || undefined}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={cn('nb-editor-tool', active && 'is-active')}
+      className={cn(
+        'nb-editor-tool',
+        compactHide && 'nb-toolbar-compact-hide',
+        active && 'is-active',
+      )}
     >
       {children}
     </button>
@@ -72,6 +78,18 @@ export function Toolbar({ editor, run }: ToolbarProps) {
   }, [moreOpen]);
 
   const extraActions = [
+    {
+      label: t('editor.bulletList'),
+      icon: List,
+      action: () => editor.chain().focus().toggleBulletList().run(),
+      active: editor.isActive('bulletList'),
+    },
+    {
+      label: t('editor.taskList'),
+      icon: CheckSquare,
+      action: () => editor.chain().focus().toggleTaskList().run(),
+      active: editor.isActive('taskList'),
+    },
     {
       label: t('menu.highlight'),
       icon: Highlighter,
@@ -171,11 +189,12 @@ export function Toolbar({ editor, run }: ToolbarProps) {
         <UnderlineIcon size={14} />
       </ToolButton>
 
-      <span className="nb-toolbar-divider" />
+      <span className="nb-toolbar-divider nb-toolbar-compact-hide" />
 
       <ToolButton
         label={t('editor.bulletList')}
         active={editor.isActive('bulletList')}
+        compactHide
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       >
         <List size={14} />
@@ -183,12 +202,13 @@ export function Toolbar({ editor, run }: ToolbarProps) {
       <ToolButton
         label={t('editor.taskList')}
         active={editor.isActive('taskList')}
+        compactHide
         onClick={() => editor.chain().focus().toggleTaskList().run()}
       >
         <CheckSquare size={14} />
       </ToolButton>
 
-      <span className="nb-toolbar-divider" />
+      <span className="nb-toolbar-divider nb-toolbar-compact-hide" />
 
       <ToolButton
         label={t('editor.moreFormatting')}

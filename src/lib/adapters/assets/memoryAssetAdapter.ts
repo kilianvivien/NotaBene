@@ -7,13 +7,25 @@ async function sha256(bytes: ArrayBuffer): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+function readBlob(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(reader.result as ArrayBuffer), {
+      once: true,
+    });
+    reader.addEventListener('error', () => reject(reader.error), { once: true });
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
 class MemoryAssetAdapter implements AssetAdapter {
   private blobs = new Map<string, Blob>();
   private metas = new Map<string, Asset>();
   private urls = new Map<string, string>();
 
   async put(bytes: Blob, meta?: { mime?: string }): Promise<Asset> {
-    const id = await sha256(await bytes.arrayBuffer());
+    const id = await sha256(await readBlob(bytes));
     const existing = this.metas.get(id);
     if (existing) return existing;
 

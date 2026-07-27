@@ -19,6 +19,9 @@ import {
 import { deriveTitle, flattenDoc } from '@/lib/notes/docText';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
+import { useUiStore } from '@/lib/state/uiStore';
+import { SNAPSHOT_RETENTION_POLICIES } from '@/lib/history/retention';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
 
 const CreateNoteInput = z.object({
@@ -44,6 +47,7 @@ export type UpdateNoteInput = z.infer<typeof UpdateNoteInput>;
 
 /** Snapshot cause implied by who is asking. */
 function causeFor(context: CommandContext): SnapshotCause {
+  if (context.snapshotCause) return context.snapshotCause;
   switch (context.source) {
     case 'ai':
       return 'ai';
@@ -131,6 +135,13 @@ export async function updateNoteCommand(
   } catch (error) {
     return fail('storage_failed', String(error));
   }
+  const retention = useSettingsStore.getState().settings.snapshotRetention;
+  void library
+    .pruneSnapshots(existing.id, SNAPSHOT_RETENTION_POLICIES[retention])
+    .catch(() => {
+      // Retention is housekeeping. A saved edit must stay successful if
+      // thinning old versions fails; the safe failure mode is keeping more.
+    });
 
   // Keep an open editor in step with a write that came from somewhere else.
   const editor = useEditorStore.getState();
@@ -140,6 +151,32 @@ export async function updateNoteCommand(
 
   await refreshCurrentView();
   return ok(updated);
+}
+
+export async function purgeExpiredTrashCommand(
+  retentionDays = useSettingsStore.getState().settings.trashRetentionDays,
+): Promise<CommandResult<number>> {
+  const cutoff = new Date(Date.now() - Math.max(0, retentionDays) * 86_400_000);
+  try {
+    const removed = await library.purgeTrash(cutoff.toISOString());
+    await refreshCurrentView();
+    return ok(removed);
+  } catch (error) {
+    return fail('storage_failed', String(error));
+  }
+}
+
+export async function emptyTrashCommand(): Promise<CommandResult<number>> {
+  try {
+    const removed = await library.purgeTrash(new Date().toISOString());
+    const editor = useEditorStore.getState();
+    if (editor.note?.trashedAt) await editor.closeNote();
+    useUiStore.getState().selectNote(null);
+    await refreshCurrentView();
+    return ok(removed);
+  } catch (error) {
+    return fail('storage_failed', String(error));
+  }
 }
 
 export async function trashNoteCommand(
@@ -191,9 +228,8 @@ export async function restoreSnapshotCommand(
   const snapshot = await library.getSnapshot(snapshotId);
   if (!snapshot) return fail('not_found', `no snapshot ${snapshotId}`);
 
-  await library.createSnapshot(snapshot.noteId, 'restore');
   return updateNoteCommand(
     { noteId: snapshot.noteId, doc: snapshot.doc, title: snapshot.title },
-    context,
+    { ...context, snapshotCause: 'restore' },
   );
 }

@@ -154,6 +154,23 @@ pub struct Backlink {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Library {
+    pub schema_version: i64,
+    pub exported_at: String,
+    pub app_version: String,
+    pub courses: Vec<Course>,
+    pub sections: Vec<Section>,
+    pub notes: Vec<Note>,
+    pub tags: Vec<Tag>,
+    pub assets: Vec<Asset>,
+    pub attachments: Vec<Attachment>,
+    pub snapshots: Vec<Snapshot>,
+    pub saved_searches: Vec<SavedSearch>,
+    pub templates: Vec<NoteTemplate>,
+}
+
 /// Mirrors `NoteQuery` in `LibraryAdapter.ts`. Every field is optional, and
 /// `None` means "no constraint" rather than "match null" — except `course_id`,
 /// where the inbox genuinely needs to ask for notes with no course. That is

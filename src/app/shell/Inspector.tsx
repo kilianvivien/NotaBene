@@ -1,26 +1,39 @@
-import { History, Link2, Plus, Tag, X } from 'lucide-react';
+import {
+  History,
+  Info,
+  Link2,
+  Paperclip,
+  Plus,
+  RotateCcw,
+  Tag,
+  X,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlassButton, GlassSegmentedControl } from '@/components/glass';
 import { AttachmentPanel } from '@/editor/attachments/AttachmentPanel';
 import { library } from '@/lib/adapters';
-import { ensureTagCommand, updateNoteCommand } from '@/lib/commands';
-import { docStats } from '@/lib/notes/docText';
-import type { Backlink, Tag as NoteTag } from '@/lib/schema';
+import {
+  ensureTagCommand,
+  restoreSnapshotCommand,
+  updateNoteCommand,
+} from '@/lib/commands';
+import { docStats, flattenDoc } from '@/lib/notes/docText';
+import type { Backlink, Snapshot, Tag as NoteTag } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 
-type VisibleTab = 'info' | 'backlinks' | 'attachments';
+type VisibleTab = 'info' | 'versions' | 'backlinks' | 'attachments';
 
 export function Inspector() {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
   const tab = useUiStore((state) => state.inspectorTab);
   const setTab = useUiStore((state) => state.setInspectorTab);
-  const visibleTab: VisibleTab = (['info', 'backlinks', 'attachments'] as const).includes(
-    tab as VisibleTab,
-  )
+  const visibleTab: VisibleTab = (
+    ['info', 'versions', 'backlinks', 'attachments'] as const
+  ).includes(tab as VisibleTab)
     ? (tab as VisibleTab)
     : 'info';
 
@@ -34,10 +47,16 @@ export function Inspector() {
         value={visibleTab}
         onChange={setTab}
         options={[
-          { value: 'info', label: t('inspector.info') },
-          { value: 'backlinks', label: t('inspector.backlinks') },
-          { value: 'attachments', label: t('inspector.attachments') },
+          { value: 'info', label: t('inspector.info'), icon: Info },
+          { value: 'versions', label: t('inspector.versions'), icon: History },
+          { value: 'backlinks', label: t('inspector.backlinks'), icon: Link2 },
+          {
+            value: 'attachments',
+            label: t('inspector.attachments'),
+            icon: Paperclip,
+          },
         ]}
+        iconOnly
         className="nb-inspector-tabs w-full"
       />
 
@@ -47,10 +66,120 @@ export function Inspector() {
         <AttachmentPanel noteId={note.id} />
       ) : visibleTab === 'backlinks' ? (
         <BacklinksPanel noteId={note.id} />
+      ) : visibleTab === 'versions' ? (
+        <VersionsPanel noteId={note.id} />
       ) : (
         <InfoPanel />
       )}
     </aside>
+  );
+}
+
+function VersionsPanel({ noteId }: { noteId: string }) {
+  const { t, i18n } = useTranslation();
+  const current = useEditorStore((state) => state.note);
+  const [snapshots, setSnapshots] = useState<Omit<Snapshot, 'doc'>[]>([]);
+  const [selected, setSelected] = useState<Snapshot | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void library.listSnapshots(noteId).then((entries) => {
+      if (active) {
+        setSnapshots(entries);
+        const first = entries[0];
+        if (first) {
+          void library.getSnapshot(first.id).then((snapshot) => {
+            if (active) setSelected(snapshot);
+          });
+        } else {
+          setSelected(null);
+        }
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [noteId]);
+
+  async function choose(id: string) {
+    setSelected(await library.getSnapshot(id));
+  }
+
+  async function restore() {
+    if (!selected) return;
+    setRestoring(true);
+    const result = await restoreSnapshotCommand(selected.id);
+    if (result.ok) {
+      await useEditorStore.getState().openNote(noteId);
+      setSnapshots(await library.listSnapshots(noteId));
+    }
+    setRestoring(false);
+  }
+
+  if (!snapshots.length) {
+    return <p className="text-[12px] text-nb-text-3">{t('versions.empty')}</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <select
+        value={selected?.id ?? ''}
+        onChange={(event) => void choose(event.target.value)}
+        className="h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-bg)] px-2 text-[12px]"
+        aria-label={t('inspector.versions')}
+      >
+        {snapshots.map((snapshot) => (
+          <option key={snapshot.id} value={snapshot.id}>
+            {new Date(snapshot.createdAt).toLocaleString(i18n.language)} ·{' '}
+            {t(`versions.cause.${snapshot.cause}`)}
+          </option>
+        ))}
+      </select>
+      {selected && current && (
+        <div className="grid grid-cols-2 gap-2">
+          <VersionPreview
+            label={t('versions.saved')}
+            title={selected.title}
+            text={flattenDoc(selected.doc)}
+          />
+          <VersionPreview
+            label={t('versions.current')}
+            title={current.title}
+            text={flattenDoc(current.doc)}
+          />
+        </div>
+      )}
+      <GlassButton
+        size="sm"
+        variant="accent"
+        disabled={!selected || restoring}
+        onClick={() => void restore()}
+      >
+        <RotateCcw size={12} />
+        {restoring ? t('versions.restoring') : t('versions.restore')}
+      </GlassButton>
+    </div>
+  );
+}
+
+function VersionPreview({
+  label,
+  title,
+  text,
+}: {
+  label: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <section className="min-w-0 rounded-nb-sm border border-[var(--nb-divider)] p-2">
+      <p className="text-[10px] uppercase tracking-wide text-nb-text-3">{label}</p>
+      <p className="mt-1 truncate text-[11px] font-semibold">{title}</p>
+      <p className="mt-1 max-h-44 overflow-y-auto whitespace-pre-wrap text-[11px] text-nb-text-2">
+        {text}
+      </p>
+    </section>
   );
 }
 
@@ -72,7 +201,7 @@ function InfoPanel() {
     return () => {
       active = false;
     };
-  }, [note.id, note.courseId, refreshSections]);
+  }, [note.id, note.courseId, note.updatedAt, refreshSections]);
 
   async function updateLocation(courseId: string | null, sectionId: string | null) {
     await useEditorStore.getState().flush();

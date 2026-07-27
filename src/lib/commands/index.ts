@@ -5,3 +5,6 @@ export * from './collectionCommands';
 export * from './recoveryCommands';
 export * from './appCommands';
 export * from './assetCommands';
+export * from './backupCommands';
+export * from './exportCommands';
+export * from './editorCommands';

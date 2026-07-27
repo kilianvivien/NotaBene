@@ -46,6 +46,17 @@ export interface NoteQuery {
   offset?: number;
 }
 
+export interface SnapshotRetentionPolicy {
+  /** Snapshots newer than this many days are all retained. */
+  keepAllDays: number;
+  /** Older snapshots are thinned to one per hour until this age. */
+  keepHourlyDays: number;
+  /** Then one per day until this age. Older snapshots are kept weekly. */
+  keepDailyDays: number;
+  /** Disable pruning entirely. */
+  forever?: boolean;
+}
+
 export interface LibraryAdapter {
   /** Open the store and run pending migrations. Safe to call more than once. */
   init(): Promise<void>;
@@ -89,7 +100,10 @@ export interface LibraryAdapter {
   getSnapshot(snapshotId: string): Promise<Snapshot | null>;
   createSnapshot(noteId: string, cause: SnapshotCause): Promise<Snapshot>;
   /** Applies the retention policy (hourly → daily → weekly thinning). */
-  pruneSnapshots(noteId: string): Promise<void>;
+  pruneSnapshots(noteId: string, policy: SnapshotRetentionPolicy): Promise<void>;
+
+  /** Permanently remove every trashed note older than the ISO cutoff. */
+  purgeTrash(trashedBefore: string): Promise<number>;
 
   listAttachments(noteId: string): Promise<Attachment[]>;
   upsertAttachment(attachment: Attachment): Promise<void>;
