@@ -18,19 +18,14 @@ export type ViewKind =
   | { kind: 'savedSearch'; savedSearchId: string }
   | { kind: 'search'; query: string };
 
-export type InspectorTab = 'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'ai';
+export type InspectorTab =
+  'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'ai';
 
 /** Settings sections. General, appearance and editor are live; the rest are
  * placeholders naming the phase that fills them, so the shape of Settings is
  * visible before all of it works. */
 export type SettingsTab =
-  | 'general'
-  | 'appearance'
-  | 'editor'
-  | 'aiProviders'
-  | 'backups'
-  | 'agent'
-  | 'about';
+  'general' | 'appearance' | 'editor' | 'aiProviders' | 'backups' | 'agent' | 'about';
 
 interface UiState {
   view: ViewKind;
@@ -44,9 +39,12 @@ interface UiState {
   focusMode: boolean;
   commandPaletteOpen: boolean;
   quickSwitcherOpen: boolean;
+  templatePickerOpen: boolean;
   settingsOpen: boolean;
   settingsTab: SettingsTab;
   searchQuery: string;
+  searchScope: 'all' | 'course';
+  searchCourseId: string | null;
   /** Set while an MCP agent is mutating the library, so the UI can show it. */
   agentBusy: boolean;
 
@@ -60,9 +58,11 @@ interface UiState {
   setFocusMode(on: boolean): void;
   setCommandPaletteOpen(open: boolean): void;
   setQuickSwitcherOpen(open: boolean): void;
+  setTemplatePickerOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
   setSearchQuery(query: string): void;
+  setSearchScope(scope: 'all' | 'course'): void;
   setAgentBusy(busy: boolean): void;
 }
 
@@ -77,9 +77,12 @@ export const useUiStore = create<UiState>()(
     focusMode: false,
     commandPaletteOpen: false,
     quickSwitcherOpen: false,
+    templatePickerOpen: false,
     settingsOpen: false,
     settingsTab: 'general',
     searchQuery: '',
+    searchScope: 'all',
+    searchCourseId: null,
     agentBusy: false,
 
     setView(view) {
@@ -150,6 +153,12 @@ export const useUiStore = create<UiState>()(
       });
     },
 
+    setTemplatePickerOpen(open) {
+      set((state) => {
+        state.templatePickerOpen = open;
+      });
+    },
+
     setSettingsOpen(open) {
       set((state) => {
         state.settingsOpen = open;
@@ -164,8 +173,23 @@ export const useUiStore = create<UiState>()(
 
     setSearchQuery(query) {
       set((state) => {
+        if (query.trim() && state.view.kind === 'course') {
+          state.searchCourseId = state.view.courseId;
+        }
         state.searchQuery = query;
-        if (query.trim()) state.view = { kind: 'search', query };
+        if (query.trim()) {
+          state.view = { kind: 'search', query };
+        } else if (state.view.kind === 'search') {
+          state.view = state.searchCourseId
+            ? { kind: 'course', courseId: state.searchCourseId }
+            : { kind: 'all' };
+        }
+      });
+    },
+
+    setSearchScope(scope) {
+      set((state) => {
+        state.searchScope = scope;
       });
     },
 

@@ -82,16 +82,18 @@ pub fn pending(store: &Store) -> DbResult<Vec<PendingRecovery>> {
             .collect::<rusqlite::Result<Vec<_>>>()?;
 
         rows.into_iter()
-            .map(|(note_id, doc_json, title, written_at, note_title, note_updated_at)| {
-                Ok(PendingRecovery {
-                    note_id,
-                    doc: serde_json::from_str(&doc_json)?,
-                    title,
-                    written_at,
-                    note_title,
-                    note_updated_at,
-                })
-            })
+            .map(
+                |(note_id, doc_json, title, written_at, note_title, note_updated_at)| {
+                    Ok(PendingRecovery {
+                        note_id,
+                        doc: serde_json::from_str(&doc_json)?,
+                        title,
+                        written_at,
+                        note_title,
+                        note_updated_at,
+                    })
+                },
+            )
             .collect()
     })
 }

@@ -14,6 +14,7 @@ import type { NoteQuery } from '@/lib/adapters';
 import type {
   Course,
   NoteSummary,
+  NoteTemplate,
   PendingRecovery,
   SavedSearch,
   Section,
@@ -26,6 +27,7 @@ interface LibraryState {
   sections: Record<string, Section[]>;
   tags: Tag[];
   savedSearches: SavedSearch[];
+  templates: NoteTemplate[];
   notes: NoteSummary[];
   /** Unsaved editor state a crash left behind, waiting to be offered back. */
   pendingRecoveries: PendingRecovery[];
@@ -41,6 +43,7 @@ interface LibraryState {
   refreshSections(courseId: string): Promise<void>;
   refreshTags(): Promise<void>;
   refreshSavedSearches(): Promise<void>;
+  refreshTemplates(): Promise<void>;
   refreshPendingRecoveries(): Promise<void>;
   /** Run a note query and remember it as the current view. */
   refreshNotes(query: NoteQuery): Promise<void>;
@@ -50,6 +53,7 @@ interface LibraryState {
 }
 
 const DEFAULT_QUERY: NoteQuery = { scope: 'live', sort: 'updated', limit: 200 };
+let noteQueryGeneration = 0;
 
 export const useLibraryStore = create<LibraryState>()(
   immer((set, get) => ({
@@ -57,6 +61,7 @@ export const useLibraryStore = create<LibraryState>()(
     sections: {},
     tags: [],
     savedSearches: [],
+    templates: [],
     notes: [],
     pendingRecoveries: [],
     loading: false,
@@ -70,12 +75,11 @@ export const useLibraryStore = create<LibraryState>()(
       });
       try {
         await library.init();
-        // Saved searches are deliberately absent: the store command behind
-        // them lands in Phase C and fails loudly until then, and a sidebar
-        // section nothing renders yet is no reason to fail the whole startup.
         await Promise.all([
           get().refreshCourses(),
           get().refreshTags(),
+          get().refreshSavedSearches(),
+          get().refreshTemplates(),
           get().refreshPendingRecoveries(),
         ]);
         await get().refreshNotes(DEFAULT_QUERY);
@@ -118,6 +122,13 @@ export const useLibraryStore = create<LibraryState>()(
       });
     },
 
+    async refreshTemplates() {
+      const templates = await library.listTemplates();
+      set((state) => {
+        state.templates = templates;
+      });
+    },
+
     async refreshPendingRecoveries() {
       const pendingRecoveries = await library.pendingRecoveries();
       set((state) => {
@@ -126,7 +137,9 @@ export const useLibraryStore = create<LibraryState>()(
     },
 
     async refreshNotes(query) {
+      const generation = ++noteQueryGeneration;
       const notes = await library.queryNotes(query);
+      if (generation !== noteQueryGeneration) return;
       set((state) => {
         state.notes = notes;
         state.lastQuery = query;

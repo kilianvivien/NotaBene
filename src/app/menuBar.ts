@@ -51,6 +51,8 @@ export function buildMenuBar(t: Translate): MenuNode[] {
       label: t('menu.file'),
       items: [
         command('note.new', t),
+        command('note.quick', t),
+        command('note.newFromTemplate', t),
         command('course.new', t),
         separator,
         command('note.save', t),

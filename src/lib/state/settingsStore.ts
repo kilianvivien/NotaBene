@@ -1,6 +1,6 @@
 /** App settings, and the DOM side effects that make them visible. Theme and
- * transparency are applied to `<html>` as data attributes so the token sheets
- * swap without a re-render. */
+ * accent are applied to `<html>` as data attributes so the token sheets swap
+ * without a re-render. */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { appSettings, DEFAULT_SETTINGS, type AppSettings } from '@/lib/adapters';
@@ -21,13 +21,21 @@ function resolveTheme(theme: AppSettings['theme']): 'light' | 'dark' {
 export function applySettingsToDom(settings: AppSettings): void {
   const root = document.documentElement;
   root.dataset.theme = resolveTheme(settings.theme);
-  root.dataset.transparency = settings.transparency;
   root.dataset.accent = settings.accentColor;
   root.lang = settings.locale;
   root.style.setProperty('--nb-editor-size', `${settings.editorFontSize}px`);
+  root.style.setProperty('--nb-editor-title-size', `${settings.editorTitleSize}px`);
+  const editorFonts: Record<AppSettings['editorFont'], string> = {
+    sans: 'var(--nb-font-sans)',
+    avenir: 'var(--nb-font-avenir)',
+    serif: 'var(--nb-font-serif)',
+    claude: 'var(--nb-font-claude)',
+    iowan: 'var(--nb-font-iowan)',
+    mono: 'var(--nb-font-mono)',
+  };
   root.style.setProperty(
     '--nb-editor-font',
-    settings.editorFont === 'serif' ? 'var(--nb-font-serif)' : 'var(--nb-font-sans)',
+    editorFonts[settings.editorFont] ?? editorFonts.sans,
   );
 }
 

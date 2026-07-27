@@ -5,15 +5,12 @@
 //! It composes one SQL statement with bound parameters rather than filtering in
 //! Rust, so a 10 000-note library stays an index lookup.
 
-use rusqlite::{params_from_iter, types::Value as SqlValue, Connection, Row};
+use rusqlite::{params_from_iter, types::Value as SqlValue, Connection, OptionalExtension, Row};
 
-use super::model::{Note, NoteQuery, NoteSummary, Snapshot, SnapshotMeta};
+use super::model::{Backlink, Note, NoteQuery, NoteSummary, Snapshot, SnapshotMeta};
 use super::{DbError, DbResult, Store};
 
-const SNIPPET_LEN: usize = 200;
-
 fn row_to_summary(row: &Row<'_>) -> rusqlite::Result<NoteSummary> {
-    let plain_text: String = row.get("plain_text")?;
     Ok(NoteSummary {
         id: row.get("id")?,
         course_id: row.get("course_id")?,
@@ -26,23 +23,33 @@ fn row_to_summary(row: &Row<'_>) -> rusqlite::Result<NoteSummary> {
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
         order: row.get("order")?,
-        snippet: plain_text.chars().take(SNIPPET_LEN).collect(),
+        snippet: row.get("snippet_text")?,
     })
 }
 
 pub fn query(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteSummary>> {
     store.with(|connection| {
-        let mut sql = String::from(
-            "SELECT n.id, n.course_id, n.section_id, n.title, n.plain_text, n.pinned, \
-             n.archived, n.trashed_at, n.created_at, n.updated_at, n.\"order\" \
-             FROM notes n",
+        let has_text = query
+            .text
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|text| !text.is_empty());
+        let snippet = if has_text {
+            "snippet(notes_fts, 1, '<mark>', '</mark>', ' … ', 32)"
+        } else {
+            "substr(n.plain_text, 1, 200)"
+        };
+        let mut sql = format!(
+            "SELECT n.id, n.course_id, n.section_id, n.title, n.pinned, \
+             n.archived, n.trashed_at, n.created_at, n.updated_at, n.\"order\", \
+             {snippet} AS snippet_text FROM notes n"
         );
         let mut clauses: Vec<String> = Vec::new();
         let mut binds: Vec<SqlValue> = Vec::new();
 
         // Free text goes through FTS5; everything else is a column predicate.
         if let Some(text) = query.text.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
-            sql.push_str(" JOIN notes_fts f ON f.rowid = n.rowid");
+            sql.push_str(" JOIN notes_fts ON notes_fts.rowid = n.rowid");
             clauses.push("notes_fts MATCH ?".into());
             binds.push(SqlValue::Text(fts_match_expression(text)));
         }
@@ -123,12 +130,11 @@ pub fn query(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteSummary>> {
 
         // Pinned notes float, then the requested order. Relevance only means
         // anything when there is an FTS match to rank.
-        let has_text = query.text.as_deref().map(str::trim).is_some_and(|t| !t.is_empty());
         let order_by = match query.sort.as_deref().unwrap_or("updated") {
             "created" => "n.created_at DESC",
             "title" => "n.title COLLATE NOCASE ASC",
             "manual" => "n.\"order\" ASC, n.updated_at DESC",
-            "relevance" if has_text => "f.rank",
+            "relevance" if has_text => "notes_fts.rank",
             _ => "n.updated_at DESC",
         };
         sql.push_str(&format!(" ORDER BY n.pinned DESC, {order_by}"));
@@ -148,10 +154,7 @@ pub fn query(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteSummary>> {
 
 /// One extra query for every note's tags, rather than N. At list sizes of a few
 /// hundred this is the difference between one round trip and hundreds.
-fn attach_tags(
-    connection: &Connection,
-    mut rows: Vec<NoteSummary>,
-) -> DbResult<Vec<NoteSummary>> {
+fn attach_tags(connection: &Connection, mut rows: Vec<NoteSummary>) -> DbResult<Vec<NoteSummary>> {
     if rows.is_empty() {
         return Ok(rows);
     }
@@ -276,9 +279,144 @@ pub fn upsert(store: &Store, note: &Note) -> DbResult<()> {
             )?;
         }
 
+        rebuild_links(transaction, note)?;
+        // A newly-created note resolves any older `[[Title]]` links that were
+        // waiting for it. Existing id-backed links are deliberately untouched.
+        transaction.execute(
+            "UPDATE note_links SET target_id = ?1
+             WHERE target_id IS NULL AND target_title = ?2 COLLATE NOCASE",
+            rusqlite::params![note.id, note.title],
+        )?;
+        reindex_note(transaction, &note.id)?;
+
         // The note reached disk, so any journalled in-flight copy is stale.
         transaction.execute("DELETE FROM editor_journal WHERE note_id = ?", [&note.id])?;
         Ok(())
+    })
+}
+
+/// Keep all FTS fields derived from surrounding entities in one row. Course,
+/// tag, and attachment writes call this too, so changing metadata is searchable
+/// immediately without a full rebuild.
+pub(crate) fn reindex_note(connection: &Connection, note_id: &str) -> DbResult<()> {
+    let row = connection.query_row(
+        "SELECT n.rowid, n.title, n.plain_text,
+                COALESCE((
+                    SELECT group_concat(
+                        CASE WHEN t.namespace IS NULL THEN t.name
+                             ELSE t.namespace || ':' || t.name END,
+                        ' '
+                    )
+                    FROM note_tags nt JOIN tags t ON t.id = nt.tag_id
+                    WHERE nt.note_id = n.id
+                ), ''),
+                COALESCE((SELECT c.name FROM courses c WHERE c.id = n.course_id), ''),
+                COALESCE((
+                    SELECT group_concat(a.name, ' ')
+                    FROM attachments a WHERE a.note_id = n.id
+                ), '')
+         FROM notes n WHERE n.id = ?",
+        [note_id],
+        |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+            ))
+        },
+    )?;
+
+    connection.execute("DELETE FROM notes_fts WHERE rowid = ?", [row.0])?;
+    connection.execute(
+        "INSERT INTO notes_fts(rowid, title, plain_text, tags, course, attachments)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![row.0, row.1, row.2, row.3, row.4, row.5],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug)]
+struct WikiTarget {
+    note_id: Option<String>,
+    title: String,
+}
+
+fn wiki_targets(doc: &serde_json::Value) -> Vec<WikiTarget> {
+    fn walk(node: &serde_json::Value, targets: &mut Vec<WikiTarget>) {
+        if node.get("type").and_then(|value| value.as_str()) == Some("wikiLink") {
+            if let Some(attrs) = node.get("attrs") {
+                let title = attrs
+                    .get("title")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or_default()
+                    .trim();
+                if !title.is_empty() {
+                    targets.push(WikiTarget {
+                        note_id: attrs
+                            .get("noteId")
+                            .and_then(|value| value.as_str())
+                            .map(str::to_owned),
+                        title: title.to_owned(),
+                    });
+                }
+            }
+        }
+        if let Some(children) = node.get("content").and_then(|value| value.as_array()) {
+            for child in children {
+                walk(child, targets);
+            }
+        }
+    }
+
+    let mut targets = Vec::new();
+    walk(doc, &mut targets);
+    targets
+}
+
+fn rebuild_links(connection: &Connection, note: &Note) -> DbResult<()> {
+    connection.execute("DELETE FROM note_links WHERE source_id = ?", [&note.id])?;
+    for target in wiki_targets(&note.doc) {
+        let target_id = match target.note_id {
+            Some(id) => Some(id),
+            None => connection
+                .query_row(
+                    "SELECT id FROM notes WHERE title = ? COLLATE NOCASE LIMIT 1",
+                    [&target.title],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?,
+        };
+        connection.execute(
+            "INSERT OR REPLACE INTO note_links (source_id, target_id, target_title)
+             VALUES (?1, ?2, ?3)",
+            rusqlite::params![note.id, target_id, target.title],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn list_backlinks(store: &Store, note_id: &str) -> DbResult<Vec<Backlink>> {
+    store.with(|connection| {
+        let mut statement = connection.prepare(
+            "SELECT n.id, n.title, substr(n.plain_text, 1, 200), n.updated_at
+             FROM note_links l JOIN notes n ON n.id = l.source_id
+             WHERE l.target_id = ? AND n.trashed_at IS NULL
+             ORDER BY n.updated_at DESC",
+        )?;
+        let rows = statement
+            .query_map([note_id], |row| {
+                Ok(Backlink {
+                    source_id: row.get(0)?,
+                    source_title: row.get(1)?,
+                    snippet: row.get(2)?,
+                    updated_at: row.get(3)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
     })
 }
 
@@ -316,8 +454,12 @@ pub fn set_trashed(store: &Store, note_id: &str, trashed_at: Option<&str>) -> Db
 }
 
 pub fn purge(store: &Store, note_id: &str) -> DbResult<()> {
-    store.with(|connection| {
-        connection.execute("DELETE FROM notes WHERE id = ?", [note_id])?;
+    store.transact(|transaction| {
+        transaction.execute(
+            "DELETE FROM notes_fts WHERE rowid = (SELECT rowid FROM notes WHERE id = ?)",
+            [note_id],
+        )?;
+        transaction.execute("DELETE FROM notes WHERE id = ?", [note_id])?;
         Ok(())
     })
 }
@@ -497,5 +639,144 @@ mod tests {
         // transaction, so a save can never leave a phantom recovery behind.
         upsert(store, &note).expect("failed to re-write the note");
         assert!(crate::db::journal::pending(store).unwrap().is_empty());
+    }
+
+    fn note_with(id: &str, title: &str, text: &str) -> Note {
+        Note {
+            id: id.into(),
+            course_id: None,
+            section_id: None,
+            title: title.into(),
+            doc: serde_json::json!({
+                "type": "doc",
+                "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": text }] }]
+            }),
+            plain_text: text.into(),
+            tag_ids: Vec::new(),
+            pinned: false,
+            archived: false,
+            trashed_at: None,
+            created_at: "2026-07-27T00:00:00.000Z".into(),
+            updated_at: "2026-07-27T00:00:00.000Z".into(),
+            order: 0,
+        }
+    }
+
+    #[test]
+    fn fts_is_diacritics_insensitive_and_returns_marked_snippets() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert(
+            store,
+            &note_with(
+                "fr-note",
+                "Révisions",
+                "Une notion recherchée accompagne ce résumé.",
+            ),
+        )
+        .unwrap();
+
+        for text in ["recherche", "resume"] {
+            let rows = query(
+                store,
+                &NoteQuery {
+                    text: Some(text.into()),
+                    sort: Some("relevance".into()),
+                    ..NoteQuery::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(rows.len(), 1, "{text} should match its accented form");
+            assert!(
+                rows[0].snippet.contains("<mark>"),
+                "search snippets should mark the matched token"
+            );
+        }
+    }
+
+    #[test]
+    fn wiki_backlinks_are_id_backed_across_a_rename() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        let mut target = note_with("target", "Analyse", "Cours cible");
+        upsert(store, &target).unwrap();
+
+        let mut source = note_with("source", "Index", "Voir Analyse");
+        source.doc = serde_json::json!({
+            "type": "doc",
+            "content": [{
+                "type": "paragraph",
+                "content": [{
+                    "type": "wikiLink",
+                    "attrs": { "noteId": "target", "title": "Analyse" }
+                }]
+            }]
+        });
+        upsert(store, &source).unwrap();
+        assert_eq!(list_backlinks(store, "target").unwrap().len(), 1);
+
+        target.title = "Analyse avancée".into();
+        upsert(store, &target).unwrap();
+        assert_eq!(
+            list_backlinks(store, "target").unwrap().len(),
+            1,
+            "renaming a target must not break an id-backed wiki link"
+        );
+    }
+
+    #[test]
+    fn ten_thousand_note_search_stays_under_the_phase_c_budget() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        store
+            .transact(|transaction| {
+                for index in 0..10_000_i64 {
+                    let id = format!("bench-{index}");
+                    let french = index % 2 == 0;
+                    let body = if index == 7_777 {
+                        "cinétique quantique marqueurunique"
+                    } else if french {
+                        "cours français recherche résumé équations"
+                    } else {
+                        "english lecture research summary equations"
+                    };
+                    transaction.execute(
+                        "INSERT INTO notes (
+                            id, title, doc_json, plain_text, pinned, archived,
+                            created_at, updated_at, \"order\"
+                         ) VALUES (?1, ?2, '{\"type\":\"doc\",\"content\":[]}', ?3, 0, 0,
+                                   '2026-07-27T00:00:00Z', '2026-07-27T00:00:00Z', ?4)",
+                        rusqlite::params![id, format!("Note {index}"), body, index],
+                    )?;
+                    let rowid = transaction.last_insert_rowid();
+                    transaction.execute(
+                        "INSERT INTO notes_fts(
+                            rowid, title, plain_text, tags, course, attachments
+                         ) VALUES (?1, ?2, ?3, '', '', '')",
+                        rusqlite::params![rowid, format!("Note {index}"), body],
+                    )?;
+                }
+                Ok(())
+            })
+            .unwrap();
+
+        // Warm SQLite's page cache; search-as-you-type measures steady-state
+        // latency, not first-open disk I/O.
+        let search = NoteQuery {
+            text: Some("marqueurunique".into()),
+            sort: Some("relevance".into()),
+            limit: Some(20),
+            ..NoteQuery::default()
+        };
+        query(store, &search).unwrap();
+        let started = std::time::Instant::now();
+        let rows = query(store, &search).unwrap();
+        let elapsed = started.elapsed();
+        eprintln!("Phase C 10k-note steady-state search: {elapsed:?}");
+        assert_eq!(rows.len(), 1);
+        assert!(
+            elapsed < std::time::Duration::from_millis(50),
+            "10k-note search took {elapsed:?}, over the 50 ms budget"
+        );
     }
 }

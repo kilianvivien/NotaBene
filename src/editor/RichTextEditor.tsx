@@ -4,14 +4,15 @@ import type { Editor } from '@tiptap/core';
 import { useTranslation } from 'react-i18next';
 import type { NoteDoc } from '@/lib/schema';
 import { storeAssetCommand } from '@/lib/commands';
+import { createNoteCommand } from '@/lib/commands';
+import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { editorExtensions } from './extensions';
-import {
-  registerEditorCommandRunner,
-  type EditorCommand,
-} from './commandBridge';
+import { registerEditorCommandRunner, type EditorCommand } from './commandBridge';
 import { Toolbar } from './Toolbar';
 import { SlashMenu, type SlashState } from './SlashMenu';
+import { WikiLinkMenu, type WikiLinkState } from './WikiLinkMenu';
+import { FindReplaceBar } from './FindReplaceBar';
 import { markdownToDoc } from './markdown';
 import './editor.css';
 
@@ -29,6 +30,8 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
   const [slash, setSlash] = useState<SlashState | null>(null);
+  const [wikiLink, setWikiLink] = useState<WikiLinkState | null>(null);
+  const [findOpen, setFindOpen] = useState(false);
   const [, refresh] = useState(0);
   useUiStore((state) => state.focusMode);
   const extensions = useMemo(() => editorExtensions(t('editor.bodyPlaceholder')), [t]);
@@ -92,6 +95,36 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
         if (!imageFiles.length) return false;
         event.preventDefault();
         void insertImages(imageFiles);
+        return true;
+      },
+      handleClick(view, position, event) {
+        const element =
+          event.target instanceof Element
+            ? event.target.closest<HTMLAnchorElement>('a[data-wiki-link]')
+            : null;
+        if (!element) return false;
+        event.preventDefault();
+        const noteId = element.getAttribute('data-note-id');
+        const title = element.getAttribute('data-title') ?? element.textContent ?? '';
+        void (async () => {
+          let targetId = noteId;
+          if (!targetId) {
+            const created = await createNoteCommand({ title });
+            if (!created.ok) return;
+            targetId = created.value.id;
+            const node = view.state.doc.nodeAt(position);
+            if (node?.type.name === 'wikiLink') {
+              view.dispatch(
+                view.state.tr.setNodeMarkup(position, undefined, {
+                  ...node.attrs,
+                  noteId: targetId,
+                }),
+              );
+            }
+          }
+          useUiStore.getState().selectNote(targetId);
+          await useEditorStore.getState().openNote(targetId);
+        })();
         return true;
       },
     },
@@ -177,14 +210,13 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
           const previous = current.getAttributes('link').href as string | undefined;
           const href = window.prompt(t('editor.linkPrompt'), previous ?? 'https://');
           if (href === null) return false;
-          if (!href) return current.chain().focus().extendMarkRange('link').unsetLink().run();
-          return current
-            .chain()
-            .focus()
-            .extendMarkRange('link')
-            .setLink({ href })
-            .run();
+          if (!href)
+            return current.chain().focus().extendMarkRange('link').unsetLink().run();
+          return current.chain().focus().extendMarkRange('link').setLink({ href }).run();
         }
+        case 'find':
+          setFindOpen(true);
+          return true;
       }
     },
     [t],
@@ -198,10 +230,27 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
       const { $from } = editor.state.selection;
       if (!$from.parent.isTextblock) {
         setSlash(null);
+        setWikiLink(null);
         return;
       }
       const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '\ufffc');
       const match = before.match(/(?:^|\s)\/([^\s/]*)$/);
+      const wikiMatch = before.match(/(?:^|\s)\[\[([^\]\n]*)$/);
+      if (wikiMatch) {
+        const query = wikiMatch[1] ?? '';
+        const from = editor.state.selection.from - query.length - 2;
+        const coords = editor.view.coordsAtPos(editor.state.selection.from);
+        setWikiLink({
+          query,
+          from,
+          to: editor.state.selection.from,
+          x: coords.left,
+          y: coords.bottom + 6,
+        });
+        setSlash(null);
+        return;
+      }
+      setWikiLink(null);
       if (!match) {
         setSlash(null);
         return;
@@ -209,7 +258,13 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
       const query = match[1] ?? '';
       const from = editor.state.selection.from - query.length - 1;
       const coords = editor.view.coordsAtPos(editor.state.selection.from);
-      setSlash({ query, from, to: editor.state.selection.from, x: coords.left, y: coords.bottom + 6 });
+      setSlash({
+        query,
+        from,
+        to: editor.state.selection.from,
+        x: coords.left,
+        y: coords.bottom + 6,
+      });
     };
     editor.on('transaction', update);
     return () => {
@@ -221,6 +276,11 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
 
   return (
     <div className="nb-rich-editor">
+      <FindReplaceBar
+        editor={editor}
+        open={findOpen}
+        onClose={() => setFindOpen(false)}
+      />
       <Toolbar editor={editor} run={(command) => void run(command)} />
       <EditorContent editor={editor} />
       <input
@@ -240,6 +300,14 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
           state={slash}
           close={() => setSlash(null)}
           run={(command) => void run(command)}
+        />
+      )}
+      {wikiLink && (
+        <WikiLinkMenu
+          editor={editor}
+          state={wikiLink}
+          currentNoteId={useEditorStore.getState().note?.id ?? null}
+          close={() => setWikiLink(null)}
         />
       )}
     </div>

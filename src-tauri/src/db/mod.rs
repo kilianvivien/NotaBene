@@ -6,6 +6,7 @@
 //! keystroke" easy to reason about.
 
 pub mod assets;
+pub mod collections;
 pub mod journal;
 pub mod migrations;
 pub mod model;

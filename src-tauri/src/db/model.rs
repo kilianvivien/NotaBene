@@ -125,6 +125,35 @@ pub struct Attachment {
     pub created_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedSearch {
+    pub id: String,
+    pub name: String,
+    pub query: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteTemplate {
+    pub id: String,
+    pub name: String,
+    pub course_id: Option<String>,
+    pub title_pattern: String,
+    pub doc: Value,
+    pub tag_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Backlink {
+    pub source_id: String,
+    pub source_title: String,
+    pub snippet: String,
+    pub updated_at: String,
+}
+
 /// Mirrors `NoteQuery` in `LibraryAdapter.ts`. Every field is optional, and
 /// `None` means "no constraint" rather than "match null" — except `course_id`,
 /// where the inbox genuinely needs to ask for notes with no course. That is

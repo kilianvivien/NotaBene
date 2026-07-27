@@ -8,9 +8,51 @@
 use super::{DbResult, Store};
 
 /// Must match `SCHEMA_VERSION` in `src/lib/schema/schema.ts`.
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 const V1: &str = include_str!("schema.sql");
+const V2: &str = r#"
+DROP TRIGGER IF EXISTS notes_fts_insert;
+DROP TRIGGER IF EXISTS notes_fts_delete;
+DROP TRIGGER IF EXISTS notes_fts_update;
+DROP TABLE IF EXISTS notes_fts;
+
+CREATE VIRTUAL TABLE notes_fts USING fts5(
+    title,
+    plain_text,
+    tags,
+    course,
+    attachments,
+    tokenize = "unicode61 remove_diacritics 2"
+);
+
+INSERT INTO notes_fts(rowid, title, plain_text, tags, course, attachments)
+SELECT n.rowid,
+       n.title,
+       n.plain_text,
+       COALESCE((
+           SELECT group_concat(
+               CASE WHEN t.namespace IS NULL THEN t.name
+                    ELSE t.namespace || ':' || t.name END,
+               ' '
+           )
+           FROM note_tags nt JOIN tags t ON t.id = nt.tag_id
+           WHERE nt.note_id = n.id
+       ), ''),
+       COALESCE((SELECT c.name FROM courses c WHERE c.id = n.course_id), ''),
+       COALESCE((
+           SELECT group_concat(a.name, ' ')
+           FROM attachments a
+           WHERE a.note_id = n.id
+       ), '')
+FROM notes n;
+
+CREATE TABLE IF NOT EXISTS template_tags (
+    template_id TEXT NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+    tag_id      TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (template_id, tag_id)
+);
+"#;
 
 pub fn run(store: &Store) -> DbResult<()> {
     let current: i64 = store.with(|connection| {
@@ -25,7 +67,9 @@ pub fn run(store: &Store) -> DbResult<()> {
         if current < 1 {
             transaction.execute_batch(V1)?;
         }
-        // Future steps land here, each guarded by `if current < N`.
+        if current < 2 {
+            transaction.execute_batch(V2)?;
+        }
         transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         Ok(())
     })

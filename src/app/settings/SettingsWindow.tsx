@@ -38,6 +38,7 @@ const TABS: { id: SettingsTab; icon: LucideIcon; landsIn?: string }[] = [
 ];
 
 const EDITOR_FONT_SIZES = { min: 13, max: 22 };
+const EDITOR_TITLE_SIZES = { min: 28, max: 52 };
 const ACCENTS: { value: AccentColor; color: string }[] = [
   { value: 'orange', color: '#c17a47' },
   { value: 'blue', color: '#3478c7' },
@@ -158,32 +159,27 @@ export function SettingsWindow() {
                     ))}
                   </div>
                 </Row>
-                <Row label={t('settings.transparency')} hint={t('settings.transparencyHint')}>
-                  <GlassSegmentedControl<AppSettings['transparency']>
-                    label={t('settings.transparency')}
-                    value={settings.transparency}
-                    onChange={(transparency) => set('transparency', transparency)}
-                    options={[
-                      { value: 'auto', label: t('settings.transparencyAuto') },
-                      { value: 'solid', label: t('settings.transparencySolid') },
-                    ]}
-                  />
-                </Row>
               </Section>
             )}
 
             {tab === 'editor' && (
               <Section>
                 <Row label={t('settings.editorFont')}>
-                  <GlassSegmentedControl<AppSettings['editorFont']>
-                    label={t('settings.editorFont')}
+                  <select
+                    aria-label={t('settings.editorFont')}
                     value={settings.editorFont}
-                    onChange={(font) => set('editorFont', font)}
-                    options={[
-                      { value: 'sans', label: t('settings.fontSans') },
-                      { value: 'serif', label: t('settings.fontSerif') },
-                    ]}
-                  />
+                    onChange={(event) =>
+                      set('editorFont', event.target.value as AppSettings['editorFont'])
+                    }
+                    className="h-8 min-w-40 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-[var(--nb-accent-ring)]"
+                  >
+                    <option value="sans">{t('settings.fontSans')}</option>
+                    <option value="avenir">{t('settings.fontAvenir')}</option>
+                    <option value="serif">{t('settings.fontSerif')}</option>
+                    <option value="claude">{t('settings.fontClaude')}</option>
+                    <option value="iowan">{t('settings.fontIowan')}</option>
+                    <option value="mono">{t('settings.fontMono')}</option>
+                  </select>
                 </Row>
                 <Row label={t('settings.fontSize')}>
                   <div className="flex items-center gap-2">
@@ -204,16 +200,47 @@ export function SettingsWindow() {
                     </span>
                   </div>
                 </Row>
-                <p
-                  className="rounded-nb-sm bg-[var(--nb-hover)] p-3 text-[13px]"
+                <Row label={t('settings.titleSize')}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={EDITOR_TITLE_SIZES.min}
+                      max={EDITOR_TITLE_SIZES.max}
+                      step={1}
+                      value={settings.editorTitleSize}
+                      aria-label={t('settings.titleSize')}
+                      onChange={(event) =>
+                        set('editorTitleSize', Number(event.target.value))
+                      }
+                      className="w-[140px] accent-[var(--nb-accent)]"
+                    />
+                    <span className="w-8 text-right text-[12px] tabular-nums text-nb-text-3">
+                      {settings.editorTitleSize}
+                    </span>
+                  </div>
+                </Row>
+                <div
+                  className="rounded-nb-sm bg-[var(--nb-hover)] p-3"
                   style={{
                     fontFamily: 'var(--nb-editor-font)',
-                    fontSize: 'var(--nb-editor-size)',
-                    lineHeight: 'var(--nb-editor-leading)',
                   }}
                 >
-                  {t('settings.fontPreview')}
-                </p>
+                  <p
+                    className="font-semibold tracking-[-0.03em]"
+                    style={{ fontSize: 'var(--nb-editor-title-size)', lineHeight: 1.15 }}
+                  >
+                    {t('settings.fontPreviewTitle')}
+                  </p>
+                  <p
+                    className="mt-2"
+                    style={{
+                      fontSize: 'var(--nb-editor-size)',
+                      lineHeight: 'var(--nb-editor-leading)',
+                    }}
+                  >
+                    {t('settings.fontPreview')}
+                  </p>
+                </div>
               </Section>
             )}
 

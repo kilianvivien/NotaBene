@@ -32,9 +32,15 @@ pub enum MenuNode {
     /// A system role — undo, copy, minimize, quit. These must be predefined
     /// items rather than our own: the OS wires them to the responder chain,
     /// which is what makes Cmd-C work inside a text field we do not own.
-    Predefined { role: String, label: Option<String> },
+    Predefined {
+        role: String,
+        label: Option<String>,
+    },
     Separator,
-    Submenu { label: String, items: Vec<MenuNode> },
+    Submenu {
+        label: String,
+        items: Vec<MenuNode>,
+    },
 }
 
 fn enabled_by_default() -> bool {
@@ -59,7 +65,9 @@ pub fn menu_apply(app: AppHandle, menu: Vec<MenuNode>) -> Result<(), String> {
 #[cfg(desktop)]
 mod desktop {
     use super::MenuNode;
-    use tauri::menu::{IsMenuItem, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+    use tauri::menu::{
+        IsMenuItem, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder,
+    };
     use tauri::{AppHandle, Wry};
 
     pub fn apply(app: &AppHandle, nodes: &[MenuNode]) -> Result<(), String> {
@@ -108,9 +116,9 @@ mod desktop {
                 MenuNode::Predefined { role, label } => {
                     Box::new(predefined(app, role, label.as_deref())?)
                 }
-                MenuNode::Separator => Box::new(
-                    PredefinedMenuItem::separator(app).map_err(|error| error.to_string())?,
-                ),
+                MenuNode::Separator => {
+                    Box::new(PredefinedMenuItem::separator(app).map_err(|error| error.to_string())?)
+                }
                 MenuNode::Submenu { label, items } => Box::new(build_submenu(app, label, items)?),
             };
             builder = builder.item(item.as_ref());

@@ -91,10 +91,6 @@ pub fn mcp_bridge_respond(
 }
 
 #[tauri::command]
-pub fn mcp_write_client_config(
-    client: String,
-    port: u16,
-    token: String,
-) -> Result<String, String> {
+pub fn mcp_write_client_config(client: String, port: u16, token: String) -> Result<String, String> {
     setup::write_client_config(&client, port, &token)
 }

@@ -14,6 +14,7 @@ import {
   newId,
   type Attachment,
   type Asset,
+  type Backlink,
   type Course,
   type JournalEntry,
   type Library,
@@ -38,9 +39,49 @@ function snippetFor(note: Note): string {
   return note.plainText.slice(0, 200);
 }
 
-function toSummary(note: Note): NoteSummary {
+function fold(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase();
+}
+
+function highlightedSnippet(note: Note, text: string): string {
+  const terms = text.trim().split(/\s+/).filter(Boolean);
+  const folded = fold(note.plainText);
+  const first = terms.map(fold).find((term) => folded.includes(term));
+  if (!first) return snippetFor(note);
+  const start = Math.max(0, folded.indexOf(first) - 55);
+  const raw = note.plainText.slice(start, start + 200);
+  const index = fold(raw).indexOf(first);
+  if (index < 0) return raw;
+  return `${start > 0 ? '… ' : ''}${raw.slice(0, index)}<mark>${raw.slice(index, index + first.length)}</mark>${raw.slice(index + first.length)}`;
+}
+
+function toSummary(note: Note, text?: string): NoteSummary {
   const { doc: _doc, plainText: _plainText, ...rest } = note;
-  return { ...clone(rest), snippet: snippetFor(note) };
+  return {
+    ...clone(rest),
+    snippet: text ? highlightedSnippet(note, text) : snippetFor(note),
+  };
+}
+
+function wikiTargets(note: Note): { noteId: string | null; title: string }[] {
+  const targets: { noteId: string | null; title: string }[] = [];
+  function visit(node: Note['doc'] | NonNullable<Note['doc']['content']>[number]) {
+    if (node.type === 'wikiLink') {
+      const title = typeof node.attrs?.title === 'string' ? node.attrs.title.trim() : '';
+      if (title) {
+        targets.push({
+          noteId: typeof node.attrs?.noteId === 'string' ? node.attrs.noteId : null,
+          title,
+        });
+      }
+    }
+    node.content?.forEach(visit);
+  }
+  visit(note.doc);
+  return targets;
 }
 
 class MemoryLibraryAdapter implements LibraryAdapter {
@@ -90,7 +131,9 @@ class MemoryLibraryAdapter implements LibraryAdapter {
   }
 
   async deleteSection(sectionId: string): Promise<void> {
-    this.library.sections = this.library.sections.filter((entry) => entry.id !== sectionId);
+    this.library.sections = this.library.sections.filter(
+      (entry) => entry.id !== sectionId,
+    );
     for (const note of this.library.notes) {
       if (note.sectionId === sectionId) note.sectionId = null;
     }
@@ -100,14 +143,16 @@ class MemoryLibraryAdapter implements LibraryAdapter {
 
   async queryNotes(query: NoteQuery): Promise<NoteSummary[]> {
     const scope = query.scope ?? 'live';
-    const text = query.text?.trim().toLowerCase();
+    const text = query.text?.trim();
+    const foldedText = text ? fold(text) : '';
 
     let rows = this.library.notes.filter((note) => {
       if (scope === 'live' && (note.archived || note.trashedAt)) return false;
       if (scope === 'archived' && (!note.archived || note.trashedAt)) return false;
       if (scope === 'trashed' && !note.trashedAt) return false;
       if (query.courseId !== undefined && note.courseId !== query.courseId) return false;
-      if (query.sectionId !== undefined && note.sectionId !== query.sectionId) return false;
+      if (query.sectionId !== undefined && note.sectionId !== query.sectionId)
+        return false;
       if (query.pinned !== undefined && note.pinned !== query.pinned) return false;
       if (query.tagIds?.length && !query.tagIds.every((id) => note.tagIds.includes(id))) {
         return false;
@@ -122,9 +167,21 @@ class MemoryLibraryAdapter implements LibraryAdapter {
         );
         if (!satisfied) return false;
       }
-      if (text) {
-        const haystack = `${note.title}\n${note.plainText}`.toLowerCase();
-        if (!haystack.includes(text)) return false;
+      if (foldedText) {
+        const course = this.library.courses.find((entry) => entry.id === note.courseId);
+        const tagText = this.library.tags
+          .filter((entry) => note.tagIds.includes(entry.id))
+          .map((entry) => `${entry.namespace ? `${entry.namespace}:` : ''}${entry.name}`)
+          .join(' ');
+        const attachmentText = this.attachments
+          .filter((entry) => entry.noteId === note.id)
+          .map((entry) => entry.name)
+          .join(' ');
+        const haystack = fold(
+          `${note.title}\n${note.plainText}\n${course?.name ?? ''}\n${tagText}\n${attachmentText}`,
+        );
+        if (!foldedText.split(/\s+/).every((term) => haystack.includes(term)))
+          return false;
       }
       return true;
     });
@@ -146,7 +203,7 @@ class MemoryLibraryAdapter implements LibraryAdapter {
 
     const offset = query.offset ?? 0;
     const limit = query.limit ?? rows.length;
-    return rows.slice(offset, offset + limit).map(toSummary);
+    return rows.slice(offset, offset + limit).map((note) => toSummary(note, text));
   }
 
   async getNote(noteId: string): Promise<Note | null> {
@@ -185,6 +242,28 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     this.attachments = this.attachments.filter((entry) => entry.noteId !== noteId);
   }
 
+  async listBacklinks(noteId: string): Promise<Backlink[]> {
+    const target = this.library.notes.find((note) => note.id === noteId);
+    if (!target) return [];
+    return this.library.notes
+      .filter(
+        (note) =>
+          !note.trashedAt &&
+          wikiTargets(note).some(
+            (link) =>
+              link.noteId === noteId ||
+              (link.noteId === null && fold(link.title) === fold(target.title)),
+          ),
+      )
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((note) => ({
+        sourceId: note.id,
+        sourceTitle: note.title,
+        snippet: snippetFor(note),
+        updatedAt: note.updatedAt,
+      }));
+  }
+
   // -- crash recovery ------------------------------------------------------
 
   async writeJournal(entry: JournalEntry): Promise<void> {
@@ -197,7 +276,11 @@ class MemoryLibraryAdapter implements LibraryAdapter {
       const note = this.library.notes.find((candidate) => candidate.id === entry.noteId);
       if (!note || note.trashedAt) continue;
       if (entry.writtenAt <= note.updatedAt) continue;
-      pending.push({ ...clone(entry), noteTitle: note.title, noteUpdatedAt: note.updatedAt });
+      pending.push({
+        ...clone(entry),
+        noteTitle: note.title,
+        noteUpdatedAt: note.updatedAt,
+      });
     }
     return pending.sort((a, b) => b.writtenAt.localeCompare(a.writtenAt));
   }
@@ -228,7 +311,9 @@ class MemoryLibraryAdapter implements LibraryAdapter {
   async mergeTags(fromTagId: string, intoTagId: string): Promise<void> {
     for (const note of this.library.notes) {
       if (!note.tagIds.includes(fromTagId)) continue;
-      note.tagIds = [...new Set(note.tagIds.map((id) => (id === fromTagId ? intoTagId : id)))];
+      note.tagIds = [
+        ...new Set(note.tagIds.map((id) => (id === fromTagId ? intoTagId : id))),
+      ];
     }
     await this.deleteTag(fromTagId);
   }

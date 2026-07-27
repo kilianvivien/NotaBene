@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -41,7 +41,9 @@ export const DocNodeSchema: z.ZodType<DocNode> = z.lazy(() =>
     attrs: z.record(z.unknown()).optional(),
     content: z.array(DocNodeSchema).optional(),
     marks: z
-      .array(z.object({ type: z.string().min(1), attrs: z.record(z.unknown()).optional() }))
+      .array(
+        z.object({ type: z.string().min(1), attrs: z.record(z.unknown()).optional() }),
+      )
       .optional(),
     text: z.string().optional(),
   }),
@@ -204,6 +206,15 @@ export const NoteTemplateSchema = z.object({
   tagIds: z.array(id).default([]),
 });
 export type NoteTemplate = z.infer<typeof NoteTemplateSchema>;
+
+/** A note that contains a wiki link to another note. */
+export const BacklinkSchema = z.object({
+  sourceId: id,
+  sourceTitle: z.string(),
+  snippet: z.string().default(''),
+  updatedAt: isoDate,
+});
+export type Backlink = z.infer<typeof BacklinkSchema>;
 
 // ---------------------------------------------------------------------------
 // Library envelope — what backups and full exports carry

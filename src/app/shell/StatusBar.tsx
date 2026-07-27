@@ -31,12 +31,18 @@ export function StatusBar() {
         </>
       )}
 
+      <span className="ml-auto" aria-hidden />
+
       {agentBusy && (
-        <span className="ml-auto flex items-center gap-1.5 text-[var(--nb-accent)]">
+        <span className="flex items-center gap-1.5 text-[var(--nb-accent)]">
           <Bot size={12} />
           {t('mcp.agentWorking')}
         </span>
       )}
+
+      <span title={t('app.version', { version: __APP_VERSION__ })}>
+        v{__APP_VERSION__}
+      </span>
     </footer>
   );
 }

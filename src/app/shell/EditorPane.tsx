@@ -29,7 +29,8 @@ export function EditorPane() {
           placeholder={t('editor.titlePlaceholder')}
           aria-label={t('editor.titlePlaceholder')}
           autoComplete="off"
-          className="mb-2 w-full bg-transparent text-[28px] font-semibold tracking-[-0.025em] placeholder:text-nb-text-3 focus:outline-none"
+          className="mb-3 w-full bg-transparent font-semibold tracking-[-0.03em] placeholder:text-nb-text-3 focus:outline-none"
+          style={{ fontSize: 'var(--nb-editor-title-size)' }}
         />
         <RichTextEditor key={note.id} doc={note.doc} onChange={applyDoc} />
       </div>

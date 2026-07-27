@@ -98,12 +98,9 @@ pub async fn start_server(
         Arc::new(session_manager),
         config,
     );
-    let router = axum::Router::new()
-        .nest_service("/mcp", service)
-        .layer(axum::middleware::from_fn_with_state(
-            Arc::new(token),
-            require_bearer,
-        ));
+    let router = axum::Router::new().nest_service("/mcp", service).layer(
+        axum::middleware::from_fn_with_state(Arc::new(token), require_bearer),
+    );
 
     let shutdown = cancel.clone();
     let task_app = app.clone();
@@ -111,7 +108,12 @@ pub async fn start_server(
         let served = axum::serve(listener, router)
             .with_graceful_shutdown(async move { shutdown.cancelled().await })
             .await;
-        emit_status(&task_app, false, None, served.err().map(|err| err.to_string()));
+        emit_status(
+            &task_app,
+            false,
+            None,
+            served.err().map(|err| err.to_string()),
+        );
     });
 
     emit_status(&app, true, Some(port), None);

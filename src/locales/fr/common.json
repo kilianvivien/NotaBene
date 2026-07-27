@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "NotaBene",
-    "tagline": "L'appli de notes de cours qui respecte votre vie privée"
+    "tagline": "L'appli de notes de cours qui respecte votre vie privée",
+    "version": "Version {{version}}"
   },
   "sidebar": {
     "allNotes": "Toutes les notes",
@@ -20,6 +21,8 @@
     "empty": "Aucune note ici",
     "emptyHint": "Appuyez sur ⌘N pour commencer",
     "newNote": "Nouvelle note",
+    "quickNote": "Note rapide",
+    "quickNoteTitle": "Note rapide",
     "untitled": "Note sans titre",
     "count_one": "{{count}} note",
     "count_other": "{{count}} notes",
@@ -31,6 +34,15 @@
       "manual": "Ordre manuel",
       "relevance": "Pertinence"
     }
+  },
+  "noteActions": {
+    "open": "Ouvrir",
+    "pin": "Épingler",
+    "unpin": "Désépingler",
+    "archive": "Archiver",
+    "unarchive": "Désarchiver",
+    "moveToTrash": "Mettre à la corbeille",
+    "restore": "Restaurer"
   },
   "editor": {
     "titlePlaceholder": "Titre de la note",
@@ -75,7 +87,17 @@
     "addAttachment": "Ajouter une pièce jointe",
     "addingAttachment": "Ajout…",
     "noAttachments": "Aucune pièce jointe",
-    "previewAttachment": "Aperçu de la pièce jointe"
+    "previewAttachment": "Aperçu de la pièce jointe",
+    "wikiLinkMenu": "Lier à une note",
+    "createWikiNote": "Créer « {{title}} »",
+    "noWikiLinks": "Saisissez le titre d’une note",
+    "findReplace": "Rechercher et remplacer",
+    "find": "Rechercher",
+    "replaceWith": "Remplacer par",
+    "replace": "Remplacer",
+    "replaceAll": "Tout remplacer",
+    "previousMatch": "Occurrence précédente",
+    "nextMatch": "Occurrence suivante"
   },
   "inspector": {
     "details": "Détails",
@@ -91,6 +113,7 @@
     "modified": "Modifiée le",
     "wordCount": "Mots",
     "noTags": "Aucune étiquette",
+    "noBacklinks": "Aucune note ne pointe ici",
     "versionCount_one": "{{count}} version enregistrée",
     "versionCount_other": "{{count}} versions enregistrées"
   },
@@ -100,6 +123,38 @@
     "scopeCourse": "Ce cours",
     "noResults": "Aucune note ne correspond",
     "saveSearch": "Enregistrer comme dossier intelligent"
+  },
+  "organization": {
+    "editCourse": "Modifier le cours",
+    "courseName": "Nom du cours",
+    "icon": "Icône",
+    "iconPicker": "Choisir une icône",
+    "color": "Couleur",
+    "professor": "Enseignant",
+    "semester": "Semestre",
+    "credits": "Crédits",
+    "schedule": "Horaire",
+    "deleteCourseConfirm": "Supprimer ce cours ? Ses notes seront déplacées dans la boîte de réception.",
+    "expand": "Développer",
+    "collapse": "Réduire",
+    "newSection": "Nouvelle section",
+    "editSection": "Renommer la section",
+    "deleteSectionConfirm": "Supprimer cette section ? Ses notes resteront dans le cours.",
+    "tagManager": "Gérer les étiquettes",
+    "freeTag": "Étiquette libre",
+    "tagName": "Nom de l’étiquette",
+    "addTag": "Ajouter",
+    "mergeInto": "Fusionner dans…",
+    "merge": "Fusionner",
+    "deleteTagConfirm": "Supprimer cette étiquette de toutes les notes ?",
+    "templates": "Modèles",
+    "saveAsTemplate": "Enregistrer la note comme modèle",
+    "newFromTemplate": "Créer depuis un modèle…",
+    "globalTemplate": "Modèle global",
+    "noTemplates": "Aucun modèle",
+    "editSavedSearch": "Modifier le dossier intelligent",
+    "name": "Nom",
+    "query": "Requête de recherche"
   },
   "save": {
     "idle": "",
@@ -154,14 +209,16 @@
     "accent_pink": "Rose",
     "accent_green": "Vert",
     "accent_graphite": "Graphite",
-    "transparency": "Transparence",
-    "transparencyAuto": "Suivre le système",
-    "transparencySolid": "Réduire",
-    "transparencyHint": "« Réduire » rend toutes les surfaces opaques, comme le réglage d'accessibilité du système.",
     "editorFont": "Police de l'éditeur",
-    "fontSans": "Sans empattement",
-    "fontSerif": "Avec empattement",
+    "fontSans": "Apple Notes (SF Pro)",
+    "fontAvenir": "Avenir Next",
+    "fontSerif": "Charter",
+    "fontClaude": "Lora",
+    "fontIowan": "Iowan / Palatino",
+    "fontMono": "SF Mono",
     "fontSize": "Taille du texte",
+    "titleSize": "Taille du titre",
+    "fontPreviewTitle": "Limites et dérivées",
     "fontPreview": "La tangente en un point est la limite des sécantes qui y passent.",
     "checkForUpdates": "Rechercher les mises à jour",
     "checkForUpdatesHint": "Interroge GitHub pour une nouvelle version. Rien d'autre ne quitte cette machine.",

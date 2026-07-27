@@ -13,9 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{
-    CallToolResult, ContentBlock, InitializeResult, ServerCapabilities,
-};
+use rmcp::model::{CallToolResult, ContentBlock, InitializeResult, ServerCapabilities};
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{tool, tool_handler, tool_router, ErrorData, ServerHandler};
 use serde_json::{json, Value};

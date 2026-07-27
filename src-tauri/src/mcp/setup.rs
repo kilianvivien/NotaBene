@@ -45,11 +45,12 @@ pub fn write_client_config(client: &str, port: u16, token: &str) -> Result<Strin
 
     let path = config_path(client)?;
     let mut root: Value = match fs::read_to_string(&path) {
-        Ok(text) if !text.trim().is_empty() => {
-            serde_json::from_str(&text).map_err(|err| {
-                format!("{} is not valid JSON ({err}); fix or move it first", path.display())
-            })?
-        }
+        Ok(text) if !text.trim().is_empty() => serde_json::from_str(&text).map_err(|err| {
+            format!(
+                "{} is not valid JSON ({err}); fix or move it first",
+                path.display()
+            )
+        })?,
         // A missing file is fine — a malformed one is not, and is handled above.
         _ => Value::Object(Map::new()),
     };

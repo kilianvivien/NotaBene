@@ -20,14 +20,13 @@ import { useUiStore } from '@/lib/state/uiStore';
 import { createNoteCommand } from './noteCommands';
 import { createCourseCommand } from './organizationCommands';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
-import {
-  runEditorCommand,
-  type EditorCommand,
-} from '@/editor/commandBridge';
+import { runEditorCommand, type EditorCommand } from '@/editor/commandBridge';
 
 export const APP_COMMAND_IDS = [
   'app.settings',
   'note.new',
+  'note.quick',
+  'note.newFromTemplate',
   'course.new',
   'note.save',
   'edit.find',
@@ -70,10 +69,28 @@ export interface AppCommand {
 }
 
 async function openNewNote(): Promise<CommandResult<unknown>> {
-  const result = await createNoteCommand({});
+  const view = useUiStore.getState().view;
+  const location =
+    view.kind === 'course'
+      ? { courseId: view.courseId, sectionId: view.sectionId ?? null }
+      : {};
+  const result = await createNoteCommand(location);
   if (!result.ok) return result;
   // Select *and* open: a new note that does not land you in the editor is a
   // new note you have to go and find.
+  useUiStore.getState().selectNote(result.value.id);
+  await useEditorStore.getState().openNote(result.value.id);
+  return result;
+}
+
+async function openQuickNote(): Promise<CommandResult<unknown>> {
+  const result = await createNoteCommand({
+    title: translate('noteList.quickNoteTitle'),
+    courseId: null,
+    sectionId: null,
+  });
+  if (!result.ok) return result;
+  useUiStore.getState().setView({ kind: 'inbox' });
   useUiStore.getState().selectNote(result.value.id);
   await useEditorStore.getState().openNote(result.value.id);
   return result;
@@ -104,6 +121,23 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     landsIn: 'A',
     run: openNewNote,
   },
+  'note.quick': {
+    id: 'note.quick',
+    labelKey: 'noteList.quickNote',
+    accelerator: 'CmdOrCtrl+Shift+Q',
+    landsIn: 'C',
+    run: openQuickNote,
+  },
+  'note.newFromTemplate': {
+    id: 'note.newFromTemplate',
+    labelKey: 'organization.newFromTemplate',
+    accelerator: 'CmdOrCtrl+Alt+N',
+    landsIn: 'C',
+    run: () => {
+      useUiStore.getState().setTemplatePickerOpen(true);
+      return ok(undefined);
+    },
+  },
   'course.new': {
     id: 'course.new',
     labelKey: 'sidebar.newCourse',
@@ -130,6 +164,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     labelKey: 'menu.find',
     accelerator: 'CmdOrCtrl+F',
     landsIn: 'C',
+    run: editorAction('find'),
   },
 
   'format.bold': {
@@ -338,10 +373,12 @@ function matches(event: KeyboardEvent, accelerator: Accelerator): boolean {
  * Returns an unsubscribe function.
  */
 export function bindCommandKeys(): () => void {
-  const bindings = APP_COMMAND_IDS.filter((id) => APP_COMMANDS[id].accelerator).map((id) => ({
-    id,
-    accelerator: parseAccelerator(APP_COMMANDS[id].accelerator!),
-  }));
+  const bindings = APP_COMMAND_IDS.filter((id) => APP_COMMANDS[id].accelerator).map(
+    (id) => ({
+      id,
+      accelerator: parseAccelerator(APP_COMMANDS[id].accelerator!),
+    }),
+  );
 
   const onKeyDown = (event: KeyboardEvent) => {
     for (const binding of bindings) {

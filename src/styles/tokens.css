@@ -26,7 +26,10 @@
   --nb-font-sans:
     -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter',
     'Helvetica Neue', system-ui, sans-serif;
-  --nb-font-serif: 'New York', 'Iowan Old Style', Charter, Georgia, serif;
+  --nb-font-avenir: 'Avenir Next', Avenir, 'Segoe UI', var(--nb-font-sans);
+  --nb-font-serif: Charter, 'New York', 'Iowan Old Style', Georgia, serif;
+  --nb-font-claude: 'Lora', 'Tiempos Text', Charter, Georgia, serif;
+  --nb-font-iowan: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   --nb-font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
 
   /* Editor reading rhythm. The measure caps line length at a comfortable
@@ -34,6 +37,7 @@
   --nb-editor-measure: 42rem;
   --nb-editor-font: var(--nb-font-sans);
   --nb-editor-size: 16px;
+  --nb-editor-title-size: 40px;
   --nb-editor-leading: 1.7;
 
   /* Motion */
@@ -80,10 +84,6 @@ html[data-theme='light'] {
   --nb-glass-sheen: transparent;
   --nb-surface-modal: #f7f6f3;
   --nb-scrim: rgba(20, 18, 15, 0.22);
-
-  /* Solid surfaces used when transparency is reduced. */
-  --nb-solid-surface: #f7f6f3;
-  --nb-solid-surface-strong: #ffffff;
 
   --nb-divider: #e2dfda;
   --nb-divider-strong: #ccc8c0;
@@ -135,9 +135,6 @@ html[data-theme='dark'] {
   --nb-glass-sheen: transparent;
   --nb-surface-modal: #121211;
   --nb-scrim: rgba(0, 0, 0, 0.72);
-
-  --nb-solid-surface: #10100f;
-  --nb-solid-surface-strong: #171716;
 
   --nb-divider: #242321;
   --nb-divider-strong: #383633;

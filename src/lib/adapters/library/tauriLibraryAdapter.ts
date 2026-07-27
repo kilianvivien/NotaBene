@@ -10,6 +10,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type {
   Attachment,
   Asset,
+  Backlink,
   Course,
   JournalEntry,
   Library,
@@ -38,11 +39,14 @@ export const tauriLibraryAdapter: LibraryAdapter = {
 
   queryNotes: (query: NoteQuery): Promise<NoteSummary[]> =>
     invoke('library_query_notes', { query }),
-  getNote: (noteId: string): Promise<Note | null> => invoke('library_get_note', { noteId }),
+  getNote: (noteId: string): Promise<Note | null> =>
+    invoke('library_get_note', { noteId }),
   upsertNote: (note: Note) => invoke('library_upsert_note', { note }),
   trashNote: (noteId: string) => invoke('library_trash_note', { noteId }),
   restoreNote: (noteId: string) => invoke('library_restore_note', { noteId }),
   purgeNote: (noteId: string) => invoke('library_purge_note', { noteId }),
+  listBacklinks: (noteId: string): Promise<Backlink[]> =>
+    invoke('library_list_backlinks', { noteId }),
 
   writeJournal: (entry: JournalEntry) => invoke('journal_write', { entry }),
   pendingRecoveries: (): Promise<PendingRecovery[]> => invoke('journal_pending'),
@@ -77,8 +81,10 @@ export const tauriLibraryAdapter: LibraryAdapter = {
     invoke('library_delete_saved_search', { searchId }),
 
   listTemplates: (): Promise<NoteTemplate[]> => invoke('library_list_templates'),
-  upsertTemplate: (template: NoteTemplate) => invoke('library_upsert_template', { template }),
-  deleteTemplate: (templateId: string) => invoke('library_delete_template', { templateId }),
+  upsertTemplate: (template: NoteTemplate) =>
+    invoke('library_upsert_template', { template }),
+  deleteTemplate: (templateId: string) =>
+    invoke('library_delete_template', { templateId }),
 
   exportLibrary: (): Promise<Library> => invoke('library_export'),
   importLibrary: (library: Library, mode: 'replace' | 'merge') =>

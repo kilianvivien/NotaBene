@@ -12,6 +12,7 @@
 import type {
   Attachment,
   Asset,
+  Backlink,
   Course,
   JournalEntry,
   Library,
@@ -65,6 +66,8 @@ export interface LibraryAdapter {
   trashNote(noteId: string): Promise<void>;
   restoreNote(noteId: string): Promise<void>;
   purgeNote(noteId: string): Promise<void>;
+  /** Notes whose id-backed wiki links point at this note. */
+  listBacklinks(noteId: string): Promise<Backlink[]>;
 
   /**
    * Crash recovery. The editor writes in-flight state here on every keystroke

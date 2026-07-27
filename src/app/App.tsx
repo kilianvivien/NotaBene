@@ -13,6 +13,7 @@ import { useSettingsStore, watchSystemTheme } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { setLocale } from '@/lib/i18n';
 import { CollapsiblePane } from './shell/CollapsiblePane';
+import { TemplatePicker } from './organization/TemplatePicker';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -73,6 +74,7 @@ export function App() {
       {/* Asked before anything else can be typed over: this is the one moment
           the choice is still the user's to make. */}
       <RecoveryPrompt />
+      <TemplatePicker />
     </div>
   );
 }

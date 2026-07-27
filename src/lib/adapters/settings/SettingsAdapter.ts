@@ -11,10 +11,10 @@ export type AccentColor = 'orange' | 'blue' | 'purple' | 'pink' | 'green' | 'gra
 export interface AppSettings {
   locale: 'en' | 'fr';
   theme: 'light' | 'dark' | 'system';
-  transparency: 'auto' | 'solid';
   accentColor: AccentColor;
-  editorFont: 'sans' | 'serif';
+  editorFont: 'sans' | 'avenir' | 'serif' | 'claude' | 'iowan' | 'mono';
   editorFontSize: number;
+  editorTitleSize: number;
   focusMode: boolean;
   /** Trash retention, in days. */
   trashRetentionDays: number;
@@ -26,6 +26,9 @@ export interface AppSettings {
   mcpEnabled: boolean;
   mcpPort: number;
   checkForUpdates: boolean;
+  /** Sort choice per stable view key (`all`, `course:<id>`, …). */
+  viewSorts: Record<string, 'updated' | 'created' | 'title' | 'manual' | 'relevance'>;
+  recentSearches: string[];
 }
 
 export interface SettingsAdapter {
@@ -49,10 +52,10 @@ export interface SecretsAdapter {
 export const DEFAULT_SETTINGS: AppSettings = {
   locale: 'en',
   theme: 'system',
-  transparency: 'auto',
   accentColor: 'orange',
   editorFont: 'sans',
   editorFontSize: 16,
+  editorTitleSize: 40,
   focusMode: false,
   trashRetentionDays: 30,
   backupSchedule: 'off',
@@ -61,4 +64,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mcpEnabled: false,
   mcpPort: 22600,
   checkForUpdates: true,
+  viewSorts: {},
+  recentSearches: [],
 };

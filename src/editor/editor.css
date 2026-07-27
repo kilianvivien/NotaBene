@@ -117,7 +117,7 @@
   border-radius: 6px;
   color: var(--nb-text-2);
   background: transparent;
-  font-size: 11px;
+  font-size: 12px;
   text-align: left;
 }
 
@@ -153,7 +153,7 @@
   border-radius: 5px;
   color: var(--nb-text-2);
   background: transparent;
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -643,6 +643,79 @@
   font-size: 12px;
 }
 
+.nb-prosemirror a[data-wiki-link] {
+  padding: 0 2px;
+  border-radius: 3px;
+  color: var(--nb-accent);
+  background: var(--nb-accent-soft);
+  text-decoration: none;
+}
+
+.nb-prosemirror a[data-wiki-link]:not([data-note-id]),
+.nb-prosemirror a[data-note-id=''] {
+  text-decoration: underline dashed;
+  text-decoration-color: var(--nb-warn);
+  text-underline-offset: 3px;
+}
+
+.nb-find-replace {
+  position: sticky;
+  z-index: 20;
+  top: 4px;
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  min-height: 36px;
+  margin: 0 0 7px auto;
+  padding: 4px;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: var(--nb-radius-sm);
+  background: var(--nb-menu-surface);
+  box-shadow: var(--nb-shadow-md);
+}
+
+.nb-find-replace input {
+  width: 145px;
+  height: 27px;
+  padding: 0 7px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: 6px;
+  color: var(--nb-text);
+  background: var(--nb-control-bg);
+  font-size: 12px;
+}
+
+.nb-find-replace button {
+  display: grid;
+  min-width: 27px;
+  height: 27px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--nb-text-2);
+  background: transparent;
+  place-items: center;
+  font-size: 12px;
+}
+
+.nb-find-replace button:hover {
+  background: var(--nb-hover);
+}
+
+.nb-find-replace .nb-replace-all {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+.nb-find-count {
+  min-width: 32px;
+  color: var(--nb-text-3);
+  font-size: 11px;
+  text-align: center;
+}
+
 html[data-focus='true'] .nb-editor-toolbar {
   opacity: 0.22;
   transition: opacity var(--nb-t-fast) ease;
@@ -665,8 +738,12 @@ html[data-focus='true'] .nb-editor-toolbar:focus-within {
   min-width: 0;
   padding-right: 5px;
   padding-left: 5px;
+  overflow: hidden;
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nb-details-panel {
@@ -687,7 +764,7 @@ html[data-focus='true'] .nb-editor-toolbar:focus-within {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .nb-details-panel dt {
@@ -711,14 +788,14 @@ html[data-focus='true'] .nb-editor-toolbar:focus-within {
   align-items: center;
   gap: 6px;
   color: var(--nb-text-2);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .nb-details-panel section p {
   margin: 0;
   color: var(--nb-text-3);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .nb-tag-list {
@@ -733,7 +810,7 @@ html[data-focus='true'] .nb-editor-toolbar:focus-within {
   border-radius: 999px;
   color: var(--nb-text-2);
   background: var(--nb-inset-surface);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .nb-attachment-add {
@@ -844,7 +921,7 @@ html[data-focus='true'] .nb-editor-toolbar:focus-within {
   min-width: 0;
   overflow: hidden;
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

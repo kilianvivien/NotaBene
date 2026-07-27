@@ -13,7 +13,10 @@ type Migration = (input: Record<string, unknown>) => Record<string, unknown>;
 
 /** Keyed by the version being migrated *from*. */
 const MIGRATIONS: Record<number, Migration> = {
-  // 1 → 2 lands here when the first breaking shape change ships.
+  // v2 changes SQLite's derived FTS index and template join table, not the
+  // backup envelope. The explicit identity step still matters: old backups
+  // must advance through the same numbered ladder as the database.
+  1: (input) => input,
 };
 
 export type ImportResult =

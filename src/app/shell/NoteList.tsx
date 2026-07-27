@@ -1,11 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
+import { reorderNotesCommand } from '@/lib/commands';
 import { viewToQuery } from './viewQuery';
 import { cn } from '@/lib/utils/cn';
+import { NoteContextMenu, type ContextPoint } from './NoteContextMenu';
+import type { NoteSummary } from '@/lib/schema';
 
 function formatDate(iso: string, locale: string): string {
   return new Date(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
@@ -15,16 +19,49 @@ export function NoteList() {
   const { t, i18n } = useTranslation();
   const notes = useLibraryStore((state) => state.notes);
   const refreshNotes = useLibraryStore((state) => state.refreshNotes);
+  const courses = useLibraryStore((state) => state.courses);
+  const tags = useLibraryStore((state) => state.tags);
+  const savedSearches = useLibraryStore((state) => state.savedSearches);
   const view = useUiStore((state) => state.view);
+  const searchScope = useUiStore((state) => state.searchScope);
+  const searchCourseId = useUiStore((state) => state.searchCourseId);
   const selectedNoteId = useUiStore((state) => state.selectedNoteId);
   const selectNote = useUiStore((state) => state.selectNote);
   const openNote = useEditorStore((state) => state.openNote);
+  const viewSorts = useSettingsStore((state) => state.settings.viewSorts);
+  const updateSettings = useSettingsStore((state) => state.update);
+  const key = viewKey(view);
+  const defaultSort = view.kind === 'search' ? 'relevance' : 'updated';
+  const sort = viewSorts[key] ?? defaultSort;
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    note: NoteSummary;
+    point: ContextPoint;
+  } | null>(null);
 
   // The view *is* the query — changing views re-runs it rather than filtering
   // an in-memory list, so behaviour stays identical once FTS5 is behind it.
   useEffect(() => {
-    void refreshNotes(viewToQuery(view));
-  }, [view, refreshNotes]);
+    void refreshNotes(
+      viewToQuery(view, {
+        courses,
+        tags,
+        savedSearches,
+        sort,
+        searchScope,
+        searchCourseId,
+      }),
+    );
+  }, [
+    view,
+    refreshNotes,
+    courses,
+    tags,
+    savedSearches,
+    sort,
+    searchScope,
+    searchCourseId,
+  ]);
 
   function onSelect(noteId: string) {
     selectNote(noteId);
@@ -37,6 +74,29 @@ export function NoteList() {
         <span className="text-[12px] text-nb-text-3">
           {t('noteList.count', { count: notes.length })}
         </span>
+        <select
+          aria-label={t('noteList.sortBy')}
+          value={sort}
+          onChange={(event) =>
+            void updateSettings({
+              viewSorts: {
+                ...viewSorts,
+                [key]: event.target.value as typeof sort,
+              },
+            })
+          }
+          className="max-w-[145px] bg-transparent text-[12px] text-nb-text-3 focus:outline-none"
+        >
+          <option value="updated">{t('noteList.sort.updated')}</option>
+          <option value="created">{t('noteList.sort.created')}</option>
+          <option value="title">{t('noteList.sort.title')}</option>
+          {view.kind === 'course' && (
+            <option value="manual">{t('noteList.sort.manual')}</option>
+          )}
+          {view.kind === 'search' && (
+            <option value="relevance">{t('noteList.sort.relevance')}</option>
+          )}
+        </select>
       </div>
 
       {notes.length === 0 ? (
@@ -47,7 +107,40 @@ export function NoteList() {
       ) : (
         <ul className="flex-1 overflow-y-auto p-1.5">
           {notes.map((note) => (
-            <li key={note.id}>
+            <li
+              key={note.id}
+              draggable
+              onDragStart={(event) => {
+                setDraggedNoteId(note.id);
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('application/x-notabene-note-id', note.id);
+                event.dataTransfer.setData('text/plain', note.id);
+              }}
+              onDragEnd={() => setDraggedNoteId(null)}
+              onDragOver={(event) => {
+                if (view.kind === 'course') event.preventDefault();
+              }}
+              onDrop={() => {
+                if (view.kind !== 'course' || !draggedNoteId || draggedNoteId === note.id)
+                  return;
+                const ids = notes.map((candidate) => candidate.id);
+                const from = ids.indexOf(draggedNoteId);
+                const to = ids.indexOf(note.id);
+                ids.splice(to, 0, ids.splice(from, 1)[0]!);
+                void updateSettings({
+                  viewSorts: { ...viewSorts, [key]: 'manual' },
+                }).then(() => reorderNotesCommand(ids));
+                setDraggedNoteId(null);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                selectNote(note.id);
+                setContextMenu({
+                  note,
+                  point: { x: event.clientX, y: event.clientY },
+                });
+              }}
+            >
               <button
                 type="button"
                 onClick={() => onSelect(note.id)}
@@ -69,16 +162,51 @@ export function NoteList() {
                   </span>
                 </span>
                 <span className="flex items-baseline gap-2">
-                  <span className="shrink-0 text-[11px] text-nb-text-3">
+                  <span className="shrink-0 text-[12px] text-nb-text-3">
                     {formatDate(note.updatedAt, i18n.language)}
                   </span>
-                  <span className="truncate text-[12px] text-nb-text-3">{note.snippet}</span>
+                  <span className="truncate text-[12px] text-nb-text-3">
+                    <HighlightedSnippet value={note.snippet} />
+                  </span>
                 </span>
               </button>
             </li>
           ))}
         </ul>
       )}
+      {contextMenu && (
+        <NoteContextMenu
+          note={contextMenu.note}
+          point={contextMenu.point}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function viewKey(view: ReturnType<typeof useUiStore.getState>['view']): string {
+  switch (view.kind) {
+    case 'course':
+      return `course:${view.courseId}:${view.sectionId ?? ''}`;
+    case 'tag':
+      return `tag:${view.tagId}`;
+    case 'savedSearch':
+      return `saved:${view.savedSearchId}`;
+    default:
+      return view.kind;
+  }
+}
+
+function HighlightedSnippet({ value }: { value: string }) {
+  const parts = value.split(/(<mark>.*?<\/mark>)/g);
+  return parts.map((part, index) =>
+    part.startsWith('<mark>') && part.endsWith('</mark>') ? (
+      <mark key={index} className="rounded-sm bg-[var(--nb-mark)] text-inherit">
+        {part.slice(6, -7)}
+      </mark>
+    ) : (
+      part
+    ),
   );
 }

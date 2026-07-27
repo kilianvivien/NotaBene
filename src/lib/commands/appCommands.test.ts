@@ -81,11 +81,11 @@ describe('runAppCommand', () => {
   });
 
   it('refuses a command whose feature has not shipped, naming the phase', async () => {
-    const result = await runAppCommand('edit.find');
+    const result = await runAppCommand('ai.rewrite');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe('not_supported');
-      expect(result.message).toContain('phase C');
+      expect(result.message).toContain('phase E');
     }
   });
 });

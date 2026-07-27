@@ -12,10 +12,10 @@ use tauri::{AppHandle, State};
 
 use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::model::{
-    Asset, Attachment, Course, Note, NoteQuery, NoteSummary, Section, Snapshot, SnapshotMeta,
-    Tag,
+    Asset, Attachment, Backlink, Course, Note, NoteQuery, NoteSummary, NoteTemplate, SavedSearch,
+    Section, Snapshot, SnapshotMeta, Tag,
 };
-use crate::db::{assets, journal, notes, organization, DbError, DbResult, Store};
+use crate::db::{assets, collections, journal, notes, organization, DbError, DbResult, Store};
 
 /// Phases B–D fill these in. Returning a named error beats returning empty
 /// data: a caller finds out immediately instead of concluding the library is
@@ -58,10 +58,7 @@ pub fn library_delete_course(store: State<'_, Store>, course_id: String) -> DbRe
 }
 
 #[tauri::command]
-pub fn library_list_sections(
-    store: State<'_, Store>,
-    course_id: String,
-) -> DbResult<Vec<Section>> {
+pub fn library_list_sections(store: State<'_, Store>, course_id: String) -> DbResult<Vec<Section>> {
     organization::list_sections(&store, &course_id)
 }
 
@@ -108,6 +105,11 @@ pub fn library_restore_note(store: State<'_, Store>, note_id: String) -> DbResul
 #[tauri::command]
 pub fn library_purge_note(store: State<'_, Store>, note_id: String) -> DbResult<()> {
     notes::purge(&store, &note_id)
+}
+
+#[tauri::command]
+pub fn library_list_backlinks(store: State<'_, Store>, note_id: String) -> DbResult<Vec<Backlink>> {
+    notes::list_backlinks(&store, &note_id)
 }
 
 // -- tags --------------------------------------------------------------------
@@ -199,18 +201,12 @@ pub fn library_list_attachments(
 }
 
 #[tauri::command]
-pub fn library_upsert_attachment(
-    store: State<'_, Store>,
-    attachment: Attachment,
-) -> DbResult<()> {
+pub fn library_upsert_attachment(store: State<'_, Store>, attachment: Attachment) -> DbResult<()> {
     assets::upsert_attachment(&store, &attachment)
 }
 
 #[tauri::command]
-pub fn library_delete_attachment(
-    store: State<'_, Store>,
-    attachment_id: String,
-) -> DbResult<()> {
+pub fn library_delete_attachment(store: State<'_, Store>, attachment_id: String) -> DbResult<()> {
     assets::delete_attachment(&store, &attachment_id)
 }
 
@@ -226,7 +222,11 @@ pub struct AssetPayload {
 }
 
 fn asset_file_path(app: &AppHandle, asset_id: &str) -> DbResult<std::path::PathBuf> {
-    if asset_id.len() < 2 || !asset_id.chars().all(|character| character.is_ascii_hexdigit()) {
+    if asset_id.len() < 2
+        || !asset_id
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
         return Err(DbError::Other("invalid asset id".into()));
     }
     Ok(crate::db::assets_path(app)?
@@ -313,16 +313,34 @@ pub fn assets_collect_garbage(
     Ok(removed.len())
 }
 
-// -- not yet implemented -----------------------------------------------------
-
 #[tauri::command]
-pub fn library_list_saved_searches() -> DbResult<Value> {
-    Err(pending("saved searches", "C"))
+pub fn library_list_saved_searches(store: State<'_, Store>) -> DbResult<Vec<SavedSearch>> {
+    collections::list_saved_searches(&store)
 }
 
 #[tauri::command]
-pub fn library_list_templates() -> DbResult<Value> {
-    Err(pending("templates", "C"))
+pub fn library_upsert_saved_search(store: State<'_, Store>, search: SavedSearch) -> DbResult<()> {
+    collections::upsert_saved_search(&store, &search)
+}
+
+#[tauri::command]
+pub fn library_delete_saved_search(store: State<'_, Store>, search_id: String) -> DbResult<()> {
+    collections::delete_saved_search(&store, &search_id)
+}
+
+#[tauri::command]
+pub fn library_list_templates(store: State<'_, Store>) -> DbResult<Vec<NoteTemplate>> {
+    collections::list_templates(&store)
+}
+
+#[tauri::command]
+pub fn library_upsert_template(store: State<'_, Store>, template: NoteTemplate) -> DbResult<()> {
+    collections::upsert_template(&store, &template)
+}
+
+#[tauri::command]
+pub fn library_delete_template(store: State<'_, Store>, template_id: String) -> DbResult<()> {
+    collections::delete_template(&store, &template_id)
 }
 
 #[tauri::command]

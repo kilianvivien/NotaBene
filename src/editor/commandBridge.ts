@@ -14,7 +14,8 @@ export type EditorCommand =
   | 'table'
   | 'callout'
   | 'math'
-  | 'link';
+  | 'link'
+  | 'find';
 
 type Runner = (command: EditorCommand) => boolean | Promise<boolean>;
 

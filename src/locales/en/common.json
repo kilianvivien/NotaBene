@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "NotaBene",
-    "tagline": "The class-notes app that respects your privacy"
+    "tagline": "The class-notes app that respects your privacy",
+    "version": "Version {{version}}"
   },
   "sidebar": {
     "allNotes": "All notes",
@@ -20,6 +21,8 @@
     "empty": "No notes here yet",
     "emptyHint": "Press ⌘N to start one",
     "newNote": "New note",
+    "quickNote": "Quick note",
+    "quickNoteTitle": "Quick note",
     "untitled": "Untitled note",
     "count_one": "{{count}} note",
     "count_other": "{{count}} notes",
@@ -31,6 +34,15 @@
       "manual": "Manual order",
       "relevance": "Relevance"
     }
+  },
+  "noteActions": {
+    "open": "Open",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "moveToTrash": "Move to Trash",
+    "restore": "Restore"
   },
   "editor": {
     "titlePlaceholder": "Note title",
@@ -75,7 +87,17 @@
     "addAttachment": "Add attachment",
     "addingAttachment": "Adding…",
     "noAttachments": "No attachments yet",
-    "previewAttachment": "Preview attachment"
+    "previewAttachment": "Preview attachment",
+    "wikiLinkMenu": "Link to a note",
+    "createWikiNote": "Create “{{title}}”",
+    "noWikiLinks": "Type a note title",
+    "findReplace": "Find and replace",
+    "find": "Find",
+    "replaceWith": "Replace with",
+    "replace": "Replace",
+    "replaceAll": "Replace all",
+    "previousMatch": "Previous match",
+    "nextMatch": "Next match"
   },
   "inspector": {
     "details": "Details",
@@ -91,6 +113,7 @@
     "modified": "Modified",
     "wordCount": "Words",
     "noTags": "No tags",
+    "noBacklinks": "No notes link here yet",
     "versionCount_one": "{{count}} saved version",
     "versionCount_other": "{{count}} saved versions"
   },
@@ -100,6 +123,38 @@
     "scopeCourse": "This course",
     "noResults": "No notes match",
     "saveSearch": "Save as smart folder"
+  },
+  "organization": {
+    "editCourse": "Edit course",
+    "courseName": "Course name",
+    "icon": "Icon",
+    "iconPicker": "Choose an icon",
+    "color": "Color",
+    "professor": "Professor",
+    "semester": "Semester",
+    "credits": "Credits",
+    "schedule": "Schedule",
+    "deleteCourseConfirm": "Delete this course? Its notes will move to the inbox.",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "newSection": "New section",
+    "editSection": "Rename section",
+    "deleteSectionConfirm": "Delete this section? Its notes will stay in the course.",
+    "tagManager": "Manage tags",
+    "freeTag": "Free tag",
+    "tagName": "Tag name",
+    "addTag": "Add tag",
+    "mergeInto": "Merge into…",
+    "merge": "Merge",
+    "deleteTagConfirm": "Delete this tag from every note?",
+    "templates": "Templates",
+    "saveAsTemplate": "Save note as template",
+    "newFromTemplate": "New from template…",
+    "globalTemplate": "Global template",
+    "noTemplates": "No templates yet",
+    "editSavedSearch": "Edit smart folder",
+    "name": "Name",
+    "query": "Search query"
   },
   "save": {
     "idle": "",
@@ -154,14 +209,16 @@
     "accent_pink": "Pink",
     "accent_green": "Green",
     "accent_graphite": "Graphite",
-    "transparency": "Transparency",
-    "transparencyAuto": "Follow system",
-    "transparencySolid": "Reduce",
-    "transparencyHint": "Reduce makes every surface opaque, matching the system accessibility setting.",
     "editorFont": "Editor font",
-    "fontSans": "Sans",
-    "fontSerif": "Serif",
+    "fontSans": "Apple Notes (SF Pro)",
+    "fontAvenir": "Avenir Next",
+    "fontSerif": "Charter",
+    "fontClaude": "Lora",
+    "fontIowan": "Iowan / Palatino",
+    "fontMono": "SF Mono",
     "fontSize": "Text size",
+    "titleSize": "Title size",
+    "fontPreviewTitle": "Limits and derivatives",
     "fontPreview": "The tangent at a point is the limit of the secants through it.",
     "checkForUpdates": "Check for updates",
     "checkForUpdatesHint": "Asks GitHub for a new release. Nothing else ever leaves this machine.",

@@ -4,9 +4,12 @@ import { z } from 'zod';
 import { library } from '@/lib/adapters';
 import {
   COURSE_COLORS,
+  CourseSchema,
   createCourse,
   createSection,
   newId,
+  SectionSchema,
+  TagSchema,
   TAG_NAMESPACES,
   type Course,
   type Section,
@@ -17,10 +20,15 @@ import { fail, ok, USER, type CommandContext, type CommandResult } from './types
 
 const CreateCourseInput = z.object({
   name: z.string().min(1).max(200),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
   icon: z.string().max(8).optional(),
   professor: z.string().max(200).optional(),
   semester: z.string().max(100).optional(),
+  credits: z.number().int().nonnegative().optional(),
+  schedule: z.string().max(200).optional(),
 });
 export type CreateCourseInput = z.infer<typeof CreateCourseInput>;
 
@@ -51,10 +59,44 @@ export async function updateCourseCommand(
   course: Course,
   _context: CommandContext = USER,
 ): Promise<CommandResult<Course>> {
-  const updated = { ...course, updatedAt: new Date().toISOString() };
+  const parsed = CourseSchema.safeParse(course);
+  if (!parsed.success) {
+    return fail('invalid_input', 'invalid course input', parsed.error.issues);
+  }
+  const updated = { ...parsed.data, updatedAt: new Date().toISOString() };
   await library.upsertCourse(updated);
   await useLibraryStore.getState().refreshCourses();
   return ok(updated);
+}
+
+export async function deleteCourseCommand(
+  courseId: string,
+  _context: CommandContext = USER,
+): Promise<CommandResult<void>> {
+  await library.deleteCourse(courseId);
+  const store = useLibraryStore.getState();
+  await store.refreshCourses();
+  await store.refreshCurrentView();
+  return ok(undefined);
+}
+
+export async function reorderCoursesCommand(
+  orderedIds: string[],
+  _context: CommandContext = USER,
+): Promise<CommandResult<void>> {
+  const courses = await library.listCourses();
+  const byId = new Map(courses.map((course) => [course.id, course]));
+  for (const [order, courseId] of orderedIds.entries()) {
+    const course = byId.get(courseId);
+    if (!course) continue;
+    await library.upsertCourse({
+      ...course,
+      order,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  await useLibraryStore.getState().refreshCourses();
+  return ok(undefined);
 }
 
 export async function createSectionCommand(
@@ -68,6 +110,44 @@ export async function createSectionCommand(
   await library.upsertSection(section);
   await useLibraryStore.getState().refreshSections(input.courseId);
   return ok(section);
+}
+
+export async function updateSectionCommand(
+  section: Section,
+  _context: CommandContext = USER,
+): Promise<CommandResult<Section>> {
+  const parsed = SectionSchema.safeParse(section);
+  if (!parsed.success) {
+    return fail('invalid_input', 'invalid section input', parsed.error.issues);
+  }
+  await library.upsertSection(parsed.data);
+  await useLibraryStore.getState().refreshSections(parsed.data.courseId);
+  return ok(parsed.data);
+}
+
+export async function deleteSectionCommand(
+  section: Section,
+  _context: CommandContext = USER,
+): Promise<CommandResult<void>> {
+  await library.deleteSection(section.id);
+  await useLibraryStore.getState().refreshSections(section.courseId);
+  await useLibraryStore.getState().refreshCurrentView();
+  return ok(undefined);
+}
+
+export async function reorderSectionsCommand(
+  courseId: string,
+  orderedIds: string[],
+  _context: CommandContext = USER,
+): Promise<CommandResult<void>> {
+  const sections = await library.listSections(courseId);
+  const byId = new Map(sections.map((section) => [section.id, section]));
+  for (const [order, sectionId] of orderedIds.entries()) {
+    const section = byId.get(sectionId);
+    if (section) await library.upsertSection({ ...section, order });
+  }
+  await useLibraryStore.getState().refreshSections(courseId);
+  return ok(undefined);
 }
 
 const TagInput = z.object({
@@ -94,7 +174,8 @@ export async function ensureTagCommand(
   const match = existing.find(
     (tag) =>
       tag.namespace === namespace &&
-      tag.name.localeCompare(parsed.data.name, undefined, { sensitivity: 'accent' }) === 0,
+      tag.name.localeCompare(parsed.data.name, undefined, { sensitivity: 'accent' }) ===
+        0,
   );
   if (match) return ok(match);
 
@@ -109,8 +190,37 @@ export async function mergeTagsCommand(
   intoTagId: string,
   _context: CommandContext = USER,
 ): Promise<CommandResult<void>> {
-  if (fromTagId === intoTagId) return fail('invalid_input', 'cannot merge a tag into itself');
+  if (fromTagId === intoTagId)
+    return fail('invalid_input', 'cannot merge a tag into itself');
   await library.mergeTags(fromTagId, intoTagId);
   await useLibraryStore.getState().refreshTags();
+  return ok(undefined);
+}
+
+export async function updateTagCommand(
+  tag: Tag,
+  _context: CommandContext = USER,
+): Promise<CommandResult<Tag>> {
+  const parsed = TagSchema.safeParse(tag);
+  if (!parsed.success) {
+    return fail('invalid_input', 'invalid tag input', parsed.error.issues);
+  }
+  try {
+    await library.upsertTag(parsed.data);
+  } catch (error) {
+    return fail('storage_failed', String(error));
+  }
+  await useLibraryStore.getState().refreshTags();
+  await useLibraryStore.getState().refreshCurrentView();
+  return ok(parsed.data);
+}
+
+export async function deleteTagCommand(
+  tagId: string,
+  _context: CommandContext = USER,
+): Promise<CommandResult<void>> {
+  await library.deleteTag(tagId);
+  await useLibraryStore.getState().refreshTags();
+  await useLibraryStore.getState().refreshCurrentView();
   return ok(undefined);
 }

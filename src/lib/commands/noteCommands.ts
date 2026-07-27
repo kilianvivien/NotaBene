@@ -69,7 +69,10 @@ export async function createNoteCommand(
     return fail('invalid_input', 'invalid note input', parsed.error.issues);
   }
 
-  const doc: NoteDoc = parsed.data.doc ?? { type: 'doc', content: [{ type: 'paragraph' }] };
+  const doc: NoteDoc = parsed.data.doc ?? {
+    type: 'doc',
+    content: [{ type: 'paragraph' }],
+  };
   const note = createNote({
     ...parsed.data,
     doc,
@@ -102,8 +105,7 @@ export async function updateNoteCommand(
   // Snapshot *before* the write, so the history entry is the state the user
   // would want back. Only content changes deserve one; toggling `pinned`
   // should not fill the version list with noise.
-  const contentChanged =
-    parsed.data.doc !== undefined || parsed.data.title !== undefined;
+  const contentChanged = parsed.data.doc !== undefined || parsed.data.title !== undefined;
   if (contentChanged) {
     try {
       await library.createSnapshot(existing.id, causeFor(context));
@@ -160,6 +162,19 @@ export async function restoreNoteCommand(
   _context: CommandContext = USER,
 ): Promise<CommandResult<void>> {
   await library.restoreNote(noteId);
+  await refreshCurrentView();
+  return ok(undefined);
+}
+
+export async function reorderNotesCommand(
+  orderedIds: string[],
+  _context: CommandContext = USER,
+): Promise<CommandResult<void>> {
+  await useEditorStore.getState().flush();
+  for (const [order, noteId] of orderedIds.entries()) {
+    const note = await library.getNote(noteId);
+    if (note) await library.upsertNote({ ...note, order });
+  }
   await refreshCurrentView();
   return ok(undefined);
 }

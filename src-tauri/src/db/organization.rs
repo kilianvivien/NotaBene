@@ -1,7 +1,7 @@
 //! Courses, sections, and tags.
 
 use super::model::{Course, Section, Tag};
-use super::{DbResult, Store};
+use super::{notes, DbResult, Store};
 
 pub fn list_courses(store: &Store) -> DbResult<Vec<Course>> {
     store.with(|connection| {
@@ -32,7 +32,7 @@ pub fn list_courses(store: &Store) -> DbResult<Vec<Course>> {
 }
 
 pub fn upsert_course(store: &Store, course: &Course) -> DbResult<()> {
-    store.with(|connection| {
+    store.transact(|connection| {
         connection.execute(
             "INSERT INTO courses (id, name, color, icon, professor, semester, credits, \
              schedule, \"order\", archived, created_at, updated_at) \
@@ -58,6 +58,14 @@ pub fn upsert_course(store: &Store, course: &Course) -> DbResult<()> {
                 course.updated_at,
             ],
         )?;
+        let note_ids = note_ids(
+            connection,
+            "SELECT id FROM notes WHERE course_id = ?",
+            &course.id,
+        )?;
+        for note_id in note_ids {
+            notes::reindex_note(connection, &note_id)?;
+        }
         Ok(())
     })
 }
@@ -65,8 +73,16 @@ pub fn upsert_course(store: &Store, course: &Course) -> DbResult<()> {
 /// Deleting a course does not delete its notes — the foreign key is
 /// `ON DELETE SET NULL`, so they land back in the inbox.
 pub fn delete_course(store: &Store, course_id: &str) -> DbResult<()> {
-    store.with(|connection| {
+    store.transact(|connection| {
+        let note_ids = note_ids(
+            connection,
+            "SELECT id FROM notes WHERE course_id = ?",
+            course_id,
+        )?;
         connection.execute("DELETE FROM courses WHERE id = ?", [course_id])?;
+        for note_id in note_ids {
+            notes::reindex_note(connection, &note_id)?;
+        }
         Ok(())
     })
 }
@@ -128,25 +144,46 @@ pub fn list_tags(store: &Store) -> DbResult<Vec<Tag>> {
 }
 
 pub fn upsert_tag(store: &Store, tag: &Tag) -> DbResult<()> {
-    store.with(|connection| {
+    store.transact(|connection| {
         connection.execute(
             "INSERT INTO tags (id, namespace, name) VALUES (?1, ?2, ?3) \
              ON CONFLICT(id) DO UPDATE SET namespace = excluded.namespace, name = excluded.name",
             rusqlite::params![tag.id, tag.namespace, tag.name],
         )?;
+        let note_ids = note_ids(
+            connection,
+            "SELECT note_id FROM note_tags WHERE tag_id = ?",
+            &tag.id,
+        )?;
+        for note_id in note_ids {
+            notes::reindex_note(connection, &note_id)?;
+        }
         Ok(())
     })
 }
 
 pub fn delete_tag(store: &Store, tag_id: &str) -> DbResult<()> {
-    store.with(|connection| {
+    store.transact(|connection| {
+        let note_ids = note_ids(
+            connection,
+            "SELECT note_id FROM note_tags WHERE tag_id = ?",
+            tag_id,
+        )?;
         connection.execute("DELETE FROM tags WHERE id = ?", [tag_id])?;
+        for note_id in note_ids {
+            notes::reindex_note(connection, &note_id)?;
+        }
         Ok(())
     })
 }
 
 pub fn merge_tags(store: &Store, from_tag_id: &str, into_tag_id: &str) -> DbResult<()> {
     store.transact(|transaction| {
+        let affected = note_ids(
+            transaction,
+            "SELECT note_id FROM note_tags WHERE tag_id = ?",
+            from_tag_id,
+        )?;
         // `OR IGNORE`: a note already carrying both tags must not fail the
         // merge on the primary-key conflict.
         transaction.execute(
@@ -155,6 +192,17 @@ pub fn merge_tags(store: &Store, from_tag_id: &str, into_tag_id: &str) -> DbResu
             rusqlite::params![into_tag_id, from_tag_id],
         )?;
         transaction.execute("DELETE FROM tags WHERE id = ?", [from_tag_id])?;
+        for note_id in affected {
+            notes::reindex_note(transaction, &note_id)?;
+        }
         Ok(())
     })
+}
+
+fn note_ids(connection: &rusqlite::Connection, sql: &str, value: &str) -> DbResult<Vec<String>> {
+    let mut statement = connection.prepare(sql)?;
+    let ids = statement
+        .query_map([value], |row| row.get(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(ids)
 }

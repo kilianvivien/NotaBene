@@ -4,7 +4,7 @@
 use rusqlite::params;
 
 use super::model::{Asset, Attachment};
-use super::{DbResult, Store};
+use super::{notes, DbResult, Store};
 
 fn asset_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Asset> {
     Ok(Asset {
@@ -86,7 +86,14 @@ pub fn list_attachments(store: &Store, note_id: &str) -> DbResult<Vec<Attachment
 }
 
 pub fn upsert_attachment(store: &Store, attachment: &Attachment) -> DbResult<()> {
-    store.with(|connection| {
+    store.transact(|connection| {
+        let previous_note_id = connection
+            .query_row(
+                "SELECT note_id FROM attachments WHERE id = ?",
+                [&attachment.id],
+                |row| row.get::<_, String>(0),
+            )
+            .ok();
         connection.execute(
             "INSERT INTO attachments (id, note_id, asset_id, name, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -102,13 +109,27 @@ pub fn upsert_attachment(store: &Store, attachment: &Attachment) -> DbResult<()>
                 attachment.created_at
             ],
         )?;
+        notes::reindex_note(connection, &attachment.note_id)?;
+        if let Some(previous) = previous_note_id.filter(|id| id != &attachment.note_id) {
+            notes::reindex_note(connection, &previous)?;
+        }
         Ok(())
     })
 }
 
 pub fn delete_attachment(store: &Store, attachment_id: &str) -> DbResult<()> {
-    store.with(|connection| {
+    store.transact(|connection| {
+        let note_id = connection
+            .query_row(
+                "SELECT note_id FROM attachments WHERE id = ?1",
+                [attachment_id],
+                |row| row.get::<_, String>(0),
+            )
+            .ok();
         connection.execute("DELETE FROM attachments WHERE id = ?1", [attachment_id])?;
+        if let Some(note_id) = note_id {
+            notes::reindex_note(connection, &note_id)?;
+        }
         Ok(())
     })
 }

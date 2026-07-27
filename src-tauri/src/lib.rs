@@ -12,6 +12,8 @@ mod menu;
 mod settings;
 
 use tauri::{Emitter, Manager};
+#[cfg(desktop)]
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -27,6 +29,25 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state() == ShortcutState::Pressed
+                        && shortcut.matches(
+                            tauri_plugin_global_shortcut::Modifiers::SUPER
+                                | tauri_plugin_global_shortcut::Modifiers::SHIFT,
+                            tauri_plugin_global_shortcut::Code::KeyQ,
+                        )
+                    {
+                        let _ = app.emit(menu::MENU_COMMAND_EVENT, "note.quick");
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(),
+        )
         .setup(|app| {
             let handle = app.handle();
 
@@ -36,6 +57,9 @@ pub fn run() {
             let path = db::database_path(handle)?;
             let store = db::Store::open(&path)?;
             app.manage(store);
+
+            #[cfg(desktop)]
+            app.global_shortcut().register("CmdOrCtrl+Shift+Q")?;
 
             mcp::init(handle);
             Ok(())
@@ -54,6 +78,7 @@ pub fn run() {
             commands::library_trash_note,
             commands::library_restore_note,
             commands::library_purge_note,
+            commands::library_list_backlinks,
             commands::library_list_tags,
             commands::library_upsert_tag,
             commands::library_delete_tag,
@@ -74,7 +99,11 @@ pub fn run() {
             commands::assets_stat,
             commands::assets_collect_garbage,
             commands::library_list_saved_searches,
+            commands::library_upsert_saved_search,
+            commands::library_delete_saved_search,
             commands::library_list_templates,
+            commands::library_upsert_template,
+            commands::library_delete_template,
             commands::library_export,
             settings::settings_load,
             settings::settings_save,
