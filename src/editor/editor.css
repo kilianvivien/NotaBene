@@ -621,7 +621,7 @@
 .nb-map-viewer-bar {
   display: flex;
   height: 46px;
-  padding: 0 10px 0 16px;
+  padding: 0 10px 0 var(--nb-titlebar-leading);
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--nb-divider);

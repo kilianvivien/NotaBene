@@ -55,6 +55,8 @@ interface MindMapViewerProps {
 export function MindMapViewer({ svg, title, onClose }: MindMapViewerProps) {
   const { t } = useTranslation();
   const stage = useRef<HTMLDivElement>(null);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  const gesture = useRef<{ anchor: { x: number; y: number }; scale: number } | null>(null);
   const [view, setView] = useState<View | null>(null);
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState<'svg' | 'pdf' | null>(null);
@@ -132,9 +134,10 @@ export function MindMapViewer({ svg, title, onClose }: MindMapViewerProps) {
    * cannot call `preventDefault` — without which a trackpad pinch zooms the
    * whole webview instead of the map.
    *
-   * A pinch on a Mac trackpad arrives as a wheel event with `ctrlKey` set, so
-   * the same branch serves pinch and ⌘-scroll; a plain two-finger scroll pans,
-   * which is what every other canvas on this machine does.
+   * Chromium sends a pinch as a wheel event with `ctrlKey` set. macOS WebKit
+   * can instead send Safari's gesture events, whose scale is cumulative and
+   * whose cursor coordinates are unreliable. For those, the pointer position
+   * captured by the stage is the stable zoom anchor.
    */
   useEffect(() => {
     const element = stage.current;
@@ -144,15 +147,20 @@ export function MindMapViewer({ svg, title, onClose }: MindMapViewerProps) {
       event.preventDefault();
       const box = element.getBoundingClientRect();
       if (event.ctrlKey || event.metaKey) {
+        // WebKit may emit both streams for the same pinch.
+        if (gesture.current) return;
         // The delta is clamped before it becomes a factor. A trackpad pinch
         // arrives as a stream of small deltas and is unaffected; a mouse wheel
         // notch can be 120 or more in one event, and unclamped that is a jump
         // of several hundred percent from one click of the wheel.
         const delta = Math.max(-40, Math.min(40, event.deltaY));
-        zoomAt(Math.exp(-delta / 180), {
-          x: event.clientX - box.left,
-          y: event.clientY - box.top,
-        });
+        zoomAt(
+          Math.exp(-delta / 180),
+          pointer.current ?? {
+            x: event.clientX - box.left,
+            y: event.clientY - box.top,
+          },
+        );
       } else {
         setView((current) =>
           current
@@ -162,8 +170,39 @@ export function MindMapViewer({ svg, title, onClose }: MindMapViewerProps) {
       }
     };
 
+    const onGestureStart = (event: Event) => {
+      event.preventDefault();
+      const scale = 'scale' in event && typeof event.scale === 'number' ? event.scale : 1;
+      gesture.current = {
+        anchor: pointer.current ?? {
+          x: element.clientWidth / 2,
+          y: element.clientHeight / 2,
+        },
+        scale,
+      };
+    };
+    const onGestureChange = (event: Event) => {
+      event.preventDefault();
+      const current = gesture.current;
+      if (!current || !('scale' in event) || typeof event.scale !== 'number') return;
+      zoomAt(event.scale / current.scale, current.anchor);
+      current.scale = event.scale;
+    };
+    const onGestureEnd = (event: Event) => {
+      event.preventDefault();
+      gesture.current = null;
+    };
+
     element.addEventListener('wheel', onWheel, { passive: false });
-    return () => element.removeEventListener('wheel', onWheel);
+    element.addEventListener('gesturestart', onGestureStart, { passive: false });
+    element.addEventListener('gesturechange', onGestureChange, { passive: false });
+    element.addEventListener('gestureend', onGestureEnd, { passive: false });
+    return () => {
+      element.removeEventListener('wheel', onWheel);
+      element.removeEventListener('gesturestart', onGestureStart);
+      element.removeEventListener('gesturechange', onGestureChange);
+      element.removeEventListener('gestureend', onGestureEnd);
+    };
   }, [zoomAt]);
 
   function startPan(event: React.PointerEvent) {
@@ -273,6 +312,16 @@ export function MindMapViewer({ svg, title, onClose }: MindMapViewerProps) {
         className="nb-map-viewer-stage"
         data-dragging={dragging || undefined}
         onPointerDown={startPan}
+        onPointerMove={(event) => {
+          const box = event.currentTarget.getBoundingClientRect();
+          pointer.current = {
+            x: event.clientX - box.left,
+            y: event.clientY - box.top,
+          };
+        }}
+        onPointerLeave={() => {
+          pointer.current = null;
+        }}
         onDoubleClick={(event) => {
           const box = stage.current?.getBoundingClientRect();
           if (!box) return;
