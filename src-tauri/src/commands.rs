@@ -7,8 +7,9 @@
 use serde_json::Value;
 use tauri::State;
 
+use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::model::{Course, Note, NoteQuery, NoteSummary, Section, Snapshot, SnapshotMeta, Tag};
-use crate::db::{notes, organization, DbError, DbResult, Store};
+use crate::db::{journal, notes, organization, DbError, DbResult, Store};
 
 /// Phases B–D fill these in. Returning a named error beats returning empty
 /// data: a caller finds out immediately instead of concluding the library is
@@ -162,6 +163,23 @@ pub fn library_prune_snapshots(_store: State<'_, Store>, _note_id: String) -> Db
     // Retention thinning (hourly → daily → weekly) ships with the history
     // browser; until then every snapshot is kept, which errs the safe way.
     Ok(())
+}
+
+// -- crash recovery ----------------------------------------------------------
+
+#[tauri::command]
+pub fn journal_write(store: State<'_, Store>, entry: JournalEntry) -> DbResult<()> {
+    journal::write(&store, &entry)
+}
+
+#[tauri::command]
+pub fn journal_pending(store: State<'_, Store>) -> DbResult<Vec<PendingRecovery>> {
+    journal::pending(&store)
+}
+
+#[tauri::command]
+pub fn journal_discard(store: State<'_, Store>, note_id: String) -> DbResult<()> {
+    journal::discard(&store, &note_id)
 }
 
 // -- not yet implemented -----------------------------------------------------

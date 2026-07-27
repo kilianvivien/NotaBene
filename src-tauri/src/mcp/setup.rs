@@ -37,10 +37,10 @@ fn server_entry(port: u16, token: &str) -> Value {
 /// returned for the user to paste.
 pub fn write_client_config(client: &str, port: u16, token: &str) -> Result<String, String> {
     if client == "custom" {
-        return Ok(serde_json::to_string_pretty(&json!({
+        return serde_json::to_string_pretty(&json!({
             "mcpServers": { "notabene": server_entry(port, token) }
         }))
-        .map_err(|err| err.to_string())?);
+        .map_err(|err| err.to_string());
     }
 
     let path = config_path(client)?;

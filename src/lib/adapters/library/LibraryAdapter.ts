@@ -13,10 +13,12 @@ import type {
   Attachment,
   Asset,
   Course,
+  JournalEntry,
   Library,
   Note,
   NoteSummary,
   NoteTemplate,
+  PendingRecovery,
   SavedSearch,
   Section,
   Snapshot,
@@ -63,6 +65,16 @@ export interface LibraryAdapter {
   trashNote(noteId: string): Promise<void>;
   restoreNote(noteId: string): Promise<void>;
   purgeNote(noteId: string): Promise<void>;
+
+  /**
+   * Crash recovery. The editor writes in-flight state here on every keystroke
+   * batch, well ahead of the debounced save; `upsertNote` retires the row in
+   * the same transaction as the save it supersedes.
+   */
+  writeJournal(entry: JournalEntry): Promise<void>;
+  /** Journal rows newer than the note they belong to — offered back at launch. */
+  pendingRecoveries(): Promise<PendingRecovery[]>;
+  discardJournal(noteId: string): Promise<void>;
 
   listTags(): Promise<Tag[]>;
   upsertTag(tag: Tag): Promise<void>;

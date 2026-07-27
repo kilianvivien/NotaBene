@@ -5,6 +5,7 @@
 //! itself, and serialising writes is exactly what makes "never lose a
 //! keystroke" easy to reason about.
 
+pub mod journal;
 pub mod migrations;
 pub mod model;
 pub mod notes;

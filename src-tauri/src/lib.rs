@@ -8,12 +8,20 @@
 mod commands;
 mod db;
 mod mcp;
+mod menu;
+mod settings;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Menu clicks carry no behaviour here — the id goes straight to the
+        // webview, which runs it through the same command router a keyboard
+        // shortcut uses. See `src/lib/commands/appCommands.ts`.
+        .on_menu_event(|app, event| {
+            let _ = app.emit(menu::MENU_COMMAND_EVENT, event.id().0.clone());
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -54,11 +62,21 @@ pub fn run() {
             commands::library_get_snapshot,
             commands::library_create_snapshot,
             commands::library_prune_snapshots,
+            commands::journal_write,
+            commands::journal_pending,
+            commands::journal_discard,
             commands::library_list_attachments,
             commands::library_list_assets,
             commands::library_list_saved_searches,
             commands::library_list_templates,
             commands::library_export,
+            settings::settings_load,
+            settings::settings_save,
+            settings::secrets_get,
+            settings::secrets_set,
+            settings::secrets_remove,
+            settings::secrets_list_keys,
+            menu::menu_apply,
             mcp::mcp_start_server,
             mcp::mcp_stop_server,
             mcp::mcp_server_status,

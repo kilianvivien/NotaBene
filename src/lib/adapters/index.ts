@@ -18,6 +18,7 @@ import { browserDialogAdapter } from './dialog/browserDialogAdapter';
 import { tauriDialogAdapter } from './dialog/tauriDialogAdapter';
 import { browserExportAdapter } from './export/browserExportAdapter';
 import { tauriExportAdapter } from './export/tauriExportAdapter';
+import { tauriMenuAdapter, unavailableMenuAdapter } from './menu/tauriMenuAdapter';
 import { fetchAiTransport } from './ai/fetchAiTransport';
 import { systemTtsEngine, unavailableTtsEngine } from './tts/systemTtsEngine';
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
@@ -28,6 +29,7 @@ import type { AssetAdapter } from './assets/AssetAdapter';
 import type { SecretsAdapter, SettingsAdapter } from './settings/SettingsAdapter';
 import type { DialogAdapter } from './dialog/DialogAdapter';
 import type { ExportAdapter } from './export/ExportAdapter';
+import type { MenuAdapter } from './menu/MenuAdapter';
 import type { AiTransport } from './ai/AiTransport';
 import type { TtsEngine } from './tts/TtsEngine';
 import type { McpAdapter } from './mcp/McpAdapter';
@@ -41,6 +43,7 @@ export const secrets: SecretsAdapter = isTauri ? tauriSecretsAdapter : memorySec
 export const dialog: DialogAdapter = isTauri ? tauriDialogAdapter : browserDialogAdapter;
 export const exporter: ExportAdapter = isTauri ? tauriExportAdapter : browserExportAdapter;
 export const mcp: McpAdapter = isTauri ? tauriMcpAdapter : unavailableMcpAdapter;
+export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenuAdapter;
 // Desktop AI still goes over `fetch`; the CSP connect-src list in
 // tauri.conf.json is the allowlist. A Rust-side transport becomes worthwhile
 // only if we move keys out of the webview entirely (see plan §E).
@@ -59,6 +62,7 @@ export type {
   ExportRequest,
   ExportResult,
 } from './export/ExportAdapter';
+export type { MenuAdapter, MenuNode, MenuRole } from './menu/MenuAdapter';
 export type { AiRequest, AiResponse, AiTransport } from './ai/AiTransport';
 export type { TtsEngine, TtsRequest, TtsVoice } from './tts/TtsEngine';
 export type {

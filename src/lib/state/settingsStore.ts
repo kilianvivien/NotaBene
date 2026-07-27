@@ -24,6 +24,10 @@ export function applySettingsToDom(settings: AppSettings): void {
   root.dataset.transparency = settings.transparency;
   root.lang = settings.locale;
   root.style.setProperty('--nb-editor-size', `${settings.editorFontSize}px`);
+  root.style.setProperty(
+    '--nb-editor-font',
+    settings.editorFont === 'serif' ? 'var(--nb-font-serif)' : 'var(--nb-font-sans)',
+  );
 }
 
 /**

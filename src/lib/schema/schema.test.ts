@@ -77,7 +77,7 @@ describe('mind map schema', () => {
 
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      expect(parsed.error.issues[0].message).toMatch(/unknown node/);
+      expect(parsed.error.issues[0]?.message).toMatch(/unknown node/);
     }
   });
 });

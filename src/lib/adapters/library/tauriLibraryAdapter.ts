@@ -11,10 +11,12 @@ import type {
   Attachment,
   Asset,
   Course,
+  JournalEntry,
   Library,
   Note,
   NoteSummary,
   NoteTemplate,
+  PendingRecovery,
   SavedSearch,
   Section,
   Snapshot,
@@ -41,6 +43,10 @@ export const tauriLibraryAdapter: LibraryAdapter = {
   trashNote: (noteId: string) => invoke('library_trash_note', { noteId }),
   restoreNote: (noteId: string) => invoke('library_restore_note', { noteId }),
   purgeNote: (noteId: string) => invoke('library_purge_note', { noteId }),
+
+  writeJournal: (entry: JournalEntry) => invoke('journal_write', { entry }),
+  pendingRecoveries: (): Promise<PendingRecovery[]> => invoke('journal_pending'),
+  discardJournal: (noteId: string) => invoke('journal_discard', { noteId }),
 
   listTags: (): Promise<Tag[]> => invoke('library_list_tags'),
   upsertTag: (tag: Tag) => invoke('library_upsert_tag', { tag }),

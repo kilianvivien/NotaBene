@@ -159,6 +159,32 @@ export const SnapshotSchema = z.object({
 });
 export type Snapshot = z.infer<typeof SnapshotSchema>;
 
+/**
+ * In-flight editor state, written ahead of the debounced autosave.
+ *
+ * Not part of `LibrarySchema`, and deliberately so: a journal row is a few
+ * seconds of unsaved typing, not library content. It has nothing to say in a
+ * backup, and it disappears the moment its note reaches disk. It lives in the
+ * contract because it crosses IPC, not because it is persisted for keeps —
+ * which is why adding it needed no `SCHEMA_VERSION` bump: `editor_journal` has
+ * been part of schema v1 since the first migration.
+ */
+export const JournalEntrySchema = z.object({
+  noteId: id,
+  doc: NoteDocSchema,
+  title: z.string().default(''),
+  writtenAt: isoDate,
+});
+export type JournalEntry = z.infer<typeof JournalEntrySchema>;
+
+/** A journal entry that outlived its note's last save, with enough of the note
+ * to describe the choice the recovery prompt is asking the user to make. */
+export const PendingRecoverySchema = JournalEntrySchema.extend({
+  noteTitle: z.string().default(''),
+  noteUpdatedAt: isoDate,
+});
+export type PendingRecovery = z.infer<typeof PendingRecoverySchema>;
+
 export const SavedSearchSchema = z.object({
   id,
   name: z.string().min(1),

@@ -71,6 +71,11 @@ Four rules carry most of the weight:
   including error messages.
 - Shell layout lives in `src/app/shell/`; the view → query mapping is
   `viewQuery.ts`, shared with export selection and the MCP search tool.
+- Menu items, shortcuts, and chrome buttons all resolve to one id in
+  `src/lib/commands/appCommands.ts`. The native menu bar is *generated* from
+  that table (`src/app/menuBar.ts` → `MenuAdapter` → Rust), so a new command is
+  added there and nowhere else. Commands from later phases belong in the table
+  too, with their `landsIn` phase — they render disabled.
 - Backups and exports must never contain secrets. `LibrarySchema` has no field
   a key could occupy — keep it that way. Keys go through `SecretsAdapter`.
 - MCP exposes no destructive tool. Agents archive; they do not delete.
@@ -79,8 +84,9 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phase A (foundation) is largely landed: shell, tokens, stores, schema, adapters,
-command layer, autosave, SQLite + FTS5, MCP server and tool surface, 33 tests.
+Phase A (foundation) is complete: shell, tokens, stores, schema, adapters,
+command layer, autosave, crash-recovery journal, native menu bar, settings,
+SQLite + FTS5, MCP server and tool surface, CI. 51 TS tests, 3 Rust tests.
 Phase B (TipTap editor and its blocks) is next. Section 3 of the implementation
 plan tracks the known gaps honestly — read it before assuming something works.
 

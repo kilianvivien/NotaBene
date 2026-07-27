@@ -1,0 +1,42 @@
+{
+  "id": "wire_fixture_note",
+  "courseId": null,
+  "sectionId": null,
+  "title": "Wire shape — accents, émojis 📘, \"quotes\"",
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": { "level": 2 },
+        "content": [{ "type": "text", "text": "Théorème de Green" }]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          { "type": "text", "text": "Plain, " },
+          { "type": "text", "marks": [{ "type": "bold" }], "text": "bold" },
+          { "type": "text", "text": " and " },
+          {
+            "type": "text",
+            "marks": [{ "type": "highlight", "attrs": { "color": "yellow" } }],
+            "text": "highlighted"
+          },
+          { "type": "text", "text": "." }
+        ]
+      },
+      { "type": "mathBlock", "attrs": { "latex": "\\oint_C P\\,dx + Q\\,dy" } },
+      { "type": "table", "content": [] },
+      { "type": "image", "attrs": { "assetId": "sha256-abc", "caption": "Figure 1" } },
+      { "type": "paragraph" }
+    ]
+  },
+  "plainText": "Théorème de Green\nPlain, bold and highlighted.\n\\oint_C P\\,dx + Q\\,dy\nFigure 1",
+  "tagIds": ["tag_analysis", "tag_exam"],
+  "pinned": true,
+  "archived": false,
+  "trashedAt": null,
+  "createdAt": "2026-02-14T09:30:00.000Z",
+  "updatedAt": "2026-02-14T11:45:12.345Z",
+  "order": 3
+}

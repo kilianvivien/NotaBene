@@ -58,7 +58,8 @@ html[data-transparency='solid'] .glass-strong {
   background: var(--nb-solid-surface-strong);
 }
 
-/* Entrance animations — opt in only when motion is welcome. */
+/* Motion — opt in only when it is welcome. Everything below is inside the
+ * media query, so a reduced-motion user gets the same UI, instantly. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes nb-window-in {
     from {
@@ -82,11 +83,63 @@ html[data-transparency='solid'] .glass-strong {
     }
   }
 
+  /* Leaving is quicker than arriving, and travels the shorter distance: a
+   * dismissal should feel like it has already happened. */
+  @keyframes nb-panel-out {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(4px) scale(0.99);
+    }
+  }
+
+  @keyframes nb-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes nb-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
   .window-anim {
     animation: nb-window-in var(--nb-t-slow) var(--nb-ease-out);
   }
 
   .panel-anim {
     animation: nb-panel-in var(--nb-t-base) var(--nb-ease-out) both;
+  }
+
+  .panel-anim-out {
+    animation: nb-panel-out var(--nb-t-fast) var(--nb-ease-out) both;
+  }
+
+  .scrim-anim {
+    animation: nb-fade-in var(--nb-t-fast) linear both;
+  }
+
+  .scrim-anim-out {
+    animation: nb-fade-out var(--nb-t-fast) linear both;
+  }
+
+  /* Side panes collapse by width rather than unmounting, so the note list
+   * slides into the space instead of jumping into it. Opacity trails slightly
+   * behind so the pane fades before the gap has finished closing. */
+  .pane-collapse {
+    transition:
+      width var(--nb-t-base) var(--nb-ease-out),
+      opacity var(--nb-t-fast) var(--nb-ease-out);
   }
 }

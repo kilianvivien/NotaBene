@@ -393,3 +393,109 @@ pub fn create_snapshot(
         created_at: created_at.to_string(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::{model::Tag, organization};
+
+    /// The same file `src/lib/schema/wireShape.test.ts` parses. One fixture
+    /// checked from both ends is the only thing that keeps the Zod schema, the
+    /// serde structs, and the SQL columns describing the same note.
+    const WIRE_NOTE: &str = include_str!("../../../src/lib/schema/fixtures/wire-note.json");
+
+    /// A real on-disk database rather than `:memory:` — WAL, the FTS5 triggers,
+    /// and the foreign keys are part of what is under test.
+    struct TempStore {
+        store: Store,
+        directory: std::path::PathBuf,
+    }
+
+    impl Drop for TempStore {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.directory);
+        }
+    }
+
+    fn temp_store() -> TempStore {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock before the epoch")
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("notabene-test-{unique}"));
+        let path = directory.join("notabene.sqlite3");
+        let store = Store::open(&path).expect("failed to open the test store");
+        TempStore { store, directory }
+    }
+
+    #[test]
+    fn note_survives_ts_to_sqlite_and_back_unchanged() {
+        let expected: serde_json::Value =
+            serde_json::from_str(WIRE_NOTE).expect("fixture is not valid JSON");
+        let note: Note =
+            serde_json::from_value(expected.clone()).expect("fixture does not fit the wire struct");
+
+        let temporary = temp_store();
+        let store = &temporary.store;
+
+        // Tags exist before a note references them; the join table has a real
+        // foreign key and would reject the write otherwise.
+        for tag_id in &note.tag_ids {
+            organization::upsert_tag(
+                store,
+                &Tag {
+                    id: tag_id.clone(),
+                    namespace: None,
+                    name: tag_id.clone(),
+                },
+            )
+            .expect("failed to seed a tag");
+        }
+
+        upsert(store, &note).expect("failed to write the note");
+        let read = get(store, &note.id)
+            .expect("failed to read the note back")
+            .expect("the note vanished between write and read");
+
+        let actual = serde_json::to_value(&read).expect("failed to serialise the note");
+        assert_eq!(
+            actual, expected,
+            "a note changed shape somewhere between TypeScript, IPC, and SQLite"
+        );
+    }
+
+    #[test]
+    fn round_tripping_a_note_leaves_no_journal_row_behind() {
+        let expected: serde_json::Value = serde_json::from_str(WIRE_NOTE).unwrap();
+        let mut note: Note = serde_json::from_value(expected).unwrap();
+        note.tag_ids.clear();
+
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert(store, &note).expect("failed to write the note");
+
+        crate::db::journal::write(
+            store,
+            &crate::db::journal::JournalEntry {
+                note_id: note.id.clone(),
+                doc: note.doc.clone(),
+                title: note.title.clone(),
+                // Newer than the note: this is exactly the state crash
+                // recovery exists to notice.
+                written_at: "2099-01-01T00:00:00.000Z".into(),
+            },
+        )
+        .expect("failed to journal");
+
+        assert_eq!(
+            crate::db::journal::pending(store).unwrap().len(),
+            1,
+            "a journal row newer than its note should be offered for recovery"
+        );
+
+        // Saving the note is what retires the journal row, in the same
+        // transaction, so a save can never leave a phantom recovery behind.
+        upsert(store, &note).expect("failed to re-write the note");
+        assert!(crate::db::journal::pending(store).unwrap().is_empty());
+    }
+}

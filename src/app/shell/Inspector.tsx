@@ -15,7 +15,7 @@ export function Inspector() {
   return (
     <aside
       aria-label={t('inspector.info')}
-      className="flex w-[280px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-[var(--nb-divider)] p-3"
+      className="flex h-full w-full flex-col gap-3 overflow-y-auto border-l border-[var(--nb-divider)] p-3"
     >
       <GlassSegmentedControl
         label={t('inspector.info')}

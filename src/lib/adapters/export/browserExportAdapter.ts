@@ -17,8 +17,9 @@ export const browserExportAdapter: ExportAdapter = {
     if (request.files.length > 1 && !request.zip) {
       return { ok: false, error: 'multi-file export requires zip in the browser' };
     }
-    const [file] = request.files;
-    download(file.contents, request.suggestedName ?? file.path.split('/').pop()!);
+    const file = request.files[0];
+    if (!file) return { ok: false, error: 'nothing to export' };
+    download(file.contents, request.suggestedName ?? file.path.split('/').pop() ?? 'export');
     return { ok: true };
   },
 

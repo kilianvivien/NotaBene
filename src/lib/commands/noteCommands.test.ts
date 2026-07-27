@@ -64,7 +64,7 @@ describe('updateNoteCommand', () => {
     );
 
     const [snapshot] = await library.listSnapshots(created.value.id);
-    expect(snapshot.cause).toBe('agent');
+    expect(snapshot?.cause).toBe('agent');
   });
 
   it('reports a missing note instead of creating one', async () => {
@@ -90,6 +90,7 @@ describe('restoreSnapshotCommand', () => {
 
     await updateNoteCommand({ noteId: created.value.id, doc: docOf('replacement') });
     const [snapshot] = await library.listSnapshots(created.value.id);
+    if (!snapshot) throw new Error('the update should have left a snapshot behind');
 
     const restored = await restoreSnapshotCommand(snapshot.id);
     expect(restored.ok).toBe(true);

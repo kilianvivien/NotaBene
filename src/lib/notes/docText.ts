@@ -78,7 +78,9 @@ export function docHasFeature(doc: NoteDoc, feature: 'image' | 'drawing' | 'tabl
 export function deriveTitle(doc: NoteDoc, fallback: string): string {
   for (const node of doc.content) {
     const text = flattenDoc({ type: 'doc', content: [node] }).trim();
-    if (text) return text.split('\n')[0].slice(0, 120);
+    // `text` is non-empty here, so the first line exists; the fallback keeps
+    // the compiler honest without pretending to know that.
+    if (text) return (text.split('\n')[0] ?? text).slice(0, 120);
   }
   return fallback;
 }

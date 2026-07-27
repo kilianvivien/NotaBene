@@ -15,10 +15,12 @@ import {
   type Attachment,
   type Asset,
   type Course,
+  type JournalEntry,
   type Library,
   type Note,
   type NoteSummary,
   type NoteTemplate,
+  type PendingRecovery,
   type SavedSearch,
   type Section,
   type Snapshot,
@@ -44,6 +46,7 @@ function toSummary(note: Note): NoteSummary {
 class MemoryLibraryAdapter implements LibraryAdapter {
   private library: Library = emptyLibrary();
   private attachments: Attachment[] = [];
+  private journal = new Map<string, JournalEntry>();
 
   async init(): Promise<void> {}
 
@@ -158,6 +161,9 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     const index = this.library.notes.findIndex((entry) => entry.id === note.id);
     if (index >= 0) this.library.notes[index] = stored;
     else this.library.notes.push(stored);
+    // The note reached the store, so any journalled in-flight copy is stale —
+    // the SQLite adapter does this inside the write transaction.
+    this.journal.delete(note.id);
   }
 
   async trashNote(noteId: string): Promise<void> {
@@ -171,11 +177,33 @@ class MemoryLibraryAdapter implements LibraryAdapter {
   }
 
   async purgeNote(noteId: string): Promise<void> {
+    this.journal.delete(noteId);
     this.library.notes = this.library.notes.filter((entry) => entry.id !== noteId);
     this.library.snapshots = this.library.snapshots.filter(
       (entry) => entry.noteId !== noteId,
     );
     this.attachments = this.attachments.filter((entry) => entry.noteId !== noteId);
+  }
+
+  // -- crash recovery ------------------------------------------------------
+
+  async writeJournal(entry: JournalEntry): Promise<void> {
+    this.journal.set(entry.noteId, clone(entry));
+  }
+
+  async pendingRecoveries(): Promise<PendingRecovery[]> {
+    const pending: PendingRecovery[] = [];
+    for (const entry of this.journal.values()) {
+      const note = this.library.notes.find((candidate) => candidate.id === entry.noteId);
+      if (!note || note.trashedAt) continue;
+      if (entry.writtenAt <= note.updatedAt) continue;
+      pending.push({ ...clone(entry), noteTitle: note.title, noteUpdatedAt: note.updatedAt });
+    }
+    return pending.sort((a, b) => b.writtenAt.localeCompare(a.writtenAt));
+  }
+
+  async discardJournal(noteId: string): Promise<void> {
+    this.journal.delete(noteId);
   }
 
   // -- tags ----------------------------------------------------------------
@@ -321,6 +349,7 @@ class MemoryLibraryAdapter implements LibraryAdapter {
   reset(): void {
     this.library = emptyLibrary();
     this.attachments = [];
+    this.journal.clear();
   }
 
   /** Test seam: quickly stock the store without going through commands. */

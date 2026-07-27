@@ -2,12 +2,19 @@
  * The open note and its save lifecycle.
  *
  * "Never lose a keystroke" (PRD §3, goal 3) is implemented here and nowhere
- * else. Two timers run against every edit:
+ * else. Three timers run against every edit:
  *
+ *   - a journal write, so at most `JOURNAL_MS` of typing is unrecorded;
  *   - a debounce, so a pause of `AUTOSAVE_IDLE_MS` flushes to disk;
  *   - a ceiling, so continuous typing still flushes every `AUTOSAVE_MAX_MS`.
  *
- * A third cadence takes version snapshots. Save state is exposed so the status
+ * The journal is the one that makes the guarantee cheap. A full save is a
+ * transaction, a snapshot check, and a list refresh, so it cannot run on every
+ * keystroke; a journal write is one upsert into a single-row-per-note table, so
+ * it can. What survives a force quit is therefore not the last save — it is the
+ * last quarter-second.
+ *
+ * A fourth cadence takes version snapshots. Save state is exposed so the status
  * bar can show it — a student who sees "Saved" never goes looking for Cmd-S.
  */
 import { create } from 'zustand';
@@ -21,6 +28,9 @@ import type { Note, NoteDoc } from '@/lib/schema';
 export const AUTOSAVE_IDLE_MS = 800;
 /** …and never go longer than this under continuous typing. */
 export const AUTOSAVE_MAX_MS = 5_000;
+/** Crash-journal cadence. Short enough that a force quit costs a few words,
+ * long enough that a fast typist is not one IPC call per character. */
+export const JOURNAL_MS = 250;
 /** Time-based version snapshot cadence during active editing. */
 export const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -45,12 +55,18 @@ interface EditorState {
 
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
 let ceilingTimer: ReturnType<typeof setTimeout> | null = null;
+let journalTimer: ReturnType<typeof setTimeout> | null = null;
+/** The journal write currently in flight, so a save can wait for it rather
+ * than race it and leave a stale row to be offered back at the next launch. */
+let journalInFlight: Promise<void> = Promise.resolve();
 
 function clearTimers(): void {
   if (idleTimer) clearTimeout(idleTimer);
   if (ceilingTimer) clearTimeout(ceilingTimer);
+  if (journalTimer) clearTimeout(journalTimer);
   idleTimer = null;
   ceilingTimer = null;
+  journalTimer = null;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -102,6 +118,11 @@ export const useEditorStore = create<EditorState>()(
 
     async flush() {
       clearTimers();
+      // Let a journal write that is already on the wire land first: the store
+      // retires the row as part of the save, and re-creating it a moment later
+      // would look exactly like unsaved work at the next launch.
+      await journalInFlight;
+
       const { note, saveState, lastSnapshotAt } = get();
       if (!note || saveState !== 'dirty') return;
 
@@ -157,4 +178,31 @@ function scheduleFlush(): void {
   if (!ceilingTimer) {
     ceilingTimer = setTimeout(flush, AUTOSAVE_MAX_MS);
   }
+
+  if (journalTimer) clearTimeout(journalTimer);
+  journalTimer = setTimeout(writeJournal, JOURNAL_MS);
+}
+
+/**
+ * Record in-flight state ahead of the save. A failure here is swallowed on
+ * purpose: the journal is a safety net under autosave, and an app that
+ * interrupted someone's typing to report that its safety net hiccuped would be
+ * trading a real problem for a hypothetical one. A journal that stops working
+ * shows up as `saveState`, which is the signal that actually matters.
+ */
+function writeJournal(): void {
+  journalTimer = null;
+  const { note, saveState } = useEditorStore.getState();
+  if (!note || saveState !== 'dirty') return;
+
+  journalInFlight = library
+    .writeJournal({
+      noteId: note.id,
+      doc: note.doc,
+      title: note.title,
+      // Same clock and same format as `note.updatedAt`, which is what the
+      // "is this row newer than its note?" comparison rests on.
+      writtenAt: new Date().toISOString(),
+    })
+    .catch(() => {});
 }

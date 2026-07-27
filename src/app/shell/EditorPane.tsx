@@ -59,6 +59,7 @@ export function EditorPane() {
           aria-label={t('editor.bodyPlaceholder')}
           className="min-h-[60vh] w-full resize-none bg-transparent placeholder:text-nb-text-3 focus:outline-none"
           style={{
+            fontFamily: 'var(--nb-editor-font)',
             fontSize: 'var(--nb-editor-size)',
             lineHeight: 'var(--nb-editor-leading)',
           }}

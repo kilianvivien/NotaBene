@@ -11,7 +11,14 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { library } from '@/lib/adapters';
 import type { NoteQuery } from '@/lib/adapters';
-import type { Course, NoteSummary, SavedSearch, Section, Tag } from '@/lib/schema';
+import type {
+  Course,
+  NoteSummary,
+  PendingRecovery,
+  SavedSearch,
+  Section,
+  Tag,
+} from '@/lib/schema';
 
 interface LibraryState {
   courses: Course[];
@@ -20,6 +27,8 @@ interface LibraryState {
   tags: Tag[];
   savedSearches: SavedSearch[];
   notes: NoteSummary[];
+  /** Unsaved editor state a crash left behind, waiting to be offered back. */
+  pendingRecoveries: PendingRecovery[];
   loading: boolean;
   error: string | null;
   /** The query behind `notes`, remembered so anything that mutates a note can
@@ -32,6 +41,7 @@ interface LibraryState {
   refreshSections(courseId: string): Promise<void>;
   refreshTags(): Promise<void>;
   refreshSavedSearches(): Promise<void>;
+  refreshPendingRecoveries(): Promise<void>;
   /** Run a note query and remember it as the current view. */
   refreshNotes(query: NoteQuery): Promise<void>;
   /** Re-run the last query. Used after any write, so the list never shows a
@@ -48,6 +58,7 @@ export const useLibraryStore = create<LibraryState>()(
     tags: [],
     savedSearches: [],
     notes: [],
+    pendingRecoveries: [],
     loading: false,
     error: null,
     lastQuery: DEFAULT_QUERY,
@@ -59,10 +70,13 @@ export const useLibraryStore = create<LibraryState>()(
       });
       try {
         await library.init();
+        // Saved searches are deliberately absent: the store command behind
+        // them lands in Phase C and fails loudly until then, and a sidebar
+        // section nothing renders yet is no reason to fail the whole startup.
         await Promise.all([
           get().refreshCourses(),
           get().refreshTags(),
-          get().refreshSavedSearches(),
+          get().refreshPendingRecoveries(),
         ]);
         await get().refreshNotes(DEFAULT_QUERY);
       } catch (error) {
@@ -101,6 +115,13 @@ export const useLibraryStore = create<LibraryState>()(
       const savedSearches = await library.listSavedSearches();
       set((state) => {
         state.savedSearches = savedSearches;
+      });
+    },
+
+    async refreshPendingRecoveries() {
+      const pendingRecoveries = await library.pendingRecoveries();
+      set((state) => {
+        state.pendingRecoveries = pendingRecoveries;
       });
     },
 

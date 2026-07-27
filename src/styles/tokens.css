@@ -34,6 +34,7 @@
   /* Editor reading rhythm. The measure caps line length at a comfortable
      65–75 characters however wide the window gets. */
   --nb-editor-measure: 42rem;
+  --nb-editor-font: var(--nb-font-sans);
   --nb-editor-size: 16px;
   --nb-editor-leading: 1.7;
 

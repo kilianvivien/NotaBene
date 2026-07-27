@@ -20,6 +20,18 @@ export type ViewKind =
 
 export type InspectorTab = 'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'ai';
 
+/** Settings sections. General, appearance and editor are live; the rest are
+ * placeholders naming the phase that fills them, so the shape of Settings is
+ * visible before all of it works. */
+export type SettingsTab =
+  | 'general'
+  | 'appearance'
+  | 'editor'
+  | 'aiProviders'
+  | 'backups'
+  | 'agent'
+  | 'about';
+
 interface UiState {
   view: ViewKind;
   selectedNoteId: string | null;
@@ -32,6 +44,8 @@ interface UiState {
   focusMode: boolean;
   commandPaletteOpen: boolean;
   quickSwitcherOpen: boolean;
+  settingsOpen: boolean;
+  settingsTab: SettingsTab;
   searchQuery: string;
   /** Set while an MCP agent is mutating the library, so the UI can show it. */
   agentBusy: boolean;
@@ -46,6 +60,8 @@ interface UiState {
   setFocusMode(on: boolean): void;
   setCommandPaletteOpen(open: boolean): void;
   setQuickSwitcherOpen(open: boolean): void;
+  setSettingsOpen(open: boolean): void;
+  setSettingsTab(tab: SettingsTab): void;
   setSearchQuery(query: string): void;
   setAgentBusy(busy: boolean): void;
 }
@@ -61,6 +77,8 @@ export const useUiStore = create<UiState>()(
     focusMode: false,
     commandPaletteOpen: false,
     quickSwitcherOpen: false,
+    settingsOpen: false,
+    settingsTab: 'general',
     searchQuery: '',
     agentBusy: false,
 
@@ -129,6 +147,18 @@ export const useUiStore = create<UiState>()(
     setQuickSwitcherOpen(open) {
       set((state) => {
         state.quickSwitcherOpen = open;
+      });
+    },
+
+    setSettingsOpen(open) {
+      set((state) => {
+        state.settingsOpen = open;
+      });
+    },
+
+    setSettingsTab(tab) {
+      set((state) => {
+        state.settingsTab = tab;
       });
     },
 
