@@ -347,9 +347,30 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
       useUiStore.getState().setInspectorTab('ai');
     }),
   },
-  'ai.mindMap': { id: 'ai.mindMap', labelKey: 'ai.mindMap', landsIn: 'G' },
-  'ai.flashcards': { id: 'ai.flashcards', labelKey: 'ai.flashcards', landsIn: 'G' },
-  'ai.podcast': { id: 'ai.podcast', labelKey: 'ai.podcast', landsIn: 'G' },
+  'ai.mindMap': {
+    id: 'ai.mindMap',
+    labelKey: 'ai.mindMap',
+    landsIn: 'G',
+    run: requireNote(() => {
+      useUiStore.getState().setAiMindMapOpen(true);
+    }),
+  },
+  'ai.flashcards': {
+    id: 'ai.flashcards',
+    labelKey: 'ai.flashcards',
+    landsIn: 'G',
+    run: requireNote(() => {
+      useUiStore.getState().setAiFlashcardsOpen(true);
+    }),
+  },
+  'ai.podcast': {
+    id: 'ai.podcast',
+    labelKey: 'ai.podcast',
+    landsIn: 'G',
+    run: requireNote(() => {
+      useUiStore.getState().setAiPodcastOpen(true);
+    }),
+  },
 
   'help.documentation': {
     id: 'help.documentation',

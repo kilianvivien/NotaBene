@@ -99,7 +99,11 @@ async function imageParagraph(
   node: DocNode,
   assetData: ReadonlyMap<string, { bytes: Uint8Array; mime: string }>,
 ): Promise<Paragraph | null> {
-  if (node.type === 'drawing' && typeof node.attrs?.svg === 'string') {
+  if (
+    (node.type === 'drawing' || node.type === 'mindMap') &&
+    typeof node.attrs?.svg === 'string' &&
+    node.attrs.svg
+  ) {
     return new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [

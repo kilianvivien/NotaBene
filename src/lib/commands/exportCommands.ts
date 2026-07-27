@@ -1,5 +1,5 @@
 import { strToU8, zipSync } from 'fflate';
-import { assets, dialog, exporter, library, type ExportFormat } from '@/lib/adapters';
+import { assets, dialog, exporter, library, type NoteExportFormat } from '@/lib/adapters';
 import { docToMarkdown } from '@/editor/markdown';
 import { completeHtmlDocument, docToSemanticHtml, htmlText } from '@/lib/export/render';
 import { notesToDocx } from '@/lib/export/docx';
@@ -7,7 +7,7 @@ import type { Course, DocNode, Note, Tag } from '@/lib/schema';
 import { fail, ok, type CommandResult } from './types';
 
 export interface NoteExportOptions {
-  format: Exclude<ExportFormat, 'backup'>;
+  format: NoteExportFormat;
   layout: 'combined' | 'separate';
   includeToc: boolean;
   language?: string;
@@ -75,10 +75,19 @@ function markdownBody(
   const chunks: string[] = [];
   const drawings = new Map<string, Blob>();
   for (const [index, node] of note.doc.content.entries()) {
-    if (node.type === 'drawing' && typeof node.attrs?.svg === 'string') {
-      const path = `assets/drawing-${slug(note.title, note.id)}-${index + 1}.svg`;
+    // Drawings and mind maps both carry a rendered SVG. Writing it out as a
+    // file and linking to it keeps the Markdown readable — the alternative is
+    // a hundred kilobytes of inline XML in the middle of a lecture note.
+    if (
+      (node.type === 'drawing' || node.type === 'mindMap') &&
+      typeof node.attrs?.svg === 'string' &&
+      node.attrs.svg
+    ) {
+      const kind = node.type === 'mindMap' ? 'mind-map' : 'drawing';
+      const path = `assets/${kind}-${slug(note.title, note.id)}-${index + 1}.svg`;
       drawings.set(path, new Blob([node.attrs.svg], { type: 'image/svg+xml' }));
-      chunks.push(`![${String(node.attrs?.title ?? 'Drawing')}](${path})`);
+      const label = node.type === 'mindMap' ? 'Mind map' : 'Drawing';
+      chunks.push(`![${String(node.attrs?.title ?? label)}](${path})`);
       continue;
     }
     let markdown = docToMarkdown({ type: 'doc', content: [node] });

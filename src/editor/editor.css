@@ -428,6 +428,7 @@
 }
 
 .nb-asset-image[data-selected] .nb-asset-image-frame,
+.nb-mind-map[data-selected] .nb-mind-map-preview,
 .nb-drawing[data-selected] .nb-drawing-preview {
   border-color: var(--nb-accent);
   box-shadow: 0 0 0 2px var(--nb-accent-ring);
@@ -505,6 +506,75 @@
 .nb-drawing {
   margin: 1.3em 0;
   text-align: center;
+}
+
+.nb-mind-map {
+  margin: 1.3em 0;
+  text-align: center;
+}
+
+.nb-mind-map-preview {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--nb-divider);
+  border-radius: var(--nb-radius-sm);
+  color: var(--nb-text-3);
+  /* The rendered SVG paints its own light paper so it survives export; a
+     matching surface behind it stops the map reading as a pasted screenshot in
+     dark mode. */
+  background: #fbfaf8;
+}
+
+.nb-mind-map-preview img {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+}
+
+.nb-mind-map-preview > span {
+  display: flex;
+  min-height: 140px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.nb-mind-map figcaption {
+  margin-top: 6px;
+  color: var(--nb-text-3);
+  font-size: 0.78em;
+}
+
+.nb-mind-map-zoom {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  padding: 32px;
+  background: rgba(0, 0, 0, 0.72);
+  place-items: center;
+}
+
+.nb-mind-map-zoom img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--nb-radius-sm);
+  background: #fbfaf8;
+}
+
+.nb-mind-map-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: white;
+  background: rgba(255, 255, 255, 0.16);
+  place-items: center;
 }
 
 .nb-drawing-preview {

@@ -61,6 +61,7 @@ export type {
   AccentColor,
   AiProviderSettings,
   AppSettings,
+  PodcastSettings,
   SecretsAdapter,
   SettingsAdapter,
 } from './settings/SettingsAdapter';
@@ -72,6 +73,7 @@ export type {
   ExportFormat,
   ExportRequest,
   ExportResult,
+  NoteExportFormat,
 } from './export/ExportAdapter';
 export type { MenuAdapter, MenuNode, MenuRole } from './menu/MenuAdapter';
 export type { AiRequest, AiResponse, AiTransport } from './ai/AiTransport';

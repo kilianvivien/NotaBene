@@ -136,14 +136,14 @@ function blockHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): strin
       if (!source) return `<p>[${escapeHtml(node.attrs?.caption ?? 'Image')}]</p>`;
       return `<figure><img src="${escapeHtml(source)}" alt="${escapeHtml(node.attrs?.alt ?? node.attrs?.caption)}"><figcaption>${escapeHtml(node.attrs?.caption)}</figcaption></figure>`;
     }
-    case 'drawing': {
+    case 'drawing':
+    case 'mindMap': {
+      const fallback = node.type === 'mindMap' ? 'Mind map' : 'Drawing';
       const svg = typeof node.attrs?.svg === 'string' ? node.attrs.svg : '';
       return svg
-        ? `<figure>${svg}<figcaption>${escapeHtml(node.attrs?.title ?? 'Drawing')}</figcaption></figure>`
-        : `<p>[${escapeHtml(node.attrs?.title ?? 'Drawing')}]</p>`;
+        ? `<figure>${svg}<figcaption>${escapeHtml(node.attrs?.title ?? fallback)}</figcaption></figure>`
+        : `<p>[${escapeHtml(node.attrs?.title ?? fallback)}]</p>`;
     }
-    case 'mindMap':
-      return `<pre>${escapeHtml(JSON.stringify(node.attrs?.data ?? node.attrs ?? {}, null, 2))}</pre>`;
     default:
       return childrenHtml(node, assetUrls);
   }

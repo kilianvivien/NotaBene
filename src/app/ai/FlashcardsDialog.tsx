@@ -1,0 +1,301 @@
+/**
+ * Flashcards.
+ *
+ * The list is editable, and that is the point. A generated card is a first
+ * draft: the model does not know that the lecturer only ever asks the
+ * definition one way round, and a student who cannot fix a card before it
+ * enters their spaced-repetition schedule will be re-reading that mistake for
+ * a term. Cards can also be dropped — a deck of twelve good cards beats twenty
+ * with four duds in it.
+ *
+ * Two destinations, because a deck has two lives. Anki is where the reviewing
+ * actually happens; the note is where it stays findable, and is what makes the
+ * deck survive closing this dialog. Neither is the "real" one.
+ */
+import { Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Dialog, FieldNote, GlassButton, GlassSelect } from '@/components/glass';
+import type { FlashcardStyle } from '@/lib/ai';
+import {
+  exportFlashcardsCommand,
+  proposeFlashcardsCommand,
+  saveFlashcardsToNoteCommand,
+} from '@/lib/commands';
+import { newId, type Flashcard, type FlashcardDeck } from '@/lib/schema';
+import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
+import { useEditorStore } from '@/lib/state/editorStore';
+import { useLibraryStore } from '@/lib/state/libraryStore';
+import { useUiStore } from '@/lib/state/uiStore';
+import { AiStatusPill } from './AiStatusPill';
+import { useAiAvailability } from './useAiAvailability';
+
+const STYLES: FlashcardStyle[] = ['basic', 'cloze', 'mixed'];
+const COUNTS = [10, 15, 20, 30];
+
+export function FlashcardsDialog() {
+  const { t } = useTranslation();
+  const open = useUiStore((state) => state.aiFlashcardsOpen);
+  const setOpen = useUiStore((state) => state.setAiFlashcardsOpen);
+  const multiSelection = useUiStore((state) => state.multiSelection);
+  const selectedNoteId = useUiStore((state) => state.selectedNoteId);
+  const note = useEditorStore((state) => state.note);
+  const courses = useLibraryStore((state) => state.courses);
+  const running = useAiStore((state) => state.running) === 'flashcards';
+  const availability = useAiAvailability('flashcards');
+
+  const [style, setStyle] = useState<FlashcardStyle>('mixed');
+  const [count, setCount] = useState(15);
+  const [deck, setDeck] = useState<FlashcardDeck | null>(null);
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+
+  const noteIds = multiSelection.length
+    ? multiSelection
+    : selectedNoteId
+      ? [selectedNoteId]
+      : [];
+
+  useEffect(() => {
+    setDeck(null);
+    setError('');
+    setStatus('');
+  }, [selectedNoteId]);
+
+  async function generate() {
+    setError('');
+    setStatus('');
+    const signal = beginRun('flashcards');
+    const outcome = await proposeFlashcardsCommand({ noteIds, style, count }, { signal });
+    endRun('flashcards');
+
+    if (!outcome.ok) {
+      setError(
+        outcome.code === 'not_supported' ? t('ai.notConfiguredHint') : outcome.message,
+      );
+      return;
+    }
+    setDeck(outcome.value);
+  }
+
+  function patchCard(id: string, patch: Partial<Flashcard>) {
+    setDeck((current) =>
+      current
+        ? {
+            ...current,
+            cards: current.cards.map((card) =>
+              card.id === id ? { ...card, ...patch } : card,
+            ),
+          }
+        : current,
+    );
+  }
+
+  function addCard() {
+    setDeck((current) =>
+      current
+        ? {
+            ...current,
+            cards: [
+              ...current.cards,
+              { id: newId(), kind: 'basic', front: '', back: '', tags: [] },
+            ],
+          }
+        : current,
+    );
+  }
+
+  /** Blank cards would import into Anki as cards with nothing on them, so they
+   * are dropped on the way out rather than blocking the export. */
+  function filled(source: FlashcardDeck): FlashcardDeck {
+    return {
+      ...source,
+      cards: source.cards.filter((card) => card.front.trim() && card.back.trim()),
+    };
+  }
+
+  async function exportDeck() {
+    if (!deck) return;
+    setError('');
+    const courseName = courses.find((course) => course.id === note?.courseId)?.name;
+    const outcome = await exportFlashcardsCommand(filled(deck), {
+      deckPrefix: courseName,
+    });
+    if (!outcome.ok) {
+      if (outcome.code !== 'not_supported') setError(outcome.message);
+      return;
+    }
+    setStatus(t('ai.deckExported'));
+  }
+
+  async function saveToNote() {
+    if (!deck || !note) return;
+    setError('');
+    const outcome = await saveFlashcardsToNoteCommand(note.id, filled(deck));
+    if (!outcome.ok) {
+      setError(outcome.message);
+      return;
+    }
+    setOpen(false);
+    setDeck(null);
+  }
+
+  const usable = deck ? filled(deck).cards.length : 0;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => {
+        cancelRun('flashcards');
+        setOpen(false);
+      }}
+      title={t('ai.flashcards')}
+      description={t('ai.flashcardsIntro')}
+      size="lg"
+      headerAction={<AiStatusPill feature="flashcards" className="max-w-[200px]" />}
+      footer={
+        <>
+          {running ? (
+            <GlassButton size="sm" onClick={() => cancelRun('flashcards')}>
+              {t('ai.cancel')}
+            </GlassButton>
+          ) : (
+            <GlassButton size="sm" onClick={() => setOpen(false)}>
+              {t('common.cancel')}
+            </GlassButton>
+          )}
+          <GlassButton
+            size="sm"
+            variant={deck ? 'ghost' : 'accent'}
+            disabled={!noteIds.length || !availability.available || running}
+            onClick={() => void generate()}
+          >
+            {running ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              deck && <RefreshCw size={12} />
+            )}
+            {running ? t('ai.running') : deck ? t('ai.regenerate') : t('ai.generate')}
+          </GlassButton>
+          {deck && (
+            <>
+              <GlassButton size="sm" disabled={!usable} onClick={() => void exportDeck()}>
+                {t('ai.exportToAnki')}
+              </GlassButton>
+              <GlassButton
+                size="sm"
+                variant="accent"
+                disabled={!usable || !note}
+                onClick={() => void saveToNote()}
+              >
+                {t('ai.saveToNote')}
+              </GlassButton>
+            </>
+          )}
+        </>
+      }
+    >
+      {!deck && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <GlassSelect
+              label={t('ai.cardStyle')}
+              size="sm"
+              value={style}
+              onChange={(event) => setStyle(event.target.value as FlashcardStyle)}
+            >
+              {STYLES.map((entry) => (
+                <option key={entry} value={entry}>
+                  {t(`ai.cardStyle_${entry}`)}
+                </option>
+              ))}
+            </GlassSelect>
+            <GlassSelect
+              label={t('ai.cardCount')}
+              size="sm"
+              value={String(count)}
+              onChange={(event) => setCount(Number(event.target.value))}
+            >
+              {COUNTS.map((entry) => (
+                <option key={entry} value={entry}>
+                  {t('ai.cardCountValue', { count: entry })}
+                </option>
+              ))}
+            </GlassSelect>
+          </div>
+          <p className="text-[12px] leading-snug text-nb-text-3">
+            {t(`ai.cardStyleHint_${style}`)}
+          </p>
+          <FieldNote>{t('ai.sourceCount', { count: noteIds.length })}</FieldNote>
+        </div>
+      )}
+
+      {deck && (
+        <div className="flex flex-col gap-2">
+          <input
+            value={deck.title}
+            aria-label={t('ai.deckTitle')}
+            onChange={(event) => setDeck({ ...deck, title: event.target.value })}
+            className="h-8 w-full rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[13px] font-medium"
+          />
+
+          <ol className="flex flex-col gap-1.5">
+            {deck.cards.map((card, index) => (
+              <li
+                key={card.id}
+                className="rounded-nb-sm border border-[var(--nb-divider)] p-2"
+              >
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="text-[11px] text-nb-text-3">
+                    {index + 1}
+                    {card.kind === 'cloze' && ` · ${t('ai.cardStyle_cloze')}`}
+                  </span>
+                  <GlassButton
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto"
+                    aria-label={t('ai.removeCard')}
+                    onClick={() =>
+                      setDeck({
+                        ...deck,
+                        cards: deck.cards.filter((entry) => entry.id !== card.id),
+                      })
+                    }
+                  >
+                    <Trash2 size={12} />
+                  </GlassButton>
+                </div>
+                <textarea
+                  rows={2}
+                  value={card.front}
+                  aria-label={t('ai.cardFront')}
+                  placeholder={t('ai.cardFront')}
+                  onChange={(event) => patchCard(card.id, { front: event.target.value })}
+                  className="mb-1 w-full resize-y rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] p-1.5 text-[12px]"
+                />
+                <textarea
+                  rows={2}
+                  value={card.back}
+                  aria-label={t('ai.cardBack')}
+                  placeholder={t('ai.cardBack')}
+                  onChange={(event) => patchCard(card.id, { back: event.target.value })}
+                  className="w-full resize-y rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] p-1.5 text-[12px] text-nb-text-2"
+                />
+              </li>
+            ))}
+          </ol>
+
+          <GlassButton size="sm" variant="ghost" className="self-start" onClick={addCard}>
+            <Plus size={12} />
+            {t('ai.addCard')}
+          </GlassButton>
+
+          <FieldNote>{t('ai.cardsReady', { count: usable })}</FieldNote>
+        </div>
+      )}
+
+      {status && <FieldNote>{status}</FieldNote>}
+      {error && <FieldNote tone="danger">{error}</FieldNote>}
+    </Dialog>
+  );
+}

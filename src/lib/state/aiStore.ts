@@ -13,8 +13,18 @@ import { configuredProviderIds } from '@/lib/ai';
 import type { AskTurn } from '@/lib/ai';
 
 /** In-flight work, so the cancel button has something to cancel and two
- * features cannot fight over the same panel. */
-export type AiActivity = 'rewrite' | 'synthesis' | 'ask';
+ * features cannot fight over the same panel. `speech` is the odd one out: it is
+ * the only activity that is not a provider call, and it is separate from
+ * `podcast` because a student can cancel the synthesiser without throwing away
+ * the script it was reading. */
+export type AiActivity =
+  | 'rewrite'
+  | 'synthesis'
+  | 'ask'
+  | 'mindMap'
+  | 'flashcards'
+  | 'podcast'
+  | 'speech';
 
 export interface AskThread {
   turns: AskTurn[];

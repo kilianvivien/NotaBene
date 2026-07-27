@@ -11,9 +11,10 @@ that turn raw lecture notes into study material.
 Everything stays on your machine. No account, no cloud, no telemetry. AI is
 **bring-your-own-key** — or fully local — never a bundled subscription.
 
-> **Status: early development.** Phases A–D are complete: foundation, rich-text
-> editing, organization/search, versions/backups, and local exports. AI and
-> release-polish milestones remain. Not yet recommended as a daily driver.
+> **Status: early development.** Phases A–G are complete: foundation, rich-text
+> editing, organization/search, versions/backups, local exports, the AI core,
+> the MCP server, and the study features. Release polish remains. Not yet
+> recommended as a daily driver.
 
 ## What it does
 

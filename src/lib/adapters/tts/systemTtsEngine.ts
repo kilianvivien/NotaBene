@@ -8,7 +8,17 @@ export const systemTtsEngine: TtsEngine = {
   isAvailable: () => invoke<boolean>('tts_system_available'),
   listVoices: () => invoke<TtsVoice[]>('tts_system_voices'),
 
-  async synthesize(request: TtsRequest): Promise<TtsSegmentResult> {
+  /**
+   * Cancellation is checked on the way in and no further.
+   *
+   * `invoke` has no abort channel, and `say` is a subprocess that will finish
+   * the sentence it is on whatever the webview thinks. The granularity that
+   * matters is the segment, and the podcast command loop checks the signal
+   * between segments — so a cancel costs at most a few seconds of speech
+   * nobody will hear, rather than the rest of the episode.
+   */
+  async synthesize(request: TtsRequest, signal?: AbortSignal): Promise<TtsSegmentResult> {
+    if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
     const result = await invoke<{ data: string; mime: string; durationMs: number }>(
       'tts_system_synthesize',
       { request },

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { library } from '@/lib/adapters';
+import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import {
   APP_COMMANDS,
@@ -101,11 +102,20 @@ describe('runAppCommand', () => {
   });
 
   it('refuses a command whose feature has not shipped, naming the phase', async () => {
-    const result = await runAppCommand('ai.mindMap');
+    const result = await runAppCommand('help.documentation');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe('not_supported');
-      expect(result.message).toContain('phase G');
+      expect(result.message).toContain('phase H');
     }
+  });
+
+  // The study features act on the open note, so refusing early is the honest
+  // answer — a dialog whose only message is "no note selected" is not.
+  it('refuses a study command with no note open', async () => {
+    await useEditorStore.getState().closeNote();
+    const result = await runAppCommand('ai.flashcards');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('not_found');
   });
 });

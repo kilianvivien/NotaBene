@@ -17,6 +17,9 @@ import { TemplatePicker } from './organization/TemplatePicker';
 import { ExportDialog } from './export/ExportDialog';
 import { RewriteDialog } from './ai/RewriteDialog';
 import { SynthesisDialog } from './ai/SynthesisDialog';
+import { MindMapDialog } from './ai/MindMapDialog';
+import { FlashcardsDialog } from './ai/FlashcardsDialog';
+import { PodcastDialog } from './ai/PodcastDialog';
 import { purgeExpiredTrashCommand, runScheduledBackupCommand } from '@/lib/commands';
 import { startAgentBridge } from '@/lib/mcp/agentBridge';
 import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
@@ -106,6 +109,9 @@ export function App() {
       <ExportDialog />
       <RewriteDialog />
       <SynthesisDialog />
+      <MindMapDialog />
+      <FlashcardsDialog />
+      <PodcastDialog />
     </div>
   );
 }
