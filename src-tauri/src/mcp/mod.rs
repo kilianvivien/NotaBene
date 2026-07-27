@@ -41,6 +41,9 @@ pub async fn mcp_start_server(
     if token.trim().len() < 16 {
         return Err("refusing to start with a weak pairing token".into());
     }
+    if !(1024..=65525).contains(&preferred_port) {
+        return Err("preferred port must be between 1024 and 65525".into());
+    }
 
     let mut guard = state.server.lock().await;
     if let Some(existing) = guard.take() {
@@ -72,10 +75,14 @@ pub struct McpServerStatus {
 #[tauri::command]
 pub async fn mcp_server_status(state: State<'_, McpShared>) -> Result<McpServerStatus, String> {
     let guard = state.server.lock().await;
+    let (running, error) = guard
+        .as_ref()
+        .map(ServerHandle::status)
+        .unwrap_or((false, None));
     Ok(McpServerStatus {
-        running: guard.is_some(),
-        port: guard.as_ref().map(|handle| handle.port),
-        error: None,
+        running,
+        port: running.then(|| guard.as_ref().expect("running server has handle").port),
+        error,
     })
 }
 

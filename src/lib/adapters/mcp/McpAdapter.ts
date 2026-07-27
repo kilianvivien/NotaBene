@@ -28,10 +28,15 @@ export interface McpAdapter {
   start(token: string, preferredPort: number): Promise<number>;
   stop(): Promise<void>;
   status(): Promise<McpStatus>;
+  /** Subscribe to server lifecycle changes (bind, stop, unexpected failure). */
+  onStatus(handler: (status: McpStatus) => void): Promise<() => void>;
   /** Subscribe to forwarded tool calls. Resolves to an unsubscribe function. */
   onRequest(handler: (request: McpBridgeRequest) => void): Promise<() => void>;
   /** Answer one forwarded tool call. Called by the agent bridge only. */
-  respond(id: string, response: { ok: boolean; result?: unknown; error?: unknown }): Promise<void>;
+  respond(
+    id: string,
+    response: { ok: boolean; result?: unknown; error?: unknown },
+  ): Promise<void>;
   /** Write (or preview) the client's MCP config entry. */
   writeClientConfig(client: McpClientId, port: number, token: string): Promise<string>;
 }

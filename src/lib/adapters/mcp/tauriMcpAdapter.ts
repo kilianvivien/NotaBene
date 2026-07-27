@@ -7,6 +7,8 @@ export const tauriMcpAdapter: McpAdapter = {
     invoke<number>('mcp_start_server', { token, preferredPort }),
   stop: () => invoke('mcp_stop_server'),
   status: () => invoke<McpStatus>('mcp_server_status'),
+  onStatus: (handler) =>
+    listen<McpStatus>('notabene-mcp-status', (event) => handler(event.payload)),
 
   onRequest: (handler) =>
     listen<McpBridgeRequest>('notabene-mcp-request', (event) => handler(event.payload)),
@@ -24,6 +26,9 @@ export const unavailableMcpAdapter: McpAdapter = {
   async stop() {},
   async status(): Promise<McpStatus> {
     return { running: false, port: null, error: null };
+  },
+  async onStatus() {
+    return () => {};
   },
   async onRequest() {
     return () => {};

@@ -35,6 +35,9 @@ export type CreateNoteInput = z.infer<typeof CreateNoteInput>;
 
 const UpdateNoteInput = z.object({
   noteId: z.string().min(1),
+  /** Optimistic-concurrency guard used by external writers. When supplied,
+   * the write only lands if the note is still the version the caller read. */
+  baseUpdatedAt: z.string().datetime().optional(),
   title: z.string().max(500).optional(),
   doc: NoteDocSchema.optional(),
   courseId: z.string().nullable().optional(),
@@ -105,11 +108,23 @@ export async function updateNoteCommand(
 
   const existing = await library.getNote(parsed.data.noteId);
   if (!existing) return fail('not_found', `no note ${parsed.data.noteId}`);
+  if (
+    parsed.data.baseUpdatedAt !== undefined &&
+    parsed.data.baseUpdatedAt !== existing.updatedAt
+  ) {
+    return fail('conflict', 'the note changed after it was read', {
+      expectedUpdatedAt: parsed.data.baseUpdatedAt,
+      actualUpdatedAt: existing.updatedAt,
+    });
+  }
 
   // Snapshot *before* the write, so the history entry is the state the user
   // would want back. Only content changes deserve one; toggling `pinned`
   // should not fill the version list with noise.
-  const contentChanged = parsed.data.doc !== undefined || parsed.data.title !== undefined;
+  const contentChanged =
+    parsed.data.doc !== undefined ||
+    parsed.data.title !== undefined ||
+    context.source === 'agent';
   if (contentChanged) {
     try {
       await library.createSnapshot(existing.id, causeFor(context));
@@ -120,7 +135,23 @@ export async function updateNoteCommand(
   }
 
   // `noteId` addresses the note; it is not a field on it.
-  const { noteId: _noteId, ...patch } = parsed.data;
+  // Optional fields passed explicitly as `undefined` must not overwrite the
+  // persisted value. MCP handlers naturally construct objects that contain
+  // those keys, and object spread would otherwise turn a partial update into
+  // a malformed note.
+  const patch: Partial<
+    Pick<
+      Note,
+      'title' | 'doc' | 'courseId' | 'sectionId' | 'tagIds' | 'pinned' | 'archived'
+    >
+  > = {};
+  if (parsed.data.title !== undefined) patch.title = parsed.data.title;
+  if (parsed.data.doc !== undefined) patch.doc = parsed.data.doc;
+  if (parsed.data.courseId !== undefined) patch.courseId = parsed.data.courseId;
+  if (parsed.data.sectionId !== undefined) patch.sectionId = parsed.data.sectionId;
+  if (parsed.data.tagIds !== undefined) patch.tagIds = parsed.data.tagIds;
+  if (parsed.data.pinned !== undefined) patch.pinned = parsed.data.pinned;
+  if (parsed.data.archived !== undefined) patch.archived = parsed.data.archived;
   const doc = patch.doc ?? existing.doc;
   const updated: Note = {
     ...existing,

@@ -21,9 +21,8 @@ export type ViewKind =
 export type InspectorTab =
   'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'ai';
 
-/** Settings sections. General, appearance and editor are live; the rest are
- * placeholders naming the phase that fills them, so the shape of Settings is
- * visible before all of it works. */
+/** Settings sections. Future sections stay addressable while their panes are
+ * placeholders, so commands and navigation do not change shape between phases. */
 export type SettingsTab =
   'general' | 'appearance' | 'editor' | 'aiProviders' | 'backups' | 'agent' | 'about';
 
@@ -48,7 +47,7 @@ interface UiState {
   searchQuery: string;
   searchScope: 'all' | 'course';
   searchCourseId: string | null;
-  /** Set while an MCP agent is mutating the library, so the UI can show it. */
+  /** Set while an MCP agent is acting on the library, so the UI can show it. */
   agentBusy: boolean;
 
   setView(view: ViewKind): void;

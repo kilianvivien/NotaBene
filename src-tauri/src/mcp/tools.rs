@@ -71,6 +71,9 @@ pub struct CreateNoteParams {
     /// Note body as Markdown; converted to the editor's document model.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub markdown: Option<String>,
+    /// Lossless structured editor document. Do not supply with `markdown`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc: Option<Value>,
     /// Tags as `name` or `namespace:name`, e.g. `topic:derivatives`.
     #[serde(default)]
     pub tags: Vec<String>,
@@ -80,13 +83,20 @@ pub struct CreateNoteParams {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateNoteParams {
     pub note_id: String,
+    /// `updatedAt` returned by read/list/search. The update is rejected if the
+    /// user changed the note in the meantime.
+    pub base_updated_at: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     /// Replacement body as Markdown. The previous content is kept as a version.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub markdown: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub course_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section_id: Option<String>,
     /// Archive instead of deleting — v1 exposes no destructive operation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub archived: Option<bool>,
@@ -96,12 +106,26 @@ pub struct UpdateNoteParams {
 #[serde(rename_all = "camelCase")]
 pub struct ManageTagsParams {
     pub note_id: String,
+    /// `updatedAt` returned by read/list/search.
+    pub base_updated_at: String,
     /// Tags to add, as `name` or `namespace:name`. Created if new.
     #[serde(default)]
     pub add: Vec<String>,
     /// Tag ids to remove.
     #[serde(default)]
     pub remove: Vec<String>,
+    /// Rename global tags while managing this note.
+    #[serde(default)]
+    pub rename: Vec<RenameTagParams>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameTagParams {
+    pub tag_id: String,
+    pub name: String,
+    /// Namespace string, or null for a plain tag.
+    pub namespace: Value,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
@@ -112,6 +136,47 @@ pub struct CreateCourseParams {
     pub professor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub semester: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportNotesParams {
+    pub note_ids: Vec<String>,
+    /// `markdown`, `html`, `pdf`, or `docx`.
+    pub format: String,
+    /// Absolute output path chosen by the user.
+    pub destination: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include_toc: Option<bool>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateSectionParams {
+    pub course_id: String,
+    pub name: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveNoteParams {
+    pub note_id: String,
+    pub base_updated_at: String,
+    /// Course id, or null for Inbox.
+    pub course_id: Value,
+    /// Section id, or null for the course root / Inbox.
+    pub section_id: Value,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OrganizeParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_section: Option<CreateSectionParams>,
+    #[serde(default)]
+    pub moves: Vec<MoveNoteParams>,
 }
 
 #[derive(Clone)]
@@ -264,7 +329,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_update_note",
-        description = "Update a note's title, body, course, or archived flag. The previous content is kept as a restorable version, so an edit is never destructive. There is no delete tool — archive instead."
+        description = "Update a note's title, body, course, section, or archived flag. Pass the note's current updatedAt as baseUpdatedAt; a concurrent user edit returns a recoverable conflict. The previous state is kept as a restorable agent version. There is no delete tool — archive instead."
     )]
     pub async fn update_note(
         &self,
@@ -281,7 +346,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_manage_tags",
-        description = "Add or remove tags on a note. Tags may be plain (`revision`) or namespaced (`topic:derivatives`, `type:summary`); namespaced tags power the faceted search filters."
+        description = "Add, remove, or rename tags on a note. Pass the note's current updatedAt as baseUpdatedAt. Tags may be plain (`revision`) or namespaced (`topic:derivatives`, `type:summary`); namespaced tags power the faceted search filters."
     )]
     pub async fn manage_tags(
         &self,
@@ -312,6 +377,40 @@ impl NotaBeneMcpServer {
                 .await,
         )
     }
+
+    #[tool(
+        name = "notabene_export_notes",
+        description = "Export selected notes to an explicit local path as Markdown, HTML, PDF, or DOCX. Separate multi-note exports are packaged as a zip. PDF uses the app's native print flow."
+    )]
+    pub async fn export_notes(
+        &self,
+        Parameters(params): Parameters<ExportNotesParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("export_notes", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_organize",
+        description = "Create a course section and/or move notes into courses and sections. Every move requires the note's current updatedAt as baseUpdatedAt and is preserved as an agent version."
+    )]
+    pub async fn organize(
+        &self,
+        Parameters(params): Parameters<OrganizeParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("organize", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
 }
 
 #[tool_handler]
@@ -328,8 +427,11 @@ impl ServerHandler for NotaBeneMcpServer {
              syntax matches the app's own search box. When you create study material \
              (a summary, a revision sheet), file it in the right course and tag it \
              `type:summary` so it is findable later. Every write is versioned and \
-             reversible by the user; there is no delete tool, so archive rather than \
-             remove. Never rewrite a note wholesale unless the user asked for exactly that."
+             reversible by the user. Before updating, tagging, or moving a note, pass \
+             its current `updatedAt` as `baseUpdatedAt`; if a conflict is returned, \
+             read it again before retrying. There is no delete tool, so archive rather \
+             than remove. Never rewrite a note wholesale unless the user asked for \
+             exactly that."
                 .into(),
         );
         info

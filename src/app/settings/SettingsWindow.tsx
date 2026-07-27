@@ -3,9 +3,8 @@
  *
  * A modal rather than a second OS window: everything it changes is visible
  * behind it, and a theme or font-size change you can watch land needs no
- * preview. Phase A fills General, Appearance and Editor; the remaining sections
- * are listed with the phase that fills them rather than hidden, so the shape of
- * the app is honest about what is coming.
+ * preview. Sections that have not landed yet remain listed with their phase
+ * rather than hidden, so the shape of the app is honest about what is coming.
  */
 import {
   Bot,
@@ -26,8 +25,9 @@ import { cn } from '@/lib/utils/cn';
 import type { AccentColor, AppSettings } from '@/lib/adapters';
 import { BackupSettings } from './BackupSettings';
 import { AiProviderSettings } from './AiProviderSettings';
+import { AgentSettings } from './AgentSettings';
 
-/** Sections, their icons, and the phase that makes each real. */
+/** Sections, their icons, and (for placeholders) the phase that makes each real. */
 const TABS: { id: SettingsTab; icon: LucideIcon; landsIn?: string }[] = [
   { id: 'general', icon: SlidersHorizontal },
   { id: 'appearance', icon: Palette },
@@ -35,7 +35,7 @@ const TABS: { id: SettingsTab; icon: LucideIcon; landsIn?: string }[] = [
   { id: 'aiProviders', icon: Sparkles },
   { id: 'backups', icon: DatabaseBackup },
   // The same robot the status bar lights up when an agent is editing.
-  { id: 'agent', icon: Bot, landsIn: 'F' },
+  { id: 'agent', icon: Bot },
   { id: 'about', icon: Info, landsIn: 'H' },
 ];
 
@@ -65,7 +65,7 @@ export function SettingsWindow() {
 
   return (
     <ModalOverlay open={open} onClose={() => setOpen(false)} label={t('settings.title')}>
-      <div className="flex h-[min(460px,70vh)]">
+      <div className="flex h-[min(560px,78vh)]">
         <nav
           aria-label={t('settings.title')}
           // Wide enough for "Fournisseurs IA" beside its phase badge; the FR
@@ -250,11 +250,9 @@ export function SettingsWindow() {
 
             {tab === 'aiProviders' && <AiProviderSettings />}
 
-            {/* Sections whose feature has not shipped. Naming the phase beats
-                an empty pane, and beats hiding the section entirely. */}
-            {!['general', 'appearance', 'editor', 'backups', 'aiProviders'].includes(
-              tab,
-            ) && (
+            {tab === 'agent' && <AgentSettings />}
+
+            {tab === 'about' && (
               <p className="text-[13px] text-nb-text-3">
                 {t('settings.landsInPhase', {
                   phase: TABS.find((entry) => entry.id === tab)?.landsIn ?? '—',

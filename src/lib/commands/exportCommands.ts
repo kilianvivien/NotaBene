@@ -11,6 +11,9 @@ export interface NoteExportOptions {
   layout: 'combined' | 'separate';
   includeToc: boolean;
   language?: string;
+  /** Explicit output path for non-interactive callers such as MCP. When
+   * omitted, the UI owns destination selection through the save panel. */
+  destination?: string;
 }
 
 function slug(value: string, fallback: string): string {
@@ -88,11 +91,7 @@ function markdownBody(
   return { markdown: chunks.join('\n\n'), drawings };
 }
 
-function frontmatter(
-  note: Note,
-  courses: Course[],
-  tags: Tag[],
-): string {
+function frontmatter(note: Note, courses: Course[], tags: Tag[]): string {
   const course = courses.find((entry) => entry.id === note.courseId);
   const names = tags
     .filter((entry) => note.tagIds.includes(entry.id))
@@ -155,6 +154,7 @@ export async function exportNotesCommand(
           : undefined;
       const result = await exporter.printToPdf(
         completeHtmlDocument(baseName, body, { toc, language: options.language }),
+        options.destination,
       );
       return result.ok
         ? ok(result.path)
@@ -253,16 +253,26 @@ export async function exportNotesCommand(
       ? await zipFiles(files)
       : (files.values().next().value ??
         new Blob([strToU8('')], { type: 'application/octet-stream' }));
-    const name = packageAsZip ? `${baseName}.zip` : (files.keys().next().value ?? baseName);
-    const destination = await dialog.saveFile({
-      defaultPath: name,
-      filters: [
-        {
-          name: options.format.toUpperCase(),
-          extensions: [packageAsZip ? 'zip' : options.format === 'markdown' ? 'md' : options.format],
-        },
-      ],
-    });
+    const name = packageAsZip
+      ? `${baseName}.zip`
+      : (files.keys().next().value ?? baseName);
+    const destination =
+      options.destination ??
+      (await dialog.saveFile({
+        defaultPath: name,
+        filters: [
+          {
+            name: options.format.toUpperCase(),
+            extensions: [
+              packageAsZip
+                ? 'zip'
+                : options.format === 'markdown'
+                  ? 'md'
+                  : options.format,
+            ],
+          },
+        ],
+      }));
     if (!destination) return fail('not_supported', 'Export cancelled');
     const result = await exporter.write({
       format: options.format,

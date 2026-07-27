@@ -91,12 +91,15 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A–E are complete: foundation, the TipTap authoring surface, course
-organization/search, versions/backups/exports, and the AI core. E adds the
+Phases A–F are code-complete: foundation, the TipTap authoring surface, course
+organization/search, versions/backups/exports, the AI core, and the local MCP
+server. E adds the
 provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
 Studio, custom), Keychain key storage, rewrite-with-diff-gate, synthesis, and
-an Ask panel for questions about a note. Section 3 of the implementation plan
-tracks the remaining gaps honestly — read it before assuming something works.
+an Ask panel for questions about a note. F adds the authenticated 11-tool MCP
+surface, client setup, agent activity, versioned writes, and optimistic
+concurrency protection. Section 3 of the implementation plan tracks the
+remaining gaps honestly — read it before assuming something works.
 
 ## House rules
 

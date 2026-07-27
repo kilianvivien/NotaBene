@@ -14,9 +14,11 @@ import {
   type Course,
   type Section,
   type Tag,
+  type Note,
 } from '@/lib/schema';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
+import { updateNoteCommand } from './noteCommands';
 
 const CreateCourseInput = z.object({
   name: z.string().min(1).max(200),
@@ -223,4 +225,116 @@ export async function deleteTagCommand(
   await useLibraryStore.getState().refreshTags();
   await useLibraryStore.getState().refreshCurrentView();
   return ok(undefined);
+}
+
+const OrganizeNotesInput = z
+  .object({
+    createSection: z
+      .object({
+        courseId: z.string().min(1),
+        name: z.string().trim().min(1).max(200),
+      })
+      .optional(),
+    moves: z
+      .array(
+        z.object({
+          noteId: z.string().min(1),
+          baseUpdatedAt: z.string().datetime(),
+          courseId: z.string().nullable().optional(),
+          sectionId: z.string().nullable().optional(),
+        }),
+      )
+      .max(500)
+      .default([]),
+  })
+  .refine((value) => value.createSection !== undefined || value.moves.length > 0, {
+    message: 'createSection or at least one move is required',
+  });
+
+export type OrganizeNotesInput = z.input<typeof OrganizeNotesInput>;
+
+/**
+ * Create a section and/or file notes under courses and sections.
+ *
+ * Every target is validated before the first mutation so a stale bulk request
+ * fails as a whole instead of moving half a study set. Writes themselves still
+ * go through `updateNoteCommand`, preserving agent snapshots and cache refresh.
+ */
+export async function organizeNotesCommand(
+  input: OrganizeNotesInput,
+  context: CommandContext = USER,
+): Promise<CommandResult<{ createdSection: Section | null; movedNotes: Note[] }>> {
+  const parsed = OrganizeNotesInput.safeParse(input);
+  if (!parsed.success) {
+    return fail('invalid_input', 'invalid organization input', parsed.error.issues);
+  }
+
+  const courses = await library.listCourses();
+  const courseIds = new Set(courses.map((course) => course.id));
+  if (parsed.data.createSection && !courseIds.has(parsed.data.createSection.courseId)) {
+    return fail('not_found', `no course ${parsed.data.createSection.courseId}`);
+  }
+
+  const prepared: {
+    note: Note;
+    move: (typeof parsed.data.moves)[number];
+    courseId: string | null;
+  }[] = [];
+  for (const move of parsed.data.moves) {
+    const note = await library.getNote(move.noteId);
+    if (!note) return fail('not_found', `no note ${move.noteId}`);
+    if (move.baseUpdatedAt !== note.updatedAt) {
+      return fail('conflict', 'a note changed after it was read', {
+        noteId: note.id,
+        expectedUpdatedAt: move.baseUpdatedAt,
+        actualUpdatedAt: note.updatedAt,
+      });
+    }
+    const courseId = move.courseId === undefined ? note.courseId : move.courseId;
+    if (courseId !== null && !courseIds.has(courseId)) {
+      return fail('not_found', `no course ${courseId}`);
+    }
+    if (move.sectionId) {
+      if (!courseId) {
+        return fail('invalid_input', 'a section requires a course', {
+          noteId: note.id,
+          sectionId: move.sectionId,
+        });
+      }
+      const sections = await library.listSections(courseId);
+      if (!sections.some((section) => section.id === move.sectionId)) {
+        return fail('not_found', `no section ${move.sectionId}`);
+      }
+    }
+    prepared.push({ note, move, courseId });
+  }
+
+  let createdSection: Section | null = null;
+  if (parsed.data.createSection) {
+    const result = await createSectionCommand(parsed.data.createSection, context);
+    if (!result.ok) return result;
+    createdSection = result.value;
+  }
+
+  const movedNotes: Note[] = [];
+  for (const { note, move, courseId } of prepared) {
+    const result = await updateNoteCommand(
+      {
+        noteId: note.id,
+        baseUpdatedAt: move.baseUpdatedAt,
+        courseId,
+        sectionId:
+          move.sectionId === undefined
+            ? move.courseId !== undefined && move.courseId !== note.courseId
+              ? null
+              : note.sectionId
+            : move.sectionId,
+      },
+      context,
+    );
+    if (!result.ok) return result;
+    movedNotes.push(result.value);
+  }
+
+  return ok({ createdSection, movedNotes });
 }

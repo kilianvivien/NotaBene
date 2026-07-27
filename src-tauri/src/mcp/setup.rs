@@ -32,10 +32,25 @@ fn server_entry(port: u16, token: &str) -> Value {
     })
 }
 
+fn write_private_atomic(path: &std::path::Path, contents: &str) -> Result<(), String> {
+    let temporary = path.with_extension("notabene-tmp");
+    fs::write(&temporary, contents).map_err(|err| err.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600))
+            .map_err(|err| err.to_string())?;
+    }
+    fs::rename(&temporary, path).map_err(|err| err.to_string())
+}
+
 /// Add or replace the `notabene` entry in the client's config, returning the
 /// path written. For `custom`, nothing is written and the JSON snippet is
 /// returned for the user to paste.
 pub fn write_client_config(client: &str, port: u16, token: &str) -> Result<String, String> {
+    if token.trim().len() < 16 {
+        return Err("refusing to write a weak pairing token".into());
+    }
     if client == "custom" {
         return serde_json::to_string_pretty(&json!({
             "mcpServers": { "notabene": server_entry(port, token) }
@@ -68,11 +83,34 @@ pub fn write_client_config(client: &str, port: u16, token: &str) -> Result<Strin
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
-    fs::write(
+    write_private_atomic(
         &path,
-        serde_json::to_string_pretty(&root).map_err(|err| err.to_string())?,
-    )
-    .map_err(|err| err.to_string())?;
+        &serde_json::to_string_pretty(&root).map_err(|err| err.to_string())?,
+    )?;
 
     Ok(path.display().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::write_client_config;
+
+    #[test]
+    fn custom_snippet_contains_http_endpoint_and_bearer_header() {
+        let snippet = write_client_config("custom", 22600, "0123456789abcdef0123456789abcdef")
+            .expect("custom config");
+        let value: serde_json::Value = serde_json::from_str(&snippet).expect("valid json");
+        let entry = &value["mcpServers"]["notabene"];
+        assert_eq!(entry["type"], "http");
+        assert_eq!(entry["url"], "http://127.0.0.1:22600/mcp");
+        assert_eq!(
+            entry["headers"]["Authorization"],
+            "Bearer 0123456789abcdef0123456789abcdef"
+        );
+    }
+
+    #[test]
+    fn weak_tokens_are_never_written() {
+        assert!(write_client_config("custom", 22600, "too-short").is_err());
+    }
 }

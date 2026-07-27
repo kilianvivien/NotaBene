@@ -18,6 +18,8 @@ import { ExportDialog } from './export/ExportDialog';
 import { RewriteDialog } from './ai/RewriteDialog';
 import { SynthesisDialog } from './ai/SynthesisDialog';
 import { purgeExpiredTrashCommand, runScheduledBackupCommand } from '@/lib/commands';
+import { startAgentBridge } from '@/lib/mcp/agentBridge';
+import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -38,16 +40,28 @@ export function App() {
 
   useEffect(() => {
     let active = true;
+    let stopAgentBridge = () => {};
+    let stopStatusWatch = () => {};
     const stopThemeWatch = watchSystemTheme();
     void (async () => {
       await loadSettings();
       await bootstrap();
       if (!active) return;
+      stopAgentBridge = await startAgentBridge();
+      stopStatusWatch = await watchMcpStatus();
+      if (!active) {
+        stopAgentBridge();
+        stopStatusWatch();
+        return;
+      }
+      await useMcpStore.getState().initialize();
       await purgeExpiredTrashCommand();
       await runScheduledBackupCommand();
     })();
     return () => {
       active = false;
+      stopAgentBridge();
+      stopStatusWatch();
       stopThemeWatch();
     };
   }, [loadSettings, bootstrap]);

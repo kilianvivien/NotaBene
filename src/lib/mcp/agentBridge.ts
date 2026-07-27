@@ -11,7 +11,7 @@
  * Handlers live in `toolHandlers.ts`; this file owns transport and error shape.
  */
 import { mcp, type McpBridgeRequest } from '@/lib/adapters';
-import { useUiStore } from '@/lib/state/uiStore';
+import { useMcpStore } from '@/lib/state/mcpStore';
 import { TOOL_HANDLERS, type ToolMethod } from './toolHandlers';
 
 /** Structured error agents can branch on, rather than a bare string. */
@@ -37,8 +37,11 @@ export async function startAgentBridge(): Promise<() => void> {
 }
 
 async function handleRequest(request: McpBridgeRequest): Promise<void> {
-  const ui = useUiStore.getState();
-  ui.setAgentBusy(true);
+  const activityId = useMcpStore.getState().beginActivity(request);
+  let outcome: { ok: boolean; result?: unknown; error?: string } = {
+    ok: false,
+    error: 'request did not complete',
+  };
 
   try {
     if (!isToolMethod(request.method)) {
@@ -47,6 +50,7 @@ async function handleRequest(request: McpBridgeRequest): Promise<void> {
         message: `no such tool: ${request.method}`,
         recoverable: false,
       });
+      outcome = { ok: false, error: `no such tool: ${request.method}` };
       return;
     }
 
@@ -57,24 +61,31 @@ async function handleRequest(request: McpBridgeRequest): Promise<void> {
 
     if (result.ok) {
       await mcp.respond(request.id, { ok: true, result: result.value });
+      outcome = { ok: true, result: result.value };
     } else {
       await respondError(request.id, {
         code: result.code,
         message: result.message,
         // `not_found` and `invalid_input` are worth another attempt with
         // different arguments; a storage failure is not.
-        recoverable: result.code === 'not_found' || result.code === 'invalid_input',
+        recoverable:
+          result.code === 'not_found' ||
+          result.code === 'invalid_input' ||
+          result.code === 'conflict',
         details: result.details,
       });
+      outcome = { ok: false, error: result.message };
     }
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     await respondError(request.id, {
       code: 'internal_error',
-      message: error instanceof Error ? error.message : String(error),
+      message,
       recoverable: false,
     });
+    outcome = { ok: false, error: message };
   } finally {
-    ui.setAgentBusy(false);
+    useMcpStore.getState().finishActivity(activityId, outcome);
   }
 }
 
