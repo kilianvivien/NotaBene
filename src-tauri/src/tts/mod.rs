@@ -1,7 +1,7 @@
 //! Speech synthesis exposed to the webview.
 //!
 //! macOS system voices are the only engine with a Rust half. The hosted
-//! Voxtral TTS API is driven entirely from `src/lib/adapters/tts/`, over the
+//! Hosted TTS APIs are driven entirely from `src/lib/adapters/tts/`, over the
 //! shared AI transport, so no speech provider host appears in `connect-src`.
 
 mod system;

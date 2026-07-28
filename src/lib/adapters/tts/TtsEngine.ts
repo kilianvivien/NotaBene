@@ -2,10 +2,10 @@
  * Engine-neutral text-to-speech contract.
  *
  * Every engine returns a completed segment: macOS `say(1)` and the hosted
- * Voxtral TTS API both do. Callers inspect capabilities instead of inferring
- * them from an engine id.
+ * hosted speech APIs do. Callers inspect capabilities instead of inferring them
+ * from an engine id.
  */
-export type TtsEngineId = 'system' | 'mistral-api' | 'openai-compatible';
+export type TtsEngineId = 'system' | 'mistral-api' | 'gemini-api' | 'openai-compatible';
 
 export interface TtsVoice {
   id: string;

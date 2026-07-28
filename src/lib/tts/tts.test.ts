@@ -76,6 +76,19 @@ describe('speech settings migration', () => {
     expect(migrated.speech.engineId).toBe('mistral-api');
   });
 
+  it('preserves a configured Gemini voice', () => {
+    const migrated = migrateSettings({
+      speech: {
+        engineId: 'gemini-api',
+        voicesByEngine: { 'gemini-api': 'Kore' },
+        playbackRate: 1,
+        fallbackToSystem: false,
+      },
+    });
+    expect(migrated.speech.voicesByEngine['gemini-api']).toBe('Kore');
+    expect(migrated.speech.engineId).toBe('gemini-api');
+  });
+
   it('retires a saved engine this build no longer ships', () => {
     const migrated = migrateSettings({
       speech: {
@@ -98,11 +111,16 @@ describe('engine registry', () => {
     const registry = createTtsEngineRegistry(
       fakeEngine('system'),
       fakeEngine('mistral-api', { kind: 'not_configured' }),
+      fakeEngine('gemini-api', { kind: 'not_configured' }),
     );
     await expect(registry.available()).resolves.toEqual([
       expect.objectContaining({ id: 'system', state: { kind: 'ready' } }),
       expect.objectContaining({
         id: 'mistral-api',
+        state: { kind: 'not_configured' },
+      }),
+      expect.objectContaining({
+        id: 'gemini-api',
         state: { kind: 'not_configured' },
       }),
     ]);
@@ -112,6 +130,7 @@ describe('engine registry', () => {
     const registry = createTtsEngineRegistry(
       fakeEngine('system'),
       fakeEngine('mistral-api'),
+      fakeEngine('gemini-api'),
     );
     expect(() => registry.get('openai-compatible')).toThrow(/not configured/);
   });

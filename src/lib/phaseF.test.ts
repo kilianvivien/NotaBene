@@ -56,7 +56,7 @@ describe('Phase F MCP tool contracts', () => {
   it('reports live application state', async () => {
     const result = await call('get_app_state');
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value).toMatchObject({ appVersion: '0.3.0' });
+    if (result.ok) expect(result.value).toMatchObject({ appVersion: '0.3.1' });
   });
 
   it('lists courses with their sections', async () => {

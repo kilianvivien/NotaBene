@@ -31,7 +31,7 @@ interface LegacyPodcastSettings {
  */
 /** Engines this build can actually resolve. Anything else in stored settings
  * is from an older version and must not survive into a running config. */
-const KNOWN_ENGINES = new Set<TtsEngineId>(['system', 'mistral-api']);
+const KNOWN_ENGINES = new Set<TtsEngineId>(['system', 'mistral-api', 'gemini-api']);
 
 export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
   const legacyPodcast = stored.podcast as

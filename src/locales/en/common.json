@@ -550,9 +550,11 @@
     "engine": "Engine",
     "engine_system": "macOS system voices",
     "engine_mistral-api": "Voxtral TTS · Mistral API",
+    "engine_gemini-api": "Gemini 3.1 Flash TTS · Google API",
     "privacy": "Privacy",
     "privacySystem": "On-device · uses voices already installed on this Mac.",
     "privacyMistral": "Cloud · the text being spoken is sent to Mistral AI.",
+    "privacyGemini": "Cloud · the text being spoken is sent to Google Gemini.",
     "playbackRate": "Playback speed",
     "fallback": "Fall back to system speech",
     "fallbackHint": "If the selected neural voice fails before playback starts. Falls back only to the Mac, never to another cloud service.",
@@ -567,7 +569,15 @@
     "saveKey": "Save key",
     "getMistralKey": "Get an API key",
     "keySaved": "Key saved",
-    "useMistral": "Use hosted Voxtral"
+    "useMistral": "Use hosted Voxtral",
+    "geminiTitle": "Gemini neural voice",
+    "geminiPricing": "Preview model · Google Gemini API",
+    "geminiPrivacy": "Only text you choose to speak is sent to Google. This is an explicit cloud engine and is never selected as a fallback.",
+    "geminiKey": "Gemini API key",
+    "geminiKeyPlaceholder": "Paste a Gemini API key",
+    "geminiKeyStored": "Gemini API key stored in Keychain",
+    "getGeminiKey": "Get an API key",
+    "useGemini": "Use Gemini TTS"
   },
   "menu": {
     "about": "About",

@@ -10,10 +10,12 @@ const FUTURE_ENGINES = new Set<TtsEngineId>(['openai-compatible']);
 export function createTtsEngineRegistry(
   system: TtsEngine,
   mistral: TtsEngine,
+  gemini: TtsEngine,
 ): TtsEngineRegistry {
   const engines = new Map<TtsEngineId, TtsEngine>([
     ['system', system],
     ['mistral-api', mistral],
+    ['gemini-api', gemini],
   ]);
 
   return {
@@ -45,7 +47,11 @@ export function createTtsEngineRegistry(
         );
       }
       if (state.kind === 'not_configured') {
-        throw new Error('TTS_API_KEY_MISSING: connect Mistral AI first');
+        throw new Error(
+          id === 'gemini-api'
+            ? 'TTS_API_KEY_MISSING: connect Google Gemini first'
+            : 'TTS_API_KEY_MISSING: connect Mistral AI first',
+        );
       }
       return engine;
     },

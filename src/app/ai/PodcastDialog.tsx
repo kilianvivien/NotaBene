@@ -3,8 +3,8 @@
  *
  * Two steps, and they are deliberately separate. Writing the script is a
  * provider call over the network; speaking uses the explicitly selected
- * engine. Local voices stay offline, while hosted Voxtral sends only the
- * reviewed script to Mistral. Fusing the two stages would mean a student who wanted to
+ * engine. Local voices stay offline, while a hosted engine sends only the
+ * reviewed script to its selected provider. Fusing the two stages would mean a student who wanted to
  * check what the episode was going to say had to wait for the audio first — and
  * would mean a bad script cost two minutes of synthesis before anyone noticed.
  *

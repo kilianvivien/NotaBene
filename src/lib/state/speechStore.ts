@@ -5,7 +5,7 @@
  * a model writes a script, you read it, then you decide to have it spoken. This
  * is the other half of the same want: the note, as written, out loud, one click
  * from the toolbar. The selected engine owns the privacy boundary: macOS
- * system voices stay on-device; hosted Voxtral is an explicit Mistral request.
+ * system voices stay on-device; hosted speech is an explicit provider request.
  *
  * Playback is a queue rather than one file. Synthesis of a long note takes
  * tens of seconds, so the first chunk starts playing while the rest are still

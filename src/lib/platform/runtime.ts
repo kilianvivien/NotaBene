@@ -14,7 +14,7 @@ export interface PlatformCapabilities {
   fileExports: boolean;
   /** The embedded loopback MCP server. */
   mcpServer: boolean;
-  /** AVSpeechSynthesizer, or the hosted Voxtral TTS API. */
+  /** macOS system speech, or an explicitly configured hosted TTS API. */
   textToSpeech: boolean;
   systemClipboardImages: boolean;
   fileDrops: boolean;
