@@ -20,10 +20,12 @@
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
+![NotaBene 0.2 showing the localized starter course, rich editor, and three-pane library](./assets/screenshots/notabene-0.2.png)
+
 > [!IMPORTANT]
-> NotaBene is under active development and is not yet recommended as a daily
-> driver. The core experience is implemented; release packaging, polish, and
-> broader real-world testing are still in progress.
+> NotaBene 1.0 is feature-complete, but the current build is not yet a trusted
+> public download: Developer ID notarization and signed auto-updates are
+> intentionally deferred.
 
 ## Why NotaBene?
 
@@ -128,7 +130,8 @@ Keychain and cannot be represented in the backup schema.
 
 ## Current status
 
-The product foundation and phases A–G are code-complete:
+The product foundation and phases A–H are code-complete, except for the
+explicitly deferred signing and signed-update work:
 
 - native shell and local persistence;
 - rich authoring;
@@ -136,11 +139,13 @@ The product foundation and phases A–G are code-complete:
 - versions, recovery, backups, and exports;
 - bring-your-own-key and local-model AI;
 - the authenticated MCP integration; and
-- mind maps, flashcards, Anki export, and note-to-podcast.
+- editable mind maps with image/outline export, flashcard review, and MP3
+  note-to-podcast attachments;
+- first-run guidance, EN/FR coverage, keyboard accessibility, and local
+  performance instrumentation.
 
-Release polish remains. In particular, generated mind maps are viewable and
-exportable but not yet editable, and flashcard decks do not yet have an in-app
-review mode.
+See [release notes](./RELEASE_NOTES.md), the [security policy](./SECURITY.md),
+and [third-party notices](./THIRD_PARTY_NOTICES.md).
 
 ## Getting started
 

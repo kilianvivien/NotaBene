@@ -29,6 +29,7 @@ import type { TtsVoice } from '@/lib/adapters';
 import { estimateSpokenMinutes, type PodcastMode } from '@/lib/ai';
 import {
   exportPodcastAudioCommand,
+  attachPodcastAudioCommand,
   listPodcastVoicesCommand,
   proposePodcastScriptCommand,
   savePodcastScriptToNoteCommand,
@@ -182,6 +183,16 @@ export function PodcastDialog() {
       return;
     }
     setStatus(t('ai.audioSaved'));
+  }
+
+  async function attachAudio() {
+    if (!script || !note) return;
+    const outcome = await attachPodcastAudioCommand(note.id, script, segments);
+    if (!outcome.ok) {
+      setError(outcome.message);
+      return;
+    }
+    setStatus(t('ai.audioAttached'));
   }
 
   async function saveScript() {
@@ -422,6 +433,15 @@ export function PodcastDialog() {
               >
                 <Download size={12} />
                 {t('ai.saveAudio')}
+              </GlassButton>
+              <GlassButton
+                size="sm"
+                variant="ghost"
+                disabled={!segments.length || !note}
+                onClick={() => void attachAudio()}
+              >
+                <FileText size={12} />
+                {t('ai.attachAudio')}
               </GlassButton>
             </div>
           </>

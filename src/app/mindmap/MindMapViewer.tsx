@@ -21,12 +21,22 @@
  * attribute on a document node, and a document can arrive from a backup file —
  * an `<img>` is the boundary that makes an SVG a picture and not a script.
  */
-import { FileImage, FileText, Maximize2, Minus, Plus, X } from 'lucide-react';
+import {
+  FileImage,
+  FilePlus2,
+  FileText,
+  Maximize2,
+  Minus,
+  Plus,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { exportMindMapCommand } from '@/lib/commands';
+import { exportMindMapCommand, saveMindMapAsNoteCommand } from '@/lib/commands';
 import { svgDataUri, svgSize } from '@/lib/mindmap/svg';
+import type { MindMap } from '@/lib/schema';
+import { useEditorStore } from '@/lib/state/editorStore';
 
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 6;
@@ -49,17 +59,20 @@ function clamp(k: number): number {
 interface MindMapViewerProps {
   svg: string;
   title: string;
+  data?: MindMap;
   onClose(): void;
 }
 
-export function MindMapViewer({ svg, title, onClose }: MindMapViewerProps) {
+export function MindMapViewer({ svg, title, data, onClose }: MindMapViewerProps) {
   const { t } = useTranslation();
   const stage = useRef<HTMLDivElement>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const gesture = useRef<{ anchor: { x: number; y: number }; scale: number } | null>(null);
   const [view, setView] = useState<View | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [saving, setSaving] = useState<'svg' | 'pdf' | null>(null);
+  const [saving, setSaving] = useState<
+    'svg' | 'pdf' | 'png' | 'markdown' | 'note' | null
+  >(null);
   const [error, setError] = useState('');
 
   const size = svgSize(svg);
@@ -232,13 +245,28 @@ export function MindMapViewer({ svg, title, onClose }: MindMapViewerProps) {
     window.addEventListener('pointercancel', end);
   }
 
-  async function download(format: 'svg' | 'pdf') {
+  async function download(format: 'svg' | 'pdf' | 'png' | 'markdown') {
     setError('');
     setSaving(format);
-    const outcome = await exportMindMapCommand({ svg, title }, format);
+    const outcome = await exportMindMapCommand({ svg, title, data }, format);
     setSaving(null);
     // A cancelled save dialog is the user changing their mind, not a failure.
     if (!outcome.ok && outcome.code !== 'not_supported') setError(outcome.message);
+  }
+
+  async function saveAsNote() {
+    if (!data) return;
+    setError('');
+    setSaving('note');
+    const courseId = useEditorStore.getState().note?.courseId ?? null;
+    const outcome = await saveMindMapAsNoteCommand({ svg, title, data }, courseId);
+    setSaving(null);
+    if (!outcome.ok) {
+      setError(outcome.message);
+      return;
+    }
+    onClose();
+    await useEditorStore.getState().openNote(outcome.value.id);
   }
 
   return createPortal(
@@ -293,6 +321,33 @@ export function MindMapViewer({ svg, title, onClose }: MindMapViewerProps) {
           >
             <FileText size={14} aria-hidden />
             {t('mindMap.pdf')}
+          </button>
+          <button
+            type="button"
+            disabled={saving !== null}
+            title={t('mindMap.downloadPng')}
+            onClick={() => void download('png')}
+          >
+            <FileImage size={14} aria-hidden />
+            {t('mindMap.png')}
+          </button>
+          <button
+            type="button"
+            disabled={saving !== null || !data}
+            title={t('mindMap.downloadOutline')}
+            onClick={() => void download('markdown')}
+          >
+            <FileText size={14} aria-hidden />
+            {t('mindMap.outline')}
+          </button>
+          <button
+            type="button"
+            disabled={saving !== null || !data}
+            title={t('mindMap.saveAsNote')}
+            onClick={() => void saveAsNote()}
+          >
+            <FilePlus2 size={14} aria-hidden />
+            {t('mindMap.note')}
           </button>
         </div>
 

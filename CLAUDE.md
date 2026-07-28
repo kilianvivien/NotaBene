@@ -91,7 +91,8 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A–G are code-complete: foundation, the TipTap authoring surface, course
+Phases A–H are code-complete, apart from the explicitly deferred signing,
+notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
 server, and the study features. E adds the
 provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
@@ -100,9 +101,9 @@ an Ask panel for questions about a note. F adds the authenticated 11-tool MCP
 surface, client setup, agent activity, versioned writes, and optimistic
 concurrency protection. G adds mind maps (a real editor block that survives
 every export), flashcards with Anki export, and note-to-podcast over macOS
-system voices. Section 3 of the implementation plan tracks the remaining gaps
-honestly — read it before assuming something works. In particular a generated
-mind map is **not yet editable**, and no deck has an in-app review mode.
+system voices, onboarding, editable study artefacts, accessibility, performance
+instrumentation, and release documentation. Section 3 of the implementation plan tracks the remaining gaps
+honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
 

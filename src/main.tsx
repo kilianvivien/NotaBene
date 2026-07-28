@@ -10,6 +10,8 @@ import '@fontsource/lora/latin-700.css';
 import './lib/i18n';
 import './styles/globals.css';
 
+performance.mark('notabene-start');
+
 const root = document.getElementById('root');
 if (!root) throw new Error('missing #root');
 

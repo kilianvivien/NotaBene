@@ -20,13 +20,14 @@ export type ExportFormat =
   | 'backup'
   | 'anki'
   | 'audio'
-  | 'svg';
+  | 'svg'
+  | 'png';
 
 /** The formats the note export pipeline renders. The others are produced by
  * features that build their own bytes and only borrow the sink. */
 export type NoteExportFormat = Exclude<
   ExportFormat,
-  'backup' | 'anki' | 'audio' | 'svg'
+  'backup' | 'anki' | 'audio' | 'svg' | 'png'
 >;
 
 export interface ExportFile {

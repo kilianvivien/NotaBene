@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { GlassPanel } from './GlassPanel';
 
@@ -29,6 +29,8 @@ export function ModalOverlay({
   // animation, so it can be seen leaving rather than simply ceasing to exist.
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
+  const overlay = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -55,17 +57,45 @@ export function ModalOverlay({
 
   useEffect(() => {
     if (!open) return;
+    previousFocus.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    requestAnimationFrame(() => {
+      const first = overlay.current?.querySelector<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      );
+      (first ?? overlay.current?.querySelector<HTMLElement>('[role="dialog"]'))?.focus();
+    });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
+      if (event.key !== 'Tab') return;
+      const focusable = [
+        ...(overlay.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+        ) ?? []),
+      ];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        last?.focus();
+        event.preventDefault();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        first?.focus();
+        event.preventDefault();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocus.current?.focus();
+    };
   }, [open, onClose]);
 
   if (!mounted) return null;
 
   return (
     <div
+      ref={overlay}
       className={cn(
         'fixed inset-0 z-50 flex items-start justify-center pt-[12vh]',
         closing ? 'scrim-anim-out' : 'scrim-anim',
@@ -86,6 +116,7 @@ export function ModalOverlay({
         role="dialog"
         aria-modal="true"
         aria-label={label}
+        tabIndex={-1}
         className={cn(
           'w-[min(680px,90vw)] overflow-hidden',
           closing && 'panel-anim-out',

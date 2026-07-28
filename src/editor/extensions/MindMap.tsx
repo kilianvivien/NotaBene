@@ -17,20 +17,27 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from '@tiptap/react';
-import { Maximize2, Network } from 'lucide-react';
+import { Maximize2, Network, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MindMapEditor } from '@/app/mindmap/MindMapEditor';
 import { MindMapViewer } from '@/app/mindmap/MindMapViewer';
 import { svgDataUri } from '@/lib/mindmap/svg';
+import { MindMapSchema } from '@/lib/schema';
 
-function MindMapView({ node, selected }: NodeViewProps) {
+function MindMapView({ node, selected, updateAttributes }: NodeViewProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const svg = typeof node.attrs.svg === 'string' ? node.attrs.svg : '';
   const title = String(node.attrs.title ?? t('ai.mindMap'));
   const nodeCount = Array.isArray((node.attrs.data as { nodes?: unknown[] })?.nodes)
     ? (node.attrs.data as { nodes: unknown[] }).nodes.length
     : 0;
+  const map = MindMapSchema.safeParse(node.attrs.data);
+  const collapsed = Array.isArray(node.attrs.collapsed)
+    ? node.attrs.collapsed.filter((id: unknown): id is string => typeof id === 'string')
+    : [];
 
   return (
     <NodeViewWrapper
@@ -68,10 +75,43 @@ function MindMapView({ node, selected }: NodeViewProps) {
         <Network size={12} aria-hidden />
         <span>{title}</span>
         {nodeCount > 0 && <span>· {t('ai.mindMapNodes', { count: nodeCount })}</span>}
+        {map.success && (
+          <button
+            type="button"
+            className="nb-mind-map-edit"
+            aria-label={t('mindMap.edit')}
+            onClick={() => setEditing(true)}
+          >
+            <Pencil size={11} aria-hidden />
+            {t('mindMap.edit')}
+          </button>
+        )}
       </figcaption>
 
       {open && (
-        <MindMapViewer svg={svg} title={title} onClose={() => setOpen(false)} />
+        <MindMapViewer
+          svg={svg}
+          title={title}
+          data={map.success ? map.data : undefined}
+          onClose={() => setOpen(false)}
+        />
+      )}
+      {editing && map.success && (
+        <MindMapEditor
+          open
+          map={map.data}
+          collapsed={collapsed}
+          onClose={() => setEditing(false)}
+          onSave={(data, nextCollapsed, nextSvg) => {
+            updateAttributes({
+              data,
+              collapsed: nextCollapsed,
+              svg: nextSvg,
+              title: data.title,
+            });
+            setEditing(false);
+          }}
+        />
       )}
     </NodeViewWrapper>
   );
@@ -88,6 +128,7 @@ export const MindMap = Node.create({
       data: { default: null },
       svg: { default: '' },
       title: { default: 'Mind map' },
+      collapsed: { default: [] },
     };
   },
 

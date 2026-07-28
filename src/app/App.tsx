@@ -21,7 +21,11 @@ import { SynthesisDialog } from './ai/SynthesisDialog';
 import { MindMapDialog } from './ai/MindMapDialog';
 import { FlashcardsDialog } from './ai/FlashcardsDialog';
 import { PodcastDialog } from './ai/PodcastDialog';
-import { purgeExpiredTrashCommand, runScheduledBackupCommand } from '@/lib/commands';
+import {
+  purgeExpiredTrashCommand,
+  runOnboardingCommand,
+  runScheduledBackupCommand,
+} from '@/lib/commands';
 import { startAgentBridge } from '@/lib/mcp/agentBridge';
 import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 
@@ -49,8 +53,13 @@ export function App() {
     const stopThemeWatch = watchSystemTheme();
     void (async () => {
       await loadSettings();
+      setLocale(useSettingsStore.getState().settings.locale);
       await bootstrap();
+      await runOnboardingCommand();
       if (!active) return;
+      performance.mark('notabene-ready');
+      performance.measure('notabene-startup', 'notabene-start', 'notabene-ready');
+      document.documentElement.dataset.ready = 'true';
       stopAgentBridge = await startAgentBridge();
       stopStatusWatch = await watchMcpStatus();
       if (!active) {
@@ -63,6 +72,7 @@ export function App() {
       await runScheduledBackupCommand();
     })();
     return () => {
+      delete document.documentElement.dataset.ready;
       active = false;
       stopAgentBridge();
       stopStatusWatch();

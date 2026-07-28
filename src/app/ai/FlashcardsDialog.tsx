@@ -12,7 +12,7 @@
  * actually happens; the note is where it stays findable, and is what makes the
  * deck survive closing this dialog. Neither is the "real" one.
  */
-import { Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, FieldNote, GlassButton, GlassSelect } from '@/components/glass';
@@ -49,6 +49,9 @@ export function FlashcardsDialog() {
   const [deck, setDeck] = useState<FlashcardDeck | null>(null);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [revealed, setRevealed] = useState(false);
 
   const noteIds = multiSelection.length
     ? multiSelection
@@ -60,6 +63,7 @@ export function FlashcardsDialog() {
     setDeck(null);
     setError('');
     setStatus('');
+    setReviewing(false);
   }, [selectedNoteId]);
 
   async function generate() {
@@ -142,6 +146,16 @@ export function FlashcardsDialog() {
   }
 
   const usable = deck ? filled(deck).cards.length : 0;
+  const reviewDeck = deck ? filled(deck) : null;
+  const reviewCard = reviewDeck?.cards[reviewIndex];
+
+  function reviewMove(delta: number) {
+    if (!reviewDeck?.cards.length) return;
+    setReviewIndex(
+      (current) => (current + delta + reviewDeck.cards.length) % reviewDeck.cards.length,
+    );
+    setRevealed(false);
+  }
 
   return (
     <Dialog
@@ -180,6 +194,18 @@ export function FlashcardsDialog() {
           </GlassButton>
           {deck && (
             <>
+              <GlassButton
+                size="sm"
+                disabled={!usable}
+                onClick={() => {
+                  setReviewing((current) => !current);
+                  setReviewIndex(0);
+                  setRevealed(false);
+                }}
+              >
+                <Play size={12} />
+                {reviewing ? t('ai.editCards') : t('ai.reviewCards')}
+              </GlassButton>
               <GlassButton size="sm" disabled={!usable} onClick={() => void exportDeck()}>
                 {t('ai.exportToAnki')}
               </GlassButton>
@@ -231,7 +257,7 @@ export function FlashcardsDialog() {
         </div>
       )}
 
-      {deck && (
+      {deck && !reviewing && (
         <div className="flex flex-col gap-2">
           <input
             value={deck.title}
@@ -293,6 +319,74 @@ export function FlashcardsDialog() {
 
           <FieldNote>{t('ai.cardsReady', { count: usable })}</FieldNote>
         </div>
+      )}
+
+      {reviewing && reviewDeck && reviewCard && (
+        <section className="flex min-h-[340px] flex-col" aria-label={t('ai.reviewCards')}>
+          <div className="mb-3 flex items-center justify-between text-[11px] text-nb-text-3">
+            <span>{reviewDeck.title}</span>
+            <span>
+              {t('ai.reviewProgress', {
+                current: reviewIndex + 1,
+                total: reviewDeck.cards.length,
+              })}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-4 rounded-nb-md border border-[var(--nb-divider)] bg-[var(--nb-paper)] p-8 text-center shadow-[var(--nb-shadow-sm)]"
+            aria-label={revealed ? t('ai.cardBack') : t('ai.cardFront')}
+            onClick={() => setRevealed((current) => !current)}
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-nb-text-3">
+              {revealed ? t('ai.answer') : t('ai.question')}
+            </span>
+            <span className="max-w-[55ch] text-[18px] leading-relaxed">
+              {revealed
+                ? reviewCard.kind === 'cloze'
+                  ? reviewCard.front.replaceAll(
+                      /\{\{c\d+::([^}|]*)(?:\|[^}]*)?\}\}/g,
+                      '$1',
+                    )
+                  : reviewCard.back
+                : reviewCard.front.replaceAll(
+                    /\{\{c\d+::([^}|]*)(?:\|[^}]*)?\}\}/g,
+                    '[…]',
+                  )}
+            </span>
+            {revealed && reviewCard.hint && (
+              <span className="text-[12px] text-nb-text-3">{reviewCard.hint}</span>
+            )}
+            <span className="text-[11px] text-nb-text-3">
+              {t('ai.flipCardHint')}
+            </span>
+          </button>
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <GlassButton
+              size="sm"
+              variant="ghost"
+              aria-label={t('ai.previousCard')}
+              onClick={() => reviewMove(-1)}
+            >
+              <ChevronLeft size={14} />
+            </GlassButton>
+            <GlassButton
+              size="sm"
+              variant="accent"
+              onClick={() => setRevealed((current) => !current)}
+            >
+              {revealed ? t('ai.showQuestion') : t('ai.showAnswer')}
+            </GlassButton>
+            <GlassButton
+              size="sm"
+              variant="ghost"
+              aria-label={t('ai.nextCard')}
+              onClick={() => reviewMove(1)}
+            >
+              <ChevronRight size={14} />
+            </GlassButton>
+          </div>
+        </section>
       )}
 
       {status && <FieldNote>{status}</FieldNote>}

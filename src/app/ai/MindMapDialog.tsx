@@ -140,6 +140,7 @@ export function MindMapDialog() {
             <MindMapViewer
               svg={result.svg}
               title={result.map.title}
+              data={result.map}
               onClose={() => setViewing(false)}
             />
           )}

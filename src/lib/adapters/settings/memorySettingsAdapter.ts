@@ -5,6 +5,10 @@ import type { AppSettings, SecretsAdapter, SettingsAdapter } from './SettingsAda
 
 let stored: Partial<AppSettings> = {};
 
+export function resetMemorySettings(): void {
+  stored = {};
+}
+
 export const memorySettingsAdapter: SettingsAdapter = {
   async load() {
     return { ...stored };

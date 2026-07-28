@@ -34,6 +34,9 @@ export interface PodcastSettings {
 }
 
 export interface AppSettings {
+  /** Set only after the starter course has been written successfully. Keeping
+   * this in settings means deleting that course later does not resurrect it. */
+  onboardingCompleted: boolean;
   locale: 'en' | 'fr';
   theme: 'light' | 'dark' | 'system';
   accentColor: AccentColor;
@@ -90,6 +93,7 @@ export interface SecretsAdapter {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  onboardingCompleted: false,
   locale: 'en',
   theme: 'system',
   accentColor: 'orange',

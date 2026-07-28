@@ -6,6 +6,7 @@
  * "everything the UI can do to a note, the MCP server can do" (PRD §4,
  * principle 6) true by construction rather than by discipline.
  */
+import i18n from '@/lib/i18n';
 
 /** Who asked. Decides the snapshot `cause` and whether the agent-activity
  * indicator lights up — an edit that arrived over MCP should never look
@@ -42,5 +43,22 @@ export function fail<T>(
   message: string,
   details?: unknown,
 ): CommandResult<T> {
-  return { ok: false, code, message, details };
+  if (!i18n.language.startsWith('fr')) return { ok: false, code, message, details };
+  const translated =
+    /cancelled|canceled/i.test(message)
+      ? i18n.t('error.cancelled')
+      : /^no note |open a note/i.test(message)
+        ? i18n.t('error.noteRequired')
+        : /^no course /i.test(message)
+          ? i18n.t('error.courseMissing')
+          : /^no section /i.test(message)
+            ? i18n.t('error.sectionMissing')
+            : /^no snapshot /i.test(message)
+              ? i18n.t('error.snapshotMissing')
+              : /nothing|empty|choose|invalid|required/i.test(message)
+                ? i18n.t('error.invalidInput')
+                : /phase [A-Z]/i.test(message)
+                  ? i18n.t('error.notAvailable')
+                  : message;
+  return { ok: false, code, message: translated, details };
 }

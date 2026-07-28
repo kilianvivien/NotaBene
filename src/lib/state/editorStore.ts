@@ -79,6 +79,7 @@ export const useEditorStore = create<EditorState>()(
     error: null,
 
     async openNote(noteId) {
+      const started = performance.now();
       // Never lose the outgoing note's edits to a click on another one.
       await get().flush();
       const note = await library.getNote(noteId);
@@ -89,6 +90,11 @@ export const useEditorStore = create<EditorState>()(
         // The first write in this open session snapshots the state the user
         // opened, so history exists immediately rather than after ten minutes.
         state.lastSnapshotAt = null;
+      });
+      performance.measure('notabene-note-open', {
+        start: started,
+        end: performance.now(),
+        detail: { noteId },
       });
     },
 

@@ -26,11 +26,21 @@ import {
   type PodcastMode,
 } from '@/lib/ai';
 import { ankiFileName, deckToAnkiTsv } from '@/lib/export/anki';
-import { concatWav } from '@/lib/podcast/wav';
-import type { DocNode, FlashcardDeck, Note, PodcastScript } from '@/lib/schema';
+import { mindMapOutline } from '@/lib/mindmap/edit';
+import { concatWav, parseWav } from '@/lib/podcast/wav';
+import {
+  MindMapSchema,
+  type DocNode,
+  type FlashcardDeck,
+  type MindMap,
+  type Note,
+  type PodcastScript,
+} from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { language, providerFor } from './aiCommands';
 import { updateNoteCommand } from './noteCommands';
+import { createNoteCommand } from './noteCommands';
+import { addAttachmentCommand } from './assetCommands';
 import { fail, ok, type CommandResult } from './types';
 
 const AI = { source: 'ai' } as const;
@@ -134,18 +144,19 @@ function slug(title: string, fallback: string): string {
  * that redrew at export time would not be the map the student looked at.
  */
 export async function exportMindMapCommand(
-  map: { svg: string; title: string },
-  format: 'svg' | 'pdf',
+  map: { svg: string; title: string; data?: MindMap },
+  format: 'svg' | 'pdf' | 'png' | 'markdown',
   destination?: string,
 ): Promise<CommandResult<string | undefined>> {
   if (!map.svg.trim()) return fail('invalid_input', 'this map has not been rendered');
 
-  const name = `${slug(map.title, 'mind-map')}.${format}`;
+  const extension = format === 'markdown' ? 'md' : format;
+  const name = `${slug(map.title, 'mind-map')}.${extension}`;
   const target =
     destination ??
     (await dialog.saveFile({
       defaultPath: name,
-      filters: [{ name: format.toUpperCase(), extensions: [format] }],
+      filters: [{ name: format.toUpperCase(), extensions: [extension] }],
     }));
   if (!target) return fail('not_supported', 'export cancelled');
 
@@ -153,10 +164,23 @@ export async function exportMindMapCommand(
     // pdfmake and its font file are megabytes, and `exportCommands.ts` already
     // keeps them out of the startup chunk for the same reason. A static import
     // here would put them back and undo that from the other side.
-    const contents =
-      format === 'svg'
-        ? new Blob([map.svg], { type: 'image/svg+xml;charset=utf-8' })
-        : await (await import('@/lib/export/pdf')).mindMapToPdf(map.svg, map.title);
+    let contents: Blob;
+    if (format === 'svg') {
+      contents = new Blob([map.svg], { type: 'image/svg+xml;charset=utf-8' });
+    } else if (format === 'pdf') {
+      contents = await (await import('@/lib/export/pdf')).mindMapToPdf(
+        map.svg,
+        map.title,
+      );
+    } else if (format === 'markdown') {
+      const parsed = MindMapSchema.safeParse(map.data);
+      if (!parsed.success) return fail('invalid_input', 'this map has no editable tree');
+      contents = new Blob([mindMapOutline(parsed.data)], {
+        type: 'text/markdown;charset=utf-8',
+      });
+    } else {
+      contents = await svgToPng(map.svg);
+    }
 
     const result = await exporter.write({
       format,
@@ -170,6 +194,52 @@ export async function exportMindMapCommand(
   } catch (error) {
     return fail('storage_failed', message(error));
   }
+}
+
+async function svgToPng(svg: string): Promise<Blob> {
+  const source = URL.createObjectURL(
+    new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }),
+  );
+  try {
+    const image = new Image();
+    image.src = source;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, image.naturalWidth);
+    canvas.height = Math.max(1, image.naturalHeight);
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('PNG export is not available');
+    context.drawImage(image, 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/png'),
+    );
+    if (!blob) throw new Error('PNG export failed');
+    return blob;
+  } finally {
+    URL.revokeObjectURL(source);
+  }
+}
+
+export async function saveMindMapAsNoteCommand(
+  map: { svg: string; title: string; data: MindMap },
+  courseId: string | null = null,
+): Promise<CommandResult<Note>> {
+  const parsed = MindMapSchema.safeParse(map.data);
+  if (!parsed.success) return fail('invalid_input', 'this map has no editable tree');
+  return createNoteCommand({
+    title: map.title,
+    courseId,
+    doc: {
+      type: 'doc',
+      content: [
+        {
+          type: 'mindMap',
+          attrs: { data: parsed.data, svg: map.svg, title: map.title },
+        },
+        ...markdownToDoc(mindMapOutline(parsed.data)).content.slice(1),
+      ],
+    },
+  });
 }
 
 // -- Flashcards --------------------------------------------------------------
@@ -493,8 +563,78 @@ export async function readAloudCommand(
   }
 }
 
-/** Save the episode as one file. See `src/lib/podcast/wav.ts` for why joining
- * the segments is safe, and why it checks rather than assumes. */
+export async function encodePodcastMp3Bytes(
+  segments: SpokenSegment[],
+): Promise<Uint8Array<ArrayBuffer>> {
+  const parts: Uint8Array[] = [];
+  for (const segment of segments) {
+    parts.push(new Uint8Array(await segment.audio.arrayBuffer()));
+  }
+  const joined = parseWav(concatWav(parts));
+  if (joined.format.bitsPerSample !== 16) {
+    throw new Error('MP3 export requires 16-bit PCM audio');
+  }
+  if (joined.format.channels !== 1 && joined.format.channels !== 2) {
+    throw new Error('MP3 export requires mono or stereo audio');
+  }
+
+  // Lazy: the encoder is useful only after an entire episode has been spoken.
+  // Keeping its inline WASM out of the startup chunk protects cold launch.
+  const { createMp3Encoder } = await import('wasm-media-encoders');
+  const encoder = await createMp3Encoder();
+  encoder.configure({
+    sampleRate: joined.format.sampleRate,
+    channels: joined.format.channels,
+    bitrate: 96,
+  });
+
+  const view = new DataView(
+    joined.samples.buffer,
+    joined.samples.byteOffset,
+    joined.samples.byteLength,
+  );
+  const frames = joined.samples.byteLength / (2 * joined.format.channels);
+  const output: Uint8Array<ArrayBuffer>[] = [];
+  const keep = (bytes: Uint8Array) => {
+    const copy = new Uint8Array(bytes.length);
+    copy.set(bytes);
+    output.push(copy);
+  };
+  const FRAME_CHUNK = 1152 * 16;
+  for (let start = 0; start < frames; start += FRAME_CHUNK) {
+    const count = Math.min(FRAME_CHUNK, frames - start);
+    const channels = Array.from(
+      { length: joined.format.channels },
+      () => new Float32Array(count),
+    );
+    for (let frame = 0; frame < count; frame += 1) {
+      for (let channel = 0; channel < channels.length; channel += 1) {
+        channels[channel]![frame] =
+          view.getInt16(((start + frame) * channels.length + channel) * 2, true) /
+          32768;
+      }
+    }
+    const encoded = encoder.encode(channels);
+    if (encoded.length) keep(encoded);
+  }
+  const final = encoder.finalize();
+  if (final.length) keep(final);
+  const total = output.reduce((sum, chunk) => sum + chunk.length, 0);
+  const combined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of output) {
+    combined.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return combined;
+}
+
+export async function encodePodcastMp3(segments: SpokenSegment[]): Promise<Blob> {
+  return new Blob([await encodePodcastMp3Bytes(segments)], { type: 'audio/mpeg' });
+}
+
+/** Save the episode as one compact MP3 file. PCM segments are joined and
+ * encoded locally; no audio or note text crosses the network. */
 export async function exportPodcastAudioCommand(
   script: PodcastScript,
   segments: SpokenSegment[],
@@ -502,31 +642,51 @@ export async function exportPodcastAudioCommand(
 ): Promise<CommandResult<string | undefined>> {
   if (!segments.length) return fail('invalid_input', 'nothing has been synthesised yet');
 
-  const name = `${slug(script.title, 'episode')}.wav`;
+  const name = `${slug(script.title, 'episode')}.mp3`;
   const target =
     destination ??
     (await dialog.saveFile({
       defaultPath: name,
-      filters: [{ name: 'WAV', extensions: ['wav'] }],
+      filters: [{ name: 'MP3 audio', extensions: ['mp3'] }],
     }));
   if (!target) return fail('not_supported', 'export cancelled');
 
   try {
-    const parts: Uint8Array[] = [];
-    for (const segment of segments) {
-      parts.push(new Uint8Array(await segment.audio.arrayBuffer()));
-    }
+    const audio = await encodePodcastMp3(segments);
     const result = await exporter.write({
       format: 'audio',
       destination: target,
       suggestedName: name,
       files: [
-        { path: name, contents: new Blob([concatWav(parts)], { type: 'audio/wav' }) },
+        { path: name, contents: audio },
       ],
     });
     return result.ok
       ? ok(result.path)
       : fail('storage_failed', result.error ?? 'export failed');
+  } catch (error) {
+    return fail('storage_failed', message(error));
+  }
+}
+
+/** Store the rendered episode beside the note through the ordinary
+ * content-addressed attachment path. */
+export async function attachPodcastAudioCommand(
+  noteId: string,
+  script: PodcastScript,
+  segments: SpokenSegment[],
+): Promise<CommandResult<string>> {
+  if (!segments.length) return fail('invalid_input', 'nothing has been synthesised yet');
+  try {
+    const name = `${slug(script.title, 'episode')}.mp3`;
+    const audio = await encodePodcastMp3(segments);
+    const attached = await addAttachmentCommand(
+      noteId,
+      new File([audio], name, { type: 'audio/mpeg' }),
+    );
+    return attached.ok
+      ? ok(attached.value.id)
+      : fail(attached.code, attached.message, attached.details);
   } catch (error) {
     return fail('storage_failed', message(error));
   }
