@@ -12,8 +12,14 @@ import { memoryLibraryAdapter } from './library/memoryLibraryAdapter';
 import { tauriLibraryAdapter } from './library/tauriLibraryAdapter';
 import { memoryAssetAdapter } from './assets/memoryAssetAdapter';
 import { tauriAssetAdapter } from './assets/tauriAssetAdapter';
-import { memorySecretsAdapter, memorySettingsAdapter } from './settings/memorySettingsAdapter';
-import { tauriSecretsAdapter, tauriSettingsAdapter } from './settings/tauriSettingsAdapter';
+import {
+  memorySecretsAdapter,
+  memorySettingsAdapter,
+} from './settings/memorySettingsAdapter';
+import {
+  tauriSecretsAdapter,
+  tauriSettingsAdapter,
+} from './settings/tauriSettingsAdapter';
 import { browserDialogAdapter } from './dialog/browserDialogAdapter';
 import { tauriDialogAdapter } from './dialog/tauriDialogAdapter';
 import { browserExportAdapter } from './export/browserExportAdapter';
@@ -22,6 +28,8 @@ import { tauriMenuAdapter, unavailableMenuAdapter } from './menu/tauriMenuAdapte
 import { fetchAiTransport } from './ai/fetchAiTransport';
 import { tauriAiTransport } from './ai/tauriAiTransport';
 import { systemTtsEngine, unavailableTtsEngine } from './tts/systemTtsEngine';
+import { voxtralTtsEngine } from './tts/voxtralTtsEngine';
+import { createTtsEngineRegistry } from './tts/ttsEngineRegistry';
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 
@@ -32,24 +40,35 @@ import type { DialogAdapter } from './dialog/DialogAdapter';
 import type { ExportAdapter } from './export/ExportAdapter';
 import type { MenuAdapter } from './menu/MenuAdapter';
 import type { AiTransport } from './ai/AiTransport';
-import type { TtsEngine } from './tts/TtsEngine';
 import type { McpAdapter } from './mcp/McpAdapter';
 
-export const library: LibraryAdapter = isTauri ? tauriLibraryAdapter : memoryLibraryAdapter;
+export const library: LibraryAdapter = isTauri
+  ? tauriLibraryAdapter
+  : memoryLibraryAdapter;
 export const assets: AssetAdapter = isTauri ? tauriAssetAdapter : memoryAssetAdapter;
 export const appSettings: SettingsAdapter = isTauri
   ? tauriSettingsAdapter
   : memorySettingsAdapter;
-export const secrets: SecretsAdapter = isTauri ? tauriSecretsAdapter : memorySecretsAdapter;
+export const secrets: SecretsAdapter = isTauri
+  ? tauriSecretsAdapter
+  : memorySecretsAdapter;
 export const dialog: DialogAdapter = isTauri ? tauriDialogAdapter : browserDialogAdapter;
-export const exporter: ExportAdapter = isTauri ? tauriExportAdapter : browserExportAdapter;
+export const exporter: ExportAdapter = isTauri
+  ? tauriExportAdapter
+  : browserExportAdapter;
 export const mcp: McpAdapter = isTauri ? tauriMcpAdapter : unavailableMcpAdapter;
 export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenuAdapter;
 // Desktop AI leaves through Rust so that a self-hosted or otherwise unusual
 // base URL does not require widening `connect-src` for the whole webview; the
 // browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
 export const aiTransport: AiTransport = isTauri ? tauriAiTransport : fetchAiTransport;
-export const tts: TtsEngine = isTauri ? systemTtsEngine : unavailableTtsEngine;
+const activeSystemTtsEngine = isTauri ? systemTtsEngine : unavailableTtsEngine;
+export const ttsRegistry = createTtsEngineRegistry(
+  activeSystemTtsEngine,
+  isTauri ? voxtralTtsEngine : unavailableTtsEngine,
+);
+/** Compatibility alias while callers migrate to the registry. */
+export const tts = activeSystemTtsEngine;
 
 export type {
   LibraryAdapter,
@@ -62,6 +81,7 @@ export type {
   AiProviderSettings,
   AppSettings,
   PodcastSettings,
+  SpeechSettings,
   SecretsAdapter,
   SettingsAdapter,
 } from './settings/SettingsAdapter';
@@ -77,7 +97,21 @@ export type {
 } from './export/ExportAdapter';
 export type { MenuAdapter, MenuNode, MenuRole } from './menu/MenuAdapter';
 export type { AiRequest, AiResponse, AiTransport } from './ai/AiTransport';
-export type { TtsEngine, TtsRequest, TtsVoice } from './tts/TtsEngine';
+export type {
+  TtsAudioEncoding,
+  TtsAudioEvent,
+  TtsEngine,
+  TtsEngineCapabilities,
+  TtsEngineId,
+  TtsEngineRegistry,
+  TtsEngineState,
+  TtsEngineSummary,
+  TtsRequest,
+  TtsSegmentResult,
+  TtsStreamRequest,
+  TtsVoice,
+} from './tts/TtsEngine';
+export { voxtralModel } from './tts/voxtralTtsEngine';
 export type {
   McpAdapter,
   McpBridgeRequest,

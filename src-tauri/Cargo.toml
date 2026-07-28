@@ -1,6 +1,6 @@
 [package]
 name = "notabene"
-version = "0.2.0"
+version = "0.3.0"
 description = "A simple, privacy-first note-taking app for students"
 authors = ["NotaBene contributors"]
 edition = "2021"
@@ -24,6 +24,8 @@ tauri-plugin-global-shortcut = "2"
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+rmp-serde = "1"
+serde_bytes = "0.11"
 thiserror = "2"
 base64 = "0.22"
 sha2 = "0.10"
@@ -45,8 +47,17 @@ rmcp = { version = "2.0", default-features = false, features = [
 ] }
 axum = "0.8"
 schemars = "1.0"
-tokio = { version = "1", features = ["net", "sync", "time", "macros", "rt"] }
+tokio = { version = "1", features = [
+    "net",
+    "sync",
+    "time",
+    "macros",
+    "rt",
+    "fs",
+    "io-util",
+] }
 tokio-util = "0.7"
+fs2 = "0.4"
 
 # AI provider traffic leaves through Rust rather than the webview's `fetch`, so
 # a user-supplied base URL is not also a CSP edit (see plan §E). Same feature

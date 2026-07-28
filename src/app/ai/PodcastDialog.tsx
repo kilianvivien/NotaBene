@@ -79,6 +79,8 @@ export function PodcastDialog() {
       ? [selectedNoteId]
       : [];
   const podcast = settings.podcast;
+  const speech = settings.speech;
+  const voiceId = speech.voicesByEngine[speech.engineId] ?? null;
   const writing = running === 'podcast';
   const speaking = running === 'speech';
 
@@ -88,7 +90,7 @@ export function PodcastDialog() {
     if (!open) return;
     let active = true;
     void (async () => {
-      const outcome = await listPodcastVoicesCommand(settings.locale);
+      const outcome = await listPodcastVoicesCommand(settings.locale, speech.engineId);
       if (!active) return;
       if (!outcome.ok) {
         setVoices([]);
@@ -99,9 +101,19 @@ export function PodcastDialog() {
       setVoicesError('');
       // Pre-select rather than leaving the picker empty: an unset voice would
       // make Speak look broken for the reason least likely to be guessed.
-      if (!outcome.value.some((voice) => voice.id === podcast.voiceId)) {
+      if (!outcome.value.some((voice) => voice.id === voiceId)) {
         const first = outcome.value[0];
-        if (first) void updateSettings({ podcast: { ...podcast, voiceId: first.id } });
+        if (first) {
+          void updateSettings({
+            speech: {
+              ...speech,
+              voicesByEngine: {
+                ...speech.voicesByEngine,
+                [speech.engineId]: first.id,
+              },
+            },
+          });
+        }
       }
     })();
     return () => {
@@ -110,7 +122,7 @@ export function PodcastDialog() {
     // `podcast` is deliberately absent: this runs when the panel opens, and
     // re-running it on every voice change would fight the user's own choice.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, settings.locale, t]);
+  }, [open, settings.locale, speech.engineId, t]);
 
   /** One object URL alive at a time. Without the revoke, a fifteen-minute
    * episode leaks every segment it played for as long as the app is open. */
@@ -122,6 +134,7 @@ export function PodcastDialog() {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = URL.createObjectURL(segment.audio);
     element.src = urlRef.current;
+    element.playbackRate = segment.playbackRate ?? 1;
     setPlaying(index);
     void element.play().catch(() => setPlaying(null));
   }
@@ -154,14 +167,17 @@ export function PodcastDialog() {
   }
 
   async function speak() {
-    if (!script || !podcast.voiceId) return;
+    if (!script || !voiceId) return;
     setError('');
     setStatus('');
     setProgress(0);
     const signal = beginRun('speech');
     const outcome = await synthesizePodcastCommand(script, {
-      voiceId: podcast.voiceId,
-      rate: podcast.rate,
+      voiceId,
+      engineId: speech.engineId,
+      rate: speech.playbackRate,
+      fallbackToSystem: speech.fallbackToSystem,
+      locale: settings.locale,
       signal,
       onProgress: (done, total) => setProgress(done / total),
     });
@@ -255,7 +271,7 @@ export function PodcastDialog() {
             <GlassButton
               size="sm"
               variant="accent"
-              disabled={speaking || !podcast.voiceId || !voices.length}
+              disabled={speaking || !voiceId || !voices.length}
               onClick={() => void speak()}
             >
               {speaking ? (
@@ -310,11 +326,17 @@ export function PodcastDialog() {
           <GlassSelect
             label={t('ai.voice')}
             size="sm"
-            value={podcast.voiceId ?? ''}
+            value={voiceId ?? ''}
             disabled={!voices.length}
             onChange={(event) =>
               void updateSettings({
-                podcast: { ...podcast, voiceId: event.target.value },
+                speech: {
+                  ...speech,
+                  voicesByEngine: {
+                    ...speech.voicesByEngine,
+                    [speech.engineId]: event.target.value,
+                  },
+                },
               })
             }
           >
@@ -331,10 +353,10 @@ export function PodcastDialog() {
           <GlassSelect
             label={t('ai.speechRate')}
             size="sm"
-            value={String(podcast.rate)}
+            value={String(speech.playbackRate)}
             onChange={(event) =>
               void updateSettings({
-                podcast: { ...podcast, rate: Number(event.target.value) },
+                speech: { ...speech, playbackRate: Number(event.target.value) },
               })
             }
           >

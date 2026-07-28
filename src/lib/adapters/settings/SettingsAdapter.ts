@@ -1,3 +1,5 @@
+import type { TtsEngineId } from '../tts/TtsEngine';
+
 /**
  * App settings and secrets.
  *
@@ -22,12 +24,17 @@ export interface AiProviderSettings {
   extraModels: string[];
 }
 
+export interface SpeechSettings {
+  engineId: TtsEngineId;
+  /** Voice ids belong to an engine and are never interchangeable. */
+  voicesByEngine: Partial<Record<TtsEngineId, string>>;
+  /** Player speed; local Voxtral v1 always synthesizes at its natural rate. */
+  playbackRate: number;
+  /** A saved, explicit local fallback preference. Never resolves to cloud. */
+  fallbackToSystem: boolean;
+}
+
 export interface PodcastSettings {
-  /** A macOS voice id, or `null` until the user has picked one — the installed
-   * voices differ per machine, so there is no default worth baking in. */
-  voiceId: string | null;
-  /** Multiplier on the voice's natural rate. */
-  rate: number;
   mode: 'narrator' | 'dialogue';
   /** Target episode length, in minutes. */
   minutes: number;
@@ -63,8 +70,9 @@ export interface AppSettings {
   /** Per-provider configuration that is *not* a secret. Keys live in the
    * Keychain and have no representation here — see the schema note in §1.6. */
   aiProviders: Record<string, AiProviderSettings>;
-  /** Remembered between episodes, because picking a voice from a list of forty
-   * is not something anyone wants to do twice. */
+  /** Speech configuration is shared by read-aloud and podcast playback. */
+  speech: SpeechSettings;
+  /** Script-specific podcast preferences. */
   podcast: PodcastSettings;
   mcpEnabled: boolean;
   mcpPort: number;
@@ -113,7 +121,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   aiFeatureModels: {},
   aiProviders: {},
-  podcast: { voiceId: null, rate: 1, mode: 'narrator', minutes: 6 },
+  speech: {
+    engineId: 'system',
+    voicesByEngine: {},
+    playbackRate: 1,
+    fallbackToSystem: false,
+  },
+  podcast: { mode: 'narrator', minutes: 6 },
   mcpEnabled: false,
   mcpPort: 22600,
   checkForUpdates: true,

@@ -13,6 +13,47 @@ interface SettingsState {
   update(patch: Partial<AppSettings>): Promise<void>;
 }
 
+interface LegacyPodcastSettings {
+  voiceId?: string | null;
+  rate?: number;
+  mode?: AppSettings['podcast']['mode'];
+  minutes?: number;
+}
+
+/**
+ * Migrate the Phase G global voice/rate fields into an engine-scoped speech
+ * configuration. Kept pure so migration can be exercised without storage.
+ */
+export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
+  const legacyPodcast = stored.podcast as
+    (Partial<AppSettings['podcast']> & LegacyPodcastSettings) | undefined;
+  const storedSpeech = stored.speech;
+  const legacyVoice = legacyPodcast?.voiceId;
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    speech: {
+      ...DEFAULT_SETTINGS.speech,
+      ...storedSpeech,
+      voicesByEngine: {
+        ...DEFAULT_SETTINGS.speech.voicesByEngine,
+        ...(legacyVoice ? { system: legacyVoice } : {}),
+        ...storedSpeech?.voicesByEngine,
+      },
+      playbackRate:
+        storedSpeech?.playbackRate ??
+        (typeof legacyPodcast?.rate === 'number'
+          ? legacyPodcast.rate
+          : DEFAULT_SETTINGS.speech.playbackRate),
+    },
+    podcast: {
+      mode: legacyPodcast?.mode ?? DEFAULT_SETTINGS.podcast.mode,
+      minutes: legacyPodcast?.minutes ?? DEFAULT_SETTINGS.podcast.minutes,
+    },
+  };
+}
+
 function resolveTheme(theme: AppSettings['theme']): 'light' | 'dark' {
   if (theme !== 'system') return theme;
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -63,7 +104,7 @@ export const useSettingsStore = create<SettingsState>()(
 
     async load() {
       const stored = await appSettings.load();
-      const merged = { ...DEFAULT_SETTINGS, ...stored };
+      const merged = migrateSettings(stored);
       applySettingsToDom(merged);
       set((state) => {
         state.settings = merged;

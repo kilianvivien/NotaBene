@@ -64,3 +64,28 @@ jobs:
       # drifting apart.
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+  voxtral-worker:
+    name: Voxtral worker protocol
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.11'
+          enable-cache: true
+
+      - run: uv lock --check
+        working-directory: sidecars/voxtral
+
+      # Protocol, PCM conversion, and cancellation tests do not download model
+      # weights. Large-weight integration belongs in the opt-in Apple Silicon
+      # release job.
+      - run: >-
+          uv run --isolated --no-project
+          --with msgpack==1.1.1
+          --with numpy==2.3.2
+          --with pytest==8.4.1
+          pytest
+        working-directory: sidecars/voxtral

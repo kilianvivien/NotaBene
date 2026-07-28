@@ -18,6 +18,7 @@
 import { create } from 'zustand';
 import { listPodcastVoicesCommand, readAloudCommand } from '@/lib/commands';
 import type { SpokenSegment } from '@/lib/commands';
+import { PcmStreamPlayer } from '@/lib/audio/pcmStreamPlayer';
 import { useSettingsStore } from './settingsStore';
 
 export type SpeechStatus = 'idle' | 'preparing' | 'playing' | 'paused';
@@ -42,6 +43,9 @@ let objectUrl: string | null = null;
 let controller: AbortController | null = null;
 let queue: SpokenSegment[] = [];
 let cursor = 0;
+let audioContext: AudioContext | null = null;
+let pcmPlayer: PcmStreamPlayer | null = null;
+let streaming = false;
 
 function element(): HTMLAudioElement {
   if (!audio) {
@@ -92,48 +96,103 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
     get().stop();
 
     const settings = useSettingsStore.getState().settings;
-    let voiceId = settings.podcast.voiceId;
+    const speech = settings.speech;
+    let voiceId = speech.voicesByEngine[speech.engineId];
 
     // The reader has no voice picker of its own — it borrows the podcast's, and
     // resolves one the first time so pressing play never fails for a reason
     // that reads as "nothing happened".
     if (!voiceId) {
-      const voices = await listPodcastVoicesCommand(settings.locale);
+      let voices = await listPodcastVoicesCommand(settings.locale, speech.engineId);
+      if (!voices.ok && speech.engineId !== 'system' && speech.fallbackToSystem) {
+        voices = await listPodcastVoicesCommand(settings.locale, 'system');
+      }
       if (!voices.ok || !voices.value.length) {
         set({ status: 'idle', error: voices.ok ? 'no voices' : voices.message });
         return;
       }
       voiceId = voices.value[0]!.id;
-      void useSettingsStore
-        .getState()
-        .update({ podcast: { ...settings.podcast, voiceId } });
+      void useSettingsStore.getState().update({
+        speech: {
+          ...speech,
+          voicesByEngine: {
+            ...speech.voicesByEngine,
+            [speech.engineId]: voiceId,
+          },
+        },
+      });
     }
 
     controller = new AbortController();
     const signal = controller.signal;
     queue = [];
     cursor = 0;
+    streaming = speech.engineId === 'voxtral-local';
+    if (streaming) {
+      audioContext ??= new AudioContext();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+      pcmPlayer?.stop();
+      pcmPlayer = new PcmStreamPlayer(audioContext);
+    }
+    let receivedPcm = false;
     set({ status: 'preparing', done: 0, total: 0, error: '' });
 
     const outcome = await readAloudCommand(text, {
       voiceId,
-      rate: settings.podcast.rate,
+      engineId: speech.engineId,
+      rate: speech.playbackRate,
+      fallbackToSystem: speech.fallbackToSystem,
+      locale: settings.locale,
       signal,
       onChunk: (chunk, index, total) => {
         if (signal.aborted) return;
+        if (streaming && receivedPcm) {
+          set({ done: index + 1, total });
+          return;
+        }
+        // A saved local fallback can resolve to the system engine before any
+        // PCM arrives. Switch back to the completed-WAV queue in that case.
+        if (streaming) {
+          pcmPlayer?.stop();
+          streaming = false;
+        }
         queue.push(chunk);
         set({ done: index + 1, total });
         // Start the moment the first chunk exists, and only then.
         if (get().status === 'preparing') playNext();
       },
+      onPcmChunk: streaming
+        ? async (pcm, index, total) => {
+            if (signal.aborted || !pcmPlayer) return;
+            receivedPcm = true;
+            set({ status: 'playing', done: index, total });
+            await pcmPlayer.enqueue(pcm, speech.playbackRate, signal);
+          }
+        : undefined,
     });
 
     if (signal.aborted) return;
-    if (!outcome.ok) set({ status: 'idle', error: outcome.message });
+    if (!outcome.ok) {
+      get().stop();
+      set({ status: 'idle', error: outcome.message });
+    } else if (streaming && pcmPlayer) {
+      await pcmPlayer.drain(signal);
+      if (!signal.aborted) get().stop();
+    }
     // Synthesis finishing does not end playback — the queue is still draining.
   },
 
   toggle() {
+    if (streaming && audioContext) {
+      if (get().status === 'playing') {
+        void audioContext.suspend();
+        set({ status: 'paused' });
+      } else if (get().status === 'paused') {
+        void audioContext.resume();
+        set({ status: 'playing' });
+      }
+      return;
+    }
     const player = audio;
     if (!player) return;
     if (get().status === 'playing') {
@@ -153,6 +212,8 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
     release();
     queue = [];
     cursor = 0;
+    pcmPlayer?.stop();
+    streaming = false;
     set({ status: 'idle', done: 0, total: 0 });
   },
 }));

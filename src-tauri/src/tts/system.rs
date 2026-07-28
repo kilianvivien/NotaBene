@@ -1,4 +1,4 @@
-//! Text-to-speech, over the `say` command.
+//! System text-to-speech, over the `say` command.
 //!
 //! `say(1)` is macOS's own front end to the same speech synthesis the system
 //! uses everywhere else, including the premium voices a user has downloaded in
@@ -100,8 +100,7 @@ where
         .map_err(|error| format!("{what} failed: {error}"))?
 }
 
-#[tauri::command]
-pub async fn tts_system_available() -> bool {
+pub async fn available() -> bool {
     if !cfg!(target_os = "macos") {
         return false;
     }
@@ -167,8 +166,7 @@ fn parse_voices(listing: &str) -> Vec<TtsVoice> {
     voices
 }
 
-#[tauri::command]
-pub async fn tts_system_voices() -> Result<Vec<TtsVoice>, String> {
+pub async fn voices() -> Result<Vec<TtsVoice>, String> {
     if !cfg!(target_os = "macos") {
         return Err("system speech is only available on macOS".into());
     }
@@ -213,8 +211,7 @@ fn duration_ms(wav: &[u8]) -> u64 {
 }
 
 #[cfg(target_os = "macos")]
-#[tauri::command]
-pub async fn tts_system_synthesize(request: TtsRequest) -> Result<TtsSegment, String> {
+pub async fn synthesize_segment(request: TtsRequest) -> Result<TtsSegment, String> {
     off_thread("speech synthesis", move || synthesize(request)).await
 }
 
@@ -233,10 +230,8 @@ fn synthesize(request: TtsRequest) -> Result<TtsSegment, String> {
     // A temporary file rather than a pipe: `say` will not write audio to
     // stdout, and a named output is also what lets it choose the container.
     let serial = SEGMENT_SERIAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let path = std::env::temp_dir().join(format!(
-        "notabene-tts-{}-{serial}.wav",
-        std::process::id()
-    ));
+    let path =
+        std::env::temp_dir().join(format!("notabene-tts-{}-{serial}.wav", std::process::id()));
     let _ = std::fs::remove_file(&path);
 
     let mut command = Command::new("/usr/bin/say");
@@ -325,8 +320,7 @@ fn synthesize(request: TtsRequest) -> Result<TtsSegment, String> {
 /// a feature that cannot work here should say why, not return empty audio the
 /// player would show as a zero-second episode.
 #[cfg(not(target_os = "macos"))]
-#[tauri::command]
-pub fn tts_system_synthesize(_request: TtsRequest) -> Result<TtsSegment, String> {
+pub async fn synthesize_segment(_request: TtsRequest) -> Result<TtsSegment, String> {
     Err("system speech is only available on macOS".into())
 }
 

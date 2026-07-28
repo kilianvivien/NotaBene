@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Type,
+  Volume2,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +41,7 @@ import { BackupSettings } from './BackupSettings';
 import { AiProviderSettings } from './AiProviderSettings';
 import { AgentSettings } from './AgentSettings';
 import { AboutSettings } from './AboutSettings';
+import { SpeechSettings } from './SpeechSettings';
 
 interface TabEntry {
   id: SettingsTab;
@@ -58,7 +60,10 @@ const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
   },
   {
     labelKey: 'settings.groupContent',
-    tabs: [{ id: 'backups', icon: DatabaseBackup }],
+    tabs: [
+      { id: 'speech', icon: Volume2 },
+      { id: 'backups', icon: DatabaseBackup },
+    ],
   },
   {
     labelKey: 'settings.groupConnections',
@@ -267,6 +272,7 @@ export function SettingsWindow() {
             )}
 
             {tab === 'backups' && <BackupSettings />}
+            {tab === 'speech' && <SpeechSettings />}
             {tab === 'aiProviders' && <AiProviderSettings />}
             {tab === 'agent' && <AgentSettings />}
             {tab === 'about' && <AboutSettings />}

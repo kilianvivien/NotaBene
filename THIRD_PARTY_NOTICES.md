@@ -24,3 +24,20 @@ The dependency packages contain their complete licence texts.
 | rusqlite / SQLite | MIT / public domain | Local persistence and search |
 
 The bundled Lora font is distributed under the SIL Open Font License 1.1.
+
+## Optional Voxtral local speech
+
+NotaBene does not bundle or redistribute Voxtral model weights. A user may
+explicitly download the pinned MLX conversion from:
+
+- Model: `mlx-community/Voxtral-4B-TTS-2603-mlx-4bit`
+- Revision: `f98fc91b9cb5adc7dab56102c690458276c14c6a`
+- License: Creative Commons Attribution-NonCommercial 4.0 International
+- Upstream model: `mistralai/Voxtral-4B-TTS-2603`
+
+The separately built worker uses `mlx-audio` 0.4.6 and the dependency versions
+recorded in `sidecars/voxtral/uv.lock`. Release artifacts must include the
+generated Python dependency license report and SBOM.
+
+NotaBene is an open-source, nonprofit project. This records the project's
+intended non-commercial use and is not legal advice.

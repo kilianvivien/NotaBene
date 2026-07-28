@@ -15,7 +15,16 @@
  * resolution should have one implementation, not four.
  */
 import { markdownToDoc } from '@/editor/markdown';
-import { dialog, exporter, library, tts, type TtsVoice } from '@/lib/adapters';
+import {
+  dialog,
+  exporter,
+  library,
+  ttsRegistry,
+  type TtsEngine,
+  type TtsEngineId,
+  type TtsVoice,
+} from '@/lib/adapters';
+import { decodeBase64Pcm } from '@/lib/audio/pcm';
 import {
   requestFlashcards,
   requestMindMap,
@@ -27,7 +36,7 @@ import {
 } from '@/lib/ai';
 import { ankiFileName, deckToAnkiTsv } from '@/lib/export/anki';
 import { mindMapOutline } from '@/lib/mindmap/edit';
-import { concatWav, parseWav } from '@/lib/podcast/wav';
+import { concatWav, encodeWav, parseWav } from '@/lib/podcast/wav';
 import {
   MindMapSchema,
   type DocNode,
@@ -37,6 +46,7 @@ import {
   type PodcastScript,
 } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { normalizeSpeechText, speechRequests } from '@/lib/tts/normalizeSpeechText';
 import { language, providerFor } from './aiCommands';
 import { updateNoteCommand } from './noteCommands';
 import { createNoteCommand } from './noteCommands';
@@ -168,10 +178,9 @@ export async function exportMindMapCommand(
     if (format === 'svg') {
       contents = new Blob([map.svg], { type: 'image/svg+xml;charset=utf-8' });
     } else if (format === 'pdf') {
-      contents = await (await import('@/lib/export/pdf')).mindMapToPdf(
-        map.svg,
-        map.title,
-      );
+      contents = await (
+        await import('@/lib/export/pdf')
+      ).mindMapToPdf(map.svg, map.title);
     } else if (format === 'markdown') {
       const parsed = MindMapSchema.safeParse(map.data);
       if (!parsed.success) return fail('invalid_input', 'this map has no editable tree');
@@ -408,6 +417,8 @@ export async function proposePodcastScriptCommand(
 export interface SpokenSegment {
   audio: Blob;
   durationMs: number;
+  /** Applied by the player only; exported PCM remains at natural speed. */
+  playbackRate?: number;
 }
 
 /**
@@ -420,12 +431,14 @@ export interface SpokenSegment {
  */
 export async function listPodcastVoicesCommand(
   locale: string,
+  engineId: TtsEngineId = 'system',
 ): Promise<CommandResult<TtsVoice[]>> {
   try {
-    if (!(await tts.isAvailable())) {
+    const engine = ttsRegistry.get(engineId);
+    if (!(await engine.isAvailable())) {
       return fail('not_supported', 'text-to-speech is not available on this system');
     }
-    const voices = await tts.listVoices();
+    const voices = await engine.listVoices();
     const matching = voices.filter((voice) =>
       voice.locale.toLowerCase().startsWith(locale.slice(0, 2).toLowerCase()),
     );
@@ -433,6 +446,23 @@ export async function listPodcastVoicesCommand(
   } catch (error) {
     return fail('not_supported', message(error));
   }
+}
+
+async function resolveSpeechEngine(engineId: TtsEngineId): Promise<TtsEngine> {
+  return ttsRegistry.resolveConfiguredEngine(engineId);
+}
+
+async function systemFallback(
+  locale = 'en',
+): Promise<{ engine: TtsEngine; voiceId: string }> {
+  const engine = await ttsRegistry.resolveConfiguredEngine('system');
+  const voices = await engine.listVoices();
+  const voice =
+    voices.find((candidate) =>
+      candidate.locale.toLowerCase().startsWith(locale.slice(0, 2).toLowerCase()),
+    ) ?? voices[0];
+  if (!voice) throw new Error('text-to-speech is not available on this system');
+  return { engine, voiceId: voice.id };
 }
 
 /**
@@ -447,7 +477,10 @@ export async function synthesizePodcastCommand(
   script: PodcastScript,
   options: {
     voiceId: string;
+    engineId?: TtsEngineId;
     rate?: number;
+    fallbackToSystem?: boolean;
+    locale?: string;
     signal?: AbortSignal;
     onProgress?(done: number, total: number): void;
   },
@@ -457,13 +490,46 @@ export async function synthesizePodcastCommand(
 
   const spoken: SpokenSegment[] = [];
   try {
+    let engine: TtsEngine;
+    let voiceId = options.voiceId;
+    try {
+      engine = await resolveSpeechEngine(options.engineId ?? 'system');
+    } catch (error) {
+      if ((options.engineId ?? 'system') === 'system' || !options.fallbackToSystem) {
+        throw error;
+      }
+      ({ engine, voiceId } = await systemFallback(options.locale));
+    }
+    let playbackRate =
+      (await engine.capabilities()).supportsRate === 'playback'
+        ? options.rate
+        : undefined;
     for (const [index, segment] of script.segments.entries()) {
       if (options.signal?.aborted) return fail('not_supported', 'cancelled');
-      const result = await tts.synthesize(
-        { text: segment.text, voiceId: options.voiceId, rate: options.rate },
-        options.signal,
-      );
-      spoken.push({ audio: result.audio, durationMs: result.durationMs });
+      const request = {
+        text: normalizeSpeechText(segment.text, options.locale),
+        voiceId,
+        rate: options.rate,
+      };
+      let result;
+      try {
+        result = await engine.synthesize(request, options.signal);
+      } catch (error) {
+        // One-shot synthesis has delivered no audio when it rejects, so a saved
+        // local fallback preference is safe only before the first segment.
+        if (index === 0 && engine.id !== 'system' && options.fallbackToSystem) {
+          playbackRate = undefined;
+          ({ engine, voiceId } = await systemFallback(options.locale));
+          result = await engine.synthesize({ ...request, voiceId }, options.signal);
+        } else {
+          throw error;
+        }
+      }
+      spoken.push({
+        audio: result.audio,
+        durationMs: result.durationMs,
+        playbackRate,
+      });
       options.onProgress?.(index + 1, script.segments.length);
     }
     return ok(spoken);
@@ -533,24 +599,110 @@ export async function readAloudCommand(
   text: string,
   options: {
     voiceId: string;
+    engineId?: TtsEngineId;
     rate?: number;
+    fallbackToSystem?: boolean;
+    locale?: string;
     signal?: AbortSignal;
-    onChunk(chunk: SpokenSegment, index: number, total: number): void;
+    onChunk?(chunk: SpokenSegment, index: number, total: number): void;
+    onPcmChunk?(pcm: Uint8Array, index: number, total: number): void | Promise<void>;
   },
 ): Promise<CommandResult<number>> {
-  const chunks = speechChunks(text);
+  const chunks =
+    options.engineId === 'voxtral-local'
+      ? speechRequests(text, options.locale)
+      : speechChunks(normalizeSpeechText(text, options.locale));
   if (!chunks.length) return fail('invalid_input', 'there is nothing to read');
   if (!options.voiceId) return fail('invalid_input', 'choose a voice first');
 
   try {
+    let engine: TtsEngine;
+    let voiceId = options.voiceId;
+    try {
+      engine = await resolveSpeechEngine(options.engineId ?? 'system');
+    } catch (error) {
+      if ((options.engineId ?? 'system') === 'system' || !options.fallbackToSystem) {
+        throw error;
+      }
+      ({ engine, voiceId } = await systemFallback(options.locale));
+    }
+    let capabilities = await engine.capabilities();
     for (const [index, chunk] of chunks.entries()) {
       if (options.signal?.aborted) return ok(index);
-      const result = await tts.synthesize(
-        { text: chunk, voiceId: options.voiceId, rate: options.rate },
-        options.signal,
-      );
+      let result;
+      let deliveredAudio = false;
+      try {
+        if (capabilities.streaming && options.onPcmChunk) {
+          const parts: Uint8Array[] = [];
+          let durationMs = 0;
+          for await (const event of engine.synthesizeStream(
+            {
+              text: chunk,
+              voiceId,
+              playbackRate: options.rate,
+              requestId: crypto.randomUUID(),
+            },
+            options.signal,
+          )) {
+            if (event.type === 'audio') {
+              deliveredAudio = true;
+              const pcm = decodeBase64Pcm(event.dataBase64);
+              if (pcm.byteLength !== event.sampleCount * 2) {
+                throw new Error('TTS_AUDIO_INVALID: PCM sample count mismatch');
+              }
+              parts.push(pcm);
+              await options.onPcmChunk(pcm, index, chunks.length);
+            } else if (event.type === 'done') {
+              durationMs = event.durationMs;
+            }
+          }
+          const length = parts.reduce((sum, part) => sum + part.byteLength, 0);
+          const samples = new Uint8Array(length);
+          let offset = 0;
+          for (const part of parts) {
+            samples.set(part, offset);
+            offset += part.byteLength;
+          }
+          if (!samples.length)
+            throw new Error('TTS_AUDIO_INVALID: no audio was produced');
+          result = {
+            audio: new Blob(
+              [
+                encodeWav({
+                  format: { sampleRate: 24_000, channels: 1, bitsPerSample: 16 },
+                  samples,
+                }),
+              ],
+              { type: 'audio/wav' },
+            ),
+            durationMs:
+              durationMs || Math.round((samples.byteLength / 2 / 24_000) * 1000),
+          };
+        } else {
+          result = await engine.synthesize(
+            { text: chunk, voiceId, rate: options.rate },
+            options.signal,
+          );
+        }
+      } catch (error) {
+        if (
+          index === 0 &&
+          !deliveredAudio &&
+          engine.id !== 'system' &&
+          options.fallbackToSystem
+        ) {
+          ({ engine, voiceId } = await systemFallback(options.locale));
+          capabilities = await engine.capabilities();
+          result = await engine.synthesize(
+            { text: chunk, voiceId, rate: options.rate },
+            options.signal,
+          );
+        } else {
+          throw error;
+        }
+      }
       if (options.signal?.aborted) return ok(index);
-      options.onChunk(
+      options.onChunk?.(
         { audio: result.audio, durationMs: result.durationMs },
         index,
         chunks.length,
@@ -610,8 +762,7 @@ export async function encodePodcastMp3Bytes(
     for (let frame = 0; frame < count; frame += 1) {
       for (let channel = 0; channel < channels.length; channel += 1) {
         channels[channel]![frame] =
-          view.getInt16(((start + frame) * channels.length + channel) * 2, true) /
-          32768;
+          view.getInt16(((start + frame) * channels.length + channel) * 2, true) / 32768;
       }
     }
     const encoded = encoder.encode(channels);
@@ -657,9 +808,7 @@ export async function exportPodcastAudioCommand(
       format: 'audio',
       destination: target,
       suggestedName: name,
-      files: [
-        { path: name, contents: audio },
-      ],
+      files: [{ path: name, contents: audio }],
     });
     return result.ok
       ? ok(result.path)
