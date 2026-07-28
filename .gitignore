@@ -13,11 +13,6 @@ dist
 dist-ssr
 src-tauri/target
 src-tauri/gen
-src-tauri/sidecars/voxtral-worker-*
-sidecars/voxtral/build
-sidecars/voxtral/.venv
-sidecars/voxtral/__pycache__/
-sidecars/voxtral/.pytest_cache/
 
 # Test / coverage artifacts
 coverage

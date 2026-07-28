@@ -5,7 +5,7 @@
   "identifier": "app.notabene.desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build && pnpm voxtral:prepare",
+    "beforeBuildCommand": "pnpm build",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"
   },
@@ -46,7 +46,6 @@
     "copyright": "Copyright © 2026 NotaBene contributors",
     "createUpdaterArtifacts": false,
     "icon": ["icons/icon.icns", "icons/128x128@2x.png", "icons/128x128.png"],
-    "resources": ["resources/voxtral-model-manifest.json", "sidecars/**/*"],
     "macOS": {
       "minimumSystemVersion": "13.0",
       "signingIdentity": "-"

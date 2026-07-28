@@ -1,12 +1,11 @@
 /**
  * Engine-neutral text-to-speech contract.
  *
- * Streams are the primary operation. `synthesize` remains as a convenience for
- * exports and for the system engine, which can only return a completed WAV.
- * Callers inspect capabilities instead of inferring them from an engine id.
+ * Every engine returns a completed segment: macOS `say(1)` and the hosted
+ * Voxtral TTS API both do. Callers inspect capabilities instead of inferring
+ * them from an engine id.
  */
-export type TtsEngineId =
-  'system' | 'voxtral-local' | 'mistral-api' | 'openai-compatible';
+export type TtsEngineId = 'system' | 'mistral-api' | 'openai-compatible';
 
 export interface TtsVoice {
   id: string;
@@ -32,59 +31,9 @@ export interface TtsEngineCapabilities {
 export type TtsEngineState =
   | { kind: 'unsupported'; reason: string; code?: string }
   | { kind: 'not_configured' }
-  | { kind: 'not_installed' }
-  | { kind: 'downloading'; downloadedBytes: number; totalBytes: number }
-  | { kind: 'verifying' }
-  | { kind: 'installed' }
-  | { kind: 'loading' }
   | { kind: 'ready' }
-  | { kind: 'busy'; jobId: string }
   | { kind: 'error'; code: string; recoverable: boolean; message?: string };
 
-export interface TtsStreamRequest {
-  text: string;
-  voiceId: string;
-  /** Player speed. Engines expose whether they apply it during synthesis. */
-  playbackRate?: number;
-  requestId: string;
-}
-
-export type TtsAudioEvent =
-  | {
-      type: 'started';
-      requestId: string;
-      sampleRateHz: number;
-      channels: 1 | 2;
-      encoding: TtsAudioEncoding;
-    }
-  | {
-      type: 'audio';
-      requestId: string;
-      sequence: number;
-      dataBase64: string;
-      /** PCM frames for raw PCM, or the decoded frame count for a container. */
-      sampleCount: number;
-    }
-  | {
-      type: 'progress';
-      requestId: string;
-      generatedSamples: number;
-    }
-  | {
-      type: 'done';
-      requestId: string;
-      totalSamples: number;
-      durationMs: number;
-    }
-  | {
-      type: 'error';
-      requestId: string;
-      code: string;
-      message: string;
-      recoverable: boolean;
-    };
-
-/** Legacy alias retained for call sites that build one-shot requests. */
 export interface TtsRequest {
   text: string;
   voiceId: string;
@@ -107,10 +56,6 @@ export interface TtsEngine {
   /** Compatibility convenience for older capability checks. */
   isAvailable(): Promise<boolean>;
   listVoices(): Promise<TtsVoice[]>;
-  synthesizeStream(
-    request: TtsStreamRequest,
-    signal?: AbortSignal,
-  ): AsyncIterable<TtsAudioEvent>;
   synthesize(request: TtsRequest, signal?: AbortSignal): Promise<TtsSegmentResult>;
 }
 

@@ -4,8 +4,8 @@
  * Separate from the podcast panel on purpose. The podcast is a produced thing —
  * a model writes a script, you read it, then you decide to have it spoken. This
  * is the other half of the same want: the note, as written, out loud, one click
- * from the toolbar. The selected engine owns the privacy boundary: system and
- * local voices stay on-device; hosted Voxtral is an explicit Mistral request.
+ * from the toolbar. The selected engine owns the privacy boundary: macOS
+ * system voices stay on-device; hosted Voxtral is an explicit Mistral request.
  *
  * Playback is a queue rather than one file. Synthesis of a long note takes
  * tens of seconds, so the first chunk starts playing while the rest are still
@@ -19,16 +19,15 @@
 import { create } from 'zustand';
 import { listPodcastVoicesCommand, readAloudCommand } from '@/lib/commands';
 import type { SpokenSegment } from '@/lib/commands';
-import { PcmStreamPlayer } from '@/lib/audio/pcmStreamPlayer';
 import { useSettingsStore } from './settingsStore';
 
 export type SpeechStatus = 'idle' | 'preparing' | 'playing' | 'paused';
-export type SpeechPhase = '' | 'loading' | 'generating';
+export type SpeechPhase = '' | 'generating';
 
 interface SpeechState {
   status: SpeechStatus;
   /** A reader-facing explanation for the otherwise silent gap before the
-   * first PCM chunk. */
+   * first chunk. */
   phase: SpeechPhase;
   /** Chunks spoken so far, and how many there will be. Drives the progress
    * ring on the toolbar button. */
@@ -48,9 +47,6 @@ let objectUrl: string | null = null;
 let controller: AbortController | null = null;
 let queue: SpokenSegment[] = [];
 let cursor = 0;
-let audioContext: AudioContext | null = null;
-let pcmPlayer: PcmStreamPlayer | null = null;
-let streaming = false;
 
 function element(): HTMLAudioElement {
   if (!audio) {
@@ -132,17 +128,9 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
     const signal = controller.signal;
     queue = [];
     cursor = 0;
-    streaming = speech.engineId === 'voxtral-local';
-    if (streaming) {
-      audioContext ??= new AudioContext();
-      if (audioContext.state === 'suspended') await audioContext.resume();
-      pcmPlayer?.stop();
-      pcmPlayer = new PcmStreamPlayer(audioContext);
-    }
-    let receivedPcm = false;
     set({
       status: 'preparing',
-      phase: speech.engineId === 'voxtral-local' ? 'loading' : 'generating',
+      phase: 'generating',
       done: 0,
       total: 0,
       error: '',
@@ -158,53 +146,22 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
       onSynthesisStart: () => set({ phase: 'generating' }),
       onChunk: (chunk, index, total) => {
         if (signal.aborted) return;
-        if (streaming && receivedPcm) {
-          set({ done: index + 1, total, phase: '' });
-          return;
-        }
-        // A saved neural-engine fallback can resolve to the system engine before any
-        // PCM arrives. Switch back to the completed-WAV queue in that case.
-        if (streaming) {
-          pcmPlayer?.stop();
-          streaming = false;
-        }
         queue.push(chunk);
         set({ done: index + 1, total, phase: '' });
         // Start the moment the first chunk exists, and only then.
         if (get().status === 'preparing') playNext();
       },
-      onPcmChunk: streaming
-        ? async (pcm, index, total) => {
-            if (signal.aborted || !pcmPlayer) return;
-            receivedPcm = true;
-            set({ status: 'playing', phase: '', done: index, total });
-            await pcmPlayer.enqueue(pcm, speech.playbackRate, signal);
-          }
-        : undefined,
     });
 
     if (signal.aborted) return;
     if (!outcome.ok) {
       get().stop();
       set({ status: 'idle', phase: '', error: outcome.message });
-    } else if (streaming && pcmPlayer) {
-      await pcmPlayer.drain(signal);
-      if (!signal.aborted) get().stop();
     }
     // Synthesis finishing does not end playback — the queue is still draining.
   },
 
   toggle() {
-    if (streaming && audioContext) {
-      if (get().status === 'playing') {
-        void audioContext.suspend();
-        set({ status: 'paused' });
-      } else if (get().status === 'paused') {
-        void audioContext.resume();
-        set({ status: 'playing' });
-      }
-      return;
-    }
     const player = audio;
     if (!player) return;
     if (get().status === 'playing') {
@@ -224,8 +181,6 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
     release();
     queue = [];
     cursor = 0;
-    pcmPlayer?.stop();
-    streaming = false;
     set({ status: 'idle', phase: '', done: 0, total: 0 });
   },
 }));

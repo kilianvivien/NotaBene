@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createTtsEngineRegistry } from '@/lib/adapters/tts/ttsEngineRegistry';
 import type {
-  TtsAudioEvent,
   TtsEngine,
   TtsEngineCapabilities,
   TtsEngineState,
 } from '@/lib/adapters/tts/TtsEngine';
-import { pcm16ToFloat32 } from '@/lib/audio/pcm';
-import { encodeWav, parseWav } from '@/lib/podcast/wav';
 import { migrateSettings } from '@/lib/state/settingsStore';
-import { normalizeSpeechText, speechRequests } from './normalizeSpeechText';
+import { normalizeSpeechText } from './normalizeSpeechText';
 
 const CAPABILITIES: TtsEngineCapabilities = {
   local: true,
@@ -40,14 +37,6 @@ function fakeEngine(
     async listVoices() {
       return [];
     },
-    async *synthesizeStream(request): AsyncIterable<TtsAudioEvent> {
-      yield {
-        type: 'done',
-        requestId: request.requestId,
-        totalSamples: 0,
-        durationMs: 0,
-      };
-    },
     async synthesize() {
       throw new Error('unused');
     },
@@ -77,14 +66,30 @@ describe('speech settings migration', () => {
   it('preserves an already migrated engine-scoped voice', () => {
     const migrated = migrateSettings({
       speech: {
-        engineId: 'voxtral-local',
-        voicesByEngine: { 'voxtral-local': 'fr_female' },
+        engineId: 'mistral-api',
+        voicesByEngine: { 'mistral-api': 'fr_female' },
         playbackRate: 0.9,
         fallbackToSystem: true,
       },
     });
-    expect(migrated.speech.voicesByEngine['voxtral-local']).toBe('fr_female');
-    expect(migrated.speech.engineId).toBe('voxtral-local');
+    expect(migrated.speech.voicesByEngine['mistral-api']).toBe('fr_female');
+    expect(migrated.speech.engineId).toBe('mistral-api');
+  });
+
+  it('retires a saved engine this build no longer ships', () => {
+    const migrated = migrateSettings({
+      speech: {
+        engineId: 'voxtral-local',
+        voicesByEngine: { 'voxtral-local': 'fr_female', system: 'Ava' },
+        playbackRate: 0.9,
+        fallbackToSystem: true,
+      },
+    } as unknown as Parameters<typeof migrateSettings>[0]);
+    // Otherwise the app would ask a registry that has no such engine, and the
+    // play button would fail for a reason the user cannot see or fix.
+    expect(migrated.speech.engineId).toBe('system');
+    expect(migrated.speech.voicesByEngine).toEqual({ system: 'Ava' });
+    expect(migrated.speech.playbackRate).toBe(0.9);
   });
 });
 
@@ -92,15 +97,10 @@ describe('engine registry', () => {
   it('exposes capabilities and state without guessing from the id', async () => {
     const registry = createTtsEngineRegistry(
       fakeEngine('system'),
-      fakeEngine('voxtral-local', { kind: 'not_installed' }),
       fakeEngine('mistral-api', { kind: 'not_configured' }),
     );
     await expect(registry.available()).resolves.toEqual([
       expect.objectContaining({ id: 'system', state: { kind: 'ready' } }),
-      expect.objectContaining({
-        id: 'voxtral-local',
-        state: { kind: 'not_installed' },
-      }),
       expect.objectContaining({
         id: 'mistral-api',
         state: { kind: 'not_configured' },
@@ -111,7 +111,6 @@ describe('engine registry', () => {
   it('never materializes an unimplemented cloud fallback', () => {
     const registry = createTtsEngineRegistry(
       fakeEngine('system'),
-      fakeEngine('voxtral-local'),
       fakeEngine('mistral-api'),
     );
     expect(() => registry.get('openai-compatible')).toThrow(/not configured/);
@@ -129,36 +128,5 @@ describe('deterministic speech normalization', () => {
       expect(normalized).not.toContain(visual);
     }
     expect(normalized).not.toContain('🧪');
-  });
-
-  it('keeps every Voxtral request below the word and character ceilings', () => {
-    const requests = speechRequests(`${'word '.repeat(700)}.`, 'en');
-    expect(requests.length).toBeGreaterThan(2);
-    for (const request of requests) {
-      expect(request.split(/\s+/).length).toBeLessThanOrEqual(280);
-      expect(request.length).toBeLessThanOrEqual(1_600);
-    }
-  });
-});
-
-describe('PCM streaming utilities', () => {
-  it('decodes little-endian PCM16 into bounded Web Audio samples', () => {
-    const bytes = new Uint8Array([0x00, 0x80, 0x00, 0x00, 0xff, 0x7f]);
-    expect([...pcm16ToFloat32(bytes)]).toEqual([-1, 0, 1]);
-    expect(() => pcm16ToFloat32(new Uint8Array([0]))).toThrow(/odd/);
-  });
-
-  it('wraps Voxtral PCM in one valid 24 kHz WAV', () => {
-    const wav = encodeWav({
-      format: { sampleRate: 24_000, channels: 1, bitsPerSample: 16 },
-      samples: new Uint8Array(48_000),
-    });
-    const parsed = parseWav(wav);
-    expect(parsed.format).toEqual({
-      sampleRate: 24_000,
-      channels: 1,
-      bitsPerSample: 16,
-    });
-    expect(parsed.samples).toHaveLength(48_000);
   });
 });

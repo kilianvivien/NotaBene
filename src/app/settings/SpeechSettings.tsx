@@ -1,12 +1,4 @@
-import {
-  Cloud,
-  Download,
-  ExternalLink,
-  HardDrive,
-  Loader2,
-  Trash2,
-  Volume2,
-} from 'lucide-react';
+import { Cloud, ExternalLink, Loader2, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -20,7 +12,6 @@ import {
 import {
   secrets,
   ttsRegistry,
-  voxtralModel,
   type TtsEngineId,
   type TtsEngineSummary,
   type TtsVoice,
@@ -30,7 +21,7 @@ import { listPodcastVoicesCommand } from '@/lib/commands';
 import { useSpeechStore } from '@/lib/state/speechStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 
-const DISPLAYED_ENGINES: TtsEngineId[] = ['system', 'voxtral-local', 'mistral-api'];
+const DISPLAYED_ENGINES: TtsEngineId[] = ['system', 'mistral-api'];
 const RATES = [0.8, 0.9, 1, 1.15, 1.3];
 
 export function SpeechSettings() {
@@ -39,7 +30,6 @@ export function SpeechSettings() {
   const locale = useSettingsStore((state) => state.settings.locale);
   const update = useSettingsStore((state) => state.update);
   const [engines, setEngines] = useState<TtsEngineSummary[]>([]);
-  const [accepted, setAccepted] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const [mistralKey, setMistralKey] = useState('');
@@ -59,8 +49,6 @@ export function SpeechSettings() {
     void refresh();
   }, [refresh]);
 
-  const voxtral = engines.find((engine) => engine.id === 'voxtral-local');
-  const state = voxtral?.state;
   const mistral = engines.find((engine) => engine.id === 'mistral-api');
   const mistralConfigured = mistral?.state.kind === 'ready';
 
@@ -92,50 +80,18 @@ export function SpeechSettings() {
     return () => {
       active = false;
     };
-    // Installation state makes a newly downloaded local voice list available.
     // Voice selection itself is intentionally absent so it cannot be reset.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locale, speech.engineId, state?.kind, mistralConfigured]);
+  }, [locale, speech.engineId, mistralConfigured]);
 
+  // macOS voices and hosted Voxtral voices both carry a real name; the
+  // style/gender decoding this used to do was for the removed local presets.
   function voiceLabel(voice: TtsVoice): string {
-    const preset = /^(casual|cheerful|neutral|[a-z]{2})_(male|female)$/.exec(voice.id);
-    if (!preset) return `${voice.name} · ${voice.locale}`;
-    const [, style, gender] = preset;
-    const language =
-      new Intl.DisplayNames([locale], { type: 'language' }).of(voice.locale) ??
-      voice.locale.toUpperCase();
-    const styleLabel =
-      style === 'casual' || style === 'cheerful' || style === 'neutral'
-        ? ` · ${t(`speech.voiceStyle_${style}`)}`
-        : '';
-    return `${language} · ${t(`speech.voiceGender_${gender}`)}${styleLabel}`;
-  }
-
-  useEffect(() => {
-    if (state?.kind !== 'downloading' && state?.kind !== 'verifying') return;
-    const timer = window.setInterval(() => void refresh(), 750);
-    return () => window.clearInterval(timer);
-  }, [refresh, state?.kind]);
-
-  async function install(requireConsent = true) {
-    if (requireConsent && !accepted) return;
-    setWorking(true);
-    setError('');
-    try {
-      await voxtralModel.install('CC-BY-NC-4.0');
-      await refresh();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
-      setWorking(false);
-    }
+    return `${voice.name} · ${voice.locale}`;
   }
 
   async function selectEngine(engineId: TtsEngineId) {
-    if (speech.engineId === 'voxtral-local' && engineId !== 'voxtral-local') {
-      useSpeechStore.getState().stop();
-      await voxtralModel.shutdown();
-    }
+    if (engineId !== speech.engineId) useSpeechStore.getState().stop();
     await update({ speech: { ...speech, engineId } });
   }
 
@@ -149,22 +105,6 @@ export function SpeechSettings() {
       await secrets.set(secretKeyFor('mistral'), key);
       setMistralKey('');
       setKeySaved(true);
-      await refresh();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  async function remove() {
-    setWorking(true);
-    setError('');
-    try {
-      await voxtralModel.remove();
-      if (speech.engineId === 'voxtral-local') {
-        await update({ speech: { ...speech, engineId: 'system' } });
-      }
       await refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -187,10 +127,7 @@ export function SpeechSettings() {
           >
             {DISPLAYED_ENGINES.map((id) => {
               const summary = engines.find((engine) => engine.id === id);
-              const selectable =
-                id === 'system' ||
-                summary?.state.kind === 'installed' ||
-                summary?.state.kind === 'ready';
+              const selectable = id === 'system' || summary?.state.kind === 'ready';
               return (
                 <option key={id} value={id} disabled={!selectable}>
                   {t(`speech.engine_${id}`)}
@@ -202,11 +139,9 @@ export function SpeechSettings() {
         <FieldRow label={t('speech.privacy')}>
           <span className="text-[12px] text-nb-text-2">
             {t(
-              speech.engineId === 'voxtral-local'
-                ? 'speech.privacyLocalModel'
-                : speech.engineId === 'mistral-api'
-                  ? 'speech.privacyMistral'
-                  : 'speech.privacySystem',
+              speech.engineId === 'mistral-api'
+                ? 'speech.privacyMistral'
+                : 'speech.privacySystem',
             )}
           </span>
         </FieldRow>
@@ -270,131 +205,7 @@ export function SpeechSettings() {
         </FieldRow>
       </FieldSection>
 
-      <FieldSection
-        title={t('speech.voxtralTitle')}
-        description={t('speech.voxtralDescription')}
-      >
-        <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-nb-xs bg-[var(--nb-active)] p-2 text-nb-text-2">
-              <HardDrive size={16} aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-medium">Voxtral 4B</p>
-                  <p className="text-[11px] text-nb-text-3">~2.5 GB · CC BY-NC 4.0</p>
-                </div>
-                <span
-                  className="rounded-full bg-[var(--nb-active)] px-2 py-0.5 text-[10px] text-nb-text-2"
-                  aria-live="polite"
-                >
-                  {t(`speech.state_${state?.kind ?? 'loading'}`)}
-                </span>
-              </div>
-
-              {state?.kind === 'unsupported' && (
-                <FieldNote tone="danger">{state.reason}</FieldNote>
-              )}
-              {state?.kind === 'error' && (
-                <FieldNote tone="danger">{state.message ?? state.code}</FieldNote>
-              )}
-              {state?.kind === 'downloading' && (
-                <div className="mt-3">
-                  <progress
-                    className="h-1.5 w-full accent-[var(--nb-accent)]"
-                    max={state.totalBytes}
-                    value={state.downloadedBytes}
-                    aria-label={t('speech.downloadProgress')}
-                  />
-                </div>
-              )}
-
-              {state?.kind === 'not_installed' && (
-                <label className="mt-3 flex items-start gap-2 text-[11px] leading-snug text-nb-text-2">
-                  <input
-                    type="checkbox"
-                    checked={accepted}
-                    onChange={(event) => setAccepted(event.target.checked)}
-                    className="mt-0.5 accent-[var(--nb-accent)]"
-                  />
-                  <span>{t('speech.licenseConsent')}</span>
-                </label>
-              )}
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {state?.kind === 'error' && state.recoverable && (
-                  <GlassButton
-                    size="sm"
-                    variant="accent"
-                    disabled={working}
-                    onClick={() => void install(false)}
-                  >
-                    {working ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Download size={12} />
-                    )}
-                    {t('speech.retry')}
-                  </GlassButton>
-                )}
-                {state?.kind === 'not_installed' && (
-                  <GlassButton
-                    size="sm"
-                    variant="accent"
-                    disabled={!accepted || working}
-                    onClick={() => void install()}
-                  >
-                    {working ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Download size={12} />
-                    )}
-                    {t('speech.download')}
-                  </GlassButton>
-                )}
-                {state?.kind === 'downloading' && (
-                  <GlassButton
-                    size="sm"
-                    onClick={() => void voxtralModel.cancelInstall().then(refresh)}
-                  >
-                    {t('common.cancel')}
-                  </GlassButton>
-                )}
-                {(state?.kind === 'installed' ||
-                  state?.kind === 'ready' ||
-                  state?.kind === 'error') && (
-                  <>
-                    {state.kind !== 'error' && (
-                      <GlassButton
-                        size="sm"
-                        variant="accent"
-                        onClick={() => void selectEngine('voxtral-local')}
-                      >
-                        <Volume2 size={12} />
-                        {t('speech.useVoxtral')}
-                      </GlassButton>
-                    )}
-                    <GlassButton
-                      size="sm"
-                      disabled={working}
-                      onClick={() => void remove()}
-                    >
-                      <Trash2 size={12} />
-                      {t('speech.remove')}
-                    </GlassButton>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </FieldSection>
-
-      <FieldSection
-        title={t('speech.mistralTitle')}
-        description={t('speech.mistralDescription')}
-      >
+      <FieldSection title={t('speech.mistralTitle')}>
         <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 rounded-nb-xs bg-[var(--nb-active)] p-2 text-nb-text-2">

@@ -28,7 +28,7 @@ export interface SpeechSettings {
   engineId: TtsEngineId;
   /** Voice ids belong to an engine and are never interchangeable. */
   voicesByEngine: Partial<Record<TtsEngineId, string>>;
-  /** Player speed; local Voxtral v1 always synthesizes at its natural rate. */
+  /** Player speed; the hosted API synthesizes at its natural rate. */
   playbackRate: number;
   /** A saved, explicit fallback to system speech. Never resolves to cloud. */
   fallbackToSystem: boolean;

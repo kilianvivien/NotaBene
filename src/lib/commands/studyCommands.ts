@@ -24,7 +24,6 @@ import {
   type TtsEngineId,
   type TtsVoice,
 } from '@/lib/adapters';
-import { decodeBase64Pcm } from '@/lib/audio/pcm';
 import {
   requestFlashcards,
   requestMindMap,
@@ -36,7 +35,7 @@ import {
 } from '@/lib/ai';
 import { ankiFileName, deckToAnkiTsv } from '@/lib/export/anki';
 import { mindMapOutline } from '@/lib/mindmap/edit';
-import { concatWav, encodeWav, parseWav } from '@/lib/podcast/wav';
+import { concatWav, parseWav } from '@/lib/podcast/wav';
 import {
   MindMapSchema,
   type DocNode,
@@ -46,7 +45,7 @@ import {
   type PodcastScript,
 } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
-import { normalizeSpeechText, speechRequests } from '@/lib/tts/normalizeSpeechText';
+import { normalizeSpeechText } from '@/lib/tts/normalizeSpeechText';
 import { language, providerFor } from './aiCommands';
 import { updateNoteCommand } from './noteCommands';
 import { createNoteCommand } from './noteCommands';
@@ -608,13 +607,9 @@ export async function readAloudCommand(
     signal?: AbortSignal;
     onSynthesisStart?(): void;
     onChunk?(chunk: SpokenSegment, index: number, total: number): void;
-    onPcmChunk?(pcm: Uint8Array, index: number, total: number): void | Promise<void>;
   },
 ): Promise<CommandResult<number>> {
-  const chunks =
-    options.engineId === 'voxtral-local'
-      ? speechRequests(text, options.locale)
-      : speechChunks(normalizeSpeechText(text, options.locale));
+  const chunks = speechChunks(normalizeSpeechText(text, options.locale));
   if (!chunks.length) return fail('invalid_input', 'there is nothing to read');
   if (!options.voiceId) return fail('invalid_input', 'choose a voice first');
 
@@ -629,75 +624,19 @@ export async function readAloudCommand(
       }
       ({ engine, voiceId } = await systemFallback(options.locale));
     }
-    let capabilities = await engine.capabilities();
     for (const [index, chunk] of chunks.entries()) {
       if (options.signal?.aborted) return ok(index);
       let result;
-      let deliveredAudio = false;
       try {
-        if (capabilities.streaming && options.onPcmChunk) {
-          const parts: Uint8Array[] = [];
-          let durationMs = 0;
-          for await (const event of engine.synthesizeStream(
-            {
-              text: chunk,
-              voiceId,
-              playbackRate: options.rate,
-              requestId: crypto.randomUUID(),
-            },
-            options.signal,
-          )) {
-            if (event.type === 'started') {
-              options.onSynthesisStart?.();
-            } else if (event.type === 'audio') {
-              deliveredAudio = true;
-              const pcm = decodeBase64Pcm(event.dataBase64);
-              if (pcm.byteLength !== event.sampleCount * 2) {
-                throw new Error('TTS_AUDIO_INVALID: PCM sample count mismatch');
-              }
-              parts.push(pcm);
-              await options.onPcmChunk(pcm, index, chunks.length);
-            } else if (event.type === 'done') {
-              durationMs = event.durationMs;
-            }
-          }
-          const length = parts.reduce((sum, part) => sum + part.byteLength, 0);
-          const samples = new Uint8Array(length);
-          let offset = 0;
-          for (const part of parts) {
-            samples.set(part, offset);
-            offset += part.byteLength;
-          }
-          if (!samples.length)
-            throw new Error('TTS_AUDIO_INVALID: no audio was produced');
-          result = {
-            audio: new Blob(
-              [
-                encodeWav({
-                  format: { sampleRate: 24_000, channels: 1, bitsPerSample: 16 },
-                  samples,
-                }),
-              ],
-              { type: 'audio/wav' },
-            ),
-            durationMs:
-              durationMs || Math.round((samples.byteLength / 2 / 24_000) * 1000),
-          };
-        } else {
-          result = await engine.synthesize(
-            { text: chunk, voiceId, rate: options.rate },
-            options.signal,
-          );
-        }
+        result = await engine.synthesize(
+          { text: chunk, voiceId, rate: options.rate },
+          options.signal,
+        );
       } catch (error) {
-        if (
-          index === 0 &&
-          !deliveredAudio &&
-          engine.id !== 'system' &&
-          options.fallbackToSystem
-        ) {
+        // Only before the first segment: swapping engines mid-reading would
+        // change voice partway through a note.
+        if (index === 0 && engine.id !== 'system' && options.fallbackToSystem) {
           ({ engine, voiceId } = await systemFallback(options.locale));
-          capabilities = await engine.capabilities();
           result = await engine.synthesize(
             { text: chunk, voiceId, rate: options.rate },
             options.signal,

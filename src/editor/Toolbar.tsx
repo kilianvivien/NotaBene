@@ -136,7 +136,14 @@ function ReadAloudButton({ editor }: { editor: Editor }) {
         </span>
       )}
       {idle && error && (
-        <span className="sr-only" role="alert">
+        // Visible, not just announced: a failed reading otherwise looks
+        // identical to a reading that never started, and the user is left
+        // pressing a button that appears to do nothing.
+        <span
+          className="nb-tool-text max-w-[22ch] truncate text-[var(--nb-danger)]"
+          role="alert"
+          title={error}
+        >
           {error}
         </span>
       )}

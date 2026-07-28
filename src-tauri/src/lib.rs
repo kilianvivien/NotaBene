@@ -134,15 +134,6 @@ pub fn run() {
             tts::tts_system_available,
             tts::tts_system_voices,
             tts::tts_system_synthesize,
-            tts::tts_engines,
-            tts::tts_engine_status,
-            tts::tts_model_install,
-            tts::tts_model_cancel_install,
-            tts::tts_model_remove,
-            tts::tts_voices,
-            tts::tts_synthesize_stream,
-            tts::tts_cancel,
-            tts::tts_worker_shutdown,
             menu::menu_apply,
             mcp::mcp_start_server,
             mcp::mcp_stop_server,
@@ -150,11 +141,6 @@ pub fn run() {
             mcp::mcp_bridge_respond,
             mcp::mcp_write_client_config,
         ])
-        .build(tauri::generate_context!())
-        .expect("error while building NotaBene")
-        .run(|_app, event| {
-            if matches!(event, tauri::RunEvent::Exit) {
-                tts::shutdown();
-            }
-        });
+        .run(tauri::generate_context!())
+        .expect("error while building NotaBene");
 }

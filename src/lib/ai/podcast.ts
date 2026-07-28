@@ -5,7 +5,7 @@
  * any other and belongs here; turning it into sound is a local, offline,
  * macOS-specific job that lives behind `TtsEngine`. Keeping them apart is what
  * lets a student read the script and decide it is not worth listening to before
- * spending two minutes synthesising it — and what will let Voxtral replace the
+ * spending two minutes synthesising it — and what lets another engine replace the
  * system voices later without this file changing.
  */
 import { docToMarkdown } from '@/editor/markdown';

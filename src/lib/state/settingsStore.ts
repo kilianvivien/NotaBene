@@ -3,7 +3,12 @@
  * without a re-render. */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { appSettings, DEFAULT_SETTINGS, type AppSettings } from '@/lib/adapters';
+import {
+  appSettings,
+  DEFAULT_SETTINGS,
+  type AppSettings,
+  type TtsEngineId,
+} from '@/lib/adapters';
 
 interface SettingsState {
   settings: AppSettings;
@@ -24,11 +29,28 @@ interface LegacyPodcastSettings {
  * Migrate the Phase G global voice/rate fields into an engine-scoped speech
  * configuration. Kept pure so migration can be exercised without storage.
  */
+/** Engines this build can actually resolve. Anything else in stored settings
+ * is from an older version and must not survive into a running config. */
+const KNOWN_ENGINES = new Set<TtsEngineId>(['system', 'mistral-api']);
+
 export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
   const legacyPodcast = stored.podcast as
     (Partial<AppSettings['podcast']> & LegacyPodcastSettings) | undefined;
   const storedSpeech = stored.speech;
   const legacyVoice = legacyPodcast?.voiceId;
+
+  // The removed on-device Voxtral engine could be the saved selection, and a
+  // saved id no engine answers to reads to the user as speech being broken.
+  const storedEngineId = storedSpeech?.engineId;
+  const engineId =
+    storedEngineId && KNOWN_ENGINES.has(storedEngineId)
+      ? storedEngineId
+      : DEFAULT_SETTINGS.speech.engineId;
+  const voicesByEngine = Object.fromEntries(
+    Object.entries(storedSpeech?.voicesByEngine ?? {}).filter(([id]) =>
+      KNOWN_ENGINES.has(id as TtsEngineId),
+    ),
+  );
 
   return {
     ...DEFAULT_SETTINGS,
@@ -36,10 +58,11 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
     speech: {
       ...DEFAULT_SETTINGS.speech,
       ...storedSpeech,
+      engineId,
       voicesByEngine: {
         ...DEFAULT_SETTINGS.speech.voicesByEngine,
         ...(legacyVoice ? { system: legacyVoice } : {}),
-        ...storedSpeech?.voicesByEngine,
+        ...voicesByEngine,
       },
       playbackRate:
         storedSpeech?.playbackRate ??

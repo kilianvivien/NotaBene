@@ -4,7 +4,6 @@ import { secretKeyFor } from '@/lib/ai/providers';
 import { parseWav, wavDurationMs } from '@/lib/podcast/wav';
 import { MistralTtsSpeechSchema, MistralTtsVoiceListSchema } from '@/lib/schema/ttsApi';
 import type {
-  TtsAudioEvent,
   TtsEngine,
   TtsEngineCapabilities,
   TtsRequest,
@@ -121,13 +120,6 @@ export function createMistralTtsEngine(
         locale: voice.languages[0] ?? 'mul',
         quality: 'premium',
       }));
-    },
-
-    async *synthesizeStream(): AsyncIterable<TtsAudioEvent> {
-      yield* [];
-      throw new Error(
-        'TTS_STREAMING_UNSUPPORTED: hosted Voxtral returns complete WAV files',
-      );
     },
 
     async synthesize(

@@ -28,7 +28,6 @@ import { tauriMenuAdapter, unavailableMenuAdapter } from './menu/tauriMenuAdapte
 import { fetchAiTransport } from './ai/fetchAiTransport';
 import { tauriAiTransport } from './ai/tauriAiTransport';
 import { systemTtsEngine, unavailableTtsEngine } from './tts/systemTtsEngine';
-import { voxtralTtsEngine } from './tts/voxtralTtsEngine';
 import { createMistralTtsEngine } from './tts/mistralTtsEngine';
 import { createTtsEngineRegistry } from './tts/ttsEngineRegistry';
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
@@ -67,7 +66,6 @@ const activeSystemTtsEngine = isTauri ? systemTtsEngine : unavailableTtsEngine;
 const mistralTtsEngine = createMistralTtsEngine(aiTransport, secrets);
 export const ttsRegistry = createTtsEngineRegistry(
   activeSystemTtsEngine,
-  isTauri ? voxtralTtsEngine : unavailableTtsEngine,
   mistralTtsEngine,
 );
 /** Compatibility alias while callers migrate to the registry. */
@@ -102,7 +100,6 @@ export type { MenuAdapter, MenuNode, MenuRole } from './menu/MenuAdapter';
 export type { AiRequest, AiResponse, AiTransport } from './ai/AiTransport';
 export type {
   TtsAudioEncoding,
-  TtsAudioEvent,
   TtsEngine,
   TtsEngineCapabilities,
   TtsEngineId,
@@ -111,10 +108,8 @@ export type {
   TtsEngineSummary,
   TtsRequest,
   TtsSegmentResult,
-  TtsStreamRequest,
   TtsVoice,
 } from './tts/TtsEngine';
-export { voxtralModel } from './tts/voxtralTtsEngine';
 export type {
   McpAdapter,
   McpBridgeRequest,

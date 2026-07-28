@@ -5,7 +5,7 @@
 //! System Settings. Driving it costs one process per segment and no new crate;
 //! binding `AVSpeechSynthesizer` through `objc2` would buy tighter progress
 //! reporting and cost an Objective-C bridge in a codebase that otherwise has
-//! none. When Voxtral lands as the second `TtsEngine` it will need real audio
+//! none. The hosted Voxtral engine is the second `TtsEngine`, and needs real audio
 //! plumbing anyway, and that is the moment to pay for it.
 //!
 //! Nothing here reaches the network. Voices are already on the machine, and
@@ -66,7 +66,7 @@ pub struct TtsRequest {
     /// 1.0 is the voice's natural rate.
     rate: Option<f32>,
     /// Accepted and ignored: `say` exposes no pitch control. The interface
-    /// carries it because Voxtral will, and dropping the field from the wire
+    /// carries it because the hosted engine does, and dropping it from the wire
     /// shape now would mean changing it again later.
     #[allow(dead_code)]
     pitch: Option<f32>,
