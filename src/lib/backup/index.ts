@@ -35,7 +35,10 @@ export interface ParsedBackup {
 }
 
 async function digest(blob: Blob): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', await blobBytes(blob));
+  const hash = await crypto.subtle.digest(
+    'SHA-256',
+    new Uint8Array(await blobBytes(blob)),
+  );
   return Array.from(new Uint8Array(hash))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');

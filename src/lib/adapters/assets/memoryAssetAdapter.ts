@@ -3,7 +3,9 @@ import type { Asset } from '@/lib/schema';
 import type { AssetAdapter } from './AssetAdapter';
 
 async function sha256(bytes: ArrayBuffer): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  // Node's Web Crypto rejects ArrayBuffers created in jsdom's realm. An
+  // ArrayBufferView crosses that boundary reliably and is accepted in browsers.
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
