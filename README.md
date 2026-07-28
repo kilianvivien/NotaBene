@@ -22,14 +22,8 @@
 
 ![NotaBene 0.2 showing the localized starter course, rich editor, and three-pane library](./assets/screenshots/notabene-0.2.png)
 
-## Download
-
-Download **[NotaBene 0.2.0 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.2.0/NotaBene_0.2.0_aarch64.dmg)**.
-NotaBene requires macOS 13 Ventura or newer.
-
 > [!IMPORTANT]
-> The 0.2.0 DMG is not Developer ID signed or notarized, so macOS Gatekeeper
+> The 0.3.1 DMG is not Developer ID signed or notarized, so macOS Gatekeeper
 > may warn or block it. Signed builds and automatic updates are intentionally
 > deferred.
 
