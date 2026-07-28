@@ -11,6 +11,7 @@ mod db;
 mod mcp;
 mod menu;
 mod settings;
+mod tls;
 mod tts;
 
 use tauri::{Emitter, Manager};
@@ -19,6 +20,9 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Before anything can build an HTTPS client — see `tls`.
+    tls::ensure_provider();
+
     tauri::Builder::default()
         // Menu clicks carry no behaviour here — the id goes straight to the
         // webview, which runs it through the same command router a keyboard

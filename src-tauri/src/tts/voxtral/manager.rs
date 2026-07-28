@@ -2,10 +2,21 @@ use super::compatibility::{detect, Compatibility};
 use super::download;
 use super::manifest::ModelManifest;
 use crate::tts::types::EngineState;
+use futures_util::FutureExt;
+use std::any::Any;
+use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{AppHandle, Manager};
+
+fn panic_message(panic: &(dyn Any + Send)) -> String {
+    panic
+        .downcast_ref::<&str>()
+        .map(|message| (*message).to_string())
+        .or_else(|| panic.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "unknown cause".into())
+}
 
 struct ModelManager {
     state: EngineState,
@@ -99,7 +110,7 @@ pub fn install(app: AppHandle, accepted_license: String) -> Result<(), String> {
     drop(guard);
 
     tauri::async_runtime::spawn(async move {
-        let result = download::install(&manifest, &root, &cancelled, |downloaded, total| {
+        let download = download::install(&manifest, &root, &cancelled, |downloaded, total| {
             manager().lock().unwrap().state = if downloaded >= total {
                 EngineState::Verifying
             } else {
@@ -108,8 +119,16 @@ pub fn install(app: AppHandle, accepted_license: String) -> Result<(), String> {
                     total_bytes: total,
                 }
             };
-        })
-        .await;
+        });
+        // A panic in here would otherwise take the task down without touching
+        // the state, leaving the progress bar at 0% forever with no way back.
+        let result = match AssertUnwindSafe(download).catch_unwind().await {
+            Ok(result) => result,
+            Err(panic) => Err(format!(
+                "TTS_DOWNLOAD_NETWORK: the download stopped unexpectedly ({})",
+                panic_message(&panic)
+            )),
+        };
         let mut guard = manager().lock().unwrap();
         guard.state = match result {
             Ok(_) => EngineState::Installed,

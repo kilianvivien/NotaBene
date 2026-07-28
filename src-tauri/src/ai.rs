@@ -81,12 +81,7 @@ pub fn init(app: &AppHandle) {
 /// one they trust less than another. A fresh client per call keeps them
 /// separate, and next to model latency the handshake is noise.
 fn client() -> Result<reqwest::Client, String> {
-    // `rustls-no-provider` leaves the crypto backend to the application. The
-    // updater plugin installs one lazily too; whichever runs first wins and the
-    // other's `install_default` is a no-op.
-    if rustls::crypto::CryptoProvider::get_default().is_none() {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    }
+    crate::tls::ensure_provider();
 
     reqwest::Client::builder()
         .timeout(REQUEST_TIMEOUT)

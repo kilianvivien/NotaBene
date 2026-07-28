@@ -84,6 +84,16 @@ pub async fn install(
     Ok(final_dir)
 }
 
+/// Hugging Face serves the weights over HTTPS, so the crypto provider has to be
+/// in place first — `reqwest` panics rather than errors without one.
+fn http_client() -> Result<reqwest::Client, String> {
+    crate::tls::ensure_provider();
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+        .map_err(|error| format!("TTS_DOWNLOAD_NETWORK: {error}"))
+}
+
 async fn download_file(
     manifest: &ModelManifest,
     file: &ModelFile,
@@ -95,10 +105,7 @@ async fn download_file(
         .map(|metadata| metadata.len())
         .unwrap_or(0);
     let existing = existing.min(file.size_bytes);
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::limited(5))
-        .build()
-        .map_err(|error| format!("TTS_DOWNLOAD_NETWORK: {error}"))?;
+    let client = http_client()?;
     let mut request = client.get(manifest.url(file));
     if existing > 0 {
         request = request.header(RANGE, format!("bytes={existing}-"));
@@ -278,6 +285,15 @@ mod tests {
         std::fs::write(&path, []).unwrap();
         assert!(validate_safetensors(&path).is_err());
         let _ = std::fs::remove_file(path);
+    }
+
+    /// `reqwest` is compiled with `rustls-no-provider`, so building a client
+    /// without a crypto provider panics rather than erroring — which is how the
+    /// download task once died leaving the UI at 0%.
+    #[test]
+    fn client_builds_once_the_crypto_provider_is_installed() {
+        crate::tls::ensure_provider();
+        assert!(http_client().is_ok());
     }
 
     #[test]

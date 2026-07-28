@@ -9,7 +9,7 @@
     {
       "path": "config.json",
       "sizeBytes": 4345,
-      "sha256": "3544d0efd48a3f31da14386f7bad524302271270ff0220103b80096075b4d528"
+      "sha256": "f4eb9188409df1394eeec817d5f2f8e5b9dddb81c9b8653e6757733993120c7e"
     },
     {
       "path": "model.safetensors",
@@ -19,12 +19,12 @@
     {
       "path": "model.safetensors.index.json",
       "sizeBytes": 73050,
-      "sha256": "0048eaff0941c17882b9bc0e67aa1d064dd9358a855232ba3660a218930527b7"
+      "sha256": "6f550dfaf7569a5369fd22b361e5a5838bea06c624ded0c6dab60f1dcf1032d9"
     },
     {
       "path": "params.json",
       "sizeBytes": 3482,
-      "sha256": "b6262576e5c6070c9f6a5e8fb9f882475e8eb8a768ffa9a3b97cd2b7ff74c28f"
+      "sha256": "f6408ee76dea8da16ce40ac66729d59406019ea71cdb9d656709a38d2e58691e"
     },
     {
       "path": "tekken.json",
