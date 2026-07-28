@@ -16,16 +16,22 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.2.0"><img alt="Latest release: 0.2.0" src="https://img.shields.io/badge/release-0.2.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.3.1"><img alt="Latest release: 0.3.1" src="https://img.shields.io/badge/release-0.3.1-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
-![NotaBene 0.2 showing the localized starter course, rich editor, and three-pane library](./assets/screenshots/notabene-0.2.png)
+![NotaBene 0.3 showing the three-pane library, the rich editor, and the Ask panel answering a question about the open note](./assets/screenshots/notabene-0.3.png)
+
+## Download
+
+Download **[NotaBene 0.3.1 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.3.1/NotaBene_0.3.1_aarch64.dmg)**.
+NotaBene requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
-> The 0.3.1 DMG is not Developer ID signed or notarized, so macOS Gatekeeper
-> may warn or block it. Signed builds and automatic updates are intentionally
-> deferred.
+> The 0.3.1 DMG is ad-hoc signed only — it is not Developer ID signed or
+> notarized, so macOS Gatekeeper may warn or block it. Signed builds and
+> automatic updates are intentionally deferred.
 
 ## Why NotaBene?
 
@@ -48,7 +54,8 @@ and control over your own data. NotaBene is being built so you do not have to.
 | Rich-text and Markdown shortcuts    | Courses, sections, and smart folders | AI synthesis and Q&A              | Local SQLite + FTS5          |
 | Tables, callouts, toggles, and code | Typed, facetable tags                | Mind maps and flashcards          | Continuous autosave          |
 | LaTeX maths and inline images       | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery |
-| Re-editable Excalidraw drawings     | Command palette and quick notes      | Note-to-podcast with macOS voices | Backups and portable exports |
+| Re-editable Excalidraw drawings     | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports |
+| Attachments with in-app preview     | Diacritics-insensitive search        | System, Voxtral, or Gemini voices | No account, no telemetry     |
 
 ### A serious authoring surface
 
@@ -57,6 +64,11 @@ editor with headings, lists, tasks, highlights, links, code blocks, tables,
 collapsible sections, callouts, LaTeX maths, images, and drawings. A slash menu,
 formatting toolbar, find and replace, and native shortcuts keep common actions
 close at hand.
+
+Notes also carry attachments. Images, audio, video, PDF, DOCX, ODT, RTF,
+Markdown, and plain-text files open in an in-app viewer with zoom, so course
+handouts and recordings live beside the note instead of in a folder somewhere
+else.
 
 ### Organization that matches a semester
 
@@ -81,14 +93,21 @@ With a provider configured, NotaBene can:
 
 - rewrite or correct a selection with a before/after diff;
 - synthesize one or more notes into structured material;
-- answer questions about the open note;
+- answer questions about the open note, either strictly from the note
+  (**Note only**) or with clearly labelled outside knowledge (**Note + AI**);
 - generate a visual mind map;
 - create basic and cloze flashcards, then export them to Anki; and
-- turn a note into a locally rendered podcast using macOS system voices.
+- turn a note into a spoken episode you can play in the app, export as MP3, or
+  attach to the note itself.
 
 Supported AI connections include Anthropic, OpenAI, Mistral, Gemini,
 OpenRouter, Ollama, LM Studio, and custom OpenAI-compatible endpoints. API keys
 are stored in the macOS Keychain, not in the note database.
+
+Read aloud and spoken episodes run on a selectable speech engine: offline
+**macOS system voices** by default, or the hosted neural voices of **Voxtral
+TTS (Mistral)** and **Gemini TTS (Google)**. The cloud engines are opt-in, are
+never chosen as a fallback, and send only the text you ask to have spoken.
 
 ### Exports that leave with you
 
@@ -121,8 +140,10 @@ Normal note-taking does not require an internet connection.
 
 Network access is limited to services that are visible and initiated by you:
 
-1. the AI provider or local-model endpoint you configure; and
-2. the application update check.
+1. the AI provider or local-model endpoint you configure;
+2. a hosted speech engine, if you explicitly select one instead of the offline
+   macOS voices; and
+3. the application update check.
 
 AI output is treated as untrusted input: structured responses are validated,
 and edits are previewed before they enter a note. API keys live in the macOS
@@ -130,21 +151,26 @@ Keychain and cannot be represented in the backup schema.
 
 ## Current status
 
-NotaBene 0.2.0 is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.2.0).
+NotaBene 0.3.1 is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.3.1).
 The product foundation and phases A–H are code-complete, except for the
 explicitly deferred signing, notarization, and signed-update work:
 
 - native shell and local persistence;
-- rich authoring;
+- rich authoring, with attachments and in-app document preview;
 - course organization and full-text search;
 - versions, recovery, backups, and exports;
-- bring-your-own-key and local-model AI;
-- the authenticated MCP integration; and
-- editable mind maps with image/outline export, flashcard review, and MP3
-  note-to-podcast attachments;
+- bring-your-own-key and local-model AI, including note-only and
+  note-plus-knowledge answer modes;
+- the authenticated MCP integration;
+- editable mind maps with image/outline export, flashcard review, and spoken
+  episodes on system, Voxtral, or Gemini voices; and
 - first-run guidance, EN/FR coverage, keyboard accessibility, and local
   performance instrumentation.
+
+0.3.x has focused on making those features hold up in daily use: audio
+generation and playback, attachment handling and previews, and a reworked Ask
+panel.
 
 See [release notes](./RELEASE_NOTES.md), the [security policy](./SECURITY.md),
 and [third-party notices](./THIRD_PARTY_NOTICES.md).
@@ -252,7 +278,7 @@ Zod, TipTap, and Excalidraw. The native shell uses Tauri 2 and Rust with
 src/
 ├── app/                 Application shell, dialogs, settings, and feature UI
 ├── components/glass/    Reusable interface primitives
-├── editor/              TipTap editor, extensions, and Markdown conversion
+├── editor/              TipTap editor, extensions, attachments, and Markdown
 ├── lib/
 │   ├── adapters/        Browser/Tauri platform boundary
 │   ├── ai/              Providers, prompts, parsing, and AI workflows
@@ -267,7 +293,7 @@ src-tauri/
     ├── db/              SQLite schema, migrations, and repositories
     ├── mcp/             Authenticated local MCP server
     ├── ai.rs            Native AI transport
-    └── tts.rs           macOS speech rendering
+    └── tts/             macOS speech rendering
 ```
 
 Read [CLAUDE.md](./CLAUDE.md) before making code changes. It is the source of
