@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.3.1"><img alt="Latest release: 0.3.1" src="https://img.shields.io/badge/release-0.3.1-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.3.2"><img alt="Latest release: 0.3.2" src="https://img.shields.io/badge/release-0.3.2-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,12 +24,12 @@
 
 ## Download
 
-Download **[NotaBene 0.3.1 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.3.1/NotaBene_0.3.1_aarch64.dmg)**.
+Download **[NotaBene 0.3.2 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.3.2/NotaBene_0.3.2_aarch64.dmg)**.
 NotaBene requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
-> The 0.3.1 DMG is ad-hoc signed only — it is not Developer ID signed or
+> The 0.3.2 DMG is ad-hoc signed only — it is not Developer ID signed or
 > notarized, so macOS Gatekeeper may warn or block it. Signed builds and
 > automatic updates are intentionally deferred.
 
@@ -49,13 +49,14 @@ and control over your own data. NotaBene is being built so you do not have to.
 
 ## Highlights
 
-| Write                               | Organize                             | Study                             | Own                          |
-| ----------------------------------- | ------------------------------------ | --------------------------------- | ---------------------------- |
-| Rich-text and Markdown shortcuts    | Courses, sections, and smart folders | AI synthesis and Q&A              | Local SQLite + FTS5          |
-| Tables, callouts, toggles, and code | Typed, facetable tags                | Mind maps and flashcards          | Continuous autosave          |
-| LaTeX maths and inline images       | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery |
-| Re-editable Excalidraw drawings     | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports |
-| Attachments with in-app preview     | Diacritics-insensitive search        | System, Voxtral, or Gemini voices | No account, no telemetry     |
+| Write                                 | Organize                             | Study                             | Own                          |
+| ------------------------------------- | ------------------------------------ | --------------------------------- | ---------------------------- |
+| Rich-text and Markdown shortcuts      | Courses, sections, and smart folders | AI synthesis and Q&A              | Local SQLite + FTS5          |
+| Abbreviations that expand as you type | Templates for recurring notes        | Flashcard review in the app       | API keys in the Keychain     |
+| Tables, callouts, toggles, and code   | Typed, facetable tags                | Mind maps and flashcards          | Continuous autosave          |
+| LaTeX maths and inline images         | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery |
+| Re-editable Excalidraw drawings       | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports |
+| Attachments with in-app preview       | Diacritics-insensitive search        | System, Voxtral, or Gemini voices | No account, no telemetry     |
 
 ### A serious authoring surface
 
@@ -64,6 +65,12 @@ editor with headings, lists, tasks, highlights, links, code blocks, tables,
 collapsible sections, callouts, LaTeX maths, images, and drawings. A slash menu,
 formatting toolbar, find and replace, and native shortcuts keep common actions
 close at hand.
+
+Define your own **abbreviations** in Settings and they expand while you write:
+type `tvi`, finish the word, and the note reads "théorème des valeurs
+intermédiaires". A shortcut only fires at the end of a word and never inside
+code, a lower-case one also matches its capitalised spelling, and the words it
+wrote are briefly tinted so an expansion is never mistaken for your own typo.
 
 Notes also carry attachments. Images, audio, video, PDF, DOCX, ODT, RTF,
 Markdown, and plain-text files open in an in-app viewer with zoom, so course
@@ -151,8 +158,8 @@ Keychain and cannot be represented in the backup schema.
 
 ## Current status
 
-NotaBene 0.3.1 is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.3.1).
+NotaBene 0.3.2 is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.3.2).
 The product foundation and phases A–H are code-complete, except for the
 explicitly deferred signing, notarization, and signed-update work:
 
@@ -169,8 +176,9 @@ explicitly deferred signing, notarization, and signed-update work:
   performance instrumentation.
 
 0.3.x has focused on making those features hold up in daily use: audio
-generation and playback, attachment handling and previews, and a reworked Ask
-panel.
+generation and playback, attachment handling and previews, a reworked Ask
+panel, and — in 0.3.2 — working equations in the desktop build alongside
+user-defined abbreviations.
 
 See [release notes](./RELEASE_NOTES.md), the [security policy](./SECURITY.md),
 and [third-party notices](./THIRD_PARTY_NOTICES.md).
