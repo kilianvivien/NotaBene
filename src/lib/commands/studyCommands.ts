@@ -516,7 +516,7 @@ export async function synthesizePodcastCommand(
         result = await engine.synthesize(request, options.signal);
       } catch (error) {
         // One-shot synthesis has delivered no audio when it rejects, so a saved
-        // local fallback preference is safe only before the first segment.
+        // system fallback preference is safe only before the first segment.
         if (index === 0 && engine.id !== 'system' && options.fallbackToSystem) {
           playbackRate = undefined;
           ({ engine, voiceId } = await systemFallback(options.locale));
@@ -593,7 +593,9 @@ export function speechChunks(text: string): string[] {
  * first word, which is the whole reason this exists as its own path rather than
  * as "generate a one-line podcast script".
  *
- * No provider is involved. This is the note's own words, spoken by the Mac.
+ * Hosted engines receive only these normalized chunks, and only when the user
+ * explicitly selected one. Fallback always points toward the Mac, never from
+ * a local engine to a cloud service.
  */
 export async function readAloudCommand(
   text: string,
@@ -604,6 +606,7 @@ export async function readAloudCommand(
     fallbackToSystem?: boolean;
     locale?: string;
     signal?: AbortSignal;
+    onSynthesisStart?(): void;
     onChunk?(chunk: SpokenSegment, index: number, total: number): void;
     onPcmChunk?(pcm: Uint8Array, index: number, total: number): void | Promise<void>;
   },
@@ -644,7 +647,9 @@ export async function readAloudCommand(
             },
             options.signal,
           )) {
-            if (event.type === 'audio') {
+            if (event.type === 'started') {
+              options.onSynthesisStart?.();
+            } else if (event.type === 'audio') {
               deliveredAudio = true;
               const pcm = decodeBase64Pcm(event.dataBase64);
               if (pcm.byteLength !== event.sampleCount * 2) {

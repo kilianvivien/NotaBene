@@ -30,7 +30,7 @@ export interface SpeechSettings {
   voicesByEngine: Partial<Record<TtsEngineId, string>>;
   /** Player speed; local Voxtral v1 always synthesizes at its natural rate. */
   playbackRate: number;
-  /** A saved, explicit local fallback preference. Never resolves to cloud. */
+  /** A saved, explicit fallback to system speech. Never resolves to cloud. */
   fallbackToSystem: boolean;
 }
 

@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "voxtral:build": "./scripts/build-voxtral-sidecar.sh",
+    "voxtral:prepare": "./scripts/prepare-voxtral-sidecar.sh",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

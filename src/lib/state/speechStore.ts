@@ -4,7 +4,8 @@
  * Separate from the podcast panel on purpose. The podcast is a produced thing —
  * a model writes a script, you read it, then you decide to have it spoken. This
  * is the other half of the same want: the note, as written, out loud, one click
- * from the toolbar, with no provider involved and nothing leaving the machine.
+ * from the toolbar. The selected engine owns the privacy boundary: system and
+ * local voices stay on-device; hosted Voxtral is an explicit Mistral request.
  *
  * Playback is a queue rather than one file. Synthesis of a long note takes
  * tens of seconds, so the first chunk starts playing while the rest are still
@@ -22,15 +23,19 @@ import { PcmStreamPlayer } from '@/lib/audio/pcmStreamPlayer';
 import { useSettingsStore } from './settingsStore';
 
 export type SpeechStatus = 'idle' | 'preparing' | 'playing' | 'paused';
+export type SpeechPhase = '' | 'loading' | 'generating';
 
 interface SpeechState {
   status: SpeechStatus;
+  /** A reader-facing explanation for the otherwise silent gap before the
+   * first PCM chunk. */
+  phase: SpeechPhase;
   /** Chunks spoken so far, and how many there will be. Drives the progress
    * ring on the toolbar button. */
   done: number;
   total: number;
   error: string;
-  speak(text: string): Promise<void>;
+  speak(text: string, voiceId?: string): Promise<void>;
   toggle(): void;
   stop(): void;
 }
@@ -88,20 +93,20 @@ function playNext(): void {
 
 export const useSpeechStore = create<SpeechState>((set, get) => ({
   status: 'idle',
+  phase: '',
   done: 0,
   total: 0,
   error: '',
 
-  async speak(text: string) {
+  async speak(text: string, requestedVoiceId?: string) {
     get().stop();
 
     const settings = useSettingsStore.getState().settings;
     const speech = settings.speech;
-    let voiceId = speech.voicesByEngine[speech.engineId];
+    let voiceId = requestedVoiceId ?? speech.voicesByEngine[speech.engineId];
 
-    // The reader has no voice picker of its own — it borrows the podcast's, and
-    // resolves one the first time so pressing play never fails for a reason
-    // that reads as "nothing happened".
+    // Resolve a default the first time so pressing play never fails for a
+    // reason that reads as "nothing happened".
     if (!voiceId) {
       let voices = await listPodcastVoicesCommand(settings.locale, speech.engineId);
       if (!voices.ok && speech.engineId !== 'system' && speech.fallbackToSystem) {
@@ -135,7 +140,13 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
       pcmPlayer = new PcmStreamPlayer(audioContext);
     }
     let receivedPcm = false;
-    set({ status: 'preparing', done: 0, total: 0, error: '' });
+    set({
+      status: 'preparing',
+      phase: speech.engineId === 'voxtral-local' ? 'loading' : 'generating',
+      done: 0,
+      total: 0,
+      error: '',
+    });
 
     const outcome = await readAloudCommand(text, {
       voiceId,
@@ -144,20 +155,21 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
       fallbackToSystem: speech.fallbackToSystem,
       locale: settings.locale,
       signal,
+      onSynthesisStart: () => set({ phase: 'generating' }),
       onChunk: (chunk, index, total) => {
         if (signal.aborted) return;
         if (streaming && receivedPcm) {
-          set({ done: index + 1, total });
+          set({ done: index + 1, total, phase: '' });
           return;
         }
-        // A saved local fallback can resolve to the system engine before any
+        // A saved neural-engine fallback can resolve to the system engine before any
         // PCM arrives. Switch back to the completed-WAV queue in that case.
         if (streaming) {
           pcmPlayer?.stop();
           streaming = false;
         }
         queue.push(chunk);
-        set({ done: index + 1, total });
+        set({ done: index + 1, total, phase: '' });
         // Start the moment the first chunk exists, and only then.
         if (get().status === 'preparing') playNext();
       },
@@ -165,7 +177,7 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
         ? async (pcm, index, total) => {
             if (signal.aborted || !pcmPlayer) return;
             receivedPcm = true;
-            set({ status: 'playing', done: index, total });
+            set({ status: 'playing', phase: '', done: index, total });
             await pcmPlayer.enqueue(pcm, speech.playbackRate, signal);
           }
         : undefined,
@@ -174,7 +186,7 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
     if (signal.aborted) return;
     if (!outcome.ok) {
       get().stop();
-      set({ status: 'idle', error: outcome.message });
+      set({ status: 'idle', phase: '', error: outcome.message });
     } else if (streaming && pcmPlayer) {
       await pcmPlayer.drain(signal);
       if (!signal.aborted) get().stop();
@@ -214,6 +226,6 @@ export const useSpeechStore = create<SpeechState>((set, get) => ({
     cursor = 0;
     pcmPlayer?.stop();
     streaming = false;
-    set({ status: 'idle', done: 0, total: 0 });
+    set({ status: 'idle', phase: '', done: 0, total: 0 });
   },
 }));

@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EditorCommand } from './commandBridge';
 import { useSpeechStore } from '@/lib/state/speechStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { cn } from '@/lib/utils/cn';
 
 interface ToolbarProps {
@@ -75,12 +76,16 @@ function ToolButton({
  */
 function ReadAloudButton({ editor }: { editor: Editor }) {
   const { t } = useTranslation();
+  const speech = useSettingsStore((state) => state.settings.speech);
   const status = useSpeechStore((state) => state.status);
+  const phase = useSpeechStore((state) => state.phase);
   const done = useSpeechStore((state) => state.done);
   const total = useSpeechStore((state) => state.total);
+  const error = useSpeechStore((state) => state.error);
   const speak = useSpeechStore((state) => state.speak);
   const stop = useSpeechStore((state) => state.stop);
   const toggle = useSpeechStore((state) => state.toggle);
+  const voiceId = speech.voicesByEngine[speech.engineId] ?? '';
 
   const idle = status === 'idle';
   const label = idle
@@ -100,9 +105,14 @@ function ReadAloudButton({ editor }: { editor: Editor }) {
           const { from, to } = editor.state.selection;
           const text =
             from === to
-              ? editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n\n', ' ')
+              ? editor.state.doc.textBetween(
+                  0,
+                  editor.state.doc.content.size,
+                  '\n\n',
+                  ' ',
+                )
               : editor.state.doc.textBetween(from, to, '\n\n', ' ');
-          void speak(text);
+          void speak(text, voiceId);
         }}
       >
         {status === 'preparing' ? (
@@ -115,9 +125,19 @@ function ReadAloudButton({ editor }: { editor: Editor }) {
           <Volume2 size={14} />
         )}
       </ToolButton>
+      {status === 'preparing' && phase && (
+        <span className="nb-speech-status text-nb-text-3" aria-live="polite">
+          {t(`editor.speech_${phase}`)}
+        </span>
+      )}
       {!idle && total > 0 && (
         <span className="nb-tool-text tabular-nums text-nb-text-3" aria-live="polite">
           {done}/{total}
+        </span>
+      )}
+      {idle && error && (
+        <span className="sr-only" role="alert">
+          {error}
         </span>
       )}
     </>

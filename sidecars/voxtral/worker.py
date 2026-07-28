@@ -9,9 +9,11 @@ from __future__ import annotations
 import math
 import os
 import queue
+import re
 import struct
 import sys
 import threading
+import traceback
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -82,6 +84,36 @@ def float_to_pcm16(audio: Any) -> bytes:
     return np.rint(np.clip(samples, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
 
 
+def safe_error_name(error: Exception) -> str:
+    if isinstance(error, ImportError):
+        if error.name:
+            return f"ImportError[{error.name}]"
+        details = [str(error)]
+        cause = error.__cause__ or error.__context__
+        if cause is not None:
+            details.append(f"{type(cause).__name__}: {cause}")
+        detail = re.sub(r"/[^\\s:'\"]+", "<path>", " <- ".join(details)).replace(
+            "\n", " "
+        )
+        return f"ImportError[native-runtime: {detail[:160]}]"
+    if isinstance(error, ValueError):
+        # The exception text can contain the user's speech input. Classify by
+        # the code path instead, which is useful to the UI without echoing a
+        # private note into logs or diagnostics.
+        frames = traceback.extract_tb(error.__traceback__)
+        origin = Path(frames[-1].filename).name if frames else ""
+        if origin == "text_preprocess.py":
+            return "ValueError[text-input]"
+        if origin in {"request.py", "mistral.py"}:
+            return "ValueError[speech-prompt]"
+        if origin in {"acoustic_head.py", "audio_tokenizer.py"}:
+            return "ValueError[audio-generation]"
+        if origin == "worker.py":
+            return "ValueError[request]"
+        return "ValueError[model-generation]"
+    return type(error).__name__
+
+
 class Worker:
     def __init__(self) -> None:
         self.commands: queue.Queue[dict[str, Any]] = queue.Queue()
@@ -102,7 +134,14 @@ class Worker:
                     with self.cancel_lock:
                         self.cancelled.add(request_id)
                 else:
+                    if command.get("type") == "shutdown":
+                        # Synthesis is synchronous, so the main loop cannot
+                        # consume this command until generation yields. Marking
+                        # it here lets that next yield end generation promptly.
+                        self.stopping = True
                     self.commands.put(command)
+                    if command.get("type") == "shutdown":
+                        return
         except (EOFError, BrokenPipeError):
             self.stopping = True
             self.commands.put({"type": "shutdown"})
@@ -169,11 +208,14 @@ class Worker:
         request_id = str(command.get("request_id", ""))
         voice_id = str(command.get("voice_id", ""))
         text = str(command.get("text", ""))
+        seed = int(command.get("seed", 0))
         chunk_seconds = float(command.get("chunk_seconds", 1.0))
         if not request_id or not text.strip() or voice_id not in VOICES:
             raise ValueError("invalid synthesis request")
         if not math.isfinite(chunk_seconds) or not 0.5 <= chunk_seconds <= 1.5:
             raise ValueError("invalid streaming interval")
+        if not 0 <= seed <= 0xFFFF_FFFF:
+            raise ValueError("invalid synthesis seed")
 
         write_frame(
             sys.stdout.buffer,
@@ -187,43 +229,58 @@ class Worker:
         )
         sequence = 0
         total_samples = 0
-        for result in self.model.generate(
-            text=text,
-            voice=voice_id,
-            stream=True,
-            streaming_interval=chunk_seconds,
-            verbose=False,
-        ):
-            if self.is_cancelled(request_id):
-                write_frame(
-                    sys.stdout.buffer,
-                    {"type": "cancelled", "request_id": request_id},
-                )
-                return
-            pcm = float_to_pcm16(result.audio)
-            sample_count = len(pcm) // 2
-            if sample_count == 0:
-                continue
-            write_frame(
-                sys.stdout.buffer,
-                {
-                    "type": "audio",
-                    "request_id": request_id,
-                    "sequence": sequence,
-                    "pcm": pcm,
-                    "sample_count": sample_count,
-                },
-            )
-            sequence += 1
-            total_samples += sample_count
-            write_frame(
-                sys.stdout.buffer,
-                {
-                    "type": "generation_progress",
-                    "request_id": request_id,
-                    "generated_samples": total_samples,
-                },
-            )
+        # Quantized stochastic decoding can very occasionally reject a sampled
+        # acoustic frame. A retry is safe only before any PCM has escaped: once
+        # playback starts, retrying would repeat the beginning in the listener's
+        # ear. Seeding also makes failures reproducible across the source and
+        # signed workers.
+        for attempt in range(2):
+            try:
+                import mlx.core as mx
+
+                mx.random.seed(seed + attempt)
+                for result in self.model.generate(
+                    text=text,
+                    voice=voice_id,
+                    stream=True,
+                    streaming_interval=chunk_seconds,
+                    verbose=False,
+                ):
+                    if self.stopping or self.is_cancelled(request_id):
+                        write_frame(
+                            sys.stdout.buffer,
+                            {"type": "cancelled", "request_id": request_id},
+                        )
+                        return
+                    pcm = float_to_pcm16(result.audio)
+                    sample_count = len(pcm) // 2
+                    if sample_count == 0:
+                        continue
+                    write_frame(
+                        sys.stdout.buffer,
+                        {
+                            "type": "audio",
+                            "request_id": request_id,
+                            "sequence": sequence,
+                            "pcm": pcm,
+                            "sample_count": sample_count,
+                        },
+                    )
+                    sequence += 1
+                    total_samples += sample_count
+                    write_frame(
+                        sys.stdout.buffer,
+                        {
+                            "type": "generation_progress",
+                            "request_id": request_id,
+                            "generated_samples": total_samples,
+                        },
+                    )
+                break
+            except ValueError:
+                if sequence > 0 or attempt == 1:
+                    raise
+                mx.clear_cache()
         write_frame(
             sys.stdout.buffer,
             {
@@ -264,7 +321,7 @@ class Worker:
                         "code": "TTS_GENERATION_FAILED"
                         if kind == "synthesize"
                         else "TTS_WORKER_PROTOCOL",
-                        "message": type(error).__name__,
+                        "message": safe_error_name(error),
                         "recoverable": kind == "synthesize",
                     },
                 )
@@ -276,7 +333,35 @@ def main() -> int:
     for name in tuple(os.environ):
         if name.lower().endswith(("_proxy", "_token")):
             os.environ.pop(name, None)
-    return Worker().run()
+    try:
+        if sys.argv[1:] == ["--runtime-check"]:
+            # Exercise imports that are lazy or native and therefore easy for a
+            # freezer to miss. Release builds run this before Tauri packages us.
+            import importlib
+
+            import mlx.core  # noqa: F401
+            from mlx_audio.tts.utils import load  # noqa: F401
+            from mistral_common.tokens.tokenizers.mistral import (  # noqa: F401
+                MistralTokenizer,
+            )
+
+            importlib.import_module("mlx_audio.tts.models.voxtral_tts")
+            return 0
+        return Worker().run()
+    finally:
+        # Some native tokenizer/audio dependencies start Python's resource
+        # tracker. Frozen executables do not always reap that helper during
+        # interpreter teardown, which would leave a small orphan after the
+        # multi-gigabyte MLX process exits. Python is pinned to 3.11 for this
+        # worker, so explicitly close and join its tracker when one exists.
+        try:
+            from multiprocessing import resource_tracker
+
+            tracker = resource_tracker._resource_tracker
+            if tracker._fd is not None:
+                tracker._stop()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

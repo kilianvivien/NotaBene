@@ -5,15 +5,17 @@ import type {
   TtsEngineSummary,
 } from './TtsEngine';
 
-const FUTURE_ENGINES = new Set<TtsEngineId>(['mistral-api', 'openai-compatible']);
+const FUTURE_ENGINES = new Set<TtsEngineId>(['openai-compatible']);
 
 export function createTtsEngineRegistry(
   system: TtsEngine,
   voxtral: TtsEngine,
+  mistral: TtsEngine,
 ): TtsEngineRegistry {
   const engines = new Map<TtsEngineId, TtsEngine>([
     ['system', system],
     ['voxtral-local', voxtral],
+    ['mistral-api', mistral],
   ]);
 
   return {
@@ -43,6 +45,9 @@ export function createTtsEngineRegistry(
         throw new Error(
           state.kind === 'unsupported' ? state.reason : (state.message ?? state.code),
         );
+      }
+      if (state.kind === 'not_configured') {
+        throw new Error('TTS_API_KEY_MISSING: connect Mistral AI first');
       }
       if (state.kind === 'not_installed') {
         throw new Error('TTS_MODEL_NOT_INSTALLED: Voxtral is not installed');

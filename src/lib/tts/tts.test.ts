@@ -93,6 +93,7 @@ describe('engine registry', () => {
     const registry = createTtsEngineRegistry(
       fakeEngine('system'),
       fakeEngine('voxtral-local', { kind: 'not_installed' }),
+      fakeEngine('mistral-api', { kind: 'not_configured' }),
     );
     await expect(registry.available()).resolves.toEqual([
       expect.objectContaining({ id: 'system', state: { kind: 'ready' } }),
@@ -100,15 +101,20 @@ describe('engine registry', () => {
         id: 'voxtral-local',
         state: { kind: 'not_installed' },
       }),
+      expect.objectContaining({
+        id: 'mistral-api',
+        state: { kind: 'not_configured' },
+      }),
     ]);
   });
 
-  it('never materializes an unconfigured cloud fallback', () => {
+  it('never materializes an unimplemented cloud fallback', () => {
     const registry = createTtsEngineRegistry(
       fakeEngine('system'),
       fakeEngine('voxtral-local'),
+      fakeEngine('mistral-api'),
     );
-    expect(() => registry.get('mistral-api')).toThrow(/not configured/);
+    expect(() => registry.get('openai-compatible')).toThrow(/not configured/);
   });
 });
 

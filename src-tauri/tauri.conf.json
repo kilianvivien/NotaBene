@@ -5,7 +5,7 @@
   "identifier": "app.notabene.desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build && pnpm voxtral:prepare",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"
   },
@@ -25,7 +25,7 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "trafficLightPosition": { "x": 18, "y": 25 },
-        "dragDropEnabled": true
+        "dragDropEnabled": false
       }
     ]
   },

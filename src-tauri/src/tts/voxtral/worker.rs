@@ -6,16 +6,21 @@ use base64::Engine;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
+
+const IDLE_SHUTDOWN_DELAY: Duration = Duration::from_secs(120);
 
 struct Process {
     child: Mutex<Child>,
     stdin: Mutex<ChildStdin>,
     stdout: Mutex<BufReader<ChildStdout>>,
     busy: AtomicBool,
+    idle_generation: AtomicU64,
+    idle_monitor_started: AtomicBool,
     active_request: Mutex<Option<String>>,
 }
 
@@ -80,33 +85,45 @@ fn launch(app: &AppHandle) -> Result<Arc<Process>, String> {
         stdin: Mutex::new(stdin),
         stdout: Mutex::new(BufReader::new(stdout)),
         busy: AtomicBool::new(false),
+        idle_generation: AtomicU64::new(0),
+        idle_monitor_started: AtomicBool::new(false),
         active_request: Mutex::new(None),
     });
 
-    let hello = WorkerCommand::Hello {
-        protocol_version: PROTOCOL_VERSION,
-        expected_model_id: manifest.model_id.clone(),
-        expected_model_revision: manifest.revision.clone(),
-        model_directory: model_directory.to_string_lossy().into_owned(),
-    };
-    write_frame(&mut *process.stdin.lock().unwrap(), &hello)?;
-    let ready = read_frame::<WorkerMessage>(&mut *process.stdout.lock().unwrap())?;
-    validate_ready(&ready, &manifest, false)?;
-    manager::mark_loading();
-    write_frame(&mut *process.stdin.lock().unwrap(), &WorkerCommand::Load)?;
-    loop {
-        let message = read_frame::<WorkerMessage>(&mut *process.stdout.lock().unwrap())?;
-        match message {
-            WorkerMessage::LoadingProgress { .. } => continue,
-            ready @ WorkerMessage::Ready { loaded: true, .. } => {
-                validate_ready(&ready, &manifest, true)?;
-                break;
+    let initialized = (|| {
+        let hello = WorkerCommand::Hello {
+            protocol_version: PROTOCOL_VERSION,
+            expected_model_id: manifest.model_id.clone(),
+            expected_model_revision: manifest.revision.clone(),
+            model_directory: model_directory.to_string_lossy().into_owned(),
+        };
+        write_frame(&mut *process.stdin.lock().unwrap(), &hello)?;
+        let ready = read_frame::<WorkerMessage>(&mut *process.stdout.lock().unwrap())?;
+        validate_ready(&ready, &manifest, false)?;
+        manager::mark_loading();
+        write_frame(&mut *process.stdin.lock().unwrap(), &WorkerCommand::Load)?;
+        loop {
+            let message = read_frame::<WorkerMessage>(&mut *process.stdout.lock().unwrap())?;
+            match message {
+                WorkerMessage::LoadingProgress { .. } => continue,
+                ready @ WorkerMessage::Ready { loaded: true, .. } => {
+                    validate_ready(&ready, &manifest, true)?;
+                    break;
+                }
+                WorkerMessage::Error { code, message, .. } => {
+                    return Err(format!("{code}: {message}"));
+                }
+                _ => return Err("TTS_WORKER_PROTOCOL: unexpected load response".into()),
             }
-            WorkerMessage::Error { code, message, .. } => {
-                return Err(format!("{code}: {message}"));
-            }
-            _ => return Err("TTS_WORKER_PROTOCOL: unexpected load response".into()),
         }
+        Ok(())
+    })();
+    if let Err(error) = initialized {
+        // `Child` does not kill on drop. A handshake or model-load failure
+        // therefore has to terminate explicitly or it can retain the model's
+        // unified-memory allocation even though no process was put in `slot`.
+        stop_process(&process);
+        return Err(error);
     }
     manager::mark_ready();
     Ok(process)
@@ -154,6 +171,10 @@ fn ensure(app: &AppHandle) -> Result<Arc<Process>, String> {
             .flatten()
             .is_none()
         {
+            // Cancel an older idle timer before releasing the slot lock. That
+            // closes the race where the timer could remove a process between
+            // `ensure` returning it and the caller marking it busy.
+            process.idle_generation.fetch_add(1, Ordering::AcqRel);
             return Ok(process.clone());
         }
         *guard = None;
@@ -161,6 +182,63 @@ fn ensure(app: &AppHandle) -> Result<Arc<Process>, String> {
     let process = launch(app)?;
     *guard = Some(process.clone());
     Ok(process)
+}
+
+fn stop_process(process: &Arc<Process>) {
+    let _ = write_frame(
+        &mut *process.stdin.lock().unwrap(),
+        &WorkerCommand::Shutdown,
+    );
+    let mut child = process.child.lock().unwrap();
+    for _ in 0..15 {
+        if child.try_wait().ok().flatten().is_some() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn schedule_idle_shutdown(process: Arc<Process>) {
+    process.idle_generation.fetch_add(1, Ordering::AcqRel);
+    if process
+        .idle_monitor_started
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return;
+    }
+    std::thread::spawn(move || {
+        let mut observed_generation = process.idle_generation.load(Ordering::Acquire);
+        loop {
+            std::thread::sleep(IDLE_SHUTDOWN_DELAY);
+            let removed = {
+                let mut guard = slot().lock().unwrap();
+                let is_current = guard
+                    .as_ref()
+                    .is_some_and(|current| Arc::ptr_eq(current, &process));
+                if !is_current {
+                    return;
+                }
+                let generation = process.idle_generation.load(Ordering::Acquire);
+                if process.busy.load(Ordering::Acquire) || generation != observed_generation {
+                    observed_generation = generation;
+                    None
+                } else {
+                    guard.take()
+                }
+            };
+            if let Some(process) = removed {
+                // Exiting the process, rather than merely dropping the Python model
+                // object, is what guarantees MLX and unified-memory caches return
+                // to macOS.
+                stop_process(&process);
+                manager::worker_shutdown();
+                return;
+            }
+        }
+    });
 }
 
 pub async fn synthesize(
@@ -186,15 +264,16 @@ fn synthesize_blocking(
     {
         return Err("TTS_BUSY: another local synthesis is already running".into());
     }
-    struct BusyReset<'a>(&'a Process);
-    impl Drop for BusyReset<'_> {
+    struct BusyReset(Arc<Process>);
+    impl Drop for BusyReset {
         fn drop(&mut self) {
             self.0.busy.store(false, Ordering::Release);
             *self.0.active_request.lock().unwrap() = None;
             manager::mark_ready();
+            schedule_idle_shutdown(self.0.clone());
         }
     }
-    let _reset = BusyReset(&process);
+    let _reset = BusyReset(process.clone());
     *process.active_request.lock().unwrap() = Some(request.request_id.clone());
     manager::mark_busy(&request.request_id);
 
@@ -354,18 +433,6 @@ pub fn shutdown() {
         manager::worker_shutdown();
         return;
     };
-    let _ = write_frame(
-        &mut *process.stdin.lock().unwrap(),
-        &WorkerCommand::Shutdown,
-    );
-    let mut child = process.child.lock().unwrap();
-    for _ in 0..15 {
-        if child.try_wait().ok().flatten().is_some() {
-            manager::worker_shutdown();
-            return;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
-    let _ = child.kill();
+    stop_process(&process);
     manager::worker_shutdown();
 }

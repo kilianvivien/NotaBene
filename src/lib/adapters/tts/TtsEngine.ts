@@ -31,6 +31,7 @@ export interface TtsEngineCapabilities {
 
 export type TtsEngineState =
   | { kind: 'unsupported'; reason: string; code?: string }
+  | { kind: 'not_configured' }
   | { kind: 'not_installed' }
   | { kind: 'downloading'; downloadedBytes: number; totalBytes: number }
   | { kind: 'verifying' }

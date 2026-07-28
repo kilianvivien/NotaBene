@@ -29,6 +29,7 @@ import { fetchAiTransport } from './ai/fetchAiTransport';
 import { tauriAiTransport } from './ai/tauriAiTransport';
 import { systemTtsEngine, unavailableTtsEngine } from './tts/systemTtsEngine';
 import { voxtralTtsEngine } from './tts/voxtralTtsEngine';
+import { createMistralTtsEngine } from './tts/mistralTtsEngine';
 import { createTtsEngineRegistry } from './tts/ttsEngineRegistry';
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
 import { isTauri } from '@/lib/platform/runtime';
@@ -63,9 +64,11 @@ export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenu
 // browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
 export const aiTransport: AiTransport = isTauri ? tauriAiTransport : fetchAiTransport;
 const activeSystemTtsEngine = isTauri ? systemTtsEngine : unavailableTtsEngine;
+const mistralTtsEngine = createMistralTtsEngine(aiTransport, secrets);
 export const ttsRegistry = createTtsEngineRegistry(
   activeSystemTtsEngine,
   isTauri ? voxtralTtsEngine : unavailableTtsEngine,
+  mistralTtsEngine,
 );
 /** Compatibility alias while callers migrate to the registry. */
 export const tts = activeSystemTtsEngine;

@@ -1,5 +1,6 @@
 import type { DragEvent } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import tauriConfig from '../../../src-tauri/tauri.conf.json';
 import { dragCarries, endDrag, NOTE_MIME, readDrag, startDrag } from './dnd';
 
 function dragEvent(dataTransfer: Partial<DataTransfer>): DragEvent {
@@ -17,6 +18,10 @@ function dragEvent(dataTransfer: Partial<DataTransfer>): DragEvent {
 beforeEach(endDrag);
 
 describe('internal drag payloads', () => {
+  it('keeps Tauri native file-drop interception disabled for HTML drag events', () => {
+    expect(tauriConfig.app.windows[0]?.dragDropEnabled).toBe(false);
+  });
+
   it('uses the typed DataTransfer payload when WebKit exposes it', () => {
     const event = dragEvent({
       types: [NOTE_MIME],

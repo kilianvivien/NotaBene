@@ -36,6 +36,12 @@ pub async fn tts_engines() -> Vec<EngineSummary> {
             streaming: true,
             sample_rate_hz: Some(24_000),
         },
+        EngineSummary {
+            id: "mistral-api",
+            local: false,
+            streaming: false,
+            sample_rate_hz: None,
+        },
     ]
 }
 
@@ -100,5 +106,9 @@ pub async fn tts_cancel(request_id: String) {
 
 #[tauri::command]
 pub async fn tts_worker_shutdown() {
+    voxtral::shutdown();
+}
+
+pub fn shutdown() {
     voxtral::shutdown();
 }

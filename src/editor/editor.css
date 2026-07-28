@@ -103,6 +103,15 @@
   font-weight: 650;
 }
 
+.nb-speech-status {
+  max-width: 110px;
+  overflow: hidden;
+  padding: 0 4px;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nb-format-menu {
   position: absolute;
   z-index: 50;

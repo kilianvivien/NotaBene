@@ -20,11 +20,24 @@ uv run pyinstaller \
   --clean \
   --onedir \
   --name voxtral-worker \
+  --collect-data mlx \
+  --hidden-import mlx._reprlib_fix \
+  --collect-submodules mlx_audio.tts.models.voxtral_tts \
   --distpath "$build_root/dist" \
   --workpath "$build_root/work" \
   --specpath "$build_root/spec" \
   worker.py
 
+rm -rf "$output_root/$target_name"
 mkdir -p "$output_root/$target_name"
 ditto "$build_root/dist/voxtral-worker" "$output_root/$target_name"
+# PyInstaller also places libmlx.dylib at `_internal/libmlx.dylib`. When the
+# worker lives inside a macOS `.app`, dyld can select that duplicate instead of
+# `mlx/lib/libmlx.dylib`; MLX resolves its default shader library beside the
+# dylib it actually loaded. Keep the identical metallib in both locations.
+cp \
+  "$output_root/$target_name/_internal/mlx/lib/mlx.metallib" \
+  "$output_root/$target_name/_internal/mlx.metallib"
+"$output_root/$target_name/voxtral-worker" --runtime-check
+codesign --verify --deep --strict "$output_root/$target_name/voxtral-worker"
 file "$output_root/$target_name/voxtral-worker"

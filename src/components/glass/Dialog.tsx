@@ -19,9 +19,9 @@ import { ModalOverlay } from './ModalOverlay';
 /** Panel widths. `sm` is a single field, `md` a short form, `lg` anything with
  * a list or a preview in it. */
 const WIDTHS = {
-  sm: 'w-[min(420px,92vw)]',
-  md: 'w-[min(520px,92vw)]',
-  lg: 'w-[min(680px,92vw)]',
+  sm: 'max-w-[420px]',
+  md: 'max-w-[520px]',
+  lg: 'max-w-[680px]',
 } as const;
 
 export interface DialogProps {

@@ -97,7 +97,7 @@ export function ModalOverlay({
     <div
       ref={overlay}
       className={cn(
-        'fixed inset-0 z-50 flex items-start justify-center pt-[12vh]',
+        'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-5 pb-5 pt-[12vh]',
         closing ? 'scrim-anim-out' : 'scrim-anim',
       )}
       style={{ background: 'var(--nb-scrim)' }}
@@ -118,7 +118,7 @@ export function ModalOverlay({
         aria-label={label}
         tabIndex={-1}
         className={cn(
-          'w-[min(680px,90vw)] overflow-hidden',
+          'w-full max-w-[680px] shrink-0 overflow-hidden',
           closing && 'panel-anim-out',
           className,
         )}

@@ -150,6 +150,11 @@ pub fn run() {
             mcp::mcp_bridge_respond,
             mcp::mcp_write_client_config,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running NotaBene");
+        .build(tauri::generate_context!())
+        .expect("error while building NotaBene")
+        .run(|_app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                tts::shutdown();
+            }
+        });
 }
