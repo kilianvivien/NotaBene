@@ -1149,8 +1149,7 @@ html[data-focus='true'] .nb-editor-toolbar:focus-within {
   color: var(--nb-text-3);
 }
 
-.nb-attachments li button,
-.nb-attachment-preview > div button {
+.nb-attachments li button {
   display: grid;
   width: 25px;
   height: 25px;
@@ -1161,48 +1160,66 @@ html[data-focus='true'] .nb-editor-toolbar:focus-within {
   place-items: center;
 }
 
-.nb-attachments li button:hover,
-.nb-attachment-preview > div button:hover {
+.nb-attachments li button:hover {
   color: var(--nb-text);
   background: var(--nb-active);
 }
 
-.nb-attachment-preview {
-  position: absolute;
-  z-index: 30;
-  inset: -1px;
+.nb-attachment-viewer {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
   display: flex;
-  overflow: hidden;
-  border: 1px solid var(--nb-control-border);
-  border-radius: var(--nb-radius-sm);
-  background: var(--nb-menu-surface);
-  box-shadow: var(--nb-shadow-lg);
+  background: var(--nb-surface);
   flex-direction: column;
 }
 
-.nb-attachment-preview > div {
-  display: flex;
-  height: 36px;
-  padding: 0 5px 0 10px;
-  align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid var(--nb-divider);
-}
-
-.nb-attachment-preview > div strong {
-  min-width: 0;
+.nb-attachment-viewer-kind {
+  max-width: 28ch;
   overflow: hidden;
-  flex: 1;
-  font-size: 12px;
-  text-overflow: ellipsis;
+  color: var(--nb-text-3);
+  font-size: 11px;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.nb-attachment-preview iframe,
-.nb-attachment-preview img {
-  width: 100%;
-  min-height: 380px;
-  border: 0;
-  object-fit: contain;
+.nb-attachment-viewer-stage {
+  display: grid;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--nb-inset-surface);
   flex: 1;
+  place-items: center;
+}
+
+.nb-attachment-viewer-stage > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  object-fit: contain;
+  user-select: none;
+}
+
+.nb-attachment-viewer-stage > iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.nb-attachment-viewer-media {
+  display: grid;
+  width: min(680px, calc(100% - 48px));
+  padding: 24px;
+  border: 1px solid var(--nb-divider);
+  border-radius: var(--nb-radius-sm);
+  background: var(--nb-control-surface);
+  box-shadow: var(--nb-shadow-sm);
+  place-items: center;
+}
+
+.nb-attachment-viewer-media audio,
+.nb-attachment-viewer-media video {
+  width: 100%;
+  max-height: calc(100vh - 142px);
 }

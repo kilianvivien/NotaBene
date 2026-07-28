@@ -18,9 +18,11 @@ import {
   Download,
   FileText,
   Loader2,
+  Paperclip,
   Pause,
   Play,
   RefreshCw,
+  Sparkles,
   Volume2,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -68,11 +70,17 @@ export function PodcastDialog() {
   const [voicesError, setVoicesError] = useState('');
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
+  const segmentsRef = useRef<SpokenSegment[]>([]);
+  const playingRef = useRef<number | null>(null);
+
+  segmentsRef.current = segments;
+  playingRef.current = playing;
 
   const noteIds = multiSelection.length
     ? multiSelection
@@ -84,6 +92,7 @@ export function PodcastDialog() {
   const voiceId = speech.voicesByEngine[speech.engineId] ?? null;
   const writing = running === 'podcast';
   const speaking = running === 'speech';
+  const setInspectorTab = useUiStore((state) => state.setInspectorTab);
 
   /** Ask the engine what it can do only while the panel is open: the list is a
    * subprocess on macOS and nothing else in the app needs it. */
@@ -125,23 +134,70 @@ export function PodcastDialog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, settings.locale, speech.engineId, t]);
 
+  /** Use the same imperative player path as the working note read-aloud
+   * control. WebKit can refuse a hidden, React-mounted media element even
+   * though the same blob plays through `new Audio()`. */
+  function player(): HTMLAudioElement {
+    if (!audioRef.current) {
+      const element = new Audio();
+      element.addEventListener('ended', () => {
+        const next = (playingRef.current ?? -1) + 1;
+        if (next < segmentsRef.current.length) playSegment(next);
+        else {
+          setPlaying(null);
+          setPaused(false);
+        }
+      });
+      audioRef.current = element;
+    }
+    return audioRef.current;
+  }
+
   /** One object URL alive at a time. Without the revoke, a fifteen-minute
    * episode leaks every segment it played for as long as the app is open. */
   function playSegment(index: number) {
-    const element = audioRef.current;
-    const segment = segments[index];
-    if (!element || !segment) return;
+    const segment = segmentsRef.current[index];
+    if (!segment) return;
 
+    const element = player();
+    element.pause();
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = URL.createObjectURL(segment.audio);
     element.src = urlRef.current;
     element.playbackRate = segment.playbackRate ?? 1;
     setPlaying(index);
-    void element.play().catch(() => setPlaying(null));
+    setPaused(false);
+    setError('');
+    void element.play().catch(() => {
+      setPlaying(null);
+      setPaused(false);
+      setError(t('ai.audioPlaybackFailed'));
+    });
+  }
+
+  function toggleEpisodePlayback() {
+    const element = audioRef.current;
+    if (playing !== null && element) {
+      if (element.paused) {
+        setPaused(false);
+        void element.play().catch(() => {
+          setPlaying(null);
+          setPaused(false);
+          setError(t('ai.audioPlaybackFailed'));
+        });
+      } else {
+        element.pause();
+        setPaused(true);
+      }
+      return;
+    }
+    playSegment(0);
   }
 
   useEffect(
     () => () => {
+      audioRef.current?.pause();
+      if (audioRef.current) audioRef.current.src = '';
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     },
     [],
@@ -150,6 +206,9 @@ export function PodcastDialog() {
   async function writeScript() {
     setError('');
     setStatus('');
+    audioRef.current?.pause();
+    setPlaying(null);
+    setPaused(false);
     setSegments([]);
     const signal = beginRun('podcast');
     const outcome = await proposePodcastScriptCommand(
@@ -172,6 +231,9 @@ export function PodcastDialog() {
     setError('');
     setStatus('');
     setProgress(0);
+    audioRef.current?.pause();
+    setPlaying(null);
+    setPaused(false);
     const signal = beginRun('speech');
     const outcome = await synthesizePodcastCommand(script, {
       voiceId,
@@ -210,6 +272,7 @@ export function PodcastDialog() {
       return;
     }
     setStatus(t('ai.audioAttached'));
+    setInspectorTab('attachments');
   }
 
   async function saveScript() {
@@ -260,15 +323,15 @@ export function PodcastDialog() {
             {writing ? (
               <Loader2 size={12} className="animate-spin" />
             ) : (
-              script && <RefreshCw size={12} />
+              script && <Sparkles size={12} />
             )}
             {writing
               ? t('ai.running')
               : script
-                ? t('ai.regenerate')
+                ? t('ai.regenerateScript')
                 : t('ai.writeScript')}
           </GlassButton>
-          {script && (
+          {script && !segments.length && (
             <GlassButton
               size="sm"
               variant="accent"
@@ -282,9 +345,22 @@ export function PodcastDialog() {
               )}
               {speaking
                 ? t('ai.speakingProgress', { percent: Math.round(progress * 100) })
-                : segments.length
-                  ? t('ai.speakAgain')
-                  : t('ai.speak')}
+                : t('ai.createAudio')}
+            </GlassButton>
+          )}
+          {!!segments.length && (
+            <GlassButton
+              size="sm"
+              variant="accent"
+              disabled={speaking}
+              onClick={toggleEpisodePlayback}
+            >
+              {playing !== null && !paused ? <Pause size={12} /> : <Play size={12} />}
+              {playing !== null && !paused
+                ? t('ai.pauseEpisode')
+                : paused
+                  ? t('ai.resumeEpisode')
+                  : t('ai.playEpisode')}
             </GlassButton>
           )}
         </>
@@ -407,9 +483,16 @@ export function PodcastDialog() {
                       type="button"
                       disabled={!spoken}
                       onClick={() => {
-                        if (playing === index && !audioRef.current?.paused) {
+                        if (playing === index && !paused) {
                           audioRef.current?.pause();
-                          setPlaying(null);
+                          setPaused(true);
+                        } else if (playing === index && paused && audioRef.current) {
+                          setPaused(false);
+                          void audioRef.current.play().catch(() => {
+                            setPlaying(null);
+                            setPaused(false);
+                            setError(t('ai.audioPlaybackFailed'));
+                          });
                         } else {
                           playSegment(index);
                         }
@@ -422,7 +505,16 @@ export function PodcastDialog() {
                       )}
                     >
                       <span className="mt-0.5 shrink-0 text-nb-text-3">
-                        {playing === index ? <Pause size={12} /> : <Play size={12} />}
+                        {playing === index && !paused ? (
+                          <Pause size={12} aria-hidden />
+                        ) : (
+                          <Play size={12} aria-hidden />
+                        )}
+                      </span>
+                      <span className="sr-only">
+                        {playing === index && !paused
+                          ? t('ai.pauseSegment', { number: index + 1 })
+                          : t('ai.playSegment', { number: index + 1 })}
                       </span>
                       <span className="min-w-0 flex-1">
                         {script.mode === 'dialogue' && (
@@ -438,6 +530,29 @@ export function PodcastDialog() {
               })}
             </ol>
 
+            {!!segments.length && (
+              <section className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
+                <h4 className="text-[12px] font-semibold">{t('ai.keepAudio')}</h4>
+                <p className="mt-0.5 text-[11px] leading-snug text-nb-text-3">
+                  {t('ai.keepAudioHint')}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <GlassButton size="sm" onClick={() => void saveAudio()}>
+                    <Download size={12} aria-hidden />
+                    {t('ai.saveAudio')}
+                  </GlassButton>
+                  <GlassButton
+                    size="sm"
+                    disabled={!note}
+                    onClick={() => void attachAudio()}
+                  >
+                    <Paperclip size={12} aria-hidden />
+                    {t('ai.attachAudio')}
+                  </GlassButton>
+                </div>
+              </section>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
               <GlassButton
                 size="sm"
@@ -445,43 +560,32 @@ export function PodcastDialog() {
                 disabled={!note}
                 onClick={() => void saveScript()}
               >
-                <FileText size={12} />
+                <FileText size={12} aria-hidden />
                 {t('ai.saveScriptToNote')}
               </GlassButton>
-              <GlassButton
-                size="sm"
-                variant="ghost"
-                disabled={!segments.length}
-                onClick={() => void saveAudio()}
-              >
-                <Download size={12} />
-                {t('ai.saveAudio')}
-              </GlassButton>
-              <GlassButton
-                size="sm"
-                variant="ghost"
-                disabled={!segments.length || !note}
-                onClick={() => void attachAudio()}
-              >
-                <FileText size={12} />
-                {t('ai.attachAudio')}
-              </GlassButton>
+              {!!segments.length && (
+                <GlassButton
+                  size="sm"
+                  variant="ghost"
+                  disabled={speaking || !voiceId || !voices.length}
+                  onClick={() => void speak()}
+                >
+                  {speaking ? (
+                    <Loader2 size={12} className="animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCw size={12} aria-hidden />
+                  )}
+                  {speaking
+                    ? t('ai.speakingProgress', { percent: Math.round(progress * 100) })
+                    : t('ai.recreateAudio')}
+                </GlassButton>
+              )}
             </div>
           </>
         )}
 
         {status && <FieldNote>{status}</FieldNote>}
         {error && <FieldNote tone="danger">{error}</FieldNote>}
-
-        <audio
-          ref={audioRef}
-          hidden
-          onEnded={() => {
-            const next = (playing ?? -1) + 1;
-            if (next < segments.length) playSegment(next);
-            else setPlaying(null);
-          }}
-        />
       </div>
     </Dialog>
   );

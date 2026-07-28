@@ -36,6 +36,7 @@ import {
 import { ankiFileName, deckToAnkiTsv } from '@/lib/export/anki';
 import { mindMapOutline } from '@/lib/mindmap/edit';
 import { concatWav, parseWav } from '@/lib/podcast/wav';
+import { isTauri } from '@/lib/platform/runtime';
 import {
   MindMapSchema,
   type DocNode,
@@ -676,8 +677,17 @@ export async function encodePodcastMp3Bytes(
 
   // Lazy: the encoder is useful only after an entire episode has been spoken.
   // Keeping its inline WASM out of the startup chunk protects cold launch.
-  const { createMp3Encoder } = await import('wasm-media-encoders');
-  const encoder = await createMp3Encoder();
+  const { createEncoder, createMp3Encoder } = await import('wasm-media-encoders');
+  // The convenience helper embeds the WASM as a data URL and asks `fetch()` to
+  // load it. WKWebView reports only "Load failed" for that fetch under the
+  // desktop CSP. Give Tauri a normal bundled asset URL instead; the browser
+  // and test builds keep the inline path.
+  const encoder = isTauri
+    ? await createEncoder(
+        'audio/mpeg',
+        (await import('wasm-media-encoders/wasm/mp3?url')).default,
+      )
+    : await createMp3Encoder();
   encoder.configure({
     sampleRate: joined.format.sampleRate,
     channels: joined.format.channels,

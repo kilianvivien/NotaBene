@@ -1,5 +1,6 @@
 import { assets, library } from '@/lib/adapters';
 import { AttachmentSchema, newId, type Asset, type Attachment } from '@/lib/schema';
+import { attachmentsChanged } from '@/lib/state/attachmentStore';
 import { fail, ok, type CommandResult } from './types';
 
 export async function storeAssetCommand(blob: Blob): Promise<CommandResult<Asset>> {
@@ -30,6 +31,7 @@ export async function addAttachmentCommand(
 
   try {
     await library.upsertAttachment(parsed.data);
+    attachmentsChanged();
     return ok(parsed.data);
   } catch (error) {
     return fail('storage_failed', String(error));
@@ -41,6 +43,7 @@ export async function deleteAttachmentCommand(
 ): Promise<CommandResult<void>> {
   try {
     await library.deleteAttachment(attachmentId);
+    attachmentsChanged();
     return ok(undefined);
   } catch (error) {
     return fail('storage_failed', String(error));

@@ -6,7 +6,11 @@ import fr from '@/locales/fr/common.json';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { resetMemorySettings } from '@/lib/adapters/settings/memorySettingsAdapter';
 import { DEFAULT_SETTINGS } from '@/lib/adapters';
-import { encodePodcastMp3Bytes, runOnboardingCommand } from '@/lib/commands';
+import {
+  attachPodcastAudioCommand,
+  encodePodcastMp3Bytes,
+  runOnboardingCommand,
+} from '@/lib/commands';
 import { mindMapOutline, reparentMindMap, visibleMindMap } from '@/lib/mindmap/edit';
 import { encodeWav } from '@/lib/podcast/wav';
 import type { MindMap } from '@/lib/schema';
@@ -82,7 +86,7 @@ describe('Phase H release invariants', () => {
   });
 
   it('encodes joined podcast PCM as a real MP3 locally', async () => {
-    const samples = new Uint8Array(22_050 / 5 * 2);
+    const samples = new Uint8Array((22_050 / 5) * 2);
     const wav = encodeWav({
       format: { sampleRate: 22_050, channels: 1, bitsPerSample: 16 },
       samples,
@@ -98,5 +102,32 @@ describe('Phase H release invariants', () => {
       (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) ||
         (bytes[0] === 0xff && (bytes[1]! & 0xe0) === 0xe0),
     ).toBe(true);
+  });
+
+  it('keeps a generated podcast as a playable note attachment', async () => {
+    const note = memoryLibraryAdapter.seedNote({ title: 'Thermodynamics' });
+    const wav = encodeWav({
+      format: { sampleRate: 22_050, channels: 1, bitsPerSample: 16 },
+      samples: new Uint8Array((22_050 / 5) * 2),
+    });
+    const outcome = await attachPodcastAudioCommand(
+      note.id,
+      {
+        title: 'Heat and temperature',
+        mode: 'narrator',
+        segments: [{ speaker: 'narrator', text: 'Heat moves between systems.' }],
+      },
+      [
+        {
+          audio: new NodeBlob([wav], { type: 'audio/wav' }) as unknown as Blob,
+          durationMs: 200,
+        },
+      ],
+    );
+
+    expect(outcome.ok).toBe(true);
+    const attachments = await memoryLibraryAdapter.listAttachments(note.id);
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0]?.name).toBe('heat-and-temperature.mp3');
   });
 });

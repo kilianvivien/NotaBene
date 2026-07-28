@@ -1,12 +1,11 @@
-import { Eye, File, FileText, Image, Paperclip, Plus, Trash2, X } from 'lucide-react';
+import { Eye, File, FileText, Image, Paperclip, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { assets, library } from '@/lib/adapters';
-import {
-  addAttachmentCommand,
-  deleteAttachmentCommand,
-} from '@/lib/commands';
+import { addAttachmentCommand, deleteAttachmentCommand } from '@/lib/commands';
 import type { Attachment } from '@/lib/schema';
+import { useAttachmentStore } from '@/lib/state/attachmentStore';
+import { AttachmentViewer } from './AttachmentViewer';
 
 function AttachmentIcon({ mime }: { mime: string | null }) {
   if (mime?.startsWith('image/')) return <Image size={15} />;
@@ -17,6 +16,7 @@ function AttachmentIcon({ mime }: { mime: string | null }) {
 export function AttachmentPanel({ noteId }: { noteId: string }) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
+  const revision = useAttachmentStore((state) => state.revision);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [mimes, setMimes] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<{ attachment: Attachment; url: string } | null>(
@@ -37,13 +37,19 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
   }
 
   useEffect(() => {
+    setPreview(null);
     void refresh();
-    return () => {
-      if (preview?.url.startsWith('blob:')) URL.revokeObjectURL(preview.url);
-    };
-    // A note change closes an old note's preview.
+    // Podcast generation can add an attachment while this already-mounted
+    // panel sits behind its dialog.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noteId]);
+  }, [noteId, revision]);
+
+  useEffect(
+    () => () => {
+      if (preview?.url.startsWith('blob:')) URL.revokeObjectURL(preview.url);
+    },
+    [preview],
+  );
 
   async function add(files: File[]) {
     setBusy(true);
@@ -61,12 +67,10 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
   async function openPreview(attachment: Attachment) {
     const url = await assets.urlFor(attachment.assetId);
     if (!url) return;
-    if (preview?.url.startsWith('blob:')) URL.revokeObjectURL(preview.url);
     setPreview({ attachment, url });
   }
 
   function closePreview() {
-    if (preview?.url.startsWith('blob:')) URL.revokeObjectURL(preview.url);
     setPreview(null);
   }
 
@@ -127,23 +131,12 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
       )}
 
       {preview && (
-        <div className="nb-attachment-preview">
-          <div>
-            <strong>{preview.attachment.name}</strong>
-            <button
-              type="button"
-              aria-label={t('common.close')}
-              onClick={closePreview}
-            >
-              <X size={14} />
-            </button>
-          </div>
-          {mimes[preview.attachment.assetId]?.startsWith('image/') ? (
-            <img src={preview.url} alt={preview.attachment.name} />
-          ) : (
-            <iframe src={preview.url} title={preview.attachment.name} />
-          )}
-        </div>
+        <AttachmentViewer
+          name={preview.attachment.name}
+          mime={mimes[preview.attachment.assetId] ?? 'application/octet-stream'}
+          url={preview.url}
+          onClose={closePreview}
+        />
       )}
     </div>
   );
