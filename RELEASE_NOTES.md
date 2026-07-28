@@ -1,6 +1,31 @@
-# NotaBene 0.2.0
+# Release notes
 
-NotaBene 1.0 completes the local-first class-note workflow: rich authoring,
+## NotaBene 0.3.1
+
+Fixes for the features 0.3.0 shipped in a rough state, plus a third speech
+engine:
+
+- Gemini neural voices as a selectable TTS engine, alongside macOS system
+  voices and hosted Voxtral;
+- reliable spoken-episode generation and in-app playback;
+- attachment previews with zoom, and document attachments — PDF, DOCX, ODT,
+  RTF, Markdown, and plain text — opening in the app instead of an external
+  viewer.
+
+## NotaBene 0.3.0
+
+- **Ask answers from a chosen source.** The Ask panel is reworked around two
+  modes: **Note only**, which answers strictly from the open note, and
+  **Note + AI**, which may add clearly labelled outside knowledge.
+- **A simpler speech story.** The on-device Voxtral engine is gone; the hosted
+  Voxtral API remains, so no model download stands between you and a spoken
+  note. A failed download can no longer leave the installer stuck.
+- Interface and workflow refinements across the shell, and a Web Crypto digest
+  fix that makes the browser and Tauri adapters agree.
+
+## NotaBene 0.2.0
+
+NotaBene 0.2 completes the local-first class-note workflow: rich authoring,
 courses and search, version history and recovery, portable exports, optional
 bring-your-own-provider AI, authenticated local MCP access, and study tools.
 
@@ -16,6 +41,8 @@ Release polish adds:
   locale-parity checks;
 - release performance instrumentation and a documented security review.
 
-Known release limitation: Developer ID signing/notarization and signed
-auto-updates are deferred. Do not distribute the current unsigned bundle as a
-trusted public release.
+## Known limitation, all releases
+
+Developer ID signing/notarization and signed auto-updates are deferred. The
+published DMG is ad-hoc signed only, so macOS Gatekeeper may warn or block it.
+Do not distribute it as a trusted public release.
