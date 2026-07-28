@@ -9,6 +9,8 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { editorExtensions } from './extensions';
 import { registerEditorCommandRunner, type EditorCommand } from './commandBridge';
+import { registerEditorPrompt, type EditorPromptRequest } from './editorPrompt';
+import { EditorPromptDialog } from './EditorPromptDialog';
 import { TableControls } from './TableControls';
 import { Toolbar } from './Toolbar';
 import { SlashMenu, type SlashState } from './SlashMenu';
@@ -33,6 +35,8 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
   const [slash, setSlash] = useState<SlashState | null>(null);
   const [wikiLink, setWikiLink] = useState<WikiLinkState | null>(null);
   const [findOpen, setFindOpen] = useState(false);
+  const [prompt, setPrompt] = useState<EditorPromptRequest | null>(null);
+  const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
   const [, refresh] = useState(0);
   useUiStore((state) => state.focusMode);
   const extensions = useMemo(() => editorExtensions(t('editor.bodyPlaceholder')), [t]);
@@ -60,6 +64,34 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
         .run();
     }
   }, []);
+
+  /**
+   * The resolver is a ref and both callbacks are stable on purpose. This
+   * component re-renders on every ProseMirror transaction, and `ModalOverlay`
+   * re-runs its focus trap whenever `onClose` changes identity — a fresh
+   * closure here made focus-restore and transaction chase each other until
+   * React gave up on the update depth.
+   */
+  const ask = useCallback(
+    (request: EditorPromptRequest) =>
+      new Promise<string | null>((resolve) => {
+        // One prompt at a time: whatever was already open is dismissed rather
+        // than left with a promise nobody will ever settle.
+        resolvePromptRef.current?.(null);
+        resolvePromptRef.current = resolve;
+        setPrompt(request);
+      }),
+    [],
+  );
+
+  const resolvePrompt = useCallback((value: string | null) => {
+    const resolve = resolvePromptRef.current;
+    resolvePromptRef.current = null;
+    setPrompt(null);
+    resolve?.(value);
+  }, []);
+
+  useEffect(() => registerEditorPrompt(ask), [ask]);
 
   const editor = useEditor({
     extensions,
@@ -199,8 +231,12 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
             })
             .run();
         case 'math': {
-          const latex = window.prompt(t('editor.mathPrompt'), '');
-          if (latex === null) return false;
+          const latex = await ask({
+            title: t('editor.mathPrompt'),
+            value: '',
+            math: true,
+          });
+          if (latex === null || !latex.trim()) return false;
           return current
             .chain()
             .focus()
@@ -209,7 +245,11 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
         }
         case 'link': {
           const previous = current.getAttributes('link').href as string | undefined;
-          const href = window.prompt(t('editor.linkPrompt'), previous ?? 'https://');
+          const href = await ask({
+            title: t('editor.linkPrompt'),
+            value: previous ?? 'https://',
+            placeholder: 'https://',
+          });
           if (href === null) return false;
           if (!href)
             return current.chain().focus().extendMarkRange('link').unsetLink().run();
@@ -220,7 +260,7 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
           return true;
       }
     },
-    [t],
+    [ask, t],
   );
 
   useEffect(() => registerEditorCommandRunner(run), [run]);
@@ -318,6 +358,7 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
           close={() => setWikiLink(null)}
         />
       )}
+      <EditorPromptDialog request={prompt} onResolve={resolvePrompt} />
     </div>
   );
 }

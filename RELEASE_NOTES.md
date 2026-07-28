@@ -1,5 +1,19 @@
 # Release notes
 
+## NotaBene 0.3.2
+
+Editor fixes:
+
+- **Equations work again.** Inserting one did nothing on the desktop build:
+  the prompt it asked for is a no-op in the macOS web view. Equations are now
+  entered in a proper dialog with a live preview, and the same dialog opens on
+  a double-click to edit one. Links, which asked the same way, are fixed with
+  it.
+- Equations no longer render doubled in HTML exports.
+- Dead-key accents work in image captions — typing `^` then `e` gives `ê`
+  rather than `^e`.
+- The drawing window no longer opens over the traffic lights.
+
 ## NotaBene 0.3.1
 
 Fixes for the features 0.3.0 shipped in a rough state, plus a third speech

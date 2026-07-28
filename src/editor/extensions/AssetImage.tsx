@@ -15,6 +15,24 @@ function AssetImageView({ node, selected, updateAttributes }: NodeViewProps) {
   const [src, setSrc] = useState<string | null>(null);
   const frame = useRef<HTMLDivElement>(null);
 
+  /**
+   * The caption is buffered rather than driven straight off `node.attrs`.
+   * Writing every keystroke back through `updateAttributes` dispatches a
+   * ProseMirror transaction, which re-renders this node view and lets React
+   * assign `input.value` again — and assigning `value` mid-composition cancels
+   * it. On a French keyboard that turned the `^` dead key into a literal `^`
+   * followed by a bare `e` instead of `ê`. So: local state while composing,
+   * and the attribute is written once the composition is committed.
+   */
+  const attrCaption = String(node.attrs.caption ?? '');
+  const [caption, setCaption] = useState(attrCaption);
+  const composing = useRef(false);
+
+  useEffect(() => {
+    if (composing.current) return;
+    setCaption(attrCaption);
+  }, [attrCaption]);
+
   useEffect(() => {
     let active = true;
     let createdUrl: string | null = null;
@@ -76,8 +94,19 @@ function AssetImageView({ node, selected, updateAttributes }: NodeViewProps) {
       </div>
 
       <input
-        value={String(node.attrs.caption ?? '')}
-        onChange={(event) => updateAttributes({ caption: event.target.value })}
+        value={caption}
+        onChange={(event) => {
+          setCaption(event.target.value);
+          if (!composing.current) updateAttributes({ caption: event.target.value });
+        }}
+        onCompositionStart={() => {
+          composing.current = true;
+        }}
+        onCompositionEnd={(event) => {
+          composing.current = false;
+          setCaption(event.currentTarget.value);
+          updateAttributes({ caption: event.currentTarget.value });
+        }}
         placeholder={t('editor.imageCaption')}
         aria-label={t('editor.imageCaption')}
         className="nb-image-caption"

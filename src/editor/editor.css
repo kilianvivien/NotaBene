@@ -397,6 +397,18 @@
   text-align: center;
 }
 
+/* Live render under the equation field, so a typo is visible before the
+   equation lands in the note. */
+.nb-math-preview {
+  min-height: 56px;
+  margin-top: 10px;
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: var(--nb-radius-sm);
+  background: var(--nb-inset-surface);
+  text-align: center;
+}
+
 .nb-prosemirror table {
   width: 100%;
   margin: 1.2em 0;
@@ -804,7 +816,10 @@
 .nb-drawing-modal {
   position: fixed;
   z-index: 100;
-  inset: 20px;
+  /* The window is frameless, so the traffic lights sit inside the web view. A
+     uniform 20px inset put this panel's own title row underneath them; the top
+     inset clears the title bar instead. */
+  inset: calc(var(--nb-titlebar-height) + 12px) 26px 26px;
   display: flex;
   overflow: hidden;
   border: 1px solid var(--nb-divider-strong);

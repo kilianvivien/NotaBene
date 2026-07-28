@@ -80,7 +80,7 @@ export function createNote(input: Partial<Note> = {}): Note {
   };
 }
 
-export function emptyLibrary(appVersion = '0.3.1'): Library {
+export function emptyLibrary(appVersion = '0.3.2'): Library {
   return {
     schemaVersion: SCHEMA_VERSION,
     exportedAt: now(),

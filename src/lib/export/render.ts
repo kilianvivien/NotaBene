@@ -1,6 +1,16 @@
 import katex from 'katex';
 import type { DocNode, NoteDoc } from '@/lib/schema';
 
+/**
+ * KaTeX's default output writes the equation twice — once as visually hidden
+ * MathML, once as positioned HTML — and relies on `katex.css` plus its bundled
+ * web fonts to hide the first and lay out the second. An export is a single
+ * self-contained file that can carry neither, so equations came out doubled.
+ * MathML alone needs no stylesheet and no fonts, and every browser that opens
+ * an export today renders it natively.
+ */
+const MATH_OUTPUT = 'mathml' as const;
+
 export const EXPORT_STYLES = `
 :root{color:#24221f;background:#fff;font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 body{max-width:760px;margin:0 auto;padding:48px 54px}h1,h2,h3,h4,h5,h6{line-height:1.2;margin:1.4em 0 .55em}
@@ -31,6 +41,7 @@ function inlineHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): stri
   if (node.type === 'math') {
     try {
       return katex.renderToString(String(node.attrs?.latex ?? ''), {
+        output: MATH_OUTPUT,
         throwOnError: false,
       });
     } catch {
@@ -100,6 +111,7 @@ function blockHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): strin
     case 'mathBlock': {
       try {
         return katex.renderToString(String(node.attrs?.latex ?? ''), {
+          output: MATH_OUTPUT,
           displayMode: true,
           throwOnError: false,
         });

@@ -6,7 +6,11 @@ import {
 } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import katex from 'katex';
+// KaTeX ships its layout as a stylesheet. Without it the renderer's MathML and
+// HTML branches both show, so an equation read as its own source doubled.
+import 'katex/dist/katex.min.css';
 import i18n from '@/lib/i18n';
+import { editorPrompt } from '../editorPrompt';
 
 function mathNodeView(block: boolean) {
   return ({ node: initialNode, getPos, editor }: NodeViewRendererProps) => {
@@ -30,21 +34,26 @@ function mathNodeView(block: boolean) {
 
     dom.addEventListener('dblclick', () => {
       if (typeof getPos !== 'function') return;
-      const position = getPos();
-      if (position === undefined) return;
-      const latex = window.prompt(
-        i18n.t('editor.mathPrompt'),
-        String(node.attrs.latex ?? ''),
-      );
-      if (latex === null) return;
-      editor
-        .chain()
-        .focus()
-        .command(({ tr }) => {
-          tr.setNodeMarkup(position, undefined, { ...node.attrs, latex });
-          return true;
-        })
-        .run();
+      void (async () => {
+        const latex = await editorPrompt({
+          title: i18n.t('editor.mathPrompt'),
+          value: String(node.attrs.latex ?? ''),
+          math: true,
+        });
+        if (latex === null) return;
+        // The dialog is modal but not instantaneous, so the node may have moved
+        // by the time it closes — read the position back out afterwards.
+        const position = getPos();
+        if (position === undefined) return;
+        editor
+          .chain()
+          .focus()
+          .command(({ tr }) => {
+            tr.setNodeMarkup(position, undefined, { ...node.attrs, latex });
+            return true;
+          })
+          .run();
+      })();
     });
 
     return {
