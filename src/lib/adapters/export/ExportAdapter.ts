@@ -20,6 +20,7 @@ export type ExportFormat =
   | 'backup'
   | 'anki'
   | 'audio'
+  | 'attachment'
   | 'svg'
   | 'png';
 
@@ -27,7 +28,7 @@ export type ExportFormat =
  * features that build their own bytes and only borrow the sink. */
 export type NoteExportFormat = Exclude<
   ExportFormat,
-  'backup' | 'anki' | 'audio' | 'svg' | 'png'
+  'backup' | 'anki' | 'audio' | 'attachment' | 'svg' | 'png'
 >;
 
 export interface ExportFile {

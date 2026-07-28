@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { Blob as NodeBlob } from 'node:buffer';
 import en from '@/locales/en/common.json';
@@ -7,9 +7,11 @@ import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapte
 import { resetMemorySettings } from '@/lib/adapters/settings/memorySettingsAdapter';
 import { DEFAULT_SETTINGS } from '@/lib/adapters';
 import {
+  addAttachmentCommand,
   attachPodcastAudioCommand,
   encodePodcastMp3Bytes,
   runOnboardingCommand,
+  saveAttachmentCommand,
 } from '@/lib/commands';
 import { mindMapOutline, reparentMindMap, visibleMindMap } from '@/lib/mindmap/edit';
 import { encodeWav } from '@/lib/podcast/wav';
@@ -55,6 +57,15 @@ describe('Phase H release invariants', () => {
     const cargo = readFileSync(`${process.cwd()}/src-tauri/Cargo.toml`, 'utf8');
     expect(tauriVersion).toBe(packageVersion);
     expect(cargo).toMatch(new RegExp(`^version = "${packageVersion}"$`, 'm'));
+  });
+
+  it('allows the bundled MP3 encoder without enabling general JavaScript eval', () => {
+    const tauri = JSON.parse(
+      readFileSync(`${process.cwd()}/src-tauri/tauri.conf.json`, 'utf8'),
+    );
+    const csp = String(tauri.app.security.csp);
+    expect(csp).toContain("script-src 'self' 'wasm-unsafe-eval'");
+    expect(csp).not.toContain("'unsafe-eval'");
   });
 
   it('keeps every English and French translation key in parity', () => {
@@ -129,5 +140,60 @@ describe('Phase H release invariants', () => {
     const attachments = await memoryLibraryAdapter.listAttachments(note.id);
     expect(attachments).toHaveLength(1);
     expect(attachments[0]?.name).toBe('heat-and-temperature.mp3');
+  });
+
+  it('saves an attachment with its original name and bytes', async () => {
+    const note = memoryLibraryAdapter.seedNote({ title: 'Reference image' });
+    const added = await addAttachmentCommand(
+      note.id,
+      new File([new Uint8Array([1, 2, 3])], 'diagram.png', { type: 'image/png' }),
+    );
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const originalRevokeObjectUrl = URL.revokeObjectURL;
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:attachment-export'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+
+    try {
+      const saved = await saveAttachmentCommand(added.value, 'diagram.png');
+      expect(saved.ok).toBe(true);
+      expect(click).toHaveBeenCalledOnce();
+    } finally {
+      click.mockRestore();
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        configurable: true,
+        value: originalRevokeObjectUrl,
+      });
+    }
+  });
+
+  it('rejects attachment types that have no in-app preview', async () => {
+    const note = memoryLibraryAdapter.seedNote({ title: 'Safe attachments' });
+    const outcome = await addAttachmentCommand(
+      note.id,
+      new File(['binary'], 'archive.zip', { type: 'application/zip' }),
+    );
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      code: 'invalid_input',
+      message: 'unsupported attachment format',
+    });
+    expect(await memoryLibraryAdapter.listAttachments(note.id)).toHaveLength(0);
   });
 });

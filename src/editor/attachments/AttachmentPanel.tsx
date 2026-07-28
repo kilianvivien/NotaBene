@@ -1,7 +1,8 @@
 import { Eye, File, FileText, Image, Paperclip, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { assets, library } from '@/lib/adapters';
+import { assets, dialog, library } from '@/lib/adapters';
+import { ATTACHMENT_ACCEPT } from '@/lib/attachments/previewSupport';
 import { addAttachmentCommand, deleteAttachmentCommand } from '@/lib/commands';
 import type { Attachment } from '@/lib/schema';
 import { useAttachmentStore } from '@/lib/state/attachmentStore';
@@ -19,10 +20,14 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
   const revision = useAttachmentStore((state) => state.revision);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [mimes, setMimes] = useState<Record<string, string>>({});
-  const [preview, setPreview] = useState<{ attachment: Attachment; url: string } | null>(
-    null,
-  );
+  const [preview, setPreview] = useState<{
+    attachment: Attachment;
+    blob: Blob;
+    url: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function refresh() {
     const rows = await library.listAttachments(noteId);
@@ -53,21 +58,35 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
 
   async function add(files: File[]) {
     setBusy(true);
-    for (const file of files) await addAttachmentCommand(noteId, file);
+    setAddError('');
+    for (const file of files) {
+      const result = await addAttachmentCommand(noteId, file);
+      if (!result.ok) setAddError(t('editor.unsupportedAttachment'));
+    }
     await refresh();
     setBusy(false);
   }
 
   async function remove(attachment: Attachment) {
+    const confirmed = await dialog.confirm(
+      t('editor.deleteAttachmentConfirm', { name: attachment.name }),
+      {
+        title: t('editor.deleteAttachmentTitle'),
+        danger: true,
+      },
+    );
+    if (!confirmed) return;
+    setDeletingId(attachment.id);
     await deleteAttachmentCommand(attachment.id);
     if (preview?.attachment.id === attachment.id) closePreview();
     await refresh();
+    setDeletingId(null);
   }
 
   async function openPreview(attachment: Attachment) {
-    const url = await assets.urlFor(attachment.assetId);
-    if (!url) return;
-    setPreview({ attachment, url });
+    const blob = await assets.get(attachment.assetId);
+    if (!blob) return;
+    setPreview({ attachment, blob, url: URL.createObjectURL(blob) });
   }
 
   function closePreview() {
@@ -81,6 +100,7 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
         hidden
         type="file"
         multiple
+        accept={ATTACHMENT_ACCEPT}
         onChange={(event) => {
           void add([...(event.target.files ?? [])]);
           event.target.value = '';
@@ -95,6 +115,11 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
         <Plus size={14} />
         {busy ? t('editor.addingAttachment') : t('editor.addAttachment')}
       </button>
+      {addError && (
+        <p className="nb-attachment-add-error" role="alert">
+          {addError}
+        </p>
+      )}
 
       {attachments.length === 0 ? (
         <div className="nb-attachment-empty">
@@ -121,6 +146,7 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
                 type="button"
                 aria-label={t('common.delete')}
                 title={t('common.delete')}
+                disabled={deletingId === attachment.id}
                 onClick={() => void remove(attachment)}
               >
                 <Trash2 size={13} />
@@ -132,7 +158,8 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
 
       {preview && (
         <AttachmentViewer
-          name={preview.attachment.name}
+          attachment={preview.attachment}
+          blob={preview.blob}
           mime={mimes[preview.attachment.assetId] ?? 'application/octet-stream'}
           url={preview.url}
           onClose={closePreview}
