@@ -301,9 +301,15 @@
     "createNote": "Create note",
     "askMode": "Answer sources",
     "askModeNote": "Note only",
-    "askModeKnowledge": "Note + AI knowledge",
+    "askModeKnowledge": "Note + AI",
+    "askEmptyTitle": "Ask this note anything",
     "askIntro_note": "Answers use only this note. If it does not contain the answer, the model will say so.",
     "askIntro_knowledge": "Answers start with this note and may add clearly labelled AI knowledge.",
+    "askSuggestion_summary": "What are the key points here?",
+    "askSuggestion_explain": "Explain the hardest part simply",
+    "askSuggestion_quiz": "Quiz me on this note",
+    "askThinking": "Reading the note…",
+    "composerHint": "↩ send · ⇧↩ new line",
     "askPlaceholder": "Ask about this note…",
     "send": "Send",
     "clearThread": "Clear conversation",
@@ -630,7 +636,9 @@
     "save": "Save",
     "close": "Close",
     "retry": "Retry",
-    "clear": "Clear"
+    "clear": "Clear",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "error": {
     "boundaryTitle": "Something went wrong",

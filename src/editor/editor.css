@@ -978,18 +978,6 @@ html[data-focus='true'] .nb-editor-toolbar:focus-within {
   gap: 10px;
 }
 
-.nb-inspector-tabs button {
-  min-width: 0;
-  padding-right: 8px;
-  padding-left: 8px;
-  overflow: hidden;
-  flex: 1;
-  font-size: 12px;
-  line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .nb-editor-scroll {
   container-type: inline-size;
 }

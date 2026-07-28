@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, GlassSegmentedControl } from '@/components/glass';
+import { GlassButton, GlassSegmentedControl, GlassSelect } from '@/components/glass';
 import { AskPanel } from '@/app/ai/AskPanel';
 import { AttachmentPanel } from '@/editor/attachments/AttachmentPanel';
 import { library } from '@/lib/adapters';
@@ -64,7 +64,7 @@ export function Inspector() {
           { value: 'ai', label: t('ai.ask'), icon: Sparkles },
         ]}
         iconOnly
-        className="nb-inspector-tabs w-full"
+        fill
       />
 
       {!note ? (
@@ -132,11 +132,12 @@ function VersionsPanel({ noteId }: { noteId: string }) {
 
   return (
     <div className="space-y-3">
-      <select
+      <GlassSelect
+        label={t('inspector.versions')}
+        size="sm"
+        className="w-full"
         value={selected?.id ?? ''}
         onChange={(event) => void choose(event.target.value)}
-        className="h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
-        aria-label={t('inspector.versions')}
       >
         {snapshots.map((snapshot) => (
           <option key={snapshot.id} value={snapshot.id}>
@@ -144,7 +145,7 @@ function VersionsPanel({ noteId }: { noteId: string }) {
             {t(`versions.cause.${snapshot.cause}`)}
           </option>
         ))}
-      </select>
+      </GlassSelect>
       {selected && current && (
         <VersionComparison
           savedTitle={selected.title}
@@ -349,8 +350,10 @@ function InfoPanel() {
     <div className="nb-details-panel">
       <label className="block text-[12px] text-nb-text-3">
         {t('inspector.course')}
-        <select
-          className="mt-1 h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
+        <GlassSelect
+          label={t('inspector.course')}
+          size="sm"
+          className="mt-1 w-full"
           value={note.courseId ?? ''}
           onChange={(event) => void updateLocation(event.target.value || null, null)}
         >
@@ -360,13 +363,15 @@ function InfoPanel() {
               {course.icon} {course.name}
             </option>
           ))}
-        </select>
+        </GlassSelect>
       </label>
       {note.courseId && (
         <label className="mt-3 block text-[12px] text-nb-text-3">
           {t('inspector.section')}
-          <select
-            className="mt-1 h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
+          <GlassSelect
+            label={t('inspector.section')}
+            size="sm"
+            className="mt-1 w-full"
             value={note.sectionId ?? ''}
             onChange={(event) =>
               void updateLocation(note.courseId, event.target.value || null)
@@ -378,7 +383,7 @@ function InfoPanel() {
                 {section.name}
               </option>
             ))}
-          </select>
+          </GlassSelect>
         </label>
       )}
       <dl className="mt-4">
@@ -459,7 +464,7 @@ function TagsPanel() {
       <div className="flex gap-1">
         <input
           list="notabene-tag-options"
-          className="h-8 min-w-0 flex-1 rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
+          className="h-7 min-w-0 flex-1 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
           value={value}
           placeholder={t('organization.addTag')}
           onChange={(event) => setValue(event.target.value)}
