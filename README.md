@@ -16,16 +16,22 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <img alt="Status: early development" src="https://img.shields.io/badge/status-early_development-F59E0B?style=flat-square">
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.2.0"><img alt="Latest release: 0.2.0" src="https://img.shields.io/badge/release-0.2.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
 ![NotaBene 0.2 showing the localized starter course, rich editor, and three-pane library](./assets/screenshots/notabene-0.2.png)
 
+## Download
+
+Download **[NotaBene 0.2.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.2.0/NotaBene_0.2.0_aarch64.dmg)**.
+NotaBene requires macOS 13 Ventura or newer.
+
 > [!IMPORTANT]
-> NotaBene 1.0 is feature-complete, but the current build is not yet a trusted
-> public download: Developer ID notarization and signed auto-updates are
-> intentionally deferred.
+> The 0.2.0 DMG is not Developer ID signed or notarized, so macOS Gatekeeper
+> may warn or block it. Signed builds and automatic updates are intentionally
+> deferred.
 
 ## Why NotaBene?
 
@@ -130,8 +136,10 @@ Keychain and cannot be represented in the backup schema.
 
 ## Current status
 
+NotaBene 0.2.0 is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.2.0).
 The product foundation and phases A–H are code-complete, except for the
-explicitly deferred signing and signed-update work:
+explicitly deferred signing, notarization, and signed-update work:
 
 - native shell and local persistence;
 - rich authoring;
