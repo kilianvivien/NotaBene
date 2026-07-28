@@ -10,7 +10,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { configuredProviderIds } from '@/lib/ai';
-import type { AskTurn } from '@/lib/ai';
+import type { AskMode, AskTurn } from '@/lib/ai';
 
 /** In-flight work, so the cancel button has something to cancel and two
  * features cannot fight over the same panel. `speech` is the odd one out: it is
@@ -18,13 +18,7 @@ import type { AskTurn } from '@/lib/ai';
  * `podcast` because a student can cancel the synthesiser without throwing away
  * the script it was reading. */
 export type AiActivity =
-  | 'rewrite'
-  | 'synthesis'
-  | 'ask'
-  | 'mindMap'
-  | 'flashcards'
-  | 'podcast'
-  | 'speech';
+  'rewrite' | 'synthesis' | 'ask' | 'mindMap' | 'flashcards' | 'podcast' | 'speech';
 
 export interface AskThread {
   turns: AskTurn[];
@@ -37,19 +31,22 @@ interface AiState {
   configuredProviderIds: string[];
   running: AiActivity | null;
   error: string | null;
-  /** Ask conversations, keyed by note id, so switching notes and coming back
-   * does not lose the thread. */
-  threads: Record<string, AskThread>;
+  askMode: AskMode;
+  /** Ask conversations are isolated by note and grounding mode. Strict mode
+   * must never receive an earlier answer that was allowed to use outside
+   * knowledge as conversation context. */
+  threads: Record<string, Partial<Record<AskMode, AskThread>>>;
 
   refreshProviders(): Promise<void>;
   setRunning(activity: AiActivity | null): void;
   setError(message: string | null): void;
-  appendToken(noteId: string, token: string): void;
-  commitTurn(noteId: string, turn: AskTurn): void;
+  setAskMode(mode: AskMode): void;
+  appendToken(noteId: string, mode: AskMode, token: string): void;
+  commitTurn(noteId: string, mode: AskMode, turn: AskTurn): void;
   /** Drop a partial answer without turning it into a turn — a failure that
    * produced no text should leave no empty bubble behind. */
-  discardStreaming(noteId: string): void;
-  clearThread(noteId: string): void;
+  discardStreaming(noteId: string, mode: AskMode): void;
+  clearThread(noteId: string, mode: AskMode): void;
 }
 
 /** One controller per activity. Kept out of the store because an AbortController
@@ -82,6 +79,7 @@ export const useAiStore = create<AiState>()(
     configuredProviderIds: [],
     running: null,
     error: null,
+    askMode: 'knowledge',
     threads: {},
 
     async refreshProviders() {
@@ -103,31 +101,42 @@ export const useAiStore = create<AiState>()(
       });
     },
 
-    appendToken(noteId, token) {
+    setAskMode(mode) {
       set((state) => {
-        const thread = (state.threads[noteId] ??= { turns: [], streaming: '' });
+        state.askMode = mode;
+      });
+    },
+
+    appendToken(noteId, mode, token) {
+      set((state) => {
+        const noteThreads = (state.threads[noteId] ??= {});
+        const thread = (noteThreads[mode] ??= { turns: [], streaming: '' });
         thread.streaming += token;
       });
     },
 
-    commitTurn(noteId, turn) {
+    commitTurn(noteId, mode, turn) {
       set((state) => {
-        const thread = (state.threads[noteId] ??= { turns: [], streaming: '' });
+        const noteThreads = (state.threads[noteId] ??= {});
+        const thread = (noteThreads[mode] ??= { turns: [], streaming: '' });
         thread.turns.push(turn);
         thread.streaming = '';
       });
     },
 
-    discardStreaming(noteId) {
+    discardStreaming(noteId, mode) {
       set((state) => {
-        const thread = state.threads[noteId];
+        const thread = state.threads[noteId]?.[mode];
         if (thread) thread.streaming = '';
       });
     },
 
-    clearThread(noteId) {
+    clearThread(noteId, mode) {
       set((state) => {
-        delete state.threads[noteId];
+        const noteThreads = state.threads[noteId];
+        if (!noteThreads) return;
+        delete noteThreads[mode];
+        if (!noteThreads.note && !noteThreads.knowledge) delete state.threads[noteId];
       });
     },
   })),

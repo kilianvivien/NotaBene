@@ -13,7 +13,7 @@
 import { docToMarkdown } from '@/editor/markdown';
 import type { Note } from '@/lib/schema';
 import { runAi, type AiRunOptions } from './client';
-import { askPrompt } from './prompts';
+import { askPrompt, type AskMode } from './prompts';
 import type { AiMessage, ResolvedProvider } from './protocols';
 
 /** One exchange. Kept in the store, never persisted: a question you asked
@@ -25,6 +25,7 @@ export interface AskTurn {
 
 export interface AskRequest {
   provider: ResolvedProvider;
+  mode: AskMode;
   sources: Pick<Note, 'title' | 'doc'>[];
   history: AskTurn[];
   question: string;
@@ -43,6 +44,7 @@ export async function requestAnswer(
     {
       provider: request.provider,
       messages: askPrompt({
+        mode: request.mode,
         sources: request.sources.map((note) => ({
           title: note.title,
           markdown: docToMarkdown(note.doc),

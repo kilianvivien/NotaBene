@@ -14,6 +14,7 @@ interface GlassSegmentedControlProps<T extends string> {
   label: string;
   className?: string;
   iconOnly?: boolean;
+  disabled?: boolean;
 }
 
 export function GlassSegmentedControl<T extends string>({
@@ -23,6 +24,7 @@ export function GlassSegmentedControl<T extends string>({
   label,
   className,
   iconOnly = false,
+  disabled = false,
 }: GlassSegmentedControlProps<T>) {
   return (
     <div
@@ -44,11 +46,13 @@ export function GlassSegmentedControl<T extends string>({
             aria-label={iconOnly ? option.label : undefined}
             title={iconOnly ? option.label : undefined}
             aria-checked={value === option.value}
+            disabled={disabled}
             onClick={() => onChange(option.value)}
             className={cn(
               'h-7 rounded-[8px] px-3 text-[12px] font-medium',
               'inline-flex items-center justify-center gap-1.5',
               'transition-colors duration-[var(--nb-t-fast)]',
+              'disabled:cursor-not-allowed disabled:opacity-50',
               value === option.value
                 ? 'bg-[var(--nb-glass-strong)] text-nb-text shadow-sm'
                 : 'text-nb-text-2 hover:text-nb-text',

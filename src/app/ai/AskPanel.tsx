@@ -14,7 +14,8 @@
 import { Eraser, Loader2, Send, StickyNote } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton } from '@/components/glass';
+import { GlassButton, GlassSegmentedControl } from '@/components/glass';
+import type { AskMode } from '@/lib/ai';
 import { askAboutNotesCommand, saveAnswerAsNoteCommand } from '@/lib/commands';
 import {
   beginRun,
@@ -33,9 +34,12 @@ import { useAiAvailability } from './useAiAvailability';
 export function AskPanel({ noteId }: { noteId: string }) {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
-  const thread = useAiStore((state) => state.threads[noteId]) ?? EMPTY_THREAD;
+  const mode = useAiStore((state) => state.askMode);
+  const thread =
+    useAiStore((state) => state.threads[noteId]?.[state.askMode]) ?? EMPTY_THREAD;
   const running = useAiStore((state) => state.running) === 'ask';
   const clearThread = useAiStore((state) => state.clearThread);
+  const setAskMode = useAiStore((state) => state.setAskMode);
   const selectNote = useUiStore((state) => state.selectNote);
   const availability = useAiAvailability('ask');
 
@@ -55,29 +59,44 @@ export function AskPanel({ noteId }: { noteId: string }) {
 
     setError('');
     setQuestion('');
+    const requestMode = mode;
     const store = useAiStore.getState();
-    store.commitTurn(noteId, { role: 'user', content: asked });
+    store.commitTurn(noteId, requestMode, { role: 'user', content: asked });
 
     const signal = beginRun('ask');
     const result = await askAboutNotesCommand(
-      { noteIds: [noteId], question: asked, history: thread.turns },
+      {
+        noteIds: [noteId],
+        mode: requestMode,
+        question: asked,
+        history: thread.turns,
+      },
       {
         signal,
-        onToken: (token) => useAiStore.getState().appendToken(noteId, token),
+        onToken: (token) => useAiStore.getState().appendToken(noteId, requestMode, token),
       },
     );
     endRun('ask');
 
     if (result.ok) {
-      store.commitTurn(noteId, { role: 'assistant', content: result.value });
+      store.commitTurn(noteId, requestMode, {
+        role: 'assistant',
+        content: result.value,
+      });
       return;
     }
 
     // A cancelled answer keeps whatever streamed in — the student asked to
     // stop, not to throw away the half they had already read.
-    const partial = useAiStore.getState().threads[noteId]?.streaming ?? '';
-    if (partial) store.commitTurn(noteId, { role: 'assistant', content: partial });
-    else store.discardStreaming(noteId);
+    const partial = useAiStore.getState().threads[noteId]?.[requestMode]?.streaming ?? '';
+    if (partial) {
+      store.commitTurn(noteId, requestMode, {
+        role: 'assistant',
+        content: partial,
+      });
+    } else {
+      store.discardStreaming(noteId, requestMode);
+    }
     setError(
       result.code === 'not_supported' ? t('ai.notConfiguredHint') : result.message,
     );
@@ -101,7 +120,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
             type="button"
             aria-label={t('ai.clearThread')}
             title={t('ai.clearThread')}
-            onClick={() => clearThread(noteId)}
+            onClick={() => clearThread(noteId, mode)}
             className="ml-auto rounded-nb-xs p-1 text-nb-text-3 hover:bg-[var(--nb-hover)]"
           >
             <Eraser size={12} />
@@ -109,9 +128,20 @@ export function AskPanel({ noteId }: { noteId: string }) {
         )}
       </div>
 
+      <GlassSegmentedControl<AskMode>
+        label={t('ai.askMode')}
+        value={mode}
+        onChange={setAskMode}
+        disabled={running}
+        options={[
+          { value: 'note', label: t('ai.askModeNote') },
+          { value: 'knowledge', label: t('ai.askModeKnowledge') },
+        ]}
+      />
+
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
         {!thread.turns.length && !thread.streaming && (
-          <p className="text-[12px] text-nb-text-3">{t('ai.askIntro')}</p>
+          <p className="text-[12px] text-nb-text-3">{t(`ai.askIntro_${mode}`)}</p>
         )}
 
         {thread.turns.map((turn, index) => (

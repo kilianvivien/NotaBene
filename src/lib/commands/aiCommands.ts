@@ -27,6 +27,7 @@ import {
   type AiFeature,
   type AiRunOptions,
   type AiUnavailableReason,
+  type AskMode,
   type AskTurn,
   type ResolvedProvider,
   type RewriteMode,
@@ -224,6 +225,7 @@ export async function synthesizeNotesCommand(
 
 export interface AskInput {
   noteIds: string[];
+  mode: AskMode;
   question: string;
   history: AskTurn[];
 }
@@ -253,6 +255,7 @@ export async function askAboutNotesCommand(
     const answer = await requestAnswer(
       {
         provider: lookup.provider,
+        mode: input.mode,
         sources: notes,
         history: input.history,
         question: input.question,
