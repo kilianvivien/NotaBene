@@ -544,7 +544,7 @@
     "fallback": "Fall back to system speech",
     "fallbackHint": "If local Voxtral fails before playback starts. Never switches to a cloud service.",
     "voxtralTitle": "Local neural voice",
-    "voxtralDescription": "Optional 4-bit MLX model for Apple Silicon Macs running macOS 14 or later.",
+    "voxtralDescription": "Optional local voice for Apple Silicon Macs running macOS 14 or later.",
     "state_unsupported": "Unsupported",
     "state_not_installed": "Not installed",
     "state_downloading": "Downloading",
@@ -555,12 +555,11 @@
     "state_busy": "Speaking",
     "state_error": "Needs attention",
     "downloadProgress": "Voxtral model download",
-    "licenseConsent": "I understand that the model is downloaded from Hugging Face, is about 2.5 GB, and is licensed under CC BY-NC 4.0 for non-commercial use.",
+    "licenseConsent": "I understand that this download is about 2.5 GB and is licensed under CC BY-NC 4.0 for non-commercial use.",
     "download": "Download model",
     "retry": "Retry download",
     "useVoxtral": "Use Voxtral",
-    "remove": "Remove model",
-    "noBundleNotice": "NotaBene does not bundle or redistribute the model weights. Download is explicit, revision-pinned, verified, and removable."
+    "remove": "Remove model"
   },
   "menu": {
     "about": "About",

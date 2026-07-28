@@ -167,10 +167,8 @@ export function SpeechSettings() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[13px] font-medium">Voxtral 4B TTS · MLX 4-bit</p>
-                  <p className="text-[11px] text-nb-text-3">
-                    mlx-community · ~2.5 GB · CC BY-NC 4.0
-                  </p>
+                  <p className="text-[13px] font-medium">Voxtral 4B</p>
+                  <p className="text-[11px] text-nb-text-3">~2.5 GB · CC BY-NC 4.0</p>
                 </div>
                 <span
                   className="rounded-full bg-[var(--nb-active)] px-2 py-0.5 text-[10px] text-nb-text-2"
@@ -280,7 +278,6 @@ export function SpeechSettings() {
             </div>
           </div>
         </div>
-        <FieldNote>{t('speech.noBundleNotice')}</FieldNote>
         {error && <FieldNote tone="danger">{error}</FieldNote>}
       </FieldSection>
     </div>
