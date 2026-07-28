@@ -521,6 +521,7 @@
     "general": "General",
     "appearance": "Appearance",
     "editor": "Editor",
+    "abbreviations": "Abbreviations",
     "speech": "Speech",
     "aiProviders": "AI providers",
     "backups": "Backups",
@@ -564,6 +565,19 @@
     "aboutLicence": "Licence",
     "aboutLicenceBody": "NotaBene is released under the Apache License 2.0.",
     "aboutCredits": "Built with"
+  },
+  "abbreviations": {
+    "title": "Abbreviations",
+    "description": "Type a short trigger, finish the word, and NotaBene replaces it with what you set here. Expansions apply as you write a note; existing text is left alone.",
+    "trigger": "Type this",
+    "expansion": "Get this",
+    "triggerPlaceholder": "thm",
+    "expansionPlaceholder": "theorem",
+    "add": "Add abbreviation",
+    "remove": "Remove abbreviation",
+    "empty": "No abbreviations yet.",
+    "duplicate": "Another abbreviation already uses this trigger, so this one never fires.",
+    "hint": "A trigger only expands at the end of a word, never inside one. Lower-case triggers also match a capitalised spelling and capitalise the result."
   },
   "speech": {
     "voice": "Voice",

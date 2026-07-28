@@ -521,6 +521,7 @@
     "general": "Général",
     "appearance": "Apparence",
     "editor": "Éditeur",
+    "abbreviations": "Abréviations",
     "speech": "Synthèse vocale",
     "aiProviders": "Fournisseurs IA",
     "backups": "Sauvegardes",
@@ -564,6 +565,19 @@
     "aboutLicence": "Licence",
     "aboutLicenceBody": "NotaBene est distribué sous licence Apache 2.0.",
     "aboutCredits": "Construit avec"
+  },
+  "abbreviations": {
+    "title": "Abréviations",
+    "description": "Saisissez un raccourci, terminez le mot, et NotaBene le remplace par ce que vous définissez ici. Le remplacement s’applique pendant la frappe ; le texte déjà écrit n’est pas touché.",
+    "trigger": "Vous tapez",
+    "expansion": "Vous obtenez",
+    "triggerPlaceholder": "thm",
+    "expansionPlaceholder": "théorème",
+    "add": "Ajouter une abréviation",
+    "remove": "Supprimer l’abréviation",
+    "empty": "Aucune abréviation pour l’instant.",
+    "duplicate": "Une autre abréviation utilise déjà ce raccourci : celle-ci ne se déclenchera jamais.",
+    "hint": "Un raccourci ne se développe qu’en fin de mot, jamais à l’intérieur. Un raccourci en minuscules reconnaît aussi sa version capitalisée et capitalise le résultat."
   },
   "speech": {
     "voice": "Voix",

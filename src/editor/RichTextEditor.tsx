@@ -6,6 +6,7 @@ import type { NoteDoc } from '@/lib/schema';
 import { storeAssetCommand } from '@/lib/commands';
 import { createNoteCommand } from '@/lib/commands';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { editorExtensions } from './extensions';
 import { registerEditorCommandRunner, type EditorCommand } from './commandBridge';
@@ -39,7 +40,16 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
   const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
   const [, refresh] = useState(0);
   useUiStore((state) => state.focusMode);
-  const extensions = useMemo(() => editorExtensions(t('editor.bodyPlaceholder')), [t]);
+  // Read through the store rather than subscribing: editing the list in
+  // Settings must not remount the editor the user is typing in.
+  const resolveAbbreviations = useCallback(
+    () => useSettingsStore.getState().settings.abbreviations,
+    [],
+  );
+  const extensions = useMemo(
+    () => editorExtensions(t('editor.bodyPlaceholder'), resolveAbbreviations),
+    [resolveAbbreviations, t],
+  );
 
   const insertImages = useCallback(async (files: File[]) => {
     const editor = editorRef.current;

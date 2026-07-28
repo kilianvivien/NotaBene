@@ -81,6 +81,7 @@ export type {
 } from './library/LibraryAdapter';
 export type { AssetAdapter } from './assets/AssetAdapter';
 export type {
+  Abbreviation,
   AccentColor,
   AiProviderSettings,
   AppSettings,

@@ -1,4 +1,5 @@
 import type { Extensions } from '@tiptap/core';
+import type { Abbreviation as AbbreviationRule } from '@/lib/adapters';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
@@ -16,8 +17,17 @@ import { Drawing } from './Drawing';
 import { MindMap } from './MindMap';
 import { AssetImage } from './AssetImage';
 import { AlignedTableCell, AlignedTableHeader } from './AlignedTable';
+import { Abbreviation } from './Abbreviation';
 
-export function editorExtensions(placeholder: string): Extensions {
+/**
+ * `resolveAbbreviations` is a getter, not a list: the extensions array is
+ * memoised for the life of an editor, and typing shortcuts are edited in
+ * Settings while a note is open.
+ */
+export function editorExtensions(
+  placeholder: string,
+  resolveAbbreviations: () => readonly AbbreviationRule[] = () => [],
+): Extensions {
   return [
     StarterKit.configure({
       link: false,
@@ -46,5 +56,6 @@ export function editorExtensions(placeholder: string): Extensions {
     AssetImage,
     Drawing,
     MindMap,
+    Abbreviation.configure({ resolve: resolveAbbreviations }),
   ];
 }

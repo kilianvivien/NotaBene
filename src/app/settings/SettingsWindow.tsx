@@ -16,6 +16,7 @@ import {
   DatabaseBackup,
   Info,
   Palette,
+  Replace,
   SlidersHorizontal,
   Sparkles,
   Type,
@@ -37,6 +38,7 @@ import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils/cn';
 import type { AccentColor, AppSettings } from '@/lib/adapters';
+import { AbbreviationSettings } from './AbbreviationSettings';
 import { BackupSettings } from './BackupSettings';
 import { AiProviderSettings } from './AiProviderSettings';
 import { AgentSettings } from './AgentSettings';
@@ -56,6 +58,7 @@ const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
       { id: 'general', icon: SlidersHorizontal },
       { id: 'appearance', icon: Palette },
       { id: 'editor', icon: Type },
+      { id: 'abbreviations', icon: Replace },
     ],
   },
   {
@@ -271,6 +274,7 @@ export function SettingsWindow() {
               </div>
             )}
 
+            {tab === 'abbreviations' && <AbbreviationSettings />}
             {tab === 'backups' && <BackupSettings />}
             {tab === 'speech' && <SpeechSettings />}
             {tab === 'aiProviders' && <AiProviderSettings />}

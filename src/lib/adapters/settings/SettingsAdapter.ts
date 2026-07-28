@@ -34,6 +34,22 @@ export interface SpeechSettings {
   fallbackToSystem: boolean;
 }
 
+/**
+ * A typing shortcut: type `trigger`, finish the word, get `expansion`.
+ *
+ * Both halves are plain text on purpose. An expansion that could carry marks or
+ * blocks would be a second authoring surface to build, review and export, and
+ * the thing a student actually wants here is "→" for "->" and the full name of
+ * a theorem they type forty times a term.
+ */
+export interface Abbreviation {
+  /** Stable across edits so a row keeps its identity while its trigger is
+   * being retyped — React keys, and nothing else, depend on this. */
+  id: string;
+  trigger: string;
+  expansion: string;
+}
+
 export interface PodcastSettings {
   mode: 'narrator' | 'dialogue';
   /** Target episode length, in minutes. */
@@ -50,6 +66,8 @@ export interface AppSettings {
   editorFont: 'sans' | 'avenir' | 'serif' | 'claude' | 'iowan' | 'mono';
   editorFontSize: number;
   editorTitleSize: number;
+  /** Typing shortcuts expanded as the note is written, in match order. */
+  abbreviations: Abbreviation[];
   focusMode: boolean;
   /** Trash retention, in days. */
   trashRetentionDays: number;
@@ -108,6 +126,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   editorFont: 'sans',
   editorFontSize: 16,
   editorTitleSize: 40,
+  abbreviations: [],
   focusMode: false,
   trashRetentionDays: 30,
   snapshotRetention: 'standard',

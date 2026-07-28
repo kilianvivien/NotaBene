@@ -9,6 +9,7 @@ import {
   type AppSettings,
   type TtsEngineId,
 } from '@/lib/adapters';
+import { normalizeAbbreviations } from '@/lib/notes/abbreviations';
 
 interface SettingsState {
   settings: AppSettings;
@@ -55,6 +56,8 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
+    // Hand-edited or older settings files reach the typing path directly.
+    abbreviations: normalizeAbbreviations(stored.abbreviations),
     speech: {
       ...DEFAULT_SETTINGS.speech,
       ...storedSpeech,

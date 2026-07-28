@@ -27,6 +27,7 @@ export type SettingsTab =
   | 'general'
   | 'appearance'
   | 'editor'
+  | 'abbreviations'
   | 'speech'
   | 'aiProviders'
   | 'backups'

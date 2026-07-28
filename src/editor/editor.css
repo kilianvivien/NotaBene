@@ -311,6 +311,33 @@
   color: inherit;
 }
 
+/* An abbreviation that just expanded. The accent tint says "the app wrote
+   this", and it fades on its own so the note is never left decorated. Reduced
+   motion gets the same tint, held for the same beat, without the fade. */
+.nb-prosemirror .nb-abbr-flash {
+  border-radius: 2px;
+  background: var(--nb-accent-soft);
+  box-shadow: 0 0 0 1px var(--nb-accent-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-prosemirror .nb-abbr-flash {
+    animation: nb-abbr-flash 900ms var(--nb-ease-out) forwards;
+  }
+
+  @keyframes nb-abbr-flash {
+    0%,
+    45% {
+      background: var(--nb-accent-soft);
+      box-shadow: 0 0 0 1px var(--nb-accent-soft);
+    }
+    100% {
+      background: transparent;
+      box-shadow: 0 0 0 1px transparent;
+    }
+  }
+}
+
 .nb-prosemirror a {
   color: var(--nb-link);
   text-decoration: underline;
