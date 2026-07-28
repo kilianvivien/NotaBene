@@ -2,6 +2,12 @@
 
 ## NotaBene 0.3.2
 
+- **Abbreviations.** Settings → Abbreviations holds your own typing shortcuts:
+  type `tvi`, finish the word, and the note reads "théorème des valeurs
+  intermédiaires". A shortcut only expands at the end of a word and never
+  inside code, a lower-case one also matches its capitalised spelling, and the
+  words it wrote are briefly tinted so an expansion never reads as a typo.
+
 Editor fixes:
 
 - **Equations work again.** Inserting one did nothing on the desktop build:
