@@ -597,7 +597,11 @@ export async function synthesizePodcastCommand(
  * enough not to sound chopped.
  */
 const DEFAULT_MAX_CHARS = 320;
-const VOXTRAL_MAX_CHARS = 180;
+// Mistral validates Voxtral with substantially longer inputs. Keeping our
+// chunks below 280 characters leaves ample room under the native 30.7-second
+// generation cap while avoiding a fresh voice-conditioning boundary at every
+// sentence.
+const VOXTRAL_MAX_CHARS = 280;
 
 function terminalPunctuation(text: string): string {
   if (/[.!?…]["')\]]?$/.test(text)) return text;
@@ -664,14 +668,24 @@ export function speechChunks(
     const trimmed = paragraph.trim();
     if (!trimmed) continue;
 
-    // Voxtral can lose the onset of sentence two when several sentences share
-    // one generation request. Each sentence therefore owns a native call.
+    // Keep neighbouring sentences in the same native request. The bounded
+    // tokenizer and codec path now handles these safely, and fewer prompt
+    // boundaries materially improves voice and background continuity.
     const sentences = trimmed.match(/[^.!?…]+[.!?…]*\s*/g) ?? [trimmed];
+    let current = '';
     for (const sentence of sentences) {
       for (const unit of splitOversizedSpeech(sentence.trim(), contentLimit)) {
-        chunks.push(terminalPunctuation(unit));
+        const punctuated = terminalPunctuation(unit);
+        const joined = current ? `${current} ${punctuated}` : punctuated;
+        if (current && joined.length > contentLimit) {
+          chunks.push(current);
+          current = punctuated;
+        } else {
+          current = joined;
+        }
       }
     }
+    if (current) chunks.push(current);
   }
 
   return chunks;

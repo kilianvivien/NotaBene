@@ -219,21 +219,19 @@ describe('speech chunking', () => {
     );
     expect(chunks.length).toBeGreaterThan(2);
     expect(Math.max(...chunks.map((chunk) => chunk.length))).toBeLessThanOrEqual(
-      180,
+      280,
     );
     expect(chunks.every((chunk) => /[.!?…]$/.test(chunk))).toBe(true);
   });
 
-  it('gives every Voxtral sentence its own generation request', () => {
+  it('groups nearby Voxtral sentences to preserve voice continuity', () => {
     expect(
       speechChunks(
         'AI tools wait for Settings. No note is sent anywhere. The choice stays local.',
         { engineId: 'voxtral-local' },
       ),
     ).toEqual([
-      'AI tools wait for Settings.',
-      'No note is sent anywhere.',
-      'The choice stays local.',
+      'AI tools wait for Settings. No note is sent anywhere. The choice stays local.',
     ]);
   });
 
