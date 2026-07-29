@@ -34,14 +34,23 @@ export function normalizeSpeechText(text: string, locale = 'en'): string {
  * profile separate so the engines that already work retain their exact input.
  */
 export function normalizeVoxtralSpeechText(text: string, locale = 'en'): string {
+  const language = locale.toLowerCase().slice(0, 2);
   const visible = text
     .normalize('NFKC')
     .replace(/\p{Default_Ignorable_Code_Point}/gu, '')
     .replace(/[\u2028\u2029]/g, '\n')
-    .replace(/[‐‑‒–—―−]/g, '-');
+    .replace(/[‐‑‒–—―−]/g, '-')
+    .replace(
+      /(-?\d+(?:[.,]\d+)?)\s*°\s*C\b/gi,
+      (_, value: string) =>
+        language === 'fr'
+          ? `${value} degrés Celsius`
+          : `${value} degrees Celsius`,
+    );
   const normalized = normalizeSpeechText(visible, locale)
     .replace(/\.{3,}/g, '…')
     .replace(/([!?])\1+/g, '$1')
+    .replace(/([!?…])\s*\.+/g, '$1')
     .replace(/\s*--+\s*/g, ' - ')
     .replace(/[ \t]+/g, ' ')
     .trim();

@@ -856,6 +856,103 @@ mod tests {
         drop(session);
     }
 
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[test]
+    #[ignore = "requires NOTABENE_VOXTRAL_MODEL and optionally NOTABENE_VOXTRAL_OUTPUT"]
+    fn binding_reproduces_french_note_then_podcast() {
+        let path = std::env::var("NOTABENE_VOXTRAL_MODEL")
+            .expect("set NOTABENE_VOXTRAL_MODEL to the pinned Q4_K GGUF");
+        let output = std::env::var_os("NOTABENE_VOXTRAL_OUTPUT").map(PathBuf::from);
+        if let Some(output) = &output {
+            std::fs::create_dir_all(output).unwrap();
+        }
+
+        let session = Session::open_with_backend(&path, "voxtral-tts", 4).unwrap();
+        session.set_max_new_tokens(MAX_GENERATED_FRAMES).unwrap();
+        session.set_voice("fr_female", None).unwrap();
+        let chunks = [
+            "Nette baisse des températures jeudi.",
+            "Sur l’Aquitaine, les maximales seront souvent comprises entre 38 et 41 degrés Celsius.",
+            "Localement, des températures de 42 degrés Celsius sont possibles sur l’intérieur de la Gironde et des Landes.",
+            "Il est prévu que ces deux départements repassent au niveau jaune jeudi à 6 heures à la faveur d’une nette baisse des températures.",
+            "Sur le centre-est du pays, les très fortes chaleurs seront durables.",
+            "Un nouvel épisode caniculaire va y débuter.",
+            "Mercredi, les maximales y seront comprises entre 36 et 39 degrés Celsius.",
+            "Sur le reste du pays les maximales seront souvent comprises entre 35 et 38 degrés Celsius.",
+            "Jeudi une nette baisse des températures est attendue sur une large moitié ouest du pays.",
+            "Et il pensait que c’était la vérité vraie !",
+            "Source, Le Monde.",
+            "Bienvenue dans cet épisode consacré à la canicule.",
+            "Nous allons reprendre les informations essentielles de la note, sans oublier les températures ni les régions concernées.",
+            "En Aquitaine, les maximales seront comprises entre 38 et 41 degrés Celsius.",
+            "Dans certaines zones de la Gironde et des Landes, elles pourront atteindre 42 degrés.",
+            "Jeudi, une baisse nette des températures est attendue dans l’ouest du pays.",
+            "Le centre-est conservera néanmoins des chaleurs très fortes et durables.",
+        ];
+
+        for (index, text) in chunks.iter().enumerate() {
+            let started = Instant::now();
+            let mut pcm = session
+                .synthesize(text)
+                .unwrap_or_else(|error| panic!("chunk {} failed: {error}", index + 1));
+            let words = text.split_whitespace().count();
+            let minimum_samples = words * SAMPLE_RATE_HZ as usize * 140 / 1_000;
+            if words >= 3 && pcm.len() < minimum_samples {
+                eprintln!(
+                    "chunk={} retrying implausibly short {:.2}s result",
+                    index + 1,
+                    pcm.len() as f64 / SAMPLE_RATE_HZ as f64
+                );
+                pcm = session
+                    .synthesize(text)
+                    .unwrap_or_else(|error| panic!("chunk {} retry failed: {error}", index + 1));
+            }
+            assert!(
+                words < 3 || pcm.len() >= minimum_samples,
+                "chunk {} was implausibly short twice",
+                index + 1,
+            );
+            if let Some(output) = &output {
+                std::fs::write(
+                    output.join(format!("{:02}.wav", index + 1)),
+                    encode_pcm_wav(&pcm).unwrap(),
+                )
+                .unwrap();
+                std::fs::write(output.join(format!("{:02}.txt", index + 1)), text).unwrap();
+            }
+            eprintln!(
+                "chunk={} chars={} duration={:.2}s elapsed={:?}",
+                index + 1,
+                text.chars().count(),
+                pcm.len() as f64 / SAMPLE_RATE_HZ as f64,
+                started.elapsed()
+            );
+        }
+    }
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[test]
+    #[ignore = "requires NOTABENE_VOXTRAL_MODEL and NOTABENE_VOXTRAL_TEXT"]
+    fn binding_synthesizes_one_diagnostic_prompt() {
+        let path = std::env::var("NOTABENE_VOXTRAL_MODEL")
+            .expect("set NOTABENE_VOXTRAL_MODEL to the pinned Q4_K GGUF");
+        let text = std::env::var("NOTABENE_VOXTRAL_TEXT").expect("set NOTABENE_VOXTRAL_TEXT");
+        let voice = std::env::var("NOTABENE_VOXTRAL_VOICE").unwrap_or_else(|_| "fr_female".into());
+        let session = Session::open_with_backend(&path, "voxtral-tts", 4).unwrap();
+        session.set_max_new_tokens(MAX_GENERATED_FRAMES).unwrap();
+        session.set_voice(&voice, None).unwrap();
+        let pcm = session.synthesize(&text).unwrap();
+        assert!(pcm.len() >= SAMPLE_RATE_HZ as usize);
+        if let Some(output) = std::env::var_os("NOTABENE_VOXTRAL_OUTPUT") {
+            std::fs::write(output, encode_pcm_wav(&pcm).unwrap()).unwrap();
+        }
+        eprintln!(
+            "chars={} duration={:.2}s",
+            text.chars().count(),
+            pcm.len() as f64 / SAMPLE_RATE_HZ as f64
+        );
+    }
+
     #[test]
     fn manifest_is_the_pinned_q4_k_model() {
         let model = manifest();

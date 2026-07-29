@@ -28,6 +28,14 @@ index 39e43f3..720690c 100644
      int verbosity = 1;
  };
  
+@@ -329,2 +333,2 @@ static std::vector<int> parse_int_list(const std::string& s) {
+-static void tekken_build_vocab(voxtral_tts_vocab& v) {
++static void tekken_build_vocab(voxtral_tts_vocab& v, int model_vocab_size) {
+     // Decode the packed vocab blob into piece strings and build the merge table.
+@@ -348,2 +352,2 @@ static void tekken_build_vocab(voxtral_tts_vocab& v) {
+-    while (p + 2 <= end) {
++    while (p + 2 <= end && bpe_id < model_vocab_size) {
+         uint16_t len = *(const uint16_t*)p;
 @@ -514,6 +518,11 @@ extern "C" voxtral_tts_context_params voxtral_tts_context_default_params(void) {
      return p;
  }
@@ -40,6 +48,20 @@ index 39e43f3..720690c 100644
  extern "C" voxtral_tts_context* voxtral_tts_init_from_file(const char* path_model, voxtral_tts_context_params params) {
      if (!path_model || !*path_model)
          return nullptr;
+@@ -776,8 +785,11 @@ extern "C" voxtral_tts_context* voxtral_tts_init_from_file(const char* path_mode
+             for (int i = 0; i < n; i++) {
+                 ctx->vocab.tekken_vocab_blob[i] = (uint8_t)(int)tmp[i];
+             }
+         }
+     }
+-    tekken_build_vocab(ctx->vocab);
++    // Tekken files can carry a larger multilingual merge table than a
++    // particular model's embedding matrix. mistral-common truncates that table
++    // to default_vocab_size; doing the same here prevents otherwise valid text
++    // from producing out-of-range token IDs.
++    tekken_build_vocab(ctx->vocab, ctx->hp.llm_vocab_size);
+-
+     if (ctx->verbosity >= 1) {
 @@ -1524,8 +1533,9 @@ static ggml_tensor* vtts_codec_causal_conv(ggml_context* ctx0, ggml_tensor* x, g
      return y;
  }
@@ -92,6 +114,20 @@ index 39e43f3..720690c 100644
  // ---------------------------------------------------------------------------
  // Synthesize (LLM AR + FM ODE + codec decode)
  // ---------------------------------------------------------------------------
+@@ -1659,3 +1707,12 @@ extern "C" float* voxtral_tts_synthesize(voxtral_tts_context* ctx, const char* t
+     }
++    const int64_t embedding_rows = m.token_embd ? m.token_embd->ne[1] : 0;
++    for (int32_t id : text_ids) {
++        if (id < 0 || id >= embedding_rows) {
++            fprintf(stderr,
++                    "voxtral_tts: tokenizer produced out-of-range token id %d "
++                    "(embedding rows=%lld)\n",
++                    id, (long long)embedding_rows);
++            return nullptr;
++        }
++    }
+-
+     // Step 2: Get voice embedding
 @@ -1690,9 +1733,9 @@ extern "C" float* voxtral_tts_synthesize(voxtral_tts_context* ctx, const char* t
  
      // Step 4: KV cache + LLM prefill, then feed one AUDIO token (24) to obtain the
@@ -105,7 +141,14 @@ index 39e43f3..720690c 100644
          return nullptr;
      voxtral_tts_kv_reset(ctx);
  
-@@ -1717,7 +1760,7 @@ extern "C" float* voxtral_tts_synthesize(voxtral_tts_context* ctx, const char* t
+@@ -1711,2 +1769,6 @@ extern "C" float* voxtral_tts_synthesize(voxtral_tts_context* ctx, const char* t
+     }
++    if (std::any_of(h0.begin(), h0.end(), [](float value) { return !std::isfinite(value); })) {
++        fprintf(stderr, "voxtral_tts: LLM frame-0 decode produced non-finite values\n");
++        return nullptr;
++    }
+     ctx->kv_used = T_prompt + 1;
+@@ -1717,7 +1764,7 @@ extern "C" float* voxtral_tts_synthesize(voxtral_tts_context* ctx, const char* t
      // Step 5: Autoregressive audio-code generation.
      //   frame: acoustic_forward(h) → 37 codes; stop at [END]; else embed codes
      //   back (audio_embd sum) → next LLM input → hidden for the next frame.
@@ -114,7 +157,18 @@ index 39e43f3..720690c 100644
      std::vector<int> all_codes;
      std::vector<float> h = h0;
      int n_past = T_prompt + 1;
-@@ -1783,6 +1826,13 @@ extern "C" float* voxtral_tts_synthesize(voxtral_tts_context* ctx, const char* t
+@@ -1768,6 +1815,10 @@ extern "C" float* voxtral_tts_synthesize(voxtral_tts_context* ctx, const char* t
+         t_llm_us += ggml_time_us() - _t1;
+         if (h.empty())
+             break;
++        if (std::any_of(h.begin(), h.end(), [](float value) { return !std::isfinite(value); })) {
++            fprintf(stderr, "voxtral_tts: LLM decode produced non-finite values at frame %d\n", frame + 1);
++            return nullptr;
++        }
+         n_past++;
+         ctx->kv_used = n_past;
+     }
+@@ -1783,6 +1834,13 @@ extern "C" float* voxtral_tts_synthesize(voxtral_tts_context* ctx, const char* t
          fprintf(stderr, "voxtral_tts: no audio frames produced\n");
          return nullptr;
      }

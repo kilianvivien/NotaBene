@@ -664,22 +664,14 @@ export function speechChunks(
     const trimmed = paragraph.trim();
     if (!trimmed) continue;
 
-    // Keep the terminator: `say` reads "Stop." and "Stop" with different
-    // intonation, and the difference is audible across a whole note.
+    // Voxtral can lose the onset of sentence two when several sentences share
+    // one generation request. Each sentence therefore owns a native call.
     const sentences = trimmed.match(/[^.!?…]+[.!?…]*\s*/g) ?? [trimmed];
-    let current = '';
     for (const sentence of sentences) {
       for (const unit of splitOversizedSpeech(sentence.trim(), contentLimit)) {
-        const joined = current ? `${current} ${unit}` : unit;
-        if (current && joined.length > contentLimit) {
-          chunks.push(terminalPunctuation(current));
-          current = unit;
-        } else {
-          current = joined;
-        }
+        chunks.push(terminalPunctuation(unit));
       }
     }
-    if (current) chunks.push(terminalPunctuation(current));
   }
 
   return chunks;
@@ -702,9 +694,10 @@ export function isLikelyIncompleteVoxtralAudio(
   durationMs: number,
 ): boolean {
   const words = text.match(/\p{L}[\p{L}\p{M}'’-]*/gu)?.length ?? 0;
-  // 545 words/min is intentionally conservative: this catches a clearly
-  // truncated result without rejecting genuinely fast speech or abbreviations.
-  return words >= 8 && durationMs < words * 110;
+  // 428 words/min is still far beyond ordinary narration. Applying the check
+  // from three words upward also catches short sentence onsets that Voxtral can
+  // otherwise turn into a sub-second fragment.
+  return words >= 3 && durationMs < words * 140;
 }
 
 async function synthesizeSpeechChunk(
@@ -712,6 +705,15 @@ async function synthesizeSpeechChunk(
   request: { text: string; voiceId: string; rate?: number },
   signal?: AbortSignal,
 ): Promise<TtsSegmentResult> {
+  const synthesizeChecked = async (
+    text: string,
+  ): Promise<TtsSegmentResult | null> => {
+    const result = await engine.synthesize({ ...request, text }, signal);
+    return isLikelyIncompleteVoxtralAudio(text, result.durationMs)
+      ? null
+      : result;
+  };
+
   const result = await engine.synthesize(request, signal);
   if (
     engine.id !== 'voxtral-local' ||
@@ -725,8 +727,10 @@ async function synthesizeSpeechChunk(
     maxChars: 90,
   });
   if (recoveryChunks.length < 2) {
+    const retried = await synthesizeChecked(request.text);
+    if (retried) return retried;
     throw new Error(
-      'TTS_GENERATION_FAILED: Voxtral stopped before reading the complete speech chunk.',
+      'TTS_GENERATION_FAILED: Voxtral stopped before reading the complete speech chunk twice.',
     );
   }
 
@@ -734,10 +738,11 @@ async function synthesizeSpeechChunk(
   let durationMs = 0;
   for (const text of recoveryChunks) {
     if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
-    const recovered = await engine.synthesize({ ...request, text }, signal);
-    if (isLikelyIncompleteVoxtralAudio(text, recovered.durationMs)) {
+    const recovered =
+      (await synthesizeChecked(text)) ?? (await synthesizeChecked(text));
+    if (!recovered) {
       throw new Error(
-        'TTS_GENERATION_FAILED: Voxtral stopped before reading the complete speech chunk.',
+        'TTS_GENERATION_FAILED: Voxtral stopped before reading a recovery chunk twice.',
       );
     }
     parts.push(new Uint8Array(await recovered.audio.arrayBuffer()));

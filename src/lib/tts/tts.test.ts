@@ -193,6 +193,12 @@ describe('deterministic speech normalization', () => {
       'A strange - prompt!',
     );
     expect(normalizeVoxtralSpeechText('No terminator', 'en')).toBe('No terminator.');
+    expect(normalizeVoxtralSpeechText('Il fera 42 °C !', 'fr')).toBe(
+      'Il fera 42 degrés Celsius !',
+    );
+    expect(normalizeVoxtralSpeechText('A high of 38°C.', 'en')).toBe(
+      'A high of 38 degrees Celsius.',
+    );
   });
 });
 
@@ -218,11 +224,25 @@ describe('speech chunking', () => {
     expect(chunks.every((chunk) => /[.!?…]$/.test(chunk))).toBe(true);
   });
 
+  it('gives every Voxtral sentence its own generation request', () => {
+    expect(
+      speechChunks(
+        'AI tools wait for Settings. No note is sent anywhere. The choice stays local.',
+        { engineId: 'voxtral-local' },
+      ),
+    ).toEqual([
+      'AI tools wait for Settings.',
+      'No note is sent anywhere.',
+      'The choice stays local.',
+    ]);
+  });
+
   it('flags only implausibly short Voxtral output for recovery', () => {
     const text = 'These twelve ordinary words should require more than a single second to speak.';
     expect(isLikelyIncompleteVoxtralAudio(text, 900)).toBe(true);
     expect(isLikelyIncompleteVoxtralAudio(text, 4_000)).toBe(false);
-    expect(isLikelyIncompleteVoxtralAudio('A short phrase.', 300)).toBe(false);
+    expect(isLikelyIncompleteVoxtralAudio('A short phrase.', 300)).toBe(true);
+    expect(isLikelyIncompleteVoxtralAudio('A short phrase.', 600)).toBe(false);
   });
 });
 
