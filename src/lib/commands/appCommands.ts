@@ -18,6 +18,7 @@
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useSpeechStore } from '@/lib/state/speechStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { externalLinks } from '@/lib/adapters';
 import { createNoteCommand } from './noteCommands';
 import { createCourseCommand } from './organizationCommands';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
@@ -57,6 +58,7 @@ export const APP_COMMAND_IDS = [
   'ai.flashcards',
   'ai.podcast',
   'help.documentation',
+  'help.github',
 ] as const;
 
 export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
@@ -435,6 +437,20 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     labelKey: 'menu.documentation',
     accelerator: 'CmdOrCtrl+Shift+Slash',
     landsIn: 'H',
+  },
+  'help.github': {
+    id: 'help.github',
+    labelKey: 'menu.githubRepository',
+    accelerator: 'CmdOrCtrl+Alt+G',
+    landsIn: 'H',
+    run: async () => {
+      try {
+        await externalLinks.open('https://github.com/kilianvivien/NotaBene');
+        return ok(undefined);
+      } catch (error) {
+        return fail('not_supported', translate('error.openExternalLink'), error);
+      }
+    },
   },
 };
 

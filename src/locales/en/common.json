@@ -219,7 +219,7 @@
     "retentionSection": "Retention"
   },
   "search": {
-    "placeholder": "Search notes",
+    "placeholder": "Search notes or commands",
     "scopeAll": "Everywhere",
     "scopeCourse": "This course",
     "noResults": "No notes match",
@@ -693,6 +693,7 @@
     "focusMode": "Focus mode",
     "fullscreen": "Toggle Full Screen",
     "documentation": "NotaBene help",
+    "githubRepository": "NotaBene on GitHub",
     "readAloud": "Read note aloud",
     "commandPalette": "Commands…"
   },
@@ -725,7 +726,8 @@
     "sectionMissing": "That section no longer exists.",
     "snapshotMissing": "That version no longer exists.",
     "invalidInput": "Check the information and try again.",
-    "notAvailable": "This action is not available yet."
+    "notAvailable": "This action is not available yet.",
+    "openExternalLink": "Could not open the link in your browser."
   },
   "palette": {
     "title": "Commands",

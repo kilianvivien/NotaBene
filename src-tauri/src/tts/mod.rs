@@ -5,6 +5,7 @@
 //! so no speech provider host appears in `connect-src`.
 
 mod kokoro;
+mod number_words;
 mod system;
 mod voxtral;
 

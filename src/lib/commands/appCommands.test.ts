@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
-import { library } from '@/lib/adapters';
+import { externalLinks, library } from '@/lib/adapters';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import {
@@ -31,6 +31,7 @@ function findPredefined(nodes: MenuNode[], role: string): MenuNode | undefined {
 }
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   memoryLibraryAdapter.reset();
 });
 
@@ -118,6 +119,18 @@ describe('the menu bar', () => {
     };
     visit(menu);
   });
+
+  it('includes the GitHub repository in the Help menu', () => {
+    const help = buildMenuBar((key) => key).find(
+      (node) => node.kind === 'submenu' && node.label === 'menu.help',
+    );
+    expect(help).toMatchObject({
+      kind: 'submenu',
+      items: expect.arrayContaining([
+        expect.objectContaining({ kind: 'item', id: 'help.github', enabled: true }),
+      ]),
+    });
+  });
 });
 
 describe('runAppCommand', () => {
@@ -132,6 +145,13 @@ describe('runAppCommand', () => {
     const before = useUiStore.getState().inspectorVisible;
     await runAppCommand('view.toggleInspector');
     expect(useUiStore.getState().inspectorVisible).toBe(!before);
+  });
+
+  it('opens the NotaBene GitHub repository', async () => {
+    const open = vi.spyOn(externalLinks, 'open').mockResolvedValue();
+    const result = await runAppCommand('help.github');
+    expect(result.ok).toBe(true);
+    expect(open).toHaveBeenCalledWith('https://github.com/kilianvivien/NotaBene');
   });
 
   it('refuses a command whose feature has not shipped, naming the phase', async () => {

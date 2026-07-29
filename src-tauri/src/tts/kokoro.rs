@@ -18,7 +18,7 @@ use tokio::sync::oneshot;
 use crispasr::Session;
 
 use super::voxtral::{encode_pcm_wav, SAMPLE_RATE_HZ};
-use super::LOCAL_SYNTHESIS_BUSY;
+use super::{number_words::expand_numbers, LOCAL_SYNTHESIS_BUSY};
 
 const INSTALL_EVENT: &str = "notabene-kokoro-install-progress";
 const ACTIVATION_FILE: &str = "activation.json";
@@ -507,6 +507,7 @@ impl KokoroManager {
             "ff_siwis" => ("fr", "voice-fr"),
             _ => return Err("TTS_GENERATION_FAILED: Unknown Kokoro voice.".into()),
         };
+        let text = expand_numbers(text, language);
         if inspect_installation(&self.model_dir).kind != KokoroStatusKind::Ready {
             return Err("TTS_MODEL_NOT_INSTALLED: Install local Kokoro first.".into());
         }
@@ -532,7 +533,7 @@ impl KokoroManager {
                 model_path: self.model_dir.join(&model.filename),
                 voice_path: self.model_dir.join(&voice.filename),
                 language: language.into(),
-                text: text.into(),
+                text,
                 reply,
             })
             .map_err(|_| "TTS_BUSY: The local speech worker is busy.")?;

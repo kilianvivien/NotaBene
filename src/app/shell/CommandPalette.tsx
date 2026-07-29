@@ -14,110 +14,35 @@
  * greys them to show a roadmap, but a search result you cannot pick is noise.
  */
 import { CornerDownLeft, FileText, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  APP_COMMAND_IDS,
-  APP_COMMANDS,
-  isCommandAvailable,
-  runAppCommand,
-  searchNotesCommand,
-  type AppCommandId,
-} from '@/lib/commands';
-import type { NoteSummary } from '@/lib/schema';
-import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { HighlightedSnippet } from './HighlightedSnippet';
-
-/** Tauri accelerator syntax as the symbols a Mac menu would show. */
-function shortcut(accelerator: string | undefined): string | null {
-  if (!accelerator) return null;
-  return accelerator
-    .split('+')
-    .map((part) => {
-      const key = part.toLowerCase();
-      if (key === 'cmdorctrl' || key === 'cmd') return '⌘';
-      if (key === 'shift') return '⇧';
-      if (key === 'alt' || key === 'option') return '⌥';
-      if (key === 'ctrl') return '⌃';
-      if (key === 'slash') return '/';
-      return part.toUpperCase();
-    })
-    .join('');
-}
-
-type Row =
-  | { kind: 'note'; id: string; title: string; snippet: string }
-  | { kind: 'action'; id: AppCommandId; label: string; keys: string | null };
+import {
+  chooseCommandSearchRow,
+  useCommandSearch,
+  type CommandSearchRow,
+} from './useCommandSearch';
 
 export function CommandPalette() {
   const { t } = useTranslation();
   const open = useUiStore((state) => state.commandPaletteOpen);
   const setOpen = useUiStore((state) => state.setCommandPaletteOpen);
-  const selectNote = useUiStore((state) => state.selectNote);
 
   const [query, setQuery] = useState('');
-  const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
+  const rows = useCommandSearch(query, open);
 
   // A palette that remembers last time's query is a palette you have to clear
   // before you can use it.
   useEffect(() => {
     if (!open) return;
     setQuery('');
-    setNotes([]);
     setActive(0);
     requestAnimationFrame(() => input.current?.focus());
   }, [open]);
-
-  /** Debounced, and guarded against the earlier search that resolves last. */
-  useEffect(() => {
-    if (!open) return;
-    const term = query.trim();
-    if (!term) {
-      setNotes([]);
-      return;
-    }
-    let live = true;
-    const timer = window.setTimeout(() => {
-      void searchNotesCommand(term).then((result) => {
-        if (live && result.ok) setNotes(result.value);
-      });
-    }, 90);
-    return () => {
-      live = false;
-      window.clearTimeout(timer);
-    };
-  }, [open, query]);
-
-  const actions = useMemo(() => {
-    const term = query.trim().toLocaleLowerCase();
-    return APP_COMMAND_IDS.filter(
-      (id) => id !== 'app.commandPalette' && isCommandAvailable(id),
-    )
-      .map((id) => ({
-        id,
-        label: t(APP_COMMANDS[id].labelKey),
-        keys: shortcut(APP_COMMANDS[id].accelerator),
-      }))
-      .filter((entry) => !term || entry.label.toLocaleLowerCase().includes(term))
-      .slice(0, term ? 6 : 8);
-  }, [query, t]);
-
-  const rows: Row[] = useMemo(
-    () => [
-      ...notes.map((note) => ({
-        kind: 'note' as const,
-        id: note.id,
-        title: note.title || t('noteList.untitled'),
-        snippet: note.snippet ?? '',
-      })),
-      ...actions.map((entry) => ({ kind: 'action' as const, ...entry })),
-    ],
-    [notes, actions, t],
-  );
 
   useEffect(() => {
     if (active >= rows.length) setActive(Math.max(rows.length - 1, 0));
@@ -131,15 +56,10 @@ export function CommandPalette() {
 
   if (!open) return null;
 
-  async function choose(row: Row | undefined) {
+  async function choose(row: CommandSearchRow | undefined) {
     if (!row) return;
     setOpen(false);
-    if (row.kind === 'note') {
-      selectNote(row.id);
-      await useEditorStore.getState().openNote(row.id);
-    } else {
-      await runAppCommand(row.id);
-    }
+    await chooseCommandSearchRow(row);
   }
 
   return (

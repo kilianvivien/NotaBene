@@ -219,7 +219,7 @@
     "retentionSection": "Conservation"
   },
   "search": {
-    "placeholder": "Rechercher dans les notes",
+    "placeholder": "Rechercher des notes ou des commandes",
     "scopeAll": "Partout",
     "scopeCourse": "Ce cours",
     "noResults": "Aucune note ne correspond",
@@ -693,6 +693,7 @@
     "focusMode": "Mode concentration",
     "fullscreen": "Activer/désactiver le plein écran",
     "documentation": "Aide NotaBene",
+    "githubRepository": "NotaBene sur GitHub",
     "readAloud": "Lire la note à voix haute",
     "commandPalette": "Commandes…"
   },
@@ -725,7 +726,8 @@
     "sectionMissing": "Cette section n’existe plus.",
     "snapshotMissing": "Cette version n’existe plus.",
     "invalidInput": "Vérifiez les informations et réessayez.",
-    "notAvailable": "Cette action n’est pas encore disponible."
+    "notAvailable": "Cette action n’est pas encore disponible.",
+    "openExternalLink": "Impossible d’ouvrir le lien dans votre navigateur."
   },
   "palette": {
     "title": "Commandes",

@@ -33,6 +33,8 @@ import { createGeminiTtsEngine } from './tts/geminiTtsEngine';
 import { createTtsEngineRegistry } from './tts/ttsEngineRegistry';
 import { createLocalTtsEngine, unavailableLocalTtsEngine } from './tts/localTtsEngines';
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
+import { browserExternalLinkAdapter } from './external/browserExternalLinkAdapter';
+import { tauriExternalLinkAdapter } from './external/tauriExternalLinkAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 
 import type { LibraryAdapter } from './library/LibraryAdapter';
@@ -43,6 +45,7 @@ import type { ExportAdapter } from './export/ExportAdapter';
 import type { MenuAdapter } from './menu/MenuAdapter';
 import type { AiTransport } from './ai/AiTransport';
 import type { McpAdapter } from './mcp/McpAdapter';
+import type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -60,6 +63,9 @@ export const exporter: ExportAdapter = isTauri
   : browserExportAdapter;
 export const mcp: McpAdapter = isTauri ? tauriMcpAdapter : unavailableMcpAdapter;
 export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenuAdapter;
+export const externalLinks: ExternalLinkAdapter = isTauri
+  ? tauriExternalLinkAdapter
+  : browserExternalLinkAdapter;
 // Desktop AI leaves through Rust so that a self-hosted or otherwise unusual
 // base URL does not require widening `connect-src` for the whole webview; the
 // browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
@@ -117,6 +123,7 @@ export type {
 } from './export/ExportAdapter';
 export type { MenuAdapter, MenuNode, MenuRole } from './menu/MenuAdapter';
 export type { AiRequest, AiResponse, AiTransport } from './ai/AiTransport';
+export type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 export type {
   TtsAudioEncoding,
   TtsEngine,

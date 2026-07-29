@@ -2326,6 +2326,7 @@ dependencies = [
  "fs2",
  "futures-util",
  "rand 0.9.5",
+ "regex",
  "reqwest",
  "rmcp",
  "rmp-serde",
