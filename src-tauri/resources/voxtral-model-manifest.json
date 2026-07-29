@@ -1,0 +1,17 @@
+{
+  "runtimeTag": "v0.8.23",
+  "runtimeCommit": "7d22deeca045f9c80020bf59e6a24564b1d66e5b",
+  "ggmlCommit": "bfe8ea228d8134d03641c9fcf233a9931f3730de",
+  "repository": "cstr/voxtral-4b-tts-GGUF",
+  "revision": "a50d89a51997d49b8b3b55836aebf064c4a978e0",
+  "filename": "voxtral-4b-tts-q4_k.gguf",
+  "url": "https://huggingface.co/cstr/voxtral-4b-tts-GGUF/resolve/a50d89a51997d49b8b3b55836aebf064c4a978e0/voxtral-4b-tts-q4_k.gguf",
+  "size": 2353230080,
+  "sha256": "8cde56a6506dd78bf143352e96502e76d951ce506e9dfbeec92666c16bbed53b",
+  "license": "CC-BY-NC-4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-nc/4.0/",
+  "upstreamModel": "mistralai/Voxtral-4B-TTS-2603",
+  "sampleRateHz": 24000,
+  "channels": 1,
+  "minimumFreeBytes": 4968435712
+}

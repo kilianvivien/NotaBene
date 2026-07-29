@@ -6,6 +6,7 @@ import { immer } from 'zustand/middleware/immer';
 import {
   appSettings,
   DEFAULT_SETTINGS,
+  LOCAL_MODEL_REVISIONS,
   type AppSettings,
   type TtsEngineId,
 } from '@/lib/adapters';
@@ -32,24 +33,39 @@ interface LegacyPodcastSettings {
  */
 /** Engines this build can actually resolve. Anything else in stored settings
  * is from an older version and must not survive into a running config. */
-const KNOWN_ENGINES = new Set<TtsEngineId>(['system', 'mistral-api', 'gemini-api']);
+const KNOWN_ENGINES = new Set<TtsEngineId>([
+  'system',
+  'voxtral-local',
+  'kokoro-local',
+  'mistral-api',
+  'gemini-api',
+]);
+
+function isCurrentEngine(
+  id: TtsEngineId,
+  revisions: AppSettings['speech']['localModelRevisions'],
+): boolean {
+  if (id !== 'voxtral-local' && id !== 'kokoro-local') return KNOWN_ENGINES.has(id);
+  return revisions[id] === LOCAL_MODEL_REVISIONS[id];
+}
 
 export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
   const legacyPodcast = stored.podcast as
     (Partial<AppSettings['podcast']> & LegacyPodcastSettings) | undefined;
   const storedSpeech = stored.speech;
+  const localModelRevisions = storedSpeech?.localModelRevisions ?? {};
   const legacyVoice = legacyPodcast?.voiceId;
 
   // The removed on-device Voxtral engine could be the saved selection, and a
   // saved id no engine answers to reads to the user as speech being broken.
   const storedEngineId = storedSpeech?.engineId;
   const engineId =
-    storedEngineId && KNOWN_ENGINES.has(storedEngineId)
+    storedEngineId && isCurrentEngine(storedEngineId, localModelRevisions)
       ? storedEngineId
       : DEFAULT_SETTINGS.speech.engineId;
   const voicesByEngine = Object.fromEntries(
     Object.entries(storedSpeech?.voicesByEngine ?? {}).filter(([id]) =>
-      KNOWN_ENGINES.has(id as TtsEngineId),
+      isCurrentEngine(id as TtsEngineId, localModelRevisions),
     ),
   );
 
@@ -62,6 +78,13 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
       ...DEFAULT_SETTINGS.speech,
       ...storedSpeech,
       engineId,
+      localModelRevisions: Object.fromEntries(
+        Object.entries(localModelRevisions).filter(
+          ([id, revision]) =>
+            (id === 'voxtral-local' || id === 'kokoro-local') &&
+            revision === LOCAL_MODEL_REVISIONS[id],
+        ),
+      ),
       voicesByEngine: {
         ...DEFAULT_SETTINGS.speech.voicesByEngine,
         ...(legacyVoice ? { system: legacyVoice } : {}),

@@ -75,6 +75,8 @@ pub fn run() {
             }
 
             ai::init(handle);
+            app.manage(tts::VoxtralManager::new(handle).map_err(std::io::Error::other)?);
+            app.manage(tts::KokoroManager::new(handle).map_err(std::io::Error::other)?);
             mcp::init(handle);
             Ok(())
         })
@@ -134,6 +136,20 @@ pub fn run() {
             tts::tts_system_available,
             tts::tts_system_voices,
             tts::tts_system_synthesize,
+            tts::tts_voxtral_status,
+            tts::tts_voxtral_install,
+            tts::tts_voxtral_cancel_install,
+            tts::tts_voxtral_remove,
+            tts::tts_voxtral_unload,
+            tts::tts_voxtral_voices,
+            tts::tts_voxtral_synthesize,
+            tts::tts_kokoro_status,
+            tts::tts_kokoro_install,
+            tts::tts_kokoro_cancel_install,
+            tts::tts_kokoro_remove,
+            tts::tts_kokoro_unload,
+            tts::tts_kokoro_voices,
+            tts::tts_kokoro_synthesize,
             menu::menu_apply,
             mcp::mcp_start_server,
             mcp::mcp_stop_server,

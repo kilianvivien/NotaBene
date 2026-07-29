@@ -9,11 +9,15 @@ const FUTURE_ENGINES = new Set<TtsEngineId>(['openai-compatible']);
 
 export function createTtsEngineRegistry(
   system: TtsEngine,
+  voxtral: TtsEngine,
+  kokoro: TtsEngine,
   mistral: TtsEngine,
   gemini: TtsEngine,
 ): TtsEngineRegistry {
   const engines = new Map<TtsEngineId, TtsEngine>([
     ['system', system],
+    ['voxtral-local', voxtral],
+    ['kokoro-local', kokoro],
     ['mistral-api', mistral],
     ['gemini-api', gemini],
   ]);
@@ -47,6 +51,11 @@ export function createTtsEngineRegistry(
         );
       }
       if (state.kind === 'not_configured') {
+        if (id === 'voxtral-local' || id === 'kokoro-local') {
+          throw new Error(
+            'TTS_MODEL_NOT_INSTALLED: install the selected local model first',
+          );
+        }
         throw new Error(
           id === 'gemini-api'
             ? 'TTS_API_KEY_MISSING: connect Google Gemini first'

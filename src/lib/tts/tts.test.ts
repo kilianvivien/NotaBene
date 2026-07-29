@@ -6,7 +6,9 @@ import type {
   TtsEngineState,
 } from '@/lib/adapters/tts/TtsEngine';
 import { migrateSettings } from '@/lib/state/settingsStore';
+import { LOCAL_MODEL_REVISIONS } from '@/lib/adapters';
 import { normalizeSpeechText } from './normalizeSpeechText';
+import { prioritizeVoicesForLocale, speechChunks } from '@/lib/commands/studyCommands';
 
 const CAPABILITIES: TtsEngineCapabilities = {
   local: true,
@@ -68,6 +70,7 @@ describe('speech settings migration', () => {
       speech: {
         engineId: 'mistral-api',
         voicesByEngine: { 'mistral-api': 'fr_female' },
+        localModelRevisions: {},
         playbackRate: 0.9,
         fallbackToSystem: true,
       },
@@ -81,6 +84,7 @@ describe('speech settings migration', () => {
       speech: {
         engineId: 'gemini-api',
         voicesByEngine: { 'gemini-api': 'Kore' },
+        localModelRevisions: {},
         playbackRate: 1,
         fallbackToSystem: false,
       },
@@ -104,17 +108,43 @@ describe('speech settings migration', () => {
     expect(migrated.speech.voicesByEngine).toEqual({ system: 'Ava' });
     expect(migrated.speech.playbackRate).toBe(0.9);
   });
+
+  it('preserves a managed local engine only with its pinned revision marker', () => {
+    const migrated = migrateSettings({
+      speech: {
+        engineId: 'kokoro-local',
+        voicesByEngine: { 'kokoro-local': 'ff_siwis' },
+        localModelRevisions: {
+          'kokoro-local': LOCAL_MODEL_REVISIONS['kokoro-local'],
+        },
+        playbackRate: 1,
+        fallbackToSystem: false,
+      },
+    });
+    expect(migrated.speech.engineId).toBe('kokoro-local');
+    expect(migrated.speech.voicesByEngine['kokoro-local']).toBe('ff_siwis');
+  });
 });
 
 describe('engine registry', () => {
   it('exposes capabilities and state without guessing from the id', async () => {
     const registry = createTtsEngineRegistry(
       fakeEngine('system'),
+      fakeEngine('voxtral-local', { kind: 'not_configured' }),
+      fakeEngine('kokoro-local', { kind: 'not_configured' }),
       fakeEngine('mistral-api', { kind: 'not_configured' }),
       fakeEngine('gemini-api', { kind: 'not_configured' }),
     );
     await expect(registry.available()).resolves.toEqual([
       expect.objectContaining({ id: 'system', state: { kind: 'ready' } }),
+      expect.objectContaining({
+        id: 'voxtral-local',
+        state: { kind: 'not_configured' },
+      }),
+      expect.objectContaining({
+        id: 'kokoro-local',
+        state: { kind: 'not_configured' },
+      }),
       expect.objectContaining({
         id: 'mistral-api',
         state: { kind: 'not_configured' },
@@ -129,6 +159,8 @@ describe('engine registry', () => {
   it('never materializes an unimplemented cloud fallback', () => {
     const registry = createTtsEngineRegistry(
       fakeEngine('system'),
+      fakeEngine('voxtral-local'),
+      fakeEngine('kokoro-local'),
       fakeEngine('mistral-api'),
       fakeEngine('gemini-api'),
     );
@@ -147,5 +179,37 @@ describe('deterministic speech normalization', () => {
       expect(normalized).not.toContain(visual);
     }
     expect(normalized).not.toContain('🧪');
+  });
+});
+
+describe('speech chunking', () => {
+  it('keeps normal sentences intact and bounds pathological long text', () => {
+    const chunks = speechChunks(
+      `First sentence. Second sentence! ${'unbroken '.repeat(120)}`,
+    );
+    expect(chunks[0]).toBe('First sentence. Second sentence!');
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(Math.max(...chunks.map((chunk) => chunk.length))).toBeLessThanOrEqual(640);
+  });
+});
+
+describe('speech voice language', () => {
+  it('prioritizes the UI language without hiding voices in other languages', () => {
+    const voices = [
+      { id: 'heart', name: 'Heart', locale: 'en', quality: 'enhanced' as const },
+      { id: 'siwis', name: 'Siwis', locale: 'fr', quality: 'enhanced' as const },
+      { id: 'anna', name: 'Anna', locale: 'de-DE', quality: 'standard' as const },
+    ];
+
+    expect(prioritizeVoicesForLocale(voices, 'fr-FR').map((voice) => voice.id)).toEqual([
+      'siwis',
+      'heart',
+      'anna',
+    ]);
+    expect(prioritizeVoicesForLocale(voices, 'en-US').map((voice) => voice.id)).toEqual([
+      'heart',
+      'siwis',
+      'anna',
+    ]);
   });
 });

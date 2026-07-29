@@ -636,6 +636,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "crispasr"
+version = "0.8.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "097c91b636ad887ee0615b0fc222f3fe8e79dcf7365ef38ac893adb82d0351d3"
+dependencies = [
+ "crispasr-sys",
+]
+
+[[package]]
+name = "crispasr-sys"
+version = "0.8.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8f485cd16964f0c9a03502c4a064893cd82716a41e1f723d9a4f23b03ab455d"
+
+[[package]]
 name = "crossbeam-channel"
 version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2300,11 +2315,13 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "notabene"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
  "chrono",
+ "crispasr",
+ "crispasr-sys",
  "dirs",
  "fs2",
  "futures-util",

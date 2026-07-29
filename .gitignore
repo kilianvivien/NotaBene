@@ -13,6 +13,9 @@ dist
 dist-ssr
 src-tauri/target
 src-tauri/gen
+# CrispASR is rebuilt from the pinned release by the preparation script. Native
+# libraries and the upstream checkout are release inputs, not source artifacts.
+src-tauri/native/crispasr/
 
 # Test / coverage artifacts
 coverage

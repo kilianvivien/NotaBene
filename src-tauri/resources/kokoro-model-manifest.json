@@ -1,0 +1,58 @@
+{
+  "runtimeTag": "v0.8.23",
+  "runtimeCommit": "7d22deeca045f9c80020bf59e6a24564b1d66e5b",
+  "ggmlCommit": "bfe8ea228d8134d03641c9fcf233a9931f3730de",
+  "repository": "cstr/kokoro-82m-GGUF",
+  "revision": "f20291b3a27d0900af358ea1c87d63c76183b223",
+  "license": "Apache-2.0",
+  "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+  "upstreamModel": "hexgrad/Kokoro-82M",
+  "sampleRateHz": 24000,
+  "channels": 1,
+  "minimumFreeBytes": 320000000,
+  "artifacts": [
+    {
+      "role": "model",
+      "filename": "kokoro-82m-q8_0.gguf",
+      "url": "https://huggingface.co/cstr/kokoro-82m-GGUF/resolve/f20291b3a27d0900af358ea1c87d63c76183b223/kokoro-82m-q8_0.gguf",
+      "size": 141322336,
+      "sha256": "3c8b60064b287a10abd35396a59c9981675c618db8bc91bd290db63f55eb492d"
+    },
+    {
+      "role": "voice-en",
+      "repository": "cstr/kokoro-voices-GGUF",
+      "revision": "d6435f2e72f28392c36051c832714815382d36bd",
+      "filename": "kokoro-voice-af_heart.gguf",
+      "url": "https://huggingface.co/cstr/kokoro-voices-GGUF/resolve/d6435f2e72f28392c36051c832714815382d36bd/kokoro-voice-af_heart.gguf",
+      "size": 522560,
+      "sha256": "c2f44076dfb8f9c098a85d634f6d6b46b038f80e3afdf695ff3b90f6d9ef473f"
+    },
+    {
+      "role": "voice-fr",
+      "repository": "cstr/kokoro-voices-GGUF",
+      "revision": "d6435f2e72f28392c36051c832714815382d36bd",
+      "filename": "kokoro-voice-ff_siwis.gguf",
+      "url": "https://huggingface.co/cstr/kokoro-voices-GGUF/resolve/d6435f2e72f28392c36051c832714815382d36bd/kokoro-voice-ff_siwis.gguf",
+      "size": 522560,
+      "sha256": "ebeb2847f5a56301af4d61fd31e5c568dfc05b4017694784e86eff9b17d08296"
+    },
+    {
+      "role": "g2p-en",
+      "repository": "cstr/g2p-dicts",
+      "revision": "80c2f587f2a1d7bcc7d703dc084bfb71b6c862ad",
+      "filename": "cmudict.dict",
+      "url": "https://huggingface.co/datasets/cstr/g2p-dicts/resolve/80c2f587f2a1d7bcc7d703dc084bfb71b6c862ad/cmudict.dict",
+      "size": 3618488,
+      "sha256": "81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22"
+    },
+    {
+      "role": "g2p-fr",
+      "repository": "cstr/g2p-dicts",
+      "revision": "80c2f587f2a1d7bcc7d703dc084bfb71b6c862ad",
+      "filename": "espeak_fr.tsv",
+      "url": "https://huggingface.co/datasets/cstr/g2p-dicts/resolve/80c2f587f2a1d7bcc7d703dc084bfb71b6c862ad/espeak_fr.tsv",
+      "size": 6839911,
+      "sha256": "29c93519367f95232e6e7bffebe666eb81b9277d4ec149d75eee0659b22cc4be"
+    }
+  ]
+}

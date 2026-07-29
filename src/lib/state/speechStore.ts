@@ -83,6 +83,7 @@ function playNext(): void {
   objectUrl = URL.createObjectURL(next.audio);
   const player = element();
   player.src = objectUrl;
+  player.playbackRate = next.playbackRate ?? 1;
   useSpeechStore.setState({ status: 'playing' });
   void player.play().catch(() => useSpeechStore.getState().stop());
 }

@@ -1,6 +1,6 @@
 [package]
 name = "notabene"
-version = "0.3.2"
+version = "0.4.0"
 description = "A simple, privacy-first note-taking app for students"
 authors = ["NotaBene contributors"]
 edition = "2021"
@@ -69,3 +69,7 @@ reqwest = { version = "0.13", default-features = false, features = [
 ] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 futures-util = "0.3"
+
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+crispasr = { version = "=0.8.23", default-features = false, features = ["metal"] }
+crispasr-sys = { version = "=0.8.23", default-features = false, features = ["metal"] }

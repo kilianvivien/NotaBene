@@ -28,6 +28,10 @@ export interface SpeechSettings {
   engineId: TtsEngineId;
   /** Voice ids belong to an engine and are never interchangeable. */
   voicesByEngine: Partial<Record<TtsEngineId, string>>;
+  /** Exact managed revisions prove that a local selection belongs to this
+   * implementation. An older abandoned `voxtral-local` preference has no
+   * marker and safely migrates back to system speech. */
+  localModelRevisions: Partial<Record<'voxtral-local' | 'kokoro-local', string>>;
   /** Player speed; the hosted API synthesizes at its natural rate. */
   playbackRate: number;
   /** A saved, explicit fallback to system speech. Never resolves to cloud. */
@@ -143,6 +147,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   speech: {
     engineId: 'system',
     voicesByEngine: {},
+    localModelRevisions: {},
     playbackRate: 1,
     fallbackToSystem: false,
   },

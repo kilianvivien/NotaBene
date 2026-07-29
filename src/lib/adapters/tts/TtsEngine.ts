@@ -5,7 +5,13 @@
  * hosted speech APIs do. Callers inspect capabilities instead of inferring them
  * from an engine id.
  */
-export type TtsEngineId = 'system' | 'mistral-api' | 'gemini-api' | 'openai-compatible';
+export type TtsEngineId =
+  | 'system'
+  | 'voxtral-local'
+  | 'kokoro-local'
+  | 'mistral-api'
+  | 'gemini-api'
+  | 'openai-compatible';
 
 export interface TtsVoice {
   id: string;
