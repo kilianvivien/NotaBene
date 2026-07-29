@@ -7,8 +7,15 @@ import type {
 } from '@/lib/adapters/tts/TtsEngine';
 import { migrateSettings } from '@/lib/state/settingsStore';
 import { LOCAL_MODEL_REVISIONS } from '@/lib/adapters';
-import { normalizeSpeechText } from './normalizeSpeechText';
-import { prioritizeVoicesForLocale, speechChunks } from '@/lib/commands/studyCommands';
+import {
+  normalizeSpeechText,
+  normalizeVoxtralSpeechText,
+} from './normalizeSpeechText';
+import {
+  isLikelyIncompleteVoxtralAudio,
+  prioritizeVoicesForLocale,
+  speechChunks,
+} from '@/lib/commands/studyCommands';
 
 const CAPABILITIES: TtsEngineCapabilities = {
   local: true,
@@ -180,6 +187,13 @@ describe('deterministic speech normalization', () => {
     }
     expect(normalized).not.toContain('🧪');
   });
+
+  it('sanitizes invisible Voxtral input and supplies terminal punctuation', () => {
+    expect(normalizeVoxtralSpeechText('A\u200b strange——prompt!!!', 'en')).toBe(
+      'A strange - prompt!',
+    );
+    expect(normalizeVoxtralSpeechText('No terminator', 'en')).toBe('No terminator.');
+  });
 });
 
 describe('speech chunking', () => {
@@ -190,6 +204,25 @@ describe('speech chunking', () => {
     expect(chunks[0]).toBe('First sentence. Second sentence!');
     expect(chunks.length).toBeGreaterThan(1);
     expect(Math.max(...chunks.map((chunk) => chunk.length))).toBeLessThanOrEqual(640);
+  });
+
+  it('uses short, punctuated chunks for Voxtral in long notes and podcasts', () => {
+    const chunks = speechChunks(
+      `A useful opening sentence. ${'A deliberately long clause with several words, '.repeat(20)}`,
+      { engineId: 'voxtral-local' },
+    );
+    expect(chunks.length).toBeGreaterThan(2);
+    expect(Math.max(...chunks.map((chunk) => chunk.length))).toBeLessThanOrEqual(
+      180,
+    );
+    expect(chunks.every((chunk) => /[.!?…]$/.test(chunk))).toBe(true);
+  });
+
+  it('flags only implausibly short Voxtral output for recovery', () => {
+    const text = 'These twelve ordinary words should require more than a single second to speak.';
+    expect(isLikelyIncompleteVoxtralAudio(text, 900)).toBe(true);
+    expect(isLikelyIncompleteVoxtralAudio(text, 4_000)).toBe(false);
+    expect(isLikelyIncompleteVoxtralAudio('A short phrase.', 300)).toBe(false);
   });
 });
 

@@ -27,3 +27,26 @@ export function normalizeSpeechText(text: string, locale = 'en'): string {
       .trim()
   );
 }
+
+/**
+ * Voxtral is less forgiving than the system and Kokoro engines when prompts
+ * contain invisible Unicode or finish without spoken punctuation. Keep this
+ * profile separate so the engines that already work retain their exact input.
+ */
+export function normalizeVoxtralSpeechText(text: string, locale = 'en'): string {
+  const visible = text
+    .normalize('NFKC')
+    .replace(/\p{Default_Ignorable_Code_Point}/gu, '')
+    .replace(/[\u2028\u2029]/g, '\n')
+    .replace(/[‐‑‒–—―−]/g, '-');
+  const normalized = normalizeSpeechText(visible, locale)
+    .replace(/\.{3,}/g, '…')
+    .replace(/([!?])\1+/g, '$1')
+    .replace(/\s*--+\s*/g, ' - ')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+
+  if (!normalized || /[.!?…]["')\]]?$/.test(normalized)) return normalized;
+  if (/[,;:]$/.test(normalized)) return `${normalized.slice(0, -1)}.`;
+  return `${normalized}.`;
+}

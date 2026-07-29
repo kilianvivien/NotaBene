@@ -22,6 +22,7 @@ import {
   ttsRegistry,
   type TtsEngine,
   type TtsEngineId,
+  type TtsSegmentResult,
   type TtsVoice,
 } from '@/lib/adapters';
 import {
@@ -46,7 +47,10 @@ import {
   type PodcastScript,
 } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
-import { normalizeSpeechText } from '@/lib/tts/normalizeSpeechText';
+import {
+  normalizeSpeechText,
+  normalizeVoxtralSpeechText,
+} from '@/lib/tts/normalizeSpeechText';
 import { language, providerFor } from './aiCommands';
 import { updateNoteCommand } from './noteCommands';
 import { createNoteCommand } from './noteCommands';
@@ -494,6 +498,7 @@ export async function synthesizePodcastCommand(
     locale?: string;
     signal?: AbortSignal;
     onProgress?(done: number, total: number): void;
+    onSegment?(segment: SpokenSegment, index: number, total: number): void;
   },
 ): Promise<CommandResult<SpokenSegment[]>> {
   if (!script.segments.length) return fail('invalid_input', 'the script is empty');
@@ -517,7 +522,11 @@ export async function synthesizePodcastCommand(
         : undefined;
     const chunkedSegments = script.segments.map((segment) => ({
       segment,
-      chunks: speechChunks(normalizeSpeechText(segment.text, options.locale)),
+      chunks: preparedSpeechChunks(
+        segment.text,
+        options.locale,
+        options.engineId ?? 'system',
+      ),
     }));
     const totalChunks = chunkedSegments.reduce(
       (total, entry) => total + entry.chunks.length,
@@ -532,7 +541,7 @@ export async function synthesizePodcastCommand(
         const request = { text, voiceId, rate: options.rate };
         let result;
         try {
-          result = await engine.synthesize(request, options.signal);
+          result = await synthesizeSpeechChunk(engine, request, options.signal);
         } catch (error) {
           // A fallback is safe only while no audio has been generated. Switching
           // engines later would change voices inside the same episode.
@@ -546,7 +555,11 @@ export async function synthesizePodcastCommand(
               (await engine.capabilities()).supportsRate === 'playback'
                 ? options.rate
                 : undefined;
-            result = await engine.synthesize({ ...request, voiceId }, options.signal);
+            result = await synthesizeSpeechChunk(
+              engine,
+              { ...request, voiceId },
+              options.signal,
+            );
           } else {
             throw error;
           }
@@ -556,11 +569,13 @@ export async function synthesizePodcastCommand(
         completedChunks += 1;
         options.onProgress?.(completedChunks, totalChunks);
       }
-      spoken.push({
+      const spokenSegment = {
         audio: new Blob([concatWav(parts, 0)], { type: 'audio/wav' }),
         durationMs,
         playbackRate,
-      });
+      };
+      spoken.push(spokenSegment);
+      options.onSegment?.(spokenSegment, spoken.length - 1, chunkedSegments.length);
     }
     return ok(spoken);
   } catch (error) {
@@ -577,13 +592,72 @@ export async function synthesizePodcastCommand(
  * Not for prosody — `say` handles a paragraph fine — but for latency. A
  * fifteen-hundred-word note takes the better part of a minute to synthesise in
  * one call, and a student who pressed a play button expects sound in about a
- * second. Splitting on sentence ends and grouping up to `MAX_CHARS` means the
- * first chunk is short enough to arrive quickly and the rest are long enough
- * not to sound chopped.
+ * second. Splitting on sentence ends and grouping to each engine's budget means
+ * the first chunk is short enough to arrive quickly and the rest are long
+ * enough not to sound chopped.
  */
-const MAX_CHARS = 320;
+const DEFAULT_MAX_CHARS = 320;
+const VOXTRAL_MAX_CHARS = 180;
 
-export function speechChunks(text: string): string[] {
+function terminalPunctuation(text: string): string {
+  if (/[.!?…]["')\]]?$/.test(text)) return text;
+  if (/[,;:]$/.test(text)) return `${text.slice(0, -1)}.`;
+  return `${text}.`;
+}
+
+function splitOversizedSpeech(text: string, maxChars: number): string[] {
+  const parts: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > maxChars) {
+    const window = remaining.slice(0, maxChars + 1);
+    const minimumBreak = Math.floor(maxChars * 0.45);
+    let splitAt = -1;
+    for (const match of window.matchAll(/[,;:]\s+/g)) {
+      const candidate = match.index + match[0].trimEnd().length;
+      if (candidate >= minimumBreak) splitAt = candidate;
+    }
+    if (splitAt < minimumBreak) {
+      const whitespace = window.lastIndexOf(' ');
+      if (whitespace >= minimumBreak) splitAt = whitespace;
+    }
+    if (splitAt < 1) splitAt = maxChars;
+    parts.push(remaining.slice(0, splitAt).trim());
+    remaining = remaining.slice(splitAt).trim();
+  }
+  if (remaining) parts.push(remaining);
+  return parts;
+}
+
+export function speechChunks(
+  text: string,
+  options: { engineId?: TtsEngineId; maxChars?: number } = {},
+): string[] {
+  const voxtral = options.engineId === 'voxtral-local';
+  if (!voxtral) {
+    const chunks: string[] = [];
+    for (const paragraph of text.split(/\n{2,}/)) {
+      const trimmed = paragraph.trim();
+      if (!trimmed) continue;
+      const sentences = trimmed.match(/[^.!?…]+[.!?…]*\s*/g) ?? [trimmed];
+      let current = '';
+      for (const sentence of sentences) {
+        if (current && current.length + sentence.length > DEFAULT_MAX_CHARS) {
+          chunks.push(current.trim());
+          current = '';
+        }
+        current += sentence;
+        while (current.length > DEFAULT_MAX_CHARS * 2) {
+          chunks.push(current.slice(0, DEFAULT_MAX_CHARS * 2).trim());
+          current = current.slice(DEFAULT_MAX_CHARS * 2);
+        }
+      }
+      if (current.trim()) chunks.push(current.trim());
+    }
+    return chunks;
+  }
+
+  const maxChars = options.maxChars ?? VOXTRAL_MAX_CHARS;
+  const contentLimit = maxChars - 1;
   const chunks: string[] = [];
 
   for (const paragraph of text.split(/\n{2,}/)) {
@@ -595,22 +669,86 @@ export function speechChunks(text: string): string[] {
     const sentences = trimmed.match(/[^.!?…]+[.!?…]*\s*/g) ?? [trimmed];
     let current = '';
     for (const sentence of sentences) {
-      if (current && current.length + sentence.length > MAX_CHARS) {
-        chunks.push(current.trim());
-        current = '';
-      }
-      current += sentence;
-      // A single sentence longer than the budget goes on its own rather than
-      // being cut mid-clause.
-      while (current.length > MAX_CHARS * 2) {
-        chunks.push(current.slice(0, MAX_CHARS * 2).trim());
-        current = current.slice(MAX_CHARS * 2);
+      for (const unit of splitOversizedSpeech(sentence.trim(), contentLimit)) {
+        const joined = current ? `${current} ${unit}` : unit;
+        if (current && joined.length > contentLimit) {
+          chunks.push(terminalPunctuation(current));
+          current = unit;
+        } else {
+          current = joined;
+        }
       }
     }
-    if (current.trim()) chunks.push(current.trim());
+    if (current) chunks.push(terminalPunctuation(current));
   }
 
   return chunks;
+}
+
+function preparedSpeechChunks(
+  text: string,
+  locale: string | undefined,
+  engineId: TtsEngineId,
+): string[] {
+  const normalized =
+    engineId === 'voxtral-local'
+      ? normalizeVoxtralSpeechText(text, locale)
+      : normalizeSpeechText(text, locale);
+  return speechChunks(normalized, { engineId });
+}
+
+export function isLikelyIncompleteVoxtralAudio(
+  text: string,
+  durationMs: number,
+): boolean {
+  const words = text.match(/\p{L}[\p{L}\p{M}'’-]*/gu)?.length ?? 0;
+  // 545 words/min is intentionally conservative: this catches a clearly
+  // truncated result without rejecting genuinely fast speech or abbreviations.
+  return words >= 8 && durationMs < words * 110;
+}
+
+async function synthesizeSpeechChunk(
+  engine: TtsEngine,
+  request: { text: string; voiceId: string; rate?: number },
+  signal?: AbortSignal,
+): Promise<TtsSegmentResult> {
+  const result = await engine.synthesize(request, signal);
+  if (
+    engine.id !== 'voxtral-local' ||
+    !isLikelyIncompleteVoxtralAudio(request.text, result.durationMs)
+  ) {
+    return result;
+  }
+
+  const recoveryChunks = speechChunks(request.text, {
+    engineId: 'voxtral-local',
+    maxChars: 90,
+  });
+  if (recoveryChunks.length < 2) {
+    throw new Error(
+      'TTS_GENERATION_FAILED: Voxtral stopped before reading the complete speech chunk.',
+    );
+  }
+
+  const parts: Uint8Array[] = [];
+  let durationMs = 0;
+  for (const text of recoveryChunks) {
+    if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
+    const recovered = await engine.synthesize({ ...request, text }, signal);
+    if (isLikelyIncompleteVoxtralAudio(text, recovered.durationMs)) {
+      throw new Error(
+        'TTS_GENERATION_FAILED: Voxtral stopped before reading the complete speech chunk.',
+      );
+    }
+    parts.push(new Uint8Array(await recovered.audio.arrayBuffer()));
+    durationMs += recovered.durationMs;
+  }
+  return {
+    audio: new Blob([concatWav(parts, 0)], { type: 'audio/wav' }),
+    durationMs,
+    sampleRateHz: result.sampleRateHz,
+    channels: result.channels,
+  };
 }
 
 /**
@@ -640,7 +778,11 @@ export async function readAloudCommand(
     onChunk?(chunk: SpokenSegment, index: number, total: number): void;
   },
 ): Promise<CommandResult<number>> {
-  const chunks = speechChunks(normalizeSpeechText(text, options.locale));
+  const chunks = preparedSpeechChunks(
+    text,
+    options.locale,
+    options.engineId ?? 'system',
+  );
   if (!chunks.length) return fail('invalid_input', 'there is nothing to read');
   if (!options.voiceId) return fail('invalid_input', 'choose a voice first');
 
@@ -663,7 +805,8 @@ export async function readAloudCommand(
       if (options.signal?.aborted) return ok(index);
       let result;
       try {
-        result = await engine.synthesize(
+        result = await synthesizeSpeechChunk(
+          engine,
           { text: chunk, voiceId, rate: options.rate },
           options.signal,
         );
@@ -676,7 +819,8 @@ export async function readAloudCommand(
             (await engine.capabilities()).supportsRate === 'playback'
               ? options.rate
               : undefined;
-          result = await engine.synthesize(
+          result = await synthesizeSpeechChunk(
+            engine,
             { text: chunk, voiceId, rate: options.rate },
             options.signal,
           );

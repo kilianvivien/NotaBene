@@ -234,6 +234,7 @@ export function PodcastDialog() {
     audioRef.current?.pause();
     setPlaying(null);
     setPaused(false);
+    setSegments([]);
     const signal = beginRun('speech');
     const outcome = await synthesizePodcastCommand(script, {
       voiceId,
@@ -243,6 +244,7 @@ export function PodcastDialog() {
       locale: settings.locale,
       signal,
       onProgress: (done, total) => setProgress(done / total),
+      onSegment: (segment) => setSegments((completed) => [...completed, segment]),
     });
     endRun('speech');
 

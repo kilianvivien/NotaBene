@@ -31,6 +31,10 @@ pub(super) const SAMPLE_RATE_HZ: u32 = 24_000;
 const CHANNELS: u16 = 1;
 const BITS_PER_SAMPLE: u16 = 16;
 const MAX_TEXT_CHARS: usize = 1_200;
+// 30.7 seconds at Voxtral's 12.5 Hz semantic frame rate. App-side chunks are
+// deliberately much shorter; this is a native last line of defence against a
+// missing END_AUDIO token and must be applied before every session is reused.
+const MAX_GENERATED_FRAMES: i32 = 384;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -687,6 +691,13 @@ fn worker_loop(receiver: mpsc::Receiver<WorkerRequest>) {
                             "TTS_MODEL_LOAD_FAILED: The local model could not be loaded."
                                 .to_string()
                         })?;
+                        session
+                            .set_max_new_tokens(MAX_GENERATED_FRAMES)
+                            .map_err(|detail| {
+                                eprintln!("Voxtral generation limit setup failed: {detail}");
+                                "TTS_MODEL_LOAD_FAILED: The local model safety limit could not be configured."
+                                    .to_string()
+                            })?;
                         open = Some((model_path.clone(), session));
                     }
                     let session = &open.as_ref().expect("session was opened").1;
@@ -809,6 +820,7 @@ mod tests {
             .expect("set NOTABENE_VOXTRAL_MODEL to the pinned Q4_K GGUF");
         let load_started = Instant::now();
         let session = Session::open_with_backend(&path, "voxtral-tts", 4).unwrap();
+        session.set_max_new_tokens(MAX_GENERATED_FRAMES).unwrap();
         let load_time = load_started.elapsed();
         session.set_voice("neutral_female", None).unwrap();
         let english_started = Instant::now();
@@ -822,10 +834,24 @@ mod tests {
             .unwrap();
         let french_time = french_started.elapsed();
         assert!(encode_pcm_wav(&french).unwrap().len() > 44);
+        session.set_voice("neutral_female", None).unwrap();
+        let long_started = Instant::now();
+        let long = session
+            .synthesize(
+                "This longer passage verifies that Voxtral can read a realistic note chunk completely, while its codec stays within a fixed memory budget on a sixteen gigabyte Mac.",
+            )
+            .unwrap();
+        let long_time = long_started.elapsed();
+        assert!(
+            long.len() >= SAMPLE_RATE_HZ as usize * 3,
+            "the realistic chunk was implausibly short"
+        );
+        assert!(encode_pcm_wav(&long).unwrap().len() > 44);
         eprintln!(
-            "load={load_time:?} en={english_time:?}/{} samples fr={french_time:?}/{} samples",
+            "load={load_time:?} en={english_time:?}/{} samples fr={french_time:?}/{} samples long={long_time:?}/{} samples",
             english.len(),
-            french.len()
+            french.len(),
+            long.len()
         );
         drop(session);
     }

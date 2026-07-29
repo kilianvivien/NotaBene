@@ -19,11 +19,17 @@ SOURCE_DIR="$NATIVE_DIR/work/v0.8.23/source"
 BUILD_DIR="$NATIVE_DIR/work/v0.8.23/build"
 STAGE_DIR="$NATIVE_DIR/arm64/src"
 STAMP_FILE="$STAGE_DIR/.notabene-crispasr-version"
+PATCH_FILE="$ROOT_DIR/scripts/patches/crispasr-voxtral-bounded-codec.patch"
+[ -f "$PATCH_FILE" ] || {
+  echo "error: the NotaBene CrispASR patch is missing" >&2
+  exit 1
+}
+PATCH_SHA="$(shasum -a 256 "$PATCH_FILE" | awk '{print $1}')"
 
 CRISPASR_TAG="v0.8.23"
 CRISPASR_COMMIT="7d22deeca045f9c80020bf59e6a24564b1d66e5b"
 GGML_COMMIT="bfe8ea228d8134d03641c9fcf233a9931f3730de"
-STAMP_VALUE="$CRISPASR_TAG:$CRISPASR_COMMIT:$GGML_COMMIT:macos13-arm64-metal-noblas"
+STAMP_VALUE="$CRISPASR_TAG:$CRISPASR_COMMIT:$GGML_COMMIT:$PATCH_SHA:macos13-arm64-metal-noblas"
 
 LIBRARIES=(
   "libcrispasr.1.dylib"
@@ -90,6 +96,14 @@ fi
   echo "error: the GGML submodule is not the pinned commit" >&2
   exit 1
 }
+if git -C "$SOURCE_DIR" apply --reverse --check "$PATCH_FILE" >/dev/null 2>&1; then
+  echo "NotaBene's bounded Voxtral codec patch is already applied."
+elif git -C "$SOURCE_DIR" apply --check "$PATCH_FILE"; then
+  git -C "$SOURCE_DIR" apply "$PATCH_FILE"
+else
+  echo "error: the NotaBene CrispASR patch does not apply to the pinned source" >&2
+  exit 1
+fi
 
 cmake \
   -S "$SOURCE_DIR" \
