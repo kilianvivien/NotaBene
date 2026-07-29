@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.3.2"><img alt="Latest release: 0.3.2" src="https://img.shields.io/badge/release-0.3.2-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.4.0"><img alt="Latest release: 0.4.0" src="https://img.shields.io/badge/release-0.4.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,12 +24,12 @@
 
 ## Download
 
-Download **[NotaBene 0.3.2 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.3.2/NotaBene_0.3.2_aarch64.dmg)**.
+Download **[NotaBene 0.4.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.4.0/NotaBene_0.4.0_aarch64.dmg)**.
 NotaBene requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
-> The 0.3.2 DMG is ad-hoc signed only — it is not Developer ID signed or
+> The 0.4.0 DMG is ad-hoc signed only — it is not Developer ID signed or
 > notarized, so macOS Gatekeeper may warn or block it. Signed builds and
 > automatic updates are intentionally deferred.
 
@@ -56,7 +56,7 @@ and control over your own data. NotaBene is being built so you do not have to.
 | Tables, callouts, toggles, and code   | Typed, facetable tags                | Mind maps and flashcards          | Continuous autosave          |
 | LaTeX maths and inline images         | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery |
 | Re-editable Excalidraw drawings       | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports |
-| Attachments with in-app preview       | Diacritics-insensitive search        | System, Voxtral, or Gemini voices | No account, no telemetry     |
+| Attachments with in-app preview       | Search across notes and commands     | On-device or hosted neural voices | No account, no telemetry     |
 
 ### A serious authoring surface
 
@@ -94,6 +94,10 @@ course:Analysis has:drawing after:2026-01-01
 exam:midterm is:pinned
 ```
 
+The title-bar field and the ⌘K palette run the same search, and both return
+commands beside notes — so an action you half-remember is found by typing its
+name, with its keyboard shortcut shown next to it.
+
 ### Study tools built from your notes
 
 With a provider configured, NotaBene can:
@@ -111,10 +115,19 @@ Supported AI connections include Anthropic, OpenAI, Mistral, Gemini,
 OpenRouter, Ollama, LM Studio, and custom OpenAI-compatible endpoints. API keys
 are stored in the macOS Keychain, not in the note database.
 
-Read aloud and spoken episodes run on a selectable speech engine: offline
-**macOS system voices** by default, or the hosted neural voices of **Voxtral
-TTS (Mistral)** and **Gemini TTS (Google)**. The cloud engines are opt-in, are
-never chosen as a fallback, and send only the text you ask to have spoken.
+Read aloud and spoken episodes run on a selectable speech engine. **macOS
+system voices** are the offline default. Two optional **on-device neural
+models** run entirely on Apple Silicon through a native runtime bundled with
+the app — **Kokoro 82M** (153 MB, one English and one French voice) and
+**Voxtral 4B** (2.35 GB, seven preset English and French voices) — so the text
+being spoken never leaves your Mac. Each is downloaded from a pinned revision,
+verified by checksum, and installed only once you accept its licence; it can be
+tested, unloaded, or removed at any time.
+
+The hosted neural voices of **Voxtral TTS (Mistral)** and **Gemini TTS
+(Google)** remain available for anyone who prefers them. The cloud engines are
+opt-in, are never chosen as a fallback, and send only the text you ask to have
+spoken.
 
 ### Exports that leave with you
 
@@ -149,8 +162,10 @@ Network access is limited to services that are visible and initiated by you:
 
 1. the AI provider or local-model endpoint you configure;
 2. a hosted speech engine, if you explicitly select one instead of the offline
-   macOS voices; and
-3. the application update check.
+   macOS voices;
+3. a one-time download from Hugging Face, if you choose to install an
+   on-device speech model — after which that engine works offline; and
+4. the application update check.
 
 AI output is treated as untrusted input: structured responses are validated,
 and edits are previewed before they enter a note. API keys live in the macOS
@@ -158,8 +173,8 @@ Keychain and cannot be represented in the backup schema.
 
 ## Current status
 
-NotaBene 0.3.2 is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.3.2).
+NotaBene 0.4.0 is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.4.0).
 The product foundation and phases A–H are code-complete, except for the
 explicitly deferred signing, notarization, and signed-update work:
 
@@ -171,14 +186,15 @@ explicitly deferred signing, notarization, and signed-update work:
   note-plus-knowledge answer modes;
 - the authenticated MCP integration;
 - editable mind maps with image/outline export, flashcard review, and spoken
-  episodes on system, Voxtral, or Gemini voices; and
+  episodes on on-device, system, or hosted voices; and
 - first-run guidance, EN/FR coverage, keyboard accessibility, and local
   performance instrumentation.
 
-0.3.x has focused on making those features hold up in daily use: audio
-generation and playback, attachment handling and previews, a reworked Ask
-panel, and — in 0.3.2 — working equations in the desktop build alongside
-user-defined abbreviations.
+0.3.x focused on making those features hold up in daily use: audio generation
+and playback, attachment handling and previews, a reworked Ask panel, working
+equations in the desktop build, and user-defined abbreviations. 0.4.0 brings
+speech back in line with the rest of the product — neural voices that run on
+your own machine, with no key and no upload.
 
 See [release notes](./RELEASE_NOTES.md), the [security policy](./SECURITY.md),
 and [third-party notices](./THIRD_PARTY_NOTICES.md).
@@ -193,12 +209,19 @@ NotaBene currently targets **macOS 13 Ventura or newer**.
 - [pnpm](https://pnpm.io/)
 - A stable [Rust toolchain](https://rustup.rs/)
 - Xcode Command Line Tools
+- CMake and Ninja, for the on-device speech runtime
 
 ```bash
 xcode-select --install
+brew install cmake ninja
 corepack enable
 pnpm install
 ```
+
+`pnpm tauri:dev` and `pnpm tauri:build` first run
+`scripts/prepare-crispasr-macos.sh`, which builds the pinned CrispASR/GGML
+runtime from source and stages it for signing into the app. The first run
+compiles it; later runs reuse the staged copy.
 
 ### Run the web UI
 
@@ -301,7 +324,7 @@ src-tauri/
     ├── db/              SQLite schema, migrations, and repositories
     ├── mcp/             Authenticated local MCP server
     ├── ai.rs            Native AI transport
-    └── tts/             macOS speech rendering
+    └── tts/             macOS and on-device neural speech
 ```
 
 Read [CLAUDE.md](./CLAUDE.md) before making code changes. It is the source of

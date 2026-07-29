@@ -1,5 +1,37 @@
 # Release notes
 
+## NotaBene 0.4.0
+
+- **Neural voices that never leave the Mac.** Settings → Speech now offers two
+  optional on-device models beside the macOS system voices and the hosted
+  Voxtral and Gemini engines. **Kokoro 82M Q8_0** is a 153 MB download with one
+  English and one French voice, quick enough for everyday read-aloud;
+  **Voxtral 4B Q4_K** is a 2.35 GB download with seven preset English and
+  French voices and noticeably better prosody. Both run on Apple Silicon
+  through a native runtime bundled with the app, so the text being spoken never
+  leaves the machine — read aloud and spoken episodes get neural quality with
+  no API key and nothing uploaded.
+- **Model downloads you stay in control of.** Each model is fetched from a
+  pinned Hugging Face revision, verified against a recorded SHA-256, and
+  installed only after you accept its licence — Apache 2.0 for Kokoro,
+  CC BY-NC 4.0 and non-commercial use for Voxtral. A download can be cancelled
+  and started again later, and an installed model can be tested, unloaded from
+  memory, or removed from disk.
+- **Numbers are spoken, not skipped.** The grapheme-to-phoneme data Kokoro
+  ships with contains no digits, so a number used to fall out of the sentence
+  silently. Numbers, decimals, and temperatures are now expanded to words in
+  English and French before they reach the model.
+- **Search finds commands too.** The title-bar field searches commands beside
+  notes, with arrow-key selection and each command's shortcut shown. It runs
+  the same search ⌘K does, so the two entry points cannot drift apart.
+- **NotaBene on GitHub** joins the Help menu (⌘⌥G), and external links open in
+  your browser rather than failing quietly.
+
+Voxtral synthesis was also made durable on real notes: long text is split into
+chunks the model can finish, a truncated or silent chunk is regenerated instead
+of shipped, and generation limits stop a runaway decode from hanging an
+episode.
+
 ## NotaBene 0.3.2
 
 - **Abbreviations.** Settings → Abbreviations holds your own typing shortcuts:
