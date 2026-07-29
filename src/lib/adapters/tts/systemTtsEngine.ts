@@ -7,6 +7,7 @@ import type {
   TtsSegmentResult,
   TtsVoice,
 } from './TtsEngine';
+import { decodeNativeWav } from './wav';
 
 const CAPABILITIES: TtsEngineCapabilities = {
   local: true,
@@ -48,17 +49,7 @@ export const systemTtsEngine: TtsEngine = {
       { request },
     );
     if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
-    const binary = atob(result.data);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    return {
-      audio: new Blob([bytes], { type: result.mime }),
-      durationMs: result.durationMs,
-      sampleRateHz: 22_050,
-      channels: 1,
-    };
+    return decodeNativeWav(result);
   },
 };
 

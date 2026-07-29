@@ -14,6 +14,7 @@ export default tseslint.config(
       'test-results',
       'src-tauri/target',
       'src-tauri/gen',
+      'src-tauri/native',
     ],
   },
   {

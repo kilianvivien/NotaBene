@@ -1,0 +1,18 @@
+CrispASR
+Copyright (c) CrispASR contributors
+Licensed under the MIT License.
+https://github.com/CrispStrobe/CrispASR
+
+GGML
+Copyright (c) GGML contributors
+Licensed under the MIT License.
+https://github.com/ggml-org/ggml
+
+The optional Voxtral model is downloaded separately and is not distributed
+with NotaBene. The model is licensed CC BY-NC 4.0 and derives from
+mistralai/Voxtral-4B-TTS-2603.
+
+The optional Kokoro model, voice packs, and pronunciation dictionaries are also
+downloaded separately and are not distributed with NotaBene. The cstr GGUF
+conversion derives from hexgrad/Kokoro-82M and is licensed Apache-2.0. The
+cstr/g2p-dicts pronunciation data is licensed MIT.

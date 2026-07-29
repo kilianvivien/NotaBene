@@ -422,13 +422,27 @@ export interface SpokenSegment {
 }
 
 /**
- * Voices for the podcast, narrowed to the app's language.
+ * Put voices for the app's language first without hiding the others.
  *
- * A French revision episode read by an American voice is unusable, and the full
- * macOS voice list runs to well over a hundred entries across forty languages.
- * Falling back to the whole list rather than to nothing matters for the user
- * who has installed exactly one voice and it is not in their locale.
+ * UI language is a useful default, not a speech-language setting: a student
+ * using NotaBene in French may still be reading an English article. A stable
+ * partition keeps the relevant macOS voices near the top of its long list
+ * while preserving every explicit language choice.
  */
+export function prioritizeVoicesForLocale(
+  voices: TtsVoice[],
+  locale: string,
+): TtsVoice[] {
+  const language = locale.slice(0, 2).toLowerCase();
+  const matches = voices.filter((voice) =>
+    voice.locale.toLowerCase().startsWith(language),
+  );
+  const others = voices.filter(
+    (voice) => !voice.locale.toLowerCase().startsWith(language),
+  );
+  return [...matches, ...others];
+}
+
 export async function listPodcastVoicesCommand(
   locale: string,
   engineId: TtsEngineId = 'system',
@@ -439,10 +453,7 @@ export async function listPodcastVoicesCommand(
       return fail('not_supported', 'text-to-speech is not available on this system');
     }
     const voices = await engine.listVoices();
-    const matching = voices.filter((voice) =>
-      voice.locale.toLowerCase().startsWith(locale.slice(0, 2).toLowerCase()),
-    );
-    return ok(matching.length ? matching : voices);
+    return ok(prioritizeVoicesForLocale(voices, locale));
   } catch (error) {
     return fail('not_supported', message(error));
   }
@@ -504,33 +515,52 @@ export async function synthesizePodcastCommand(
       (await engine.capabilities()).supportsRate === 'playback'
         ? options.rate
         : undefined;
-    for (const [index, segment] of script.segments.entries()) {
+    const chunkedSegments = script.segments.map((segment) => ({
+      segment,
+      chunks: speechChunks(normalizeSpeechText(segment.text, options.locale)),
+    }));
+    const totalChunks = chunkedSegments.reduce(
+      (total, entry) => total + entry.chunks.length,
+      0,
+    );
+    let completedChunks = 0;
+    for (const { chunks } of chunkedSegments) {
       if (options.signal?.aborted) return fail('not_supported', 'cancelled');
-      const request = {
-        text: normalizeSpeechText(segment.text, options.locale),
-        voiceId,
-        rate: options.rate,
-      };
-      let result;
-      try {
-        result = await engine.synthesize(request, options.signal);
-      } catch (error) {
-        // One-shot synthesis has delivered no audio when it rejects, so a saved
-        // system fallback preference is safe only before the first segment.
-        if (index === 0 && engine.id !== 'system' && options.fallbackToSystem) {
-          playbackRate = undefined;
-          ({ engine, voiceId } = await systemFallback(options.locale));
-          result = await engine.synthesize({ ...request, voiceId }, options.signal);
-        } else {
-          throw error;
+      const parts: Uint8Array[] = [];
+      let durationMs = 0;
+      for (const text of chunks) {
+        const request = { text, voiceId, rate: options.rate };
+        let result;
+        try {
+          result = await engine.synthesize(request, options.signal);
+        } catch (error) {
+          // A fallback is safe only while no audio has been generated. Switching
+          // engines later would change voices inside the same episode.
+          if (
+            completedChunks === 0 &&
+            engine.id !== 'system' &&
+            options.fallbackToSystem
+          ) {
+            ({ engine, voiceId } = await systemFallback(options.locale));
+            playbackRate =
+              (await engine.capabilities()).supportsRate === 'playback'
+                ? options.rate
+                : undefined;
+            result = await engine.synthesize({ ...request, voiceId }, options.signal);
+          } else {
+            throw error;
+          }
         }
+        parts.push(new Uint8Array(await result.audio.arrayBuffer()));
+        durationMs += result.durationMs;
+        completedChunks += 1;
+        options.onProgress?.(completedChunks, totalChunks);
       }
       spoken.push({
-        audio: result.audio,
-        durationMs: result.durationMs,
+        audio: new Blob([concatWav(parts, 0)], { type: 'audio/wav' }),
+        durationMs,
         playbackRate,
       });
-      options.onProgress?.(index + 1, script.segments.length);
     }
     return ok(spoken);
   } catch (error) {
@@ -625,6 +655,10 @@ export async function readAloudCommand(
       }
       ({ engine, voiceId } = await systemFallback(options.locale));
     }
+    let playbackRate =
+      (await engine.capabilities()).supportsRate === 'playback'
+        ? options.rate
+        : undefined;
     for (const [index, chunk] of chunks.entries()) {
       if (options.signal?.aborted) return ok(index);
       let result;
@@ -638,6 +672,10 @@ export async function readAloudCommand(
         // change voice partway through a note.
         if (index === 0 && engine.id !== 'system' && options.fallbackToSystem) {
           ({ engine, voiceId } = await systemFallback(options.locale));
+          playbackRate =
+            (await engine.capabilities()).supportsRate === 'playback'
+              ? options.rate
+              : undefined;
           result = await engine.synthesize(
             { text: chunk, voiceId, rate: options.rate },
             options.signal,
@@ -648,7 +686,7 @@ export async function readAloudCommand(
       }
       if (options.signal?.aborted) return ok(index);
       options.onChunk?.(
-        { audio: result.audio, durationMs: result.durationMs },
+        { audio: result.audio, durationMs: result.durationMs, playbackRate },
         index,
         chunks.length,
       );

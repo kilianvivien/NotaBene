@@ -1,0 +1,4 @@
+[env]
+# `crispasr-sys` links a prepared native tree. Keeping the path stable makes
+# cargo check/test and Tauri use the exact same dylibs that are later bundled.
+CRISPASR_SYS_LIB_DIR = { value = "src-tauri/native/crispasr/arm64", relative = true }

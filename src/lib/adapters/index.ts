@@ -31,6 +31,7 @@ import { systemTtsEngine, unavailableTtsEngine } from './tts/systemTtsEngine';
 import { createMistralTtsEngine } from './tts/mistralTtsEngine';
 import { createGeminiTtsEngine } from './tts/geminiTtsEngine';
 import { createTtsEngineRegistry } from './tts/ttsEngineRegistry';
+import { createLocalTtsEngine, unavailableLocalTtsEngine } from './tts/localTtsEngines';
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 
@@ -64,10 +65,18 @@ export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenu
 // browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
 export const aiTransport: AiTransport = isTauri ? tauriAiTransport : fetchAiTransport;
 const activeSystemTtsEngine = isTauri ? systemTtsEngine : unavailableTtsEngine;
+const voxtralTtsEngine = isTauri
+  ? createLocalTtsEngine('voxtral-local')
+  : unavailableLocalTtsEngine('voxtral-local');
+const kokoroTtsEngine = isTauri
+  ? createLocalTtsEngine('kokoro-local')
+  : unavailableLocalTtsEngine('kokoro-local');
 const mistralTtsEngine = createMistralTtsEngine(aiTransport, secrets);
 const geminiTtsEngine = createGeminiTtsEngine(aiTransport, secrets);
 export const ttsRegistry = createTtsEngineRegistry(
   activeSystemTtsEngine,
+  voxtralTtsEngine,
+  kokoroTtsEngine,
   mistralTtsEngine,
   geminiTtsEngine,
 );
@@ -91,6 +100,12 @@ export type {
   SettingsAdapter,
 } from './settings/SettingsAdapter';
 export { DEFAULT_SETTINGS } from './settings/SettingsAdapter';
+export {
+  LOCAL_MODEL_REVISIONS,
+  localTtsModels,
+  type LocalModelStatus,
+  type ManagedLocalEngineId,
+} from './tts/localTtsEngines';
 export type { DialogAdapter, FileFilter } from './dialog/DialogAdapter';
 export type {
   ExportAdapter,

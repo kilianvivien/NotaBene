@@ -20,8 +20,15 @@ import { secretKeyFor } from '@/lib/ai';
 import { listPodcastVoicesCommand } from '@/lib/commands';
 import { useSpeechStore } from '@/lib/state/speechStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { LocalSpeechModelCard } from './LocalSpeechModelCard';
 
-const DISPLAYED_ENGINES: TtsEngineId[] = ['system', 'mistral-api', 'gemini-api'];
+const DISPLAYED_ENGINES: TtsEngineId[] = [
+  'system',
+  'kokoro-local',
+  'voxtral-local',
+  'mistral-api',
+  'gemini-api',
+];
 const RATES = [0.8, 0.9, 1, 1.15, 1.3];
 
 export function SpeechSettings() {
@@ -165,7 +172,10 @@ export function SpeechSettings() {
                 ? 'speech.privacyMistral'
                 : speech.engineId === 'gemini-api'
                   ? 'speech.privacyGemini'
-                  : 'speech.privacySystem',
+                  : speech.engineId === 'voxtral-local' ||
+                      speech.engineId === 'kokoro-local'
+                    ? 'speech.privacyLocal'
+                    : 'speech.privacySystem',
             )}
           </span>
         </FieldRow>
@@ -229,8 +239,22 @@ export function SpeechSettings() {
         </FieldRow>
       </FieldSection>
 
-      <FieldSection title={t('speech.mistralTitle')}>
-        <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
+      <FieldSection
+        title={t('speech.localTitle')}
+        description={t('speech.localDescription')}
+      >
+        <div className="space-y-2">
+          <LocalSpeechModelCard id="kokoro-local" onChanged={refresh} />
+          <LocalSpeechModelCard id="voxtral-local" onChanged={refresh} />
+        </div>
+      </FieldSection>
+
+      <FieldSection
+        title={t('speech.hostedTitle')}
+        description={t('speech.hostedDescription')}
+      >
+        <div className="space-y-2">
+          <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 rounded-nb-xs bg-[var(--nb-active)] p-2 text-nb-text-2">
               <Cloud size={16} aria-hidden />
@@ -311,11 +335,9 @@ export function SpeechSettings() {
               </div>
             </div>
           </div>
-        </div>
-      </FieldSection>
+          </div>
 
-      <FieldSection title={t('speech.geminiTitle')}>
-        <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
+          <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 rounded-nb-xs bg-[var(--nb-active)] p-2 text-nb-text-2">
               <Cloud size={16} aria-hidden />
@@ -395,6 +417,7 @@ export function SpeechSettings() {
                 )}
               </div>
             </div>
+          </div>
           </div>
         </div>
       </FieldSection>

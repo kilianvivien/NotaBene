@@ -58,6 +58,9 @@ jobs:
       # `frontendDist` points at to exist.
       - run: mkdir -p dist && touch dist/index.html
 
+      - run: brew install cmake ninja
+      - run: ./scripts/prepare-crispasr-macos.sh
+
       - run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets
       # The wire-shape round trip and the schema-version parity check live
       # here; they are what keep Zod, the serde structs, and the SQL from
