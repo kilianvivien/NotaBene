@@ -15,6 +15,7 @@ import { useUiStore } from '@/lib/state/uiStore';
 import { setLocale } from '@/lib/i18n';
 import { CollapsiblePane } from './shell/CollapsiblePane';
 import { useChromeRevealed } from './shell/useChromeReveal';
+import { ReadingControls } from './shell/ReadingControls';
 import { TemplatePicker } from './organization/TemplatePicker';
 import { ExportDialog } from './export/ExportDialog';
 import { RewriteDialog } from './ai/RewriteDialog';
@@ -121,7 +122,8 @@ export function App() {
         {/* The typewriter look is scoped to this column, not to `html`: warm
             stock and softened ink belong to the page being written, and must
             not follow a peeked inspector or an open dialog around. */}
-        <main className="nb-editor-surface flex min-w-0 flex-1 flex-col bg-[var(--nb-paper)]">
+        <main className="nb-editor-surface relative flex min-w-0 flex-1 flex-col bg-[var(--nb-paper)]">
+          <ReadingControls />
           <EditorPane />
         </main>
         <CollapsiblePane open={inspectorVisible} width={INSPECTOR_WIDTH}>

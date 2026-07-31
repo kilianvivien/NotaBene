@@ -95,6 +95,10 @@ export interface AppSettings {
   editorFont: 'sans' | 'avenir' | 'serif' | 'claude' | 'iowan' | 'mono';
   editorFontSize: number;
   editorTitleSize: number;
+  /** Line length, in rem — the reading measure. Kept in rem rather than
+   * characters so it stays honest across the six editor fonts, and adjustable
+   * because 65–75 characters is a good default, not a law. */
+  editorMeasure: number;
   /** Typing shortcuts expanded as the note is written, in match order. */
   abbreviations: Abbreviation[];
   /** How concentration mode behaves and reads. */
@@ -156,6 +160,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   editorFont: 'sans',
   editorFontSize: 16,
   editorTitleSize: 40,
+  editorMeasure: 42,
   abbreviations: [],
   focus: {
     appearance: 'typewriter',

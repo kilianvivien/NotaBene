@@ -130,6 +130,7 @@ export function applySettingsToDom(settings: AppSettings): void {
   root.lang = settings.locale;
   root.style.setProperty('--nb-editor-size', `${settings.editorFontSize}px`);
   root.style.setProperty('--nb-editor-title-size', `${settings.editorTitleSize}px`);
+  root.style.setProperty('--nb-editor-measure', `${settings.editorMeasure}rem`);
   const editorFonts: Record<AppSettings['editorFont'], string> = {
     sans: 'var(--nb-font-sans)',
     avenir: 'var(--nb-font-avenir)',

@@ -101,6 +101,13 @@ describe('focus settings migration', () => {
     expect(migrated.focus).toEqual({ ...DEFAULT_SETTINGS.focus, lineFocus: 'off' });
   });
 
+  it('gives a settings file written before column width a measure', () => {
+    const migrated = migrateSettings({ editorFontSize: 18 });
+
+    expect(migrated.editorMeasure).toBe(DEFAULT_SETTINGS.editorMeasure);
+    expect(migrated.editorFontSize).toBe(18);
+  });
+
   it('leaves a fully stored focus group alone', () => {
     const focus = {
       appearance: 'app',

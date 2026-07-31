@@ -97,12 +97,21 @@ function pinCaretLine(view: EditorView): void {
   scroller.scrollTop += delta;
 }
 
-/** Tell the toolbar there is something to format. Its reveal rule in
+/**
+ * Tell the toolbar there is something to format. Its reveal rule in
  * `editor.css` keys off this, which is what replaces a bubble menu without
- * adding one. */
-function markSelection(view: EditorView, selecting: boolean): void {
+ * adding one.
+ *
+ * Focus is part of the question, not a refinement of it. A freshly mounted
+ * editor can report a non-empty selection before anyone has clicked into it,
+ * and a range left behind after focus moves away is not a range anyone is
+ * about to format — either one would leave the toolbar sitting on the page for
+ * the whole session, which is the exact thing this mode removes.
+ */
+function markSelection(view: EditorView, active: boolean): void {
   const editor = view.dom.closest<HTMLElement>('.nb-rich-editor');
   if (!editor) return;
+  const selecting = active && view.hasFocus() && !view.state.selection.empty;
   if (selecting) editor.dataset.selection = 'text';
   else delete editor.dataset.selection;
 }
@@ -135,6 +144,15 @@ export const Concentration = Extension.create<ConcentrationOptions>({
           handleKeyDown() {
             lastKeyAt = Date.now();
             return false;
+          },
+
+          // Losing focus changes nothing about the document, so no update ever
+          // arrives to take the toolbar back down again.
+          handleDOMEvents: {
+            blur(view) {
+              markSelection(view, false);
+              return false;
+            },
           },
 
           // Derived straight from the selection rather than held in plugin
@@ -180,7 +198,7 @@ export const Concentration = Extension.create<ConcentrationOptions>({
               const selectionChanged = !previous.selection.eq(view.state.selection);
               const docChanged = !previous.doc.eq(view.state.doc);
 
-              markSelection(view, config.active && !view.state.selection.empty);
+              markSelection(view, config.active);
 
               if (!config.active || !config.typewriterScrolling) return;
               if (!docChanged && !selectionChanged) return;

@@ -277,8 +277,10 @@ html[data-focus='true'] .nb-editor-surface {
   --nb-paper: var(--nb-stock);
 }
 
+/* No measure override here on purpose. Width is the reader's, set from the
+   reading controls and stored in `editorMeasure`; a look that quietly narrowed
+   the column would win on specificity and leave that control doing nothing. */
 html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-surface {
-  --nb-editor-measure: 36rem;
   --nb-editor-leading: 1.85;
   --nb-typewriter-anchor: 38%;
 }

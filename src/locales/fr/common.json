@@ -553,6 +553,8 @@
     "fontMono": "SF Mono",
     "fontSize": "Taille du texte",
     "titleSize": "Taille du titre",
+    "editorMeasure": "Largeur de colonne",
+    "editorMeasureHint": "La part de la fenêtre occupée par le texte. Réglable depuis la page elle-même en mode concentration.",
     "fontPreviewTitle": "Limites et dérivées",
     "fontPreview": "La tangente en un point est la limite des sécantes qui y passent.",
     "focusSection": "Mode concentration",
@@ -714,6 +716,15 @@
     "githubRepository": "NotaBene sur GitHub",
     "readAloud": "Lire la note à voix haute",
     "commandPalette": "Commandes…"
+  },
+  "reading": {
+    "controls": "Réglages de lecture",
+    "textSize": "Taille du texte",
+    "textSmaller": "Réduire le texte",
+    "textLarger": "Agrandir le texte",
+    "width": "Largeur de colonne",
+    "widthNarrower": "Colonne plus étroite",
+    "widthWider": "Colonne plus large"
   },
   "recovery": {
     "title": "Modifications non enregistrées récupérées",

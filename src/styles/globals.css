@@ -117,6 +117,81 @@ html[data-focus='true'] .nb-chrome-bottom:focus-within {
   }
 }
 
+/* Reading controls: text size and column width, on the same reveal as the
+   bars. Pinned to the editor column's top-right, opposite the toolbar, so the
+   two never reach for the same corner. */
+.nb-reading-controls {
+  position: absolute;
+  z-index: 25;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  padding: 3px;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: 9px;
+  background: var(--nb-toolbar-surface);
+  box-shadow: var(--nb-shadow-sm);
+  pointer-events: none;
+  opacity: 0;
+}
+
+html[data-chrome='revealed'] .nb-reading-controls,
+.nb-reading-controls:hover,
+.nb-reading-controls:focus-within {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.nb-reading-stepper {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.nb-reading-stepper button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--nb-text-2);
+  background: transparent;
+  place-items: center;
+}
+
+.nb-reading-stepper button:hover:not(:disabled) {
+  color: var(--nb-text);
+  background: var(--nb-active);
+}
+
+.nb-reading-stepper button:disabled {
+  opacity: 0.3;
+}
+
+.nb-reading-stepper span {
+  min-width: 20px;
+  color: var(--nb-text-3);
+  font-family: var(--nb-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.nb-reading-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--nb-divider);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-reading-controls {
+    transition: opacity var(--nb-t-base) var(--nb-ease-out);
+  }
+}
+
 .nb-accent-picker {
   display: flex;
   padding: 3px;

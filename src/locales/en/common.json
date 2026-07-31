@@ -553,6 +553,8 @@
     "fontMono": "SF Mono",
     "fontSize": "Text size",
     "titleSize": "Title size",
+    "editorMeasure": "Column width",
+    "editorMeasureHint": "How much of the window the text uses. Adjustable from the page itself in concentration mode.",
     "fontPreviewTitle": "Limits and derivatives",
     "fontPreview": "The tangent at a point is the limit of the secants through it.",
     "focusSection": "Concentration mode",
@@ -714,6 +716,15 @@
     "githubRepository": "NotaBene on GitHub",
     "readAloud": "Read note aloud",
     "commandPalette": "Commands…"
+  },
+  "reading": {
+    "controls": "Reading controls",
+    "textSize": "Text size",
+    "textSmaller": "Smaller text",
+    "textLarger": "Larger text",
+    "width": "Column width",
+    "widthNarrower": "Narrower column",
+    "widthWider": "Wider column"
   },
   "recovery": {
     "title": "Unsaved changes recovered",

@@ -38,6 +38,7 @@ import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils/cn';
 import type { AccentColor, AppSettings, FocusSettings } from '@/lib/adapters';
+import { EDITOR_FONT_SIZES, EDITOR_MEASURES } from '@/app/shell/readingScale';
 import { AbbreviationSettings } from './AbbreviationSettings';
 import { BackupSettings } from './BackupSettings';
 import { AiProviderSettings } from './AiProviderSettings';
@@ -79,7 +80,6 @@ const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
   { labelKey: 'settings.groupAbout', tabs: [{ id: 'about', icon: Info }] },
 ];
 
-const EDITOR_FONT_SIZES = { min: 13, max: 22 };
 const EDITOR_TITLE_SIZES = { min: 28, max: 52 };
 const ACCENTS: { value: AccentColor; color: string }[] = [
   { value: 'orange', color: '#c17a47' },
@@ -253,6 +253,18 @@ export function SettingsWindow() {
                       range={EDITOR_TITLE_SIZES}
                       value={settings.editorTitleSize}
                       onChange={(value) => set('editorTitleSize', value)}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.editorMeasure')}
+                    hint={t('settings.editorMeasureHint')}
+                    align="end"
+                  >
+                    <SizeSlider
+                      label={t('settings.editorMeasure')}
+                      range={EDITOR_MEASURES}
+                      value={settings.editorMeasure}
+                      onChange={(value) => set('editorMeasure', value)}
                     />
                   </FieldRow>
                 </FieldSection>
