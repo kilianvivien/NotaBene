@@ -119,20 +119,23 @@ html[data-focus='true'] .nb-chrome-bottom:focus-within {
 
 /* Reading controls: text size and column width, on the same reveal as the
    bars. Pinned to the editor column's top-right, opposite the toolbar, so the
-   two never reach for the same corner. */
+   two never reach for the same corner.
+ *
+ * No border and no shadow — the toolbar earns its outline by sitting over the
+ * text it formats, while these sit on empty stock at the head of the page. It
+ * still needs an opaque surface, because a scrolled document passes underneath
+ * and glyphs floating over a half-covered word is not restraint, it is a
+ * legibility bug. */
 .nb-reading-controls {
   position: absolute;
   z-index: 25;
-  top: 12px;
-  right: 16px;
+  top: 10px;
+  right: 14px;
   display: flex;
-  padding: 3px;
+  padding: 2px;
   align-items: center;
-  gap: 2px;
-  border: 1px solid var(--nb-control-border);
-  border-radius: 9px;
+  border-radius: 8px;
   background: var(--nb-toolbar-surface);
-  box-shadow: var(--nb-shadow-sm);
   pointer-events: none;
   opacity: 0;
 }
@@ -144,51 +147,41 @@ html[data-chrome='revealed'] .nb-reading-controls,
   opacity: 1;
 }
 
-.nb-reading-stepper {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-}
-
-.nb-reading-stepper button {
+/* Quiet until reached for: these are a preference, not a tool you are using,
+   and they should read as the least urgent thing on screen. */
+.nb-reading-controls button {
   display: grid;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border: 0;
   border-radius: 6px;
-  color: var(--nb-text-2);
+  color: var(--nb-text-3);
   background: transparent;
   place-items: center;
 }
 
-.nb-reading-stepper button:hover:not(:disabled) {
+.nb-reading-controls button:hover:not(:disabled) {
   color: var(--nb-text);
-  background: var(--nb-active);
+  background: var(--nb-hover);
 }
 
-.nb-reading-stepper button:disabled {
-  opacity: 0.3;
+.nb-reading-controls button:disabled {
+  opacity: 0.25;
 }
 
-.nb-reading-stepper span {
-  min-width: 20px;
-  color: var(--nb-text-3);
-  font-family: var(--nb-font-mono);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
-.nb-reading-divider {
-  width: 1px;
-  height: 16px;
-  margin: 0 3px;
-  background: var(--nb-divider);
+.nb-reading-gap {
+  width: 10px;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .nb-reading-controls {
     transition: opacity var(--nb-t-base) var(--nb-ease-out);
+  }
+
+  .nb-reading-controls button {
+    transition:
+      color var(--nb-t-fast) ease,
+      background var(--nb-t-fast) ease;
   }
 }
 
