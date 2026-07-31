@@ -20,6 +20,11 @@ interface SettingsState {
   update(patch: Partial<AppSettings>): Promise<void>;
 }
 
+/** The Phase A boolean that `focus` replaces. */
+interface LegacyFocusSettings {
+  focusMode?: boolean;
+}
+
 interface LegacyPodcastSettings {
   voiceId?: string | null;
   rate?: number;
@@ -50,9 +55,15 @@ function isCurrentEngine(
 }
 
 export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
-  const legacyPodcast = stored.podcast as
+  // `focusMode` was a persisted boolean nothing ever read. Concentration mode
+  // is window state and stays in `uiStore`; what belongs in settings is how the
+  // mode behaves, which is `focus`. Strip the old key so it does not ride along
+  // in settings.json forever via the spread below.
+  const { focusMode: _legacyFocusMode, ...rest } = stored as Partial<AppSettings> &
+    LegacyFocusSettings;
+  const legacyPodcast = rest.podcast as
     (Partial<AppSettings['podcast']> & LegacyPodcastSettings) | undefined;
-  const storedSpeech = stored.speech;
+  const storedSpeech = rest.speech;
   const localModelRevisions = storedSpeech?.localModelRevisions ?? {};
   const legacyVoice = legacyPodcast?.voiceId;
 
@@ -71,9 +82,10 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
 
   return {
     ...DEFAULT_SETTINGS,
-    ...stored,
+    ...rest,
     // Hand-edited or older settings files reach the typing path directly.
-    abbreviations: normalizeAbbreviations(stored.abbreviations),
+    abbreviations: normalizeAbbreviations(rest.abbreviations),
+    focus: { ...DEFAULT_SETTINGS.focus, ...rest.focus },
     speech: {
       ...DEFAULT_SETTINGS.speech,
       ...storedSpeech,
@@ -112,6 +124,9 @@ export function applySettingsToDom(settings: AppSettings): void {
   const root = document.documentElement;
   root.dataset.theme = resolveTheme(settings.theme);
   root.dataset.accent = settings.accentColor;
+  // Read alongside `data-focus`, which App.tsx owns: the look only bites while
+  // concentration mode is actually on.
+  root.dataset.focusLook = settings.focus.appearance;
   root.lang = settings.locale;
   root.style.setProperty('--nb-editor-size', `${settings.editorFontSize}px`);
   root.style.setProperty('--nb-editor-title-size', `${settings.editorTitleSize}px`);

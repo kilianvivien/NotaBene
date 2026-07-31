@@ -1,6 +1,7 @@
 import {
   CornerDownLeft,
   FileText,
+  Focus,
   History,
   PanelLeft,
   PanelRight,
@@ -33,6 +34,7 @@ export function TitleBar() {
   const { t } = useTranslation();
   const sidebarVisible = useUiStore((state) => state.sidebarVisible);
   const inspectorVisible = useUiStore((state) => state.inspectorVisible);
+  const focusMode = useUiStore((state) => state.focusMode);
   const searchQuery = useUiStore((state) => state.searchQuery);
   const setSearchQuery = useUiStore((state) => state.setSearchQuery);
   const searchScope = useUiStore((state) => state.searchScope);
@@ -108,7 +110,7 @@ export function TitleBar() {
   return (
     <header
       data-tauri-drag-region="true"
-      className="flex h-[var(--nb-titlebar-height)] shrink-0 items-center gap-2 border-b border-[var(--nb-divider)] bg-[var(--nb-chrome-surface)] pr-3"
+      className="nb-chrome-top flex h-[var(--nb-titlebar-height)] shrink-0 items-center gap-2 border-b border-[var(--nb-divider)] bg-[var(--nb-chrome-surface)] pr-3"
       style={{ paddingLeft: 'var(--nb-titlebar-leading)' }}
     >
       <GlassIconButton
@@ -268,6 +270,17 @@ export function TitleBar() {
           </GlassSelect>
         )}
       </div>
+
+      {/* Concentration mode had no button anywhere — only ⇧⌘F and a View menu
+          item, which is a lot of app to hide behind a shortcut nobody was told
+          about. */}
+      <GlassIconButton
+        label={t('menu.focusMode')}
+        active={focusMode}
+        onClick={() => void runAppCommand('view.focusMode')}
+      >
+        <Focus size={16} />
+      </GlassIconButton>
 
       <GlassIconButton
         label={t('menu.toggleInspector')}

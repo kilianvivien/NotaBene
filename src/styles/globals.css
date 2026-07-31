@@ -72,6 +72,51 @@ button {
   outline-offset: 2px;
 }
 
+/* Concentration mode: the title bar and status bar retreat off their edges and
+ * come back when the pointer reaches for them (`useChromeReveal.ts`) or when
+ * something inside them takes focus.
+ *
+ * They keep their space in the layout rather than unmounting — the title bar is
+ * the window's drag region, and a shell that changed height every time the
+ * pointer crossed an edge would make the page itself jump. They are not marked
+ * `inert`: a bar that reveals itself on Tab is reachable by keyboard, and one
+ * that is inert is not. */
+html[data-focus='true'] .nb-shell {
+  background: var(--nb-stock);
+}
+
+html[data-focus='true'] .nb-chrome-top,
+html[data-focus='true'] .nb-chrome-bottom {
+  pointer-events: none;
+  opacity: 0;
+}
+
+html[data-focus='true'] .nb-chrome-top {
+  transform: translateY(-100%);
+}
+
+html[data-focus='true'] .nb-chrome-bottom {
+  transform: translateY(100%);
+}
+
+html[data-focus='true'][data-chrome='revealed'] .nb-chrome-top,
+html[data-focus='true'][data-chrome='revealed'] .nb-chrome-bottom,
+html[data-focus='true'] .nb-chrome-top:focus-within,
+html[data-focus='true'] .nb-chrome-bottom:focus-within {
+  transform: none;
+  pointer-events: auto;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-chrome-top,
+  .nb-chrome-bottom {
+    transition:
+      transform var(--nb-t-base) var(--nb-ease-out),
+      opacity var(--nb-t-base) var(--nb-ease-out);
+  }
+}
+
 .nb-accent-picker {
   display: flex;
   padding: 3px;

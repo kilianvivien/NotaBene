@@ -34,6 +34,22 @@ export type SettingsTab =
   | 'agent'
   | 'about';
 
+/** Pane visibility as it stood when concentration mode was entered, so leaving
+ * puts the window back rather than dropping the user into a bare shell. */
+interface PaneLayout {
+  sidebar: boolean;
+  noteList: boolean;
+  inspector: boolean;
+}
+
+/** A sitting at the desk. `startWords` is the note's word count on entry, so
+ * the status bar can report what *this* session produced rather than how long
+ * the note is. */
+export interface FocusSession {
+  startedAt: number;
+  startWords: number;
+}
+
 interface UiState {
   view: ViewKind;
   selectedNoteId: string | null;
@@ -41,9 +57,16 @@ interface UiState {
    * `selectedNoteId` when non-empty. */
   multiSelection: string[];
   sidebarVisible: boolean;
+  noteListVisible: boolean;
   inspectorVisible: boolean;
   inspectorTab: InspectorTab;
   focusMode: boolean;
+  /** What to put back on the way out. Null whenever focus mode is off. */
+  focusRestore: PaneLayout | null;
+  focusSession: FocusSession | null;
+  /** Title bar and status bar are pulled back on screen while this is set —
+   * the pointer is at a window edge, or chrome holds focus. */
+  chromeRevealed: boolean;
   commandPaletteOpen: boolean;
   quickSwitcherOpen: boolean;
   templatePickerOpen: boolean;
@@ -66,9 +89,12 @@ interface UiState {
   toggleInMultiSelection(noteId: string): void;
   clearMultiSelection(): void;
   toggleSidebar(): void;
+  toggleNoteList(): void;
   toggleInspector(): void;
   setInspectorTab(tab: InspectorTab): void;
-  setFocusMode(on: boolean): void;
+  setFocusMode(on: boolean, startWords?: number): void;
+  toggleFocusMode(startWords?: number): void;
+  setChromeRevealed(on: boolean): void;
   setCommandPaletteOpen(open: boolean): void;
   setQuickSwitcherOpen(open: boolean): void;
   setTemplatePickerOpen(open: boolean): void;
@@ -85,15 +111,41 @@ interface UiState {
   setAgentBusy(busy: boolean): void;
 }
 
+/**
+ * Is something modal on screen?
+ *
+ * Two callers need this and must agree: chrome cannot retreat while the command
+ * palette is putting focus in the title bar's field, and Escape belongs to
+ * whatever is open before it belongs to concentration mode.
+ */
+export function isOverlayOpen(state: UiState): boolean {
+  return (
+    state.commandPaletteOpen ||
+    state.quickSwitcherOpen ||
+    state.templatePickerOpen ||
+    state.exportOpen ||
+    state.settingsOpen ||
+    state.aiRewriteOpen ||
+    state.aiSynthesisOpen ||
+    state.aiMindMapOpen ||
+    state.aiFlashcardsOpen ||
+    state.aiPodcastOpen
+  );
+}
+
 export const useUiStore = create<UiState>()(
-  immer((set) => ({
+  immer((set, get) => ({
     view: { kind: 'all' },
     selectedNoteId: null,
     multiSelection: [],
     sidebarVisible: true,
+    noteListVisible: true,
     inspectorVisible: false,
     inspectorTab: 'info',
     focusMode: false,
+    focusRestore: null,
+    focusSession: null,
+    chromeRevealed: false,
     commandPaletteOpen: false,
     quickSwitcherOpen: false,
     templatePickerOpen: false,
@@ -143,6 +195,12 @@ export const useUiStore = create<UiState>()(
       });
     },
 
+    toggleNoteList() {
+      set((state) => {
+        state.noteListVisible = !state.noteListVisible;
+      });
+    },
+
     toggleInspector() {
       set((state) => {
         state.inspectorVisible = !state.inspectorVisible;
@@ -156,13 +214,50 @@ export const useUiStore = create<UiState>()(
       });
     },
 
-    setFocusMode(on) {
+    /**
+     * Entering records the layout and clears it; leaving puts it back.
+     *
+     * The panes are *not* locked shut while the mode is on — toggling the
+     * sidebar inside concentration mode peeks it and toggles it away again,
+     * which is what keeps the rest of the app reachable without a mode change.
+     * That is also why the recorded layout wins on exit rather than whatever
+     * happens to be peeked at that moment.
+     */
+    setFocusMode(on, startWords = 0) {
       set((state) => {
+        if (state.focusMode === on) return;
         state.focusMode = on;
+        state.chromeRevealed = false;
         if (on) {
+          state.focusRestore = {
+            sidebar: state.sidebarVisible,
+            noteList: state.noteListVisible,
+            inspector: state.inspectorVisible,
+          };
+          state.focusSession = { startedAt: Date.now(), startWords };
           state.sidebarVisible = false;
+          state.noteListVisible = false;
           state.inspectorVisible = false;
+          return;
         }
+        const restore = state.focusRestore;
+        if (restore) {
+          state.sidebarVisible = restore.sidebar;
+          state.noteListVisible = restore.noteList;
+          state.inspectorVisible = restore.inspector;
+        }
+        state.focusRestore = null;
+        state.focusSession = null;
+      });
+    },
+
+    toggleFocusMode(startWords = 0) {
+      get().setFocusMode(!get().focusMode, startWords);
+    },
+
+    setChromeRevealed(on) {
+      set((state) => {
+        state.chromeRevealed = on;
       });
     },
 

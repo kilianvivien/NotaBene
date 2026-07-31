@@ -14,6 +14,7 @@ import { useSettingsStore, watchSystemTheme } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { setLocale } from '@/lib/i18n';
 import { CollapsiblePane } from './shell/CollapsiblePane';
+import { useChromeRevealed } from './shell/useChromeReveal';
 import { TemplatePicker } from './organization/TemplatePicker';
 import { ExportDialog } from './export/ExportDialog';
 import { RewriteDialog } from './ai/RewriteDialog';
@@ -41,8 +42,10 @@ export function App() {
   const loadSettings = useSettingsStore((state) => state.load);
   const locale = useSettingsStore((state) => state.settings.locale);
   const sidebarVisible = useUiStore((state) => state.sidebarVisible);
+  const noteListVisible = useUiStore((state) => state.noteListVisible);
   const inspectorVisible = useUiStore((state) => state.inspectorVisible);
   const focusMode = useUiStore((state) => state.focusMode);
+  const chromeRevealed = useChromeRevealed();
 
   useAppCommands();
 
@@ -91,23 +94,37 @@ export function App() {
     };
   }, [focusMode]);
 
+  useEffect(() => {
+    document.documentElement.dataset.chrome = chromeRevealed ? 'revealed' : 'hidden';
+    return () => {
+      delete document.documentElement.dataset.chrome;
+    };
+  }, [chromeRevealed]);
+
   // The shell fills the window edge to edge. The OS draws the actual window
   // frame under Tauri, so nothing here simulates one — a rounded, inset panel
   // would be a second window drawn inside the real one.
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-[var(--nb-surface)]">
+    <div className="nb-shell flex h-full w-full flex-col overflow-hidden bg-[var(--nb-surface)]">
       <TitleBar />
+      {/* The panes are not locked shut in concentration mode — toggling one
+          peeks it and toggles it away again, which is what keeps the rest of
+          the app reachable without leaving the mode. `setFocusMode` closes
+          them on entry and puts them back on exit. */}
       <div className="flex min-h-0 flex-1">
-        <CollapsiblePane open={sidebarVisible && !focusMode} width={SIDEBAR_WIDTH}>
+        <CollapsiblePane open={sidebarVisible} width={SIDEBAR_WIDTH}>
           <Sidebar />
         </CollapsiblePane>
-        <CollapsiblePane open={!focusMode} width={NOTE_LIST_WIDTH}>
+        <CollapsiblePane open={noteListVisible} width={NOTE_LIST_WIDTH}>
           <NoteList />
         </CollapsiblePane>
-        <main className="flex min-w-0 flex-1 flex-col bg-[var(--nb-paper)]">
+        {/* The typewriter look is scoped to this column, not to `html`: warm
+            stock and softened ink belong to the page being written, and must
+            not follow a peeked inspector or an open dialog around. */}
+        <main className="nb-editor-surface flex min-w-0 flex-1 flex-col bg-[var(--nb-paper)]">
           <EditorPane />
         </main>
-        <CollapsiblePane open={inspectorVisible && !focusMode} width={INSPECTOR_WIDTH}>
+        <CollapsiblePane open={inspectorVisible} width={INSPECTOR_WIDTH}>
           <Inspector />
         </CollapsiblePane>
       </div>

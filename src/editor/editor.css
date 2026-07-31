@@ -211,6 +211,17 @@
   outline: none;
 }
 
+/* The `outline: none` above was not winning. Chromium matches `:focus-visible`
+   on any editable element however focus arrived, so the global focus ring in
+   `globals.css` — same specificity, later in the cascade — drew a 2px accent
+   frame around the whole page for as long as the caret was in it. The ring is
+   right for buttons and fields; for the writing surface the caret is the focus
+   indicator, and a permanent frame around the note is the opposite of what
+   concentration mode is for. */
+.nb-prosemirror:focus-visible {
+  outline: none;
+}
+
 .nb-prosemirror > :first-child {
   margin-top: 0;
 }
@@ -1011,14 +1022,126 @@
   text-align: center;
 }
 
-html[data-focus='true'] .nb-editor-toolbar {
-  opacity: 0.22;
-  transition: opacity var(--nb-t-fast) ease;
+/* Concentration mode.
+ *
+ * The toolbar leaves outright rather than ghosting at 22%: a strip of half-
+ * visible buttons above the page is still a strip of buttons above the page.
+ * It comes back on hover, on focus, and — the part that matters — whenever
+ * there is a selection to format, which is what gives the mode a bubble menu's
+ * reach without a bubble menu. */
+html[data-focus='true'] .nb-editor-bar {
+  transform: translateY(-6px);
+  pointer-events: none;
+  opacity: 0;
 }
 
-html[data-focus='true'] .nb-editor-toolbar:hover,
-html[data-focus='true'] .nb-editor-toolbar:focus-within {
+html[data-focus='true'] .nb-editor-bar:hover,
+html[data-focus='true'] .nb-editor-bar:focus-within,
+html[data-focus='true'] .nb-rich-editor[data-selection='text'] .nb-editor-bar {
+  transform: none;
+  pointer-events: auto;
   opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-editor-bar {
+    transition:
+      transform var(--nb-t-fast) var(--nb-ease-out),
+      opacity var(--nb-t-fast) var(--nb-ease-out);
+  }
+}
+
+/* Line focus. Colour, not opacity: opacity on the container would cap every
+   descendant, so a paragraph inside a list item could never be lifted back
+   out. Colour inherits and the focused block simply overrides it. */
+html[data-focus='true'] .nb-prosemirror:has(.nb-focus-line) {
+  color: var(--nb-text-recede);
+}
+
+html[data-focus='true'] .nb-prosemirror .nb-focus-line {
+  color: var(--nb-text);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-focus='true'] .nb-prosemirror,
+  html[data-focus='true'] .nb-prosemirror .nb-focus-line {
+    transition: color var(--nb-t-base) var(--nb-ease-out);
+  }
+}
+
+/* Typewriter scrolling needs headroom: without it the first paragraphs of a
+   note can never reach the anchor, and the pin does nothing until you are a
+   screen in. The bottom padding is already there for the same reason. */
+html[data-focus='true'] .nb-prosemirror {
+  padding-top: 30vh;
+}
+
+/* The block cursor. A zero-width host so it never shifts the text it sits in;
+   the block itself is drawn absolutely. */
+.nb-block-caret {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  vertical-align: text-bottom;
+  user-select: none;
+}
+
+.nb-block-caret::after {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0.55ch;
+  height: 1.15em;
+  border-radius: 1px;
+  background: var(--nb-accent);
+  opacity: 0.8;
+  content: '';
+}
+
+/* Only while the editor actually has focus — a block sitting in an unfocused
+   note reads as a selection, not a cursor. */
+.nb-prosemirror:not(.ProseMirror-focused) .nb-block-caret::after {
+  display: none;
+}
+
+html[data-focus='true'][data-focus-look='typewriter']
+  .nb-prosemirror.ProseMirror-focused {
+  caret-color: transparent;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-prosemirror.ProseMirror-focused .nb-block-caret::after {
+    animation: nb-block-caret 1.06s steps(1, end) infinite;
+  }
+
+  @keyframes nb-block-caret {
+    0%,
+    55% {
+      opacity: 0.8;
+    }
+    56%,
+    100% {
+      opacity: 0;
+    }
+  }
+}
+
+/* The margin rule — a typewriter's left stop. Drawn on the page rather than the
+   text so it holds its place through headings and lists, and set at the page's
+   own edge: any closer and it stops reading as a margin and starts reading as a
+   border someone left on the text. */
+html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page {
+  position: relative;
+}
+
+html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--nb-divider);
+  content: '';
 }
 
 .nb-attachments {

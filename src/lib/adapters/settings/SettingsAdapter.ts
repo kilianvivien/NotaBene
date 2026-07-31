@@ -54,6 +54,31 @@ export interface Abbreviation {
   expansion: string;
 }
 
+/**
+ * Concentration mode's character.
+ *
+ * These describe the *mode*, not the app: nothing here changes how a note looks
+ * while you are browsing the library. The defaults are deliberately the
+ * opinionated ones — the mode is itself opt-in, so someone who turns it on is
+ * asking for the typewriter, not for the same page with fewer panes.
+ */
+export interface FocusSettings {
+  /** `app` keeps the ordinary reading surface; `typewriter` swaps in warm
+   * stock, a narrower measure, looser leading and a block cursor. */
+  appearance: 'app' | 'typewriter';
+  /** Dim every block but the one holding the cursor. */
+  lineFocus: 'off' | 'paragraph';
+  /** Pin the caret's line at a fixed height instead of letting it walk down
+   * the window. */
+  typewriterScrolling: boolean;
+  /** Let the title bar and status bar leave until the pointer reaches for
+   * them. */
+  hideChrome: boolean;
+  /** Take the whole screen. The only way macOS will hide the traffic lights
+   * it draws over our overlay title bar. */
+  fullscreen: boolean;
+}
+
 export interface PodcastSettings {
   mode: 'narrator' | 'dialogue';
   /** Target episode length, in minutes. */
@@ -72,7 +97,8 @@ export interface AppSettings {
   editorTitleSize: number;
   /** Typing shortcuts expanded as the note is written, in match order. */
   abbreviations: Abbreviation[];
-  focusMode: boolean;
+  /** How concentration mode behaves and reads. */
+  focus: FocusSettings;
   /** Trash retention, in days. */
   trashRetentionDays: number;
   /** How aggressively old per-note versions are thinned. */
@@ -131,7 +157,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   editorFontSize: 16,
   editorTitleSize: 40,
   abbreviations: [],
-  focusMode: false,
+  focus: {
+    appearance: 'typewriter',
+    lineFocus: 'paragraph',
+    typewriterScrolling: true,
+    hideChrome: true,
+    fullscreen: false,
+  },
   trashRetentionDays: 30,
   snapshotRetention: 'standard',
   backupSchedule: 'off',

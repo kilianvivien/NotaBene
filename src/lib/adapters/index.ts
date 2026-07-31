@@ -35,6 +35,8 @@ import { createLocalTtsEngine, unavailableLocalTtsEngine } from './tts/localTtsE
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
 import { browserExternalLinkAdapter } from './external/browserExternalLinkAdapter';
 import { tauriExternalLinkAdapter } from './external/tauriExternalLinkAdapter';
+import { browserWindowAdapter } from './window/browserWindowAdapter';
+import { tauriWindowAdapter } from './window/tauriWindowAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 
 import type { LibraryAdapter } from './library/LibraryAdapter';
@@ -46,6 +48,7 @@ import type { MenuAdapter } from './menu/MenuAdapter';
 import type { AiTransport } from './ai/AiTransport';
 import type { McpAdapter } from './mcp/McpAdapter';
 import type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
+import type { WindowAdapter } from './window/WindowAdapter';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -66,6 +69,9 @@ export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenu
 export const externalLinks: ExternalLinkAdapter = isTauri
   ? tauriExternalLinkAdapter
   : browserExternalLinkAdapter;
+export const appWindow: WindowAdapter = isTauri
+  ? tauriWindowAdapter
+  : browserWindowAdapter;
 // Desktop AI leaves through Rust so that a self-hosted or otherwise unusual
 // base URL does not require widening `connect-src` for the whole webview; the
 // browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
@@ -100,6 +106,7 @@ export type {
   AccentColor,
   AiProviderSettings,
   AppSettings,
+  FocusSettings,
   PodcastSettings,
   SpeechSettings,
   SecretsAdapter,
@@ -124,6 +131,7 @@ export type {
 export type { MenuAdapter, MenuNode, MenuRole } from './menu/MenuAdapter';
 export type { AiRequest, AiResponse, AiTransport } from './ai/AiTransport';
 export type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
+export type { WindowAdapter } from './window/WindowAdapter';
 export type {
   TtsAudioEncoding,
   TtsEngine,
