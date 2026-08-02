@@ -30,8 +30,11 @@ import {
 } from '@/lib/schema';
 import { flattenDoc, docHasFeature } from '@/lib/notes/docText';
 import { retainedSnapshotIds } from '@/lib/history/retention';
+import { fold } from '@/lib/search/fold';
+import { bm25Rank, BM25_WEIGHTS, type RankedFields } from './memoryRanking';
 import type {
   LibraryAdapter,
+  NoteMatch,
   NoteQuery,
   SnapshotRetentionPolicy,
 } from './LibraryAdapter';
@@ -42,13 +45,6 @@ function clone<T>(value: T): T {
 
 function snippetFor(note: Note): string {
   return note.plainText.slice(0, 200);
-}
-
-function fold(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLocaleLowerCase();
 }
 
 function highlightedSnippet(note: Note, text: string): string {
@@ -146,47 +142,57 @@ class MemoryLibraryAdapter implements LibraryAdapter {
 
   // -- notes ---------------------------------------------------------------
 
-  async queryNotes(query: NoteQuery): Promise<NoteSummary[]> {
+  /** The five columns `notes_fts` indexes, in schema order. */
+  private indexedFields(note: Note): RankedFields {
+    const course = this.library.courses.find((entry) => entry.id === note.courseId);
+    const tagText = this.library.tags
+      .filter((entry) => note.tagIds.includes(entry.id))
+      .map((entry) => `${entry.namespace ? `${entry.namespace}:` : ''}${entry.name}`)
+      .join(' ');
+    const attachmentText = this.attachments
+      .filter((entry) => entry.noteId === note.id)
+      .map((entry) => entry.name)
+      .join(' ');
+    return [note.title, note.plainText, course?.name ?? '', tagText, attachmentText];
+  }
+
+  /** Everything a query constrains except the free text. */
+  private matchesFilters(note: Note, query: NoteQuery): boolean {
     const scope = query.scope ?? 'live';
+    if (scope === 'live' && (note.archived || note.trashedAt)) return false;
+    if (scope === 'archived' && (!note.archived || note.trashedAt)) return false;
+    if (scope === 'trashed' && !note.trashedAt) return false;
+    if (query.courseId !== undefined && note.courseId !== query.courseId) return false;
+    if (query.sectionId !== undefined && note.sectionId !== query.sectionId) return false;
+    if (query.pinned !== undefined && note.pinned !== query.pinned) return false;
+    if (query.tagIds?.length && !query.tagIds.every((id) => note.tagIds.includes(id))) {
+      return false;
+    }
+    if (query.createdAfter && note.createdAt < query.createdAfter) return false;
+    if (query.createdBefore && note.createdAt > query.createdBefore) return false;
+    if (query.has?.length) {
+      const satisfied = query.has.every((feature) =>
+        feature === 'attachment'
+          ? this.attachments.some((entry) => entry.noteId === note.id)
+          : docHasFeature(note.doc, feature),
+      );
+      if (!satisfied) return false;
+    }
+    return true;
+  }
+
+  async queryNotes(query: NoteQuery): Promise<NoteSummary[]> {
     const text = query.text?.trim();
     const foldedText = text ? fold(text) : '';
+    const any = query.textMatch === 'any';
 
     let rows = this.library.notes.filter((note) => {
-      if (scope === 'live' && (note.archived || note.trashedAt)) return false;
-      if (scope === 'archived' && (!note.archived || note.trashedAt)) return false;
-      if (scope === 'trashed' && !note.trashedAt) return false;
-      if (query.courseId !== undefined && note.courseId !== query.courseId) return false;
-      if (query.sectionId !== undefined && note.sectionId !== query.sectionId)
-        return false;
-      if (query.pinned !== undefined && note.pinned !== query.pinned) return false;
-      if (query.tagIds?.length && !query.tagIds.every((id) => note.tagIds.includes(id))) {
-        return false;
-      }
-      if (query.createdAfter && note.createdAt < query.createdAfter) return false;
-      if (query.createdBefore && note.createdAt > query.createdBefore) return false;
-      if (query.has?.length) {
-        const satisfied = query.has.every((feature) =>
-          feature === 'attachment'
-            ? this.attachments.some((entry) => entry.noteId === note.id)
-            : docHasFeature(note.doc, feature),
-        );
-        if (!satisfied) return false;
-      }
+      if (!this.matchesFilters(note, query)) return false;
       if (foldedText) {
-        const course = this.library.courses.find((entry) => entry.id === note.courseId);
-        const tagText = this.library.tags
-          .filter((entry) => note.tagIds.includes(entry.id))
-          .map((entry) => `${entry.namespace ? `${entry.namespace}:` : ''}${entry.name}`)
-          .join(' ');
-        const attachmentText = this.attachments
-          .filter((entry) => entry.noteId === note.id)
-          .map((entry) => entry.name)
-          .join(' ');
-        const haystack = fold(
-          `${note.title}\n${note.plainText}\n${course?.name ?? ''}\n${tagText}\n${attachmentText}`,
-        );
-        if (!foldedText.split(/\s+/).every((term) => haystack.includes(term)))
-          return false;
+        const haystack = fold(this.indexedFields(note).join('\n'));
+        const terms = foldedText.split(/\s+/);
+        const hit = (term: string) => haystack.includes(term);
+        if (!(any ? terms.some(hit) : terms.every(hit))) return false;
       }
       return true;
     });
@@ -209,6 +215,36 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     const offset = query.offset ?? 0;
     const limit = query.limit ?? rows.length;
     return rows.slice(offset, offset + limit).map((note) => toSummary(note, text));
+  }
+
+  async searchNotes(query: NoteQuery): Promise<NoteMatch[]> {
+    const text = query.text?.trim();
+    if (!text) {
+      // Same refusal as the SQL path: a ranked search with nothing to rank
+      // would return the whole library in arbitrary order.
+      throw new Error('SEARCH_REQUIRES_TEXT: a ranked search needs something to rank');
+    }
+
+    const candidates = this.library.notes.filter((note) =>
+      this.matchesFilters(note, query),
+    );
+    const scores = bm25Rank(
+      candidates.map((note) => ({ id: note.id, fields: this.indexedFields(note) })),
+      text.split(/\s+/).filter(Boolean),
+      BM25_WEIGHTS,
+    );
+
+    // Ranked by score alone — pinning deliberately does not lift a note here.
+    const ranked = candidates
+      .filter((note) => (scores.get(note.id) ?? 0) > 0)
+      .sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0));
+
+    const offset = query.offset ?? 0;
+    const limit = query.limit ?? ranked.length;
+    return ranked.slice(offset, offset + limit).map((note) => ({
+      note: toSummary(note),
+      score: scores.get(note.id) ?? 0,
+    }));
   }
 
   async getNote(noteId: string): Promise<Note | null> {

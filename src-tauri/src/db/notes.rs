@@ -7,7 +7,9 @@
 
 use rusqlite::{params_from_iter, types::Value as SqlValue, Connection, OptionalExtension, Row};
 
-use super::model::{Backlink, Note, NoteQuery, NoteSummary, Snapshot, SnapshotMeta};
+use super::model::{
+    Backlink, Note, NoteMatch, NoteQuery, NoteSummary, Snapshot, SnapshotMeta,
+};
 use super::{DbError, DbResult, Store};
 use crate::commands::SnapshotRetentionPolicy;
 
@@ -28,31 +30,117 @@ fn row_to_summary(row: &Row<'_>) -> rusqlite::Result<NoteSummary> {
     })
 }
 
+/// How the words of a free-text query combine.
+#[derive(Clone, Copy, PartialEq)]
+enum TextMatch {
+    /// Every word must appear. The note list, the palette and the MCP search
+    /// tool all want this: a search box narrows as you type.
+    All,
+    /// Any word may match, and `bm25` sorts out which note answered best. Only
+    /// retrieval wants this — a question is not a filter.
+    Any,
+}
+
+/// `bm25` column weights in schema order: title, plain_text, tags, course,
+/// attachments. Attachments sit *below* body weight on purpose: the column
+/// holds a handful of filenames, and bm25's length normalisation already
+/// flatters a hit in a short field without any help from us.
+const BM25_WEIGHTS: [f64; 5] = [10.0, 1.0, 6.0, 3.0, 0.5];
+
 pub fn query(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteSummary>> {
     store.with(|connection| {
+        let (sql, binds) = build_note_query(query, false);
+        let mut statement = connection.prepare(&sql)?;
+        let rows = statement
+            .query_map(params_from_iter(binds.iter()), row_to_summary)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        attach_tags(connection, rows)
+    })
+}
+
+/// The same query, ranked and scored.
+///
+/// Retrieval needs three things the note list does not: OR matching, a score it
+/// can fuse with other signals, and an order that ignores whether a note is
+/// pinned. Rather than a second query builder that would drift from the first
+/// on every new filter, both share [`build_note_query`] and differ only in the
+/// projection and the ordering.
+pub fn search(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteMatch>> {
+    if query
+        .text
+        .as_deref()
+        .map(str::trim)
+        .is_none_or(str::is_empty)
+    {
+        // Nothing to rank by. Silently degrading to a full-table scan ordered by
+        // nothing would look like a working search returning bad answers.
+        return Err(DbError::Other(
+            "SEARCH_REQUIRES_TEXT: a ranked search needs something to rank".into(),
+        ));
+    }
+
+    store.with(|connection| {
+        let (sql, binds) = build_note_query(query, true);
+        let mut statement = connection.prepare(&sql)?;
+        let rows = statement
+            .query_map(params_from_iter(binds.iter()), |row| {
+                Ok((row_to_summary(row)?, row.get::<_, f64>("score")?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        let (summaries, scores): (Vec<NoteSummary>, Vec<f64>) = rows.into_iter().unzip();
+        Ok(attach_tags(connection, summaries)?
+            .into_iter()
+            .zip(scores)
+            .map(|(note, score)| NoteMatch { note, score })
+            .collect())
+    })
+}
+
+/// One statement for both entry points, so a filter added for the note list is
+/// a filter retrieval gets too.
+fn build_note_query(query: &NoteQuery, ranked: bool) -> (String, Vec<SqlValue>) {
+    {
         let has_text = query
             .text
             .as_deref()
             .map(str::trim)
             .is_some_and(|text| !text.is_empty());
-        let snippet = if has_text {
-            "snippet(notes_fts, 1, '<mark>', '</mark>', ' … ', 32)"
+        let snippet = match (ranked, has_text) {
+            // A citation chip wants prose, not `<mark>` — nothing downstream of
+            // the ranked path parses highlights, and it wants more of the note.
+            (true, _) => "snippet(notes_fts, 1, '', '', ' … ', 64)",
+            (false, true) => "snippet(notes_fts, 1, '<mark>', '</mark>', ' … ', 32)",
+            (false, false) => "substr(n.plain_text, 1, 200)",
+        };
+        let score = if ranked {
+            // Negated: SQLite's `bm25()` is more-negative-is-better, and every
+            // consumer on the TypeScript side expects larger to mean closer.
+            let [title, body, tags, course, attachments] = BM25_WEIGHTS;
+            format!(
+                ", -bm25(notes_fts, {title}, {body}, {tags}, {course}, {attachments}) AS score"
+            )
         } else {
-            "substr(n.plain_text, 1, 200)"
+            String::new()
         };
         let mut sql = format!(
             "SELECT n.id, n.course_id, n.section_id, n.title, n.pinned, \
              n.archived, n.trashed_at, n.created_at, n.updated_at, n.\"order\", \
-             {snippet} AS snippet_text FROM notes n"
+             {snippet} AS snippet_text{score} FROM notes n"
         );
         let mut clauses: Vec<String> = Vec::new();
         let mut binds: Vec<SqlValue> = Vec::new();
 
         // Free text goes through FTS5; everything else is a column predicate.
         if let Some(text) = query.text.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
+            let mode = match query.text_match.as_deref() {
+                Some("any") => TextMatch::Any,
+                _ => TextMatch::All,
+            };
             sql.push_str(" JOIN notes_fts ON notes_fts.rowid = n.rowid");
             clauses.push("notes_fts MATCH ?".into());
-            binds.push(SqlValue::Text(fts_match_expression(text)));
+            binds.push(SqlValue::Text(fts_match_expression(text, mode)));
         }
 
         match query.scope.as_deref().unwrap_or("live") {
@@ -129,28 +217,31 @@ pub fn query(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteSummary>> {
             sql.push_str(&clauses.join(" AND "));
         }
 
-        // Pinned notes float, then the requested order. Relevance only means
-        // anything when there is an FTS match to rank.
-        let order_by = match query.sort.as_deref().unwrap_or("updated") {
-            "created" => "n.created_at DESC",
-            "title" => "n.title COLLATE NOCASE ASC",
-            "manual" => "n.\"order\" ASC, n.updated_at DESC",
-            "relevance" if has_text => "notes_fts.rank",
-            _ => "n.updated_at DESC",
-        };
-        sql.push_str(&format!(" ORDER BY n.pinned DESC, {order_by}"));
+        if ranked {
+            // Deliberately *not* `n.pinned DESC` first. Pinning says "keep this
+            // where I can see it", not "this answers the question" — floating a
+            // barely-matching pinned note above the note that actually answers
+            // is how a retrieved context ends up full of the wrong material.
+            sql.push_str(" ORDER BY score DESC");
+        } else {
+            // Pinned notes float, then the requested order. Relevance only means
+            // anything when there is an FTS match to rank.
+            let order_by = match query.sort.as_deref().unwrap_or("updated") {
+                "created" => "n.created_at DESC",
+                "title" => "n.title COLLATE NOCASE ASC",
+                "manual" => "n.\"order\" ASC, n.updated_at DESC",
+                "relevance" if has_text => "notes_fts.rank",
+                _ => "n.updated_at DESC",
+            };
+            sql.push_str(&format!(" ORDER BY n.pinned DESC, {order_by}"));
+        }
 
         sql.push_str(" LIMIT ? OFFSET ?");
         binds.push(SqlValue::Integer(query.limit.unwrap_or(200)));
         binds.push(SqlValue::Integer(query.offset.unwrap_or(0)));
 
-        let mut statement = connection.prepare(&sql)?;
-        let rows = statement
-            .query_map(params_from_iter(binds.iter()), row_to_summary)?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-
-        attach_tags(connection, rows)
-    })
+        (sql, binds)
+    }
 }
 
 /// One extra query for every note's tags, rather than N. At list sizes of a few
@@ -187,12 +278,19 @@ fn attach_tags(connection: &Connection, mut rows: Vec<NoteSummary>) -> DbResult<
 ///
 /// Every token is quoted before the `*` is appended, so a stray `"` or `-` in a
 /// lecture title is data rather than syntax — an unquoted apostrophe would
-/// otherwise turn a search into a parse error.
-fn fts_match_expression(text: &str) -> String {
-    text.split_whitespace()
+/// otherwise turn a search into a parse error. That quoting carries more weight
+/// now than it used to: with a real `OR` in the expression, a student who types
+/// the word "or" must still be searching for the word, not writing an operator.
+fn fts_match_expression(text: &str, mode: TextMatch) -> String {
+    let terms = text
+        .split_whitespace()
         .map(|token| format!("\"{}\"*", token.replace('"', "\"\"")))
-        .collect::<Vec<_>>()
-        .join(" ")
+        .collect::<Vec<_>>();
+    match mode {
+        TextMatch::All => terms.join(" "),
+        // Uppercase because FTS5 only reads `OR` as an operator in caps.
+        TextMatch::Any => terms.join(" OR "),
+    }
 }
 
 pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
@@ -775,6 +873,195 @@ mod tests {
                 "search snippets should mark the matched token"
             );
         }
+    }
+
+    #[test]
+    fn any_matching_joins_terms_with_or_and_still_treats_operators_as_data() {
+        assert_eq!(
+            fts_match_expression("eigen vector", TextMatch::All),
+            "\"eigen\"* \"vector\"*"
+        );
+        assert_eq!(
+            fts_match_expression("eigen vector", TextMatch::Any),
+            "\"eigen\"* OR \"vector\"*"
+        );
+        // A student writing "or" or "NEAR" is searching for a word. Quoting is
+        // what keeps the new operators from being reachable from the text box.
+        assert_eq!(
+            fts_match_expression("OR NEAR", TextMatch::Any),
+            "\"OR\"* OR \"NEAR\"*"
+        );
+        assert_eq!(
+            fts_match_expression("say \"this\"", TextMatch::Any),
+            "\"say\"* OR \"\"\"this\"\"\"*"
+        );
+    }
+
+    #[test]
+    fn ranked_search_weights_the_title_above_the_body() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert(store, &note_with("body", "Semaine 3", "eigenvector")).unwrap();
+        upsert(store, &note_with("title", "Eigenvector", "notes de cours")).unwrap();
+
+        let rows = search(
+            store,
+            &NoteQuery {
+                text: Some("eigenvector".into()),
+                text_match: Some("any".into()),
+                ..NoteQuery::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(
+            rows[0].note.id, "title",
+            "a title hit should outrank a body hit"
+        );
+        assert!(
+            rows[0].score > rows[1].score,
+            "scores should descend, and larger should mean closer"
+        );
+    }
+
+    #[test]
+    fn ranked_search_does_not_float_a_pinned_weak_match() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        let mut pinned = note_with("pinned", "Divers", "eigenvector mentionné une fois");
+        pinned.pinned = true;
+        upsert(store, &pinned).unwrap();
+        upsert(
+            store,
+            &note_with("strong", "Eigenvector", "eigenvector eigenvector"),
+        )
+        .unwrap();
+
+        let rows = search(
+            store,
+            &NoteQuery {
+                text: Some("eigenvector".into()),
+                text_match: Some("any".into()),
+                ..NoteQuery::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            rows[0].note.id, "strong",
+            "pinning marks a note as handy, not as relevant"
+        );
+
+        // …while the note list still floats it, which is the behaviour every
+        // existing view depends on.
+        let listed = query(
+            store,
+            &NoteQuery {
+                text: Some("eigenvector".into()),
+                sort: Some("relevance".into()),
+                ..NoteQuery::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(listed[0].id, "pinned");
+    }
+
+    #[test]
+    fn any_matching_finds_what_all_matching_cannot() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert(
+            store,
+            &note_with("lecture", "Algèbre", "un vecteur propre ne tourne pas"),
+        )
+        .unwrap();
+
+        // The words a student remembers, not the words the lecturer used.
+        let question = "vecteur direction rotation";
+        assert!(
+            query(
+                store,
+                &NoteQuery {
+                    text: Some(question.into()),
+                    ..NoteQuery::default()
+                },
+            )
+            .unwrap()
+            .is_empty(),
+            "AND matching is expected to miss this — it is why retrieval needs OR"
+        );
+
+        let found = search(
+            store,
+            &NoteQuery {
+                text: Some(question.into()),
+                text_match: Some("any".into()),
+                ..NoteQuery::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].note.id, "lecture");
+        assert!(
+            !found[0].note.snippet.contains("<mark>"),
+            "a citation snippet is prose, not markup"
+        );
+    }
+
+    #[test]
+    fn all_matching_search_agrees_with_the_note_list() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert(store, &note_with("a", "Un", "recherche partagée")).unwrap();
+        upsert(store, &note_with("b", "Deux", "recherche seule")).unwrap();
+        upsert(store, &note_with("c", "Trois", "rien ici")).unwrap();
+
+        let plain = |rows: Vec<NoteSummary>| {
+            let mut ids: Vec<String> = rows.into_iter().map(|row| row.id).collect();
+            ids.sort();
+            ids
+        };
+        let listed = plain(
+            query(
+                store,
+                &NoteQuery {
+                    text: Some("recherche partagée".into()),
+                    ..NoteQuery::default()
+                },
+            )
+            .unwrap(),
+        );
+        let searched = plain(
+            search(
+                store,
+                &NoteQuery {
+                    text: Some("recherche partagée".into()),
+                    ..NoteQuery::default()
+                },
+            )
+            .unwrap()
+            .into_iter()
+            .map(|found| found.note)
+            .collect(),
+        );
+
+        assert_eq!(
+            listed, searched,
+            "the shared builder must not change what the default path selects"
+        );
+    }
+
+    #[test]
+    fn ranked_search_refuses_a_query_with_nothing_to_rank() {
+        let temporary = temp_store();
+        assert!(search(
+            &temporary.store,
+            &NoteQuery {
+                text: Some("   ".into()),
+                ..NoteQuery::default()
+            },
+        )
+        .is_err());
     }
 
     #[test]

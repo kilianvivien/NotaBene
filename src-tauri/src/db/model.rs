@@ -82,6 +82,18 @@ pub struct NoteSummary {
     pub snippet: String,
 }
 
+/// A summary with the relevance score that put it there.
+///
+/// Nested rather than flattened so `NoteSummary` — which five call sites and an
+/// MCP payload already depend on — keeps its exact shape. A score belongs to a
+/// query result, not to a note.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteMatch {
+    pub note: NoteSummary,
+    pub score: f64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
@@ -193,6 +205,11 @@ pub struct NoteQuery {
     pub sort: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+    /// How the words of `text` combine: `"all"` (the default, and what every
+    /// caller before retrieval wanted) or `"any"`. Only the ranked search path
+    /// sets `"any"` — ANDing every word of a natural-language question is a
+    /// guaranteed empty result.
+    pub text_match: Option<String>,
 }
 
 /// Distinguish an absent key from an explicit `null`.

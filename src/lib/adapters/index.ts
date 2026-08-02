@@ -91,6 +91,7 @@ export const tts = activeSystemTtsEngine;
 
 export type {
   LibraryAdapter,
+  NoteMatch,
   NoteQuery,
   SnapshotRetentionPolicy,
 } from './library/LibraryAdapter';

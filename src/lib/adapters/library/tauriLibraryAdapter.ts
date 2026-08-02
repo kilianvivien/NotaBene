@@ -15,6 +15,7 @@ import type {
   JournalEntry,
   Library,
   Note,
+  NoteMatch,
   NoteSummary,
   NoteTemplate,
   PendingRecovery,
@@ -43,6 +44,8 @@ export const tauriLibraryAdapter: LibraryAdapter = {
 
   queryNotes: (query: NoteQuery): Promise<NoteSummary[]> =>
     invoke('library_query_notes', { query }),
+  searchNotes: (query: NoteQuery): Promise<NoteMatch[]> =>
+    invoke('library_search_notes', { query }),
   getNote: (noteId: string): Promise<Note | null> =>
     invoke('library_get_note', { noteId }),
   upsertNote: (note: Note) => invoke('library_upsert_note', { note }),
