@@ -1051,6 +1051,66 @@ mod tests {
         );
     }
 
+    /// The Rust half of the ranking-parity contract.
+    ///
+    /// `rankingParity.test.ts` reads the same file and asserts the same order
+    /// against the in-memory adapter's own BM25. Two independent
+    /// implementations will drift unless something pins them, and the drift
+    /// would show up as `pnpm dev` and the desktop build disagreeing about
+    /// which notes answer a question.
+    #[test]
+    fn ranking_matches_the_shared_corpus() {
+        const CORPUS: &str = include_str!("../../../src/lib/search/fixtures/ranking-corpus.json");
+        let corpus: serde_json::Value =
+            serde_json::from_str(CORPUS).expect("ranking corpus is not valid JSON");
+
+        let temporary = temp_store();
+        let store = &temporary.store;
+        for note in corpus["notes"].as_array().expect("notes must be an array") {
+            upsert(
+                store,
+                &note_with(
+                    note["id"].as_str().unwrap(),
+                    note["title"].as_str().unwrap(),
+                    note["body"].as_str().unwrap(),
+                ),
+            )
+            .expect("failed to seed a corpus note");
+        }
+
+        for query in corpus["queries"].as_array().expect("queries must be an array") {
+            let terms: Vec<String> = query["terms"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|term| term.as_str().unwrap().to_string())
+                .collect();
+            let found = search(
+                store,
+                &NoteQuery {
+                    text: Some(terms.join(" ")),
+                    text_match: Some("any".into()),
+                    ..NoteQuery::default()
+                },
+            )
+            .expect("ranked search failed");
+            let ids: Vec<&str> = found.iter().map(|hit| hit.note.id.as_str()).collect();
+
+            assert_eq!(
+                ids.first().copied(),
+                query["expectTop"].as_str(),
+                "wrong top result for {terms:?} (got {ids:?})"
+            );
+            for absent in query["expectAbsent"].as_array().unwrap() {
+                let absent = absent.as_str().unwrap();
+                assert!(
+                    !ids.contains(&absent),
+                    "{absent} should not match {terms:?} (got {ids:?})"
+                );
+            }
+        }
+    }
+
     #[test]
     fn ranked_search_refuses_a_query_with_nothing_to_rank() {
         let temporary = temp_store();
