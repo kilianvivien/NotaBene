@@ -11,4 +11,5 @@ export * from './editorCommands';
 export * from './aiCommands';
 export * from './studyCommands';
 export * from './readCommands';
+export * from './retrievalCommands';
 export * from './onboardingCommands';
