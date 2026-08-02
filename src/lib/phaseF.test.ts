@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import pkg from '../../package.json';
 import { exporter, library } from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { createCourseCommand, createSectionCommand } from '@/lib/commands';
@@ -56,7 +57,9 @@ describe('Phase F MCP tool contracts', () => {
   it('reports live application state', async () => {
     const result = await call('get_app_state');
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value).toMatchObject({ appVersion: '0.4.0' });
+    // Read the version rather than pinning it, so a release bump does not
+    // fail a test about the tool contract.
+    if (result.ok) expect(result.value).toMatchObject({ appVersion: pkg.version });
   });
 
   it('lists courses with their sections', async () => {

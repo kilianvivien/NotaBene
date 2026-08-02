@@ -194,7 +194,9 @@ explicitly deferred signing, notarization, and signed-update work:
 and playback, attachment handling and previews, a reworked Ask panel, working
 equations in the desktop build, and user-defined abbreviations. 0.4.0 brings
 speech back in line with the rest of the product — neural voices that run on
-your own machine, with no key and no upload.
+your own machine, with no key and no upload. 0.5.0, in development, turns
+concentration mode into a place to write and puts ranked retrieval behind Ask,
+so a question is answered from the notes that actually match it.
 
 See [release notes](./RELEASE_NOTES.md), the [security policy](./SECURITY.md),
 and [third-party notices](./THIRD_PARTY_NOTICES.md).

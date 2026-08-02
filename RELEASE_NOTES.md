@@ -1,5 +1,42 @@
 # Release notes
 
+## NotaBene 0.5.0
+
+- **Concentration mode is a place to write.** The mode used to collapse three
+  panes, ghost the toolbar, and leave both bars sitting where they were. Chrome
+  now retreats and returns: the title bar and status bar leave their edges and
+  come back when the pointer reaches for them, when something inside takes
+  focus, or when a modal opens — keeping their space in the layout, so the page
+  never jumps. Entering records the panes you had open and leaving puts them
+  back, and toggling one in between peeks it rather than ending the mode.
+- **Typewriter mechanics.** The line holding the caret can be pinned at a fixed
+  height while you type — but never on a click — the blocks around it recede by
+  colour, and an optional block cursor replaces the caret. An opt-in typewriter
+  look gives the mode warm stock, softened ink, a narrower measure, looser
+  leading, and a margin rule, in both themes, leaving your chosen typeface
+  alone. Everything is governed by a `focus` settings group in Settings →
+  Editor; the old persisted `focusMode` boolean that nothing read is migrated
+  away.
+- **Ranked search behind Ask.** The note list wants AND matching — another word
+  narrows the results. A question wants the opposite: requiring every word of
+  "vecteur direction rotation" finds nothing, when the note you meant says "un
+  vecteur propre ne tourne pas". Retrieval now runs its own ranked query over
+  FTS5 with `OR` between terms and a weighted `bm25` score, ordered by
+  relevance alone, so a pinned but barely-matching note cannot crowd out the
+  material that answers the question.
+- **Ask, scoped.** The Ask panel answers over the current note, its course, or
+  the whole library, and cites the notes it drew on. Both search paths build
+  their SQL through one query builder, so a filter added for the note list is a
+  filter retrieval gets too.
+
+Concentration mode also fixes a pre-existing bug it made obvious: Chromium
+matches `:focus-visible` on any editable element however focus arrived, so the
+global focus ring outdrew the editor's own `outline: none` and framed the note
+in 2px of accent for as long as the caret was in it.
+
+Nothing here is persisted differently: no schema change, no `SCHEMA_VERSION`
+bump.
+
 ## NotaBene 0.4.0
 
 - **Neural voices that never leave the Mac.** Settings → Speech now offers two
