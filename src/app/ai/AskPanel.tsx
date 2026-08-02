@@ -490,6 +490,15 @@ function Sources({
                 {t('ai.askSourceTruncated')}
               </span>
             )}
+            {/* Development only, and untranslated on purpose: this is the
+                readout that says whether a note the search should have found
+                ranked just below the cut or never surfaced at all. Tuning the
+                weights without it is guesswork. */}
+            {import.meta.env.DEV && (
+              <span className="shrink-0 font-mono text-nb-text-3">
+                {source.score.toFixed(2)}
+              </span>
+            )}
           </button>
         ))}
       </div>

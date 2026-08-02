@@ -25,6 +25,13 @@ import { docToBlocks } from './rewrite';
 /** How wide a question is allowed to look. */
 export type AskScope = 'note' | 'course' | 'library';
 
+/** A candidate with the combined score that decided its place. */
+export type FusedCandidate = Candidate & {
+  /** Roughly 0–1: the weights below sum to one. Comparable within one
+   * retrieval, meaningless between two. */
+  fused: number;
+};
+
 /** A note that might answer, before its document has been fetched. */
 export interface Candidate {
   noteId: string;
@@ -45,6 +52,13 @@ export interface RetrievedSource {
   reason: 'anchor' | 'search' | 'link' | 'recent';
   /** Set when the note did not fit whole and a block window was taken. */
   truncated: boolean;
+  /**
+   * Raw relevance, carried for the development-only score readout in the panel.
+   * Meaningless across queries, and deliberately not shown to students — it is
+   * here so that "retrieval missed" can be told apart from "retrieval ranked it
+   * just below the cut", which is the one question tuning depends on.
+   */
+  score: number;
 }
 
 export interface RetrievalResult {
@@ -114,7 +128,7 @@ export function fuseCandidates(
   candidates: Candidate[],
   anchorNoteId: string,
   now: Date = new Date(),
-): Candidate[] {
+): FusedCandidate[] {
   const ranked = candidates.filter((candidate) => candidate.noteId !== anchorNoteId);
   if (!ranked.length) return [];
 
@@ -136,7 +150,7 @@ export function fuseCandidates(
         ? b.candidate.updatedAt.localeCompare(a.candidate.updatedAt)
         : b.fused - a.fused,
     )
-    .map((entry) => entry.candidate);
+    .map((entry) => ({ ...entry.candidate, fused: entry.fused }));
 }
 
 function recencyWeight(updatedAt: string, now: Date): number {
@@ -153,7 +167,11 @@ function recencyWeight(updatedAt: string, now: Date): number {
  */
 export function packSources(
   anchor: AnchorNote,
-  ranked: { candidate: Candidate; doc: NoteDoc; reason?: RetrievedSource['reason'] }[],
+  ranked: {
+    candidate: Candidate & { fused?: number };
+    doc: NoteDoc;
+    reason?: RetrievedSource['reason'];
+  }[],
   keywords: string[],
   budgetTokens: number,
 ): { sources: RetrievedSource[]; droppedCount: number } {
@@ -165,6 +183,8 @@ export function packSources(
       doc: anchor.doc,
       reason: 'anchor',
       truncated: false,
+      // Top of the fused range: the anchor is included by rule, not by rank.
+      score: 1,
     },
   ];
 
@@ -187,6 +207,7 @@ export function packSources(
         doc: entry.doc,
         reason: entry.reason ?? (entry.candidate.linked ? 'link' : 'search'),
         truncated: false,
+        score: entry.candidate.fused ?? entry.candidate.score,
       });
       remaining -= whole;
       continue;
@@ -204,6 +225,7 @@ export function packSources(
       doc: window,
       reason: entry.reason ?? (entry.candidate.linked ? 'link' : 'search'),
       truncated: true,
+      score: entry.candidate.fused ?? entry.candidate.score,
     });
     remaining -= estimateTokens(docToMarkdown(window));
   }

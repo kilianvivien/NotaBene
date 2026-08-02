@@ -244,6 +244,8 @@ export interface AskSourceRef {
   noteId: string;
   title: string;
   truncated: boolean;
+  /** Development-only readout; see `RetrievedSource.score`. */
+  score: number;
 }
 
 export interface AskAnswer {
@@ -265,7 +267,11 @@ export async function askAboutNotesCommand(
   await useEditorStore.getState().flush();
 
   const scope = input.scope ?? 'note';
-  let sources: (Pick<Note, 'title' | 'doc'> & { noteId: string; truncated: boolean })[];
+  let sources: (Pick<Note, 'title' | 'doc'> & {
+    noteId: string;
+    truncated: boolean;
+    score: number;
+  })[];
   let droppedCount = 0;
 
   if (scope === 'note') {
@@ -280,6 +286,7 @@ export async function askAboutNotesCommand(
       title: note.title,
       doc: note.doc,
       truncated: false,
+      score: 1,
     }));
   } else {
     const anchorId = input.noteIds[0];
@@ -298,6 +305,7 @@ export async function askAboutNotesCommand(
       title: source.title,
       doc: source.doc,
       truncated: source.truncated,
+      score: source.score,
     }));
     droppedCount = gathered.value.droppedCount;
   }
@@ -320,10 +328,11 @@ export async function askAboutNotesCommand(
     );
     return ok({
       answer,
-      sources: sources.map(({ noteId, title, truncated }) => ({
+      sources: sources.map(({ noteId, title, truncated, score }) => ({
         noteId,
         title,
         truncated,
+        score,
       })),
       droppedCount,
     });

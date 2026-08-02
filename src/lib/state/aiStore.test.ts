@@ -64,13 +64,13 @@ describe('ask threads', () => {
     store.commitTurn('note-1', threadKey('note', 'library'), {
       role: 'assistant',
       content: 'answered',
-      sources: [{ noteId: 'other', title: 'Other', truncated: true }],
+      sources: [{ noteId: 'other', title: 'Other', truncated: true, score: 0.42 }],
       droppedCount: 3,
     });
 
     const thread = useAiStore.getState().threads['note-1']?.[threadKey('note', 'library')];
     expect(thread?.turns[0]?.sources).toEqual([
-      { noteId: 'other', title: 'Other', truncated: true },
+      { noteId: 'other', title: 'Other', truncated: true, score: 0.42 },
     ]);
     expect(thread?.turns[0]?.droppedCount).toBe(3);
   });

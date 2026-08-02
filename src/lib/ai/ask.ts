@@ -31,7 +31,7 @@ export interface AskTurn {
   content: string;
   /** The notes this answer was given, on assistant turns at a wider scope.
    * Taken from what was sent, never parsed out of the answer. */
-  sources?: { noteId: string; title: string; truncated: boolean }[];
+  sources?: { noteId: string; title: string; truncated: boolean; score: number }[];
   /** Relevant notes that did not fit the budget. */
   droppedCount?: number;
 }

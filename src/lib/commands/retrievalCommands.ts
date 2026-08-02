@@ -18,6 +18,7 @@ import {
   MAX_SOURCES,
   type AskScope,
   type Candidate,
+  type FusedCandidate,
   type RetrievalResult,
   type RetrievedSource,
 } from '@/lib/ai/retrieval';
@@ -57,6 +58,7 @@ export async function gatherAskSourcesCommand(
           doc: anchor.doc,
           reason: 'anchor',
           truncated: false,
+          score: 1,
         } satisfies RetrievedSource,
       ],
       keywords: [],
@@ -82,7 +84,7 @@ export async function gatherAskSourcesCommand(
   // Only fetch documents for notes that could plausibly survive packing —
   // `getNote` is the expensive call in this path.
   const fused = fuseCandidates(merged, anchor.id).slice(0, MAX_SOURCES + 4);
-  const withDocs: { candidate: Candidate; doc: NoteDoc }[] = [];
+  const withDocs: { candidate: FusedCandidate; doc: NoteDoc }[] = [];
   for (const candidate of fused) {
     const note = await library.getNote(candidate.noteId);
     if (note) withDocs.push({ candidate, doc: note.doc });
