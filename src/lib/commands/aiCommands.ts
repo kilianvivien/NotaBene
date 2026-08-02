@@ -28,6 +28,7 @@ import {
   type AiRunOptions,
   type AiUnavailableReason,
   type AskMode,
+  type AskScope,
   type AskTurn,
   type ResolvedProvider,
   type RewriteMode,
@@ -41,6 +42,7 @@ import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useAiStore } from '@/lib/state/aiStore';
 import { createNoteCommand, updateNoteCommand } from './noteCommands';
 import { ensureTagCommand } from './organizationCommands';
+import { gatherAskSourcesCommand } from './retrievalCommands';
 import { fail, ok, type CommandResult } from './types';
 
 /** Every AI command runs as the AI, never as the user: the snapshot cause and
@@ -224,29 +226,81 @@ export async function synthesizeNotesCommand(
 // -- Ask ---------------------------------------------------------------------
 
 export interface AskInput {
+  /** Explicit sources. The first is the anchor when `scope` widens the search. */
   noteIds: string[];
+  /**
+   * How far to look. Omitted or `'note'` means "use `noteIds` as given" — no
+   * search runs, which is what keeps single-note Ask exactly as it was.
+   */
+  scope?: AskScope;
   mode: AskMode;
   question: string;
   history: AskTurn[];
 }
 
+/** What the panel needs to render a citation: never parsed out of the answer,
+ * always taken from what we actually sent. */
+export interface AskSourceRef {
+  noteId: string;
+  title: string;
+  truncated: boolean;
+}
+
+export interface AskAnswer {
+  answer: string;
+  sources: AskSourceRef[];
+  /** Relevant notes that did not fit the budget. */
+  droppedCount: number;
+}
+
 /**
- * Answer a question about the open note. Reads only — it is here beside the
- * others so that "which provider answers what" has one implementation, not
- * because it mutates anything.
+ * Answer a question about the open note, its course, or the whole library.
+ * Reads only — it is here beside the others so that "which provider answers
+ * what" has one implementation, not because it mutates anything.
  */
 export async function askAboutNotesCommand(
   input: AskInput,
   options: AiRunOptions = {},
-): Promise<CommandResult<string>> {
+): Promise<CommandResult<AskAnswer>> {
   await useEditorStore.getState().flush();
 
-  const notes: Note[] = [];
-  for (const noteId of input.noteIds) {
-    const note = await library.getNote(noteId);
-    if (note) notes.push(note);
+  const scope = input.scope ?? 'note';
+  let sources: (Pick<Note, 'title' | 'doc'> & { noteId: string; truncated: boolean })[];
+  let droppedCount = 0;
+
+  if (scope === 'note') {
+    const notes: Note[] = [];
+    for (const noteId of input.noteIds) {
+      const note = await library.getNote(noteId);
+      if (note) notes.push(note);
+    }
+    if (!notes.length) return fail('not_found', 'open a note to ask about it');
+    sources = notes.map((note) => ({
+      noteId: note.id,
+      title: note.title,
+      doc: note.doc,
+      truncated: false,
+    }));
+  } else {
+    const anchorId = input.noteIds[0];
+    if (!anchorId) return fail('not_found', 'open a note to ask about it');
+    const gathered = await gatherAskSourcesCommand({
+      anchorNoteId: anchorId,
+      scope,
+      question: input.question,
+      priorQuestions: input.history
+        .filter((turn) => turn.role === 'user')
+        .map((turn) => turn.content),
+    });
+    if (!gathered.ok) return gathered;
+    sources = gathered.value.sources.map((source) => ({
+      noteId: source.noteId,
+      title: source.title,
+      doc: source.doc,
+      truncated: source.truncated,
+    }));
+    droppedCount = gathered.value.droppedCount;
   }
-  if (!notes.length) return fail('not_found', 'open a note to ask about it');
 
   const lookup = await providerFor('ask');
   if (!lookup.ok) return fail('not_supported', lookup.reason);
@@ -256,14 +310,23 @@ export async function askAboutNotesCommand(
       {
         provider: lookup.provider,
         mode: input.mode,
-        sources: notes,
+        scope,
+        sources,
         history: input.history,
         question: input.question,
         language: language(),
       },
       options,
     );
-    return ok(answer);
+    return ok({
+      answer,
+      sources: sources.map(({ noteId, title, truncated }) => ({
+        noteId,
+        title,
+        truncated,
+      })),
+      droppedCount,
+    });
   } catch (error) {
     return fail('invalid_input', error instanceof Error ? error.message : String(error));
   }

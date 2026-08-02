@@ -1,5 +1,5 @@
 /**
- * Ask a question about the open note.
+ * Ask a question about the open note, its course, or the whole library.
  *
  * The inspector's AI tab, and the only AI surface that is a conversation rather
  * than a one-shot action — because the question a student actually has ("wait,
@@ -11,16 +11,26 @@
  * answer becomes durable is the explicit "save as note" action, which goes
  * through the command layer like everything else.
  */
-import { Check, Copy, Eraser, Loader2, Send, Sparkles, StickyNote } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  Eraser,
+  FileText,
+  Loader2,
+  Send,
+  Sparkles,
+  StickyNote,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlassButton, GlassSegmentedControl } from '@/components/glass';
-import type { AskMode } from '@/lib/ai';
+import type { AskMode, AskScope, AskTurn } from '@/lib/ai';
 import { askAboutNotesCommand, saveAnswerAsNoteCommand } from '@/lib/commands';
 import {
   beginRun,
   cancelRun,
   endRun,
+  threadKey,
   EMPTY_THREAD,
   useAiStore,
 } from '@/lib/state/aiStore';
@@ -40,11 +50,15 @@ export function AskPanel({ noteId }: { noteId: string }) {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
   const mode = useAiStore((state) => state.askMode);
+  const scope = useAiStore((state) => state.askScope);
+  const key = threadKey(mode, scope);
   const thread =
-    useAiStore((state) => state.threads[noteId]?.[state.askMode]) ?? EMPTY_THREAD;
+    useAiStore((state) => state.threads[noteId]?.[threadKey(state.askMode, state.askScope)]) ??
+    EMPTY_THREAD;
   const running = useAiStore((state) => state.running) === 'ask';
   const clearThread = useAiStore((state) => state.clearThread);
   const setAskMode = useAiStore((state) => state.setAskMode);
+  const setAskScope = useAiStore((state) => state.setAskScope);
   const selectNote = useUiStore((state) => state.selectNote);
   const availability = useAiAvailability('ask');
 
@@ -80,47 +94,58 @@ export function AskPanel({ noteId }: { noteId: string }) {
 
     setError('');
     setQuestion('');
-    const requestMode = mode;
+    // The thread a request belongs to is fixed when it starts: switching mode
+    // or scope mid-answer must not drop the answer into the wrong conversation.
+    const requestKey = key;
     const store = useAiStore.getState();
-    store.commitTurn(noteId, requestMode, { role: 'user', content: asked });
+    store.commitTurn(noteId, requestKey, { role: 'user', content: asked });
 
     const signal = beginRun('ask');
     const result = await askAboutNotesCommand(
       {
         noteIds: [noteId],
-        mode: requestMode,
+        scope,
+        mode,
         question: asked,
         history: thread.turns,
       },
       {
         signal,
-        onToken: (token) => useAiStore.getState().appendToken(noteId, requestMode, token),
+        onToken: (token) => useAiStore.getState().appendToken(noteId, requestKey, token),
       },
     );
     endRun('ask');
 
     if (result.ok) {
-      store.commitTurn(noteId, requestMode, {
+      store.commitTurn(noteId, requestKey, {
         role: 'assistant',
-        content: result.value,
+        content: result.value.answer,
+        sources: result.value.sources,
+        droppedCount: result.value.droppedCount,
       });
       return;
     }
 
     // A cancelled answer keeps whatever streamed in — the student asked to
     // stop, not to throw away the half they had already read.
-    const partial = useAiStore.getState().threads[noteId]?.[requestMode]?.streaming ?? '';
+    const partial = useAiStore.getState().threads[noteId]?.[requestKey]?.streaming ?? '';
     if (partial) {
-      store.commitTurn(noteId, requestMode, {
+      store.commitTurn(noteId, requestKey, {
         role: 'assistant',
         content: partial,
       });
     } else {
-      store.discardStreaming(noteId, requestMode);
+      store.discardStreaming(noteId, requestKey);
     }
     setError(
       result.code === 'not_supported' ? t('ai.notConfiguredHint') : result.message,
     );
+  }
+
+  /** A citation is a way back into the note, which is the point of showing it. */
+  async function openSource(sourceNoteId: string) {
+    selectNote(sourceNoteId);
+    await useEditorStore.getState().openNote(sourceNoteId);
   }
 
   async function saveAnswer(answer: string, forQuestion: string) {
@@ -141,13 +166,32 @@ export function AskPanel({ noteId }: { noteId: string }) {
             type="button"
             aria-label={t('ai.clearThread')}
             title={t('ai.clearThread')}
-            onClick={() => clearThread(noteId, mode)}
+            onClick={() => clearThread(noteId, key)}
             className="ml-auto shrink-0 rounded-nb-xs p-1.5 text-nb-text-3 transition-colors duration-[var(--nb-t-fast)] hover:bg-[var(--nb-hover)] hover:text-nb-text-2"
           >
             <Eraser size={13} />
           </button>
         )}
       </div>
+
+      <GlassSegmentedControl<AskScope>
+        label={t('ai.askScope')}
+        value={scope}
+        onChange={setAskScope}
+        disabled={running}
+        fill
+        options={[
+          { value: 'note', label: t('ai.askScopeNote') },
+          {
+            value: 'course',
+            label: t('ai.askScopeCourse'),
+            // Nothing to search: an inbox note belongs to no course.
+            disabled: !note?.courseId,
+            title: note?.courseId ? undefined : t('ai.askScopeCourseDisabled'),
+          },
+          { value: 'library', label: t('ai.askScopeLibrary') },
+        ]}
+      />
 
       <GlassSegmentedControl<AskMode>
         label={t('ai.askMode')}
@@ -165,6 +209,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
         {empty ? (
           <EmptyState
             mode={mode}
+            scope={scope}
             disabled={!availability.available}
             onPick={applySuggestion}
           />
@@ -174,6 +219,9 @@ export function AskPanel({ noteId }: { noteId: string }) {
               key={index}
               role={turn.role}
               content={turn.content}
+              sources={turn.sources}
+              droppedCount={turn.droppedCount}
+              onOpenSource={openSource}
               onSave={
                 turn.role === 'assistant' && turn.content
                   ? () =>
@@ -188,7 +236,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
         )}
 
         {thread.streaming && <Bubble role="assistant" content={thread.streaming} />}
-        {running && !thread.streaming && <Thinking />}
+        {running && !thread.streaming && <Thinking scope={scope} />}
         {error && (
           <p
             role="alert"
@@ -261,10 +309,12 @@ export function AskPanel({ noteId }: { noteId: string }) {
  */
 function EmptyState({
   mode,
+  scope,
   disabled,
   onPick,
 }: {
   mode: AskMode;
+  scope: AskScope;
   disabled: boolean;
   onPick(question: string): void;
 }) {
@@ -281,6 +331,11 @@ function EmptyState({
       <p className="mt-1 text-[11.5px] leading-relaxed text-nb-text-3">
         {t(`ai.askIntro_${mode}`)}
       </p>
+      {scope !== 'note' && (
+        <p className="mt-1 text-[11.5px] leading-relaxed text-nb-text-3">
+          {t(`ai.askScopeHint_${scope}`)}
+        </p>
+      )}
       <div className="mt-3.5 flex w-full flex-col gap-1">
         {SUGGESTIONS.map((key) => {
           const suggestion = t(`ai.askSuggestion_${key}`);
@@ -307,7 +362,7 @@ function EmptyState({
   );
 }
 
-function Thinking() {
+function Thinking({ scope }: { scope: AskScope }) {
   const { t } = useTranslation();
   return (
     <div
@@ -323,7 +378,9 @@ function Thinking() {
           />
         ))}
       </span>
-      <span className="text-[11.5px] text-nb-text-3">{t('ai.askThinking')}</span>
+      <span className="text-[11.5px] text-nb-text-3">
+        {t(scope === 'note' ? 'ai.askThinking' : 'ai.askSearching')}
+      </span>
     </div>
   );
 }
@@ -331,10 +388,16 @@ function Thinking() {
 function Bubble({
   role,
   content,
+  sources,
+  droppedCount,
+  onOpenSource,
   onSave,
 }: {
   role: 'user' | 'assistant';
   content: string;
+  sources?: AskTurn['sources'];
+  droppedCount?: number;
+  onOpenSource?(noteId: string): void;
   onSave?(): void;
 }) {
   const { t } = useTranslation();
@@ -359,6 +422,13 @@ function Bubble({
   return (
     <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-paper)] px-3 py-2.5">
       <AiRichText markdown={content} />
+      {sources && sources.length > 1 && (
+        <Sources
+          sources={sources}
+          droppedCount={droppedCount ?? 0}
+          onOpen={onOpenSource}
+        />
+      )}
       {onSave && (
         <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-0.5 border-t border-[var(--nb-divider)] pt-1.5">
           <BubbleAction icon={StickyNote} label={t('ai.saveAsNote')} onClick={onSave} />
@@ -370,6 +440,63 @@ function Bubble({
             }}
           />
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Which notes the answer was given.
+ *
+ * Built from what was *sent*, never from what the model wrote — so a chip
+ * always opens a note that really exists and really was in the prompt. Shown
+ * only when there is more than the open note to report; a single-source answer
+ * has nothing to disclose.
+ */
+function Sources({
+  sources,
+  droppedCount,
+  onOpen,
+}: {
+  sources: NonNullable<AskTurn['sources']>;
+  droppedCount: number;
+  onOpen?(noteId: string): void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="mt-2 border-t border-[var(--nb-divider)] pt-1.5">
+      <p className="text-[10.5px] font-medium uppercase tracking-wide text-nb-text-3">
+        {t('ai.askSources')}
+      </p>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {sources.map((source) => (
+          <button
+            key={source.noteId}
+            type="button"
+            onClick={() => onOpen?.(source.noteId)}
+            title={source.truncated ? t('ai.askSourceTruncatedHint') : source.title}
+            className={cn(
+              'inline-flex max-w-full items-center gap-1 rounded-nb-xs',
+              'border border-[var(--nb-divider)] px-1.5 py-0.5',
+              'text-[10.5px] text-nb-text-2',
+              'transition-colors duration-[var(--nb-t-fast)]',
+              'hover:border-[var(--nb-divider-strong)] hover:bg-[var(--nb-hover)] hover:text-nb-text',
+            )}
+          >
+            <FileText size={10} aria-hidden className="shrink-0" />
+            <span className="truncate">{source.title}</span>
+            {source.truncated && (
+              <span className="shrink-0 text-nb-text-3">
+                {t('ai.askSourceTruncated')}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {droppedCount > 0 && (
+        <p className="mt-1 text-[10.5px] text-nb-text-3">
+          {t('ai.askSourcesMore', { count: droppedCount })}
+        </p>
       )}
     </div>
   );
