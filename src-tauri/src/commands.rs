@@ -11,8 +11,8 @@ use tauri::{AppHandle, State};
 
 use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::model::{
-    Asset, Attachment, Backlink, Course, Library, Note, NoteQuery, NoteSummary, NoteTemplate,
-    SavedSearch, Section, Snapshot, SnapshotMeta, Tag,
+    Asset, Attachment, Backlink, Course, Library, Note, NoteMatch, NoteQuery, NoteSummary,
+    NoteTemplate, SavedSearch, Section, Snapshot, SnapshotMeta, Tag,
 };
 use crate::db::{assets, collections, journal, notes, organization, DbError, DbResult, Store};
 
@@ -72,6 +72,12 @@ pub fn library_query_notes(
     query: NoteQuery,
 ) -> DbResult<Vec<NoteSummary>> {
     notes::query(&store, &query)
+}
+
+/// The same query, scored. Retrieval's entry point — see `db::notes::search`.
+#[tauri::command]
+pub fn library_search_notes(store: State<'_, Store>, query: NoteQuery) -> DbResult<Vec<NoteMatch>> {
+    notes::search(&store, &query)
 }
 
 #[tauri::command]

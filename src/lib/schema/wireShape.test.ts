@@ -13,7 +13,7 @@
  * library six months later.
  */
 import { describe, expect, it } from 'vitest';
-import { NoteSchema } from './schema';
+import { NoteMatchSchema, NoteSchema } from './schema';
 import fixture from './fixtures/wire-note.json';
 
 describe('wire shape', () => {
@@ -31,5 +31,16 @@ describe('wire shape', () => {
   it('keeps the fixture serialisable to exactly the bytes on disk', () => {
     const parsed = NoteSchema.parse(fixture);
     expect(JSON.parse(JSON.stringify(parsed))).toEqual(fixture);
+  });
+
+  it('wraps a summary and a score the way `library_search_notes` sends them', () => {
+    // Nested, not flattened: `NoteSummary` keeps its exact shape for the five
+    // callers that predate ranking, and `NoteMatch` composes on top.
+    const { doc: _doc, plainText: _plainText, ...summary } = NoteSchema.parse(fixture);
+    const match = { note: { ...summary, snippet: 'a … snippet' }, score: 12.5 };
+
+    const parsed = NoteMatchSchema.parse(match);
+    expect(parsed).toEqual(match);
+    expect(NoteMatchSchema.safeParse({ note: match.note }).success).toBe(false);
   });
 });

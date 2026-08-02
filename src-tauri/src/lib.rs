@@ -89,6 +89,7 @@ pub fn run() {
             commands::library_upsert_section,
             commands::library_delete_section,
             commands::library_query_notes,
+            commands::library_search_notes,
             commands::library_get_note,
             commands::library_upsert_note,
             commands::library_trash_note,

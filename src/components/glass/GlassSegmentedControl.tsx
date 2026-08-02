@@ -5,6 +5,11 @@ export interface SegmentOption<T extends string> {
   value: T;
   label: string;
   icon?: ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>;
+  /** Unavailable for this particular thing, while the rest of the control
+   * works — "this course" with the note in the inbox. */
+  disabled?: boolean;
+  /** Overrides the tooltip, which is where a disabled option says why. */
+  title?: string;
 }
 
 interface GlassSegmentedControlProps<T extends string> {
@@ -57,9 +62,9 @@ export function GlassSegmentedControl<T extends string>({
             role="radio"
             aria-label={iconOnly ? option.label : undefined}
             // Ellipsised text needs its full label somewhere reachable.
-            title={iconOnly || fill ? option.label : undefined}
+            title={option.title ?? (iconOnly || fill ? option.label : undefined)}
             aria-checked={value === option.value}
-            disabled={disabled}
+            disabled={disabled || option.disabled}
             onClick={() => onChange(option.value)}
             className={cn(
               'h-7 rounded-[8px] text-[12px] font-medium leading-tight',

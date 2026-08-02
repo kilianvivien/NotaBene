@@ -7,7 +7,7 @@
  * vocabulary and query semantics.
  */
 import { library, type NoteQuery } from '@/lib/adapters';
-import type { Course, Note, NoteSummary, Section, Tag } from '@/lib/schema';
+import type { Course, Note, NoteMatch, NoteSummary, Section, Tag } from '@/lib/schema';
 import { fail, ok, type CommandResult } from './types';
 
 async function read<T>(operation: () => Promise<T>): Promise<CommandResult<T>> {
@@ -34,6 +34,17 @@ export function queryNotesCommand(
   query: NoteQuery,
 ): Promise<CommandResult<NoteSummary[]>> {
   return read(() => library.queryNotes(query));
+}
+
+/**
+ * Ranked search. Unlike `queryNotesCommand` this orders by relevance alone and
+ * hands back a score, which is what retrieval fuses with its other signals.
+ *
+ * Named for what distinguishes it — `searchNotesCommand` in `noteCommands.ts`
+ * is the command palette's text-to-summaries helper, and it is not this.
+ */
+export function rankNotesCommand(query: NoteQuery): Promise<CommandResult<NoteMatch[]>> {
+  return read(() => library.searchNotes(query));
 }
 
 export async function readNoteCommand(noteId: string): Promise<CommandResult<Note>> {

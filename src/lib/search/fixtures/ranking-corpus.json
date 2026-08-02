@@ -1,0 +1,56 @@
+{
+  "_comment": "Shared ranking fixture. SQLite ranks with bm25() and the in-memory adapter ranks in JavaScript; the numbers differ by construction and are never compared. What must agree is the ORDER a student sees, or `pnpm dev` and the desktop build disagree about which notes answer a question. Read by src-tauri/src/db/notes.rs and src/lib/adapters/library/rankingParity.test.ts.",
+  "notes": [
+    {
+      "id": "eigen",
+      "title": "Vecteurs propres",
+      "body": "Un vecteur que la matrice ne fait pas tourner est un vecteur propre. La valeur propre est le facteur d'echelle."
+    },
+    {
+      "id": "matrices",
+      "title": "Matrices et applications lineaires",
+      "body": "Une matrice represente une application lineaire. Elle peut tourner, etirer ou projeter un vecteur."
+    },
+    {
+      "id": "diagonal",
+      "title": "Diagonalisation",
+      "body": "Une matrice est diagonalisable quand il existe une base de vecteurs propres. On regroupe les valeurs propres sur la diagonale."
+    },
+    {
+      "id": "titration",
+      "title": "Titrage acide-base",
+      "body": "Le titrage determine une concentration inconnue. Le point d'equivalence se lit sur la courbe de pH."
+    },
+    {
+      "id": "outline",
+      "title": "Plan du cours",
+      "body": "Semaine par semaine, les seances et les evaluations."
+    }
+  ],
+  "queries": [
+    {
+      "_why": "The title carries the term; the body-only mentions must lose.",
+      "terms": ["vecteurs", "propres"],
+      "expectTop": "eigen",
+      "expectAbsent": ["titration", "outline"]
+    },
+    {
+      "_why": "A word only the chemistry note has, to prove nothing else drifts in.",
+      "terms": ["titrage", "concentration"],
+      "expectTop": "titration",
+      "expectAbsent": ["eigen", "matrices", "diagonal", "outline"]
+    },
+    {
+      "_why": "OR matching across subjects: no note has all three terms, and only one has two. Two hits must beat one, and must beat a very short note that happens to hold the third.",
+      "terms": ["diagonalisable", "valeurs", "seances"],
+      "expectTop": "diagonal",
+      "expectAbsent": ["matrices", "titration"]
+    },
+    {
+      "_why": "A term shared by three notes still has to resolve to one order.",
+      "terms": ["matrice"],
+      "expectTop": "matrices",
+      "expectAbsent": ["titration", "outline"]
+    }
+  ]
+}
