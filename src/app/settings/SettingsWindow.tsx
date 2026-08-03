@@ -10,7 +10,21 @@
  * looks, what it does with your notes, what it is allowed to talk to — turn the
  * same list into three short ones, and put "Agent access" next to "AI
  * providers" where a reader looking for either would expect to find both.
+ *
+ * Three things about the frame are deliberate:
+ *
+ * - Every pane gets the same header — the nav entry's own name, and one line
+ *   saying what the pane is for. Panes used to introduce themselves or not,
+ *   each in their own markup, so switching tabs moved the first line of text
+ *   and half the panes had no title at all.
+ * - The height follows the content instead of being pinned. A fixed 580px left
+ *   Appearance as two rows above 400px of nothing; the nav is the floor now, so
+ *   a short pane is a short sheet.
+ * - The body reports whether it is scrolled. A pane that is cut off says so
+ *   with a fade at the edge, rather than slicing a row in half against the
+ *   footer and looking like a rendering bug.
  */
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Bot,
   DatabaseBackup,
@@ -114,21 +128,29 @@ export function SettingsWindow() {
       open={open}
       onClose={() => setOpen(false)}
       label={t('settings.title')}
-      className="w-[min(760px,94vw)]"
+      // `max-w` rather than `w`: the overlay's own 680px cap is in the same
+      // Tailwind group, so a plain width was silently clamped and the sheet
+      // never reached the size its columns were laid out for.
+      className="max-w-[880px]"
     >
-      <div className="flex h-[min(580px,80vh)]">
+      {/* Capped, not fixed. The nav sets the floor, so Appearance is a short
+          sheet and Editor a tall one. */}
+      <div className="flex max-h-[min(640px,78vh)]">
         <nav
           aria-label={t('settings.title')}
-          // Wide enough for "Outils de révision" beside its icon; the FR labels
+          // Wide enough for "Synthèse vocale" beside its icon; the FR labels
           // are the ones that decide this number.
-          className="flex w-[212px] shrink-0 flex-col gap-3 overflow-y-auto border-r border-[var(--nb-divider)] p-2"
+          className={cn(
+            'flex w-[216px] shrink-0 flex-col gap-4 overflow-y-auto p-2.5',
+            'border-r border-[var(--nb-divider)] bg-[var(--nb-sidebar-surface)]',
+          )}
         >
           {GROUPS.map((group) => (
             <div key={group.labelKey}>
-              <h2 className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-nb-text-3">
+              <h2 className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
                 {t(group.labelKey)}
               </h2>
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-px">
                 {group.tabs.map(({ id, icon: Icon }) => (
                   <button
                     key={id}
@@ -136,14 +158,14 @@ export function SettingsWindow() {
                     onClick={() => setTab(id)}
                     aria-current={tab === id ? 'page' : undefined}
                     className={cn(
-                      'flex h-7 items-center gap-2 rounded-nb-xs px-2 text-left text-[13px]',
+                      'flex h-8 items-center gap-2.5 rounded-nb-xs px-2.5 text-left text-[13px]',
                       'transition-colors duration-[var(--nb-t-fast)]',
                       tab === id
-                        ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
-                        : 'text-nb-text-2 hover:bg-[var(--nb-hover)]',
+                        ? 'bg-[var(--nb-accent-soft)] font-medium text-[var(--nb-accent)]'
+                        : 'text-nb-text-2 hover:bg-[var(--nb-hover)] hover:text-nb-text',
                     )}
                   >
-                    <Icon size={14} className="shrink-0" aria-hidden />
+                    <Icon size={15} className="shrink-0 opacity-90" aria-hidden />
                     <span className="truncate">{t(`settings.${id}`)}</span>
                   </button>
                 ))}
@@ -153,11 +175,21 @@ export function SettingsWindow() {
         </nav>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex-1 overflow-y-auto p-4">
+          <header className="shrink-0 border-b border-[var(--nb-divider)] px-6 py-3.5">
+            <h2 className="text-[15px] font-semibold leading-tight">
+              {t(`settings.${tab}`)}
+            </h2>
+            <p className="mt-1 max-w-[68ch] text-[12px] leading-snug text-nb-text-3">
+              {t(`settings.desc_${tab}`)}
+            </p>
+          </header>
+
+          <PaneBody tab={tab}>
             {tab === 'general' && (
               <FieldSection>
                 <FieldRow label={t('settings.language')}>
                   <GlassSegmentedControl<Locale>
+                    fill
                     label={t('settings.language')}
                     value={settings.locale}
                     onChange={(locale) => set('locale', locale)}
@@ -185,6 +217,7 @@ export function SettingsWindow() {
               <FieldSection>
                 <FieldRow label={t('settings.theme')}>
                   <GlassSegmentedControl<AppSettings['theme']>
+                    fill
                     label={t('settings.theme')}
                     value={settings.theme}
                     onChange={(theme) => set('theme', theme)}
@@ -221,7 +254,7 @@ export function SettingsWindow() {
             )}
 
             {tab === 'editor' && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <FieldSection>
                   <FieldRow label={t('settings.editorFont')}>
                     <GlassSelect
@@ -275,6 +308,7 @@ export function SettingsWindow() {
                 >
                   <FieldRow label={t('settings.focusAppearance')}>
                     <GlassSegmentedControl<FocusSettings['appearance']>
+                      fill
                       label={t('settings.focusAppearance')}
                       value={settings.focus.appearance}
                       onChange={(appearance) => setFocus({ appearance })}
@@ -289,6 +323,7 @@ export function SettingsWindow() {
                     hint={t('settings.focusLineHint')}
                   >
                     <GlassSegmentedControl<FocusSettings['lineFocus']>
+                      fill
                       label={t('settings.focusLine')}
                       value={settings.focus.lineFocus}
                       onChange={(lineFocus) => setFocus({ lineFocus })}
@@ -364,9 +399,9 @@ export function SettingsWindow() {
             {tab === 'aiProviders' && <AiProviderSettings />}
             {tab === 'agent' && <AgentSettings />}
             {tab === 'about' && <AboutSettings />}
-          </div>
+          </PaneBody>
 
-          <div className="flex justify-end border-t border-[var(--nb-divider)] p-3">
+          <div className="flex shrink-0 justify-end border-t border-[var(--nb-divider)] px-6 py-2.5">
             <GlassButton size="sm" onClick={() => setOpen(false)}>
               {t('common.close')}
             </GlassButton>
@@ -374,6 +409,72 @@ export function SettingsWindow() {
         </div>
       </div>
     </ModalOverlay>
+  );
+}
+
+/**
+ * The scrolling half of a pane, with an edge fade at whichever end is cut off.
+ *
+ * The fades are the point. Without them the body ends in a hard line against
+ * the footer, and a row that happens to land there is sliced in half — which
+ * reads as a layout bug rather than as "there is more below". They live on the
+ * wrapper, not the scroller, because a pseudo-element inside a scroll container
+ * scrolls away with the content.
+ */
+function PaneBody({ tab, children }: { tab: SettingsTab; children: ReactNode }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ top: false, bottom: false });
+
+  const measure = useCallback((): void => {
+    const element = scroller.current;
+    if (!element) return;
+    const { scrollTop, scrollHeight, clientHeight } = element;
+    // A pane whose own controls change height — a provider row opening, a
+    // voice list arriving — has to re-answer this, so it is a callback the
+    // observer below can hold on to rather than a scroll handler.
+    setEdges({
+      top: scrollTop > 1,
+      bottom: scrollTop + clientHeight < scrollHeight - 1,
+    });
+  }, []);
+
+  useEffect(() => {
+    const element = content.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [measure]);
+
+  // A new pane starts at its own top: carrying the previous pane's scroll
+  // position into a shorter one put the reader halfway down a page they had
+  // not opened yet.
+  useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = 0;
+    measure();
+  }, [tab, measure]);
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scroller}
+        onScroll={measure}
+        className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5"
+      >
+        <div ref={content}>{children}</div>
+      </div>
+      <span
+        aria-hidden
+        className="nb-scroll-fade nb-scroll-fade-top"
+        data-on={edges.top || undefined}
+      />
+      <span
+        aria-hidden
+        className="nb-scroll-fade nb-scroll-fade-bottom"
+        data-on={edges.bottom || undefined}
+      />
+    </div>
   );
 }
 

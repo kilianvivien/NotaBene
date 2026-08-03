@@ -71,7 +71,10 @@ export function GlassSegmentedControl<T extends string>({
               'inline-flex items-center justify-center gap-1.5',
               'transition-colors duration-[var(--nb-t-fast)]',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              fill ? 'min-w-0 flex-1 px-2' : 'px-3',
+              // Filled segments split a fixed width, so their padding is room
+              // taken from the label. 6px keeps "This course" and "Cette note"
+              // whole in a 280px inspector, where 8px ellipsised both.
+              fill ? 'min-w-0 flex-1 px-1.5' : 'px-3',
               value === option.value
                 ? 'bg-[var(--nb-glass-strong)] text-nb-text shadow-sm'
                 : 'text-nb-text-2 hover:text-nb-text',

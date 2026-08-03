@@ -185,6 +185,44 @@ html[data-chrome='revealed'] .nb-reading-controls,
   }
 }
 
+/* Edge fades for a scrolling pane — Settings uses them, and anything else with
+   a body between a fixed header and a fixed footer can.
+ *
+ * They sit on the scroller's *wrapper*: a pseudo-element inside a scroll
+ * container is part of the scrolled content and travels away with it. Colour
+ * comes from `--nb-glass-strong` because that is the surface a modal panel
+ * paints, and a fade has to end in the exact colour underneath it or it reads
+ * as a grey smear. */
+.nb-scroll-fade {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  left: 0;
+  height: 22px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nb-scroll-fade[data-on] {
+  opacity: 1;
+}
+
+.nb-scroll-fade-top {
+  top: 0;
+  background: linear-gradient(to bottom, var(--nb-glass-strong), transparent);
+}
+
+.nb-scroll-fade-bottom {
+  bottom: 0;
+  background: linear-gradient(to top, var(--nb-glass-strong), transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-scroll-fade {
+    transition: opacity var(--nb-t-fast) var(--nb-ease-out);
+  }
+}
+
 .nb-accent-picker {
   display: flex;
   padding: 3px;

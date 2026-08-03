@@ -57,9 +57,7 @@ export function AiProviderSettings() {
   ).length;
 
   return (
-    <div className="flex flex-col gap-5">
-      <p className="text-[12px] leading-snug text-nb-text-3">{t('ai.providersIntro')}</p>
-
+    <div className="flex flex-col gap-6">
       <FieldSection
         title={t('ai.providersSection')}
         description={

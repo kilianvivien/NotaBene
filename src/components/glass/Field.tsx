@@ -29,7 +29,7 @@ export function FieldRow({
 }) {
   const Label = htmlFor ? 'label' : 'div';
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,240px)] items-center gap-4 py-1.5">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,280px)] items-center gap-5 py-2">
       <Label htmlFor={htmlFor} className="min-w-0">
         <span className="block text-[13px] leading-snug">{label}</span>
         {hint && (
@@ -61,16 +61,18 @@ export function FieldSection({
   children: ReactNode;
 }) {
   return (
-    <section className="py-1">
+    <section>
       {title && (
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-nb-text-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
           {title}
         </h3>
       )}
       {description && (
-        <p className="mt-1 text-[11px] leading-snug text-nb-text-3">{description}</p>
+        <p className="mt-1 max-w-[62ch] text-[11.5px] leading-snug text-nb-text-3">
+          {description}
+        </p>
       )}
-      <div className={cn(title || description ? 'mt-1.5' : undefined)}>{children}</div>
+      <div className={cn(title || description ? 'mt-2' : undefined)}>{children}</div>
     </section>
   );
 }

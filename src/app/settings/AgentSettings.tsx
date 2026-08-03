@@ -48,11 +48,6 @@ export function AgentSettings() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h2 className="text-[15px] font-semibold">{t('mcp.title')}</h2>
-        <p className="mt-1 text-[12px] text-nb-text-3">{t('mcp.description')}</p>
-      </div>
-
       <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-hover)] p-3">
         <div className="flex items-center justify-between gap-3">
           <div>

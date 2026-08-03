@@ -13,17 +13,21 @@
  */
 import {
   Check,
+  ChevronRight,
   Copy,
   Eraser,
   FileText,
+  Files,
+  GraduationCap,
   Loader2,
   Send,
   Sparkles,
   StickyNote,
+  type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, GlassSegmentedControl } from '@/components/glass';
+import { GlassButton, GlassPopupButton } from '@/components/glass';
 import type { AskMode, AskScope, AskTurn } from '@/lib/ai';
 import { askAboutNotesCommand, saveAnswerAsNoteCommand } from '@/lib/commands';
 import {
@@ -42,6 +46,14 @@ import { AiRichText } from './AiRichText';
 import { useAiAvailability } from './useAiAvailability';
 
 const SUGGESTIONS = ['summary', 'explain', 'quiz'] as const;
+
+/** The scope button wears its own value. `Files` is the sidebar's glyph for
+ * "All notes", so widening the search points at the row it widens to. */
+const SCOPE_ICONS: Record<AskScope, LucideIcon> = {
+  note: FileText,
+  course: GraduationCap,
+  library: Files,
+};
 
 /** Enough for four or five lines; past that the thread matters more. */
 const COMPOSER_MAX_HEIGHT = 108;
@@ -62,6 +74,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
   const selectNote = useUiStore((state) => state.selectNote);
   const availability = useAiAvailability('ask');
 
+  const knowledge = mode === 'knowledge';
   const [question, setQuestion] = useState('');
   const [error, setError] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
@@ -159,51 +172,65 @@ export function AskPanel({ noteId }: { noteId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-      <div className="flex items-center gap-1.5">
-        <AiStatusPill feature="ask" className="min-w-0" />
+      {/* Two axes and a thread action on one line. They were three full-width
+          rows — a status pill and two segmented controls — which is a lot of
+          chrome to read past on the way to the question, and at 280px the
+          three scope labels had no room to be words. */}
+      <div className="-ml-1.5 flex items-center gap-0.5">
+        <GlassPopupButton<AskScope>
+          label={t('ai.askScope')}
+          value={scope}
+          onChange={setAskScope}
+          disabled={running}
+          icon={SCOPE_ICONS[scope]}
+          className="shrink"
+          options={[
+            { value: 'note', label: t('ai.askScopeNote') },
+            {
+              value: 'course',
+              label: t('ai.askScopeCourse'),
+              // Nothing to search: an inbox note belongs to no course.
+              disabled: !note?.courseId,
+              title: note?.courseId ? undefined : t('ai.askScopeCourseDisabled'),
+            },
+            { value: 'library', label: t('ai.askScopeLibrary') },
+          ]}
+        />
+        {/* Two states, so a switch rather than a menu — and a switch with no
+            label, because the scope beside it is the one whose value varies in
+            length and needs the room. What it means is not left to the glyph:
+            the empty state says it in a sentence that changes with the mode,
+            and the tooltip says it on the way past. */}
+        <button
+          type="button"
+          aria-label={`${t('ai.askMode')}: ${t(`ai.askMode${knowledge ? 'Knowledge' : 'Note'}`)}`}
+          aria-pressed={knowledge}
+          title={`${t('ai.askMode')} · ${t(`ai.askMode${knowledge ? 'Knowledge' : 'Note'}`)}`}
+          disabled={running}
+          onClick={() => setAskMode(knowledge ? 'note' : 'knowledge')}
+          className={cn(
+            'ml-auto grid size-7 shrink-0 place-items-center rounded-nb-xs',
+            'transition-colors duration-[var(--nb-t-fast)]',
+            'disabled:pointer-events-none disabled:opacity-50',
+            knowledge
+              ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
+              : 'text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text-2',
+          )}
+        >
+          <Sparkles size={13} aria-hidden />
+        </button>
         {!empty && (
           <button
             type="button"
             aria-label={t('ai.clearThread')}
             title={t('ai.clearThread')}
             onClick={() => clearThread(noteId, key)}
-            className="ml-auto shrink-0 rounded-nb-xs p-1.5 text-nb-text-3 transition-colors duration-[var(--nb-t-fast)] hover:bg-[var(--nb-hover)] hover:text-nb-text-2"
+            className="grid size-7 shrink-0 place-items-center rounded-nb-xs text-nb-text-3 transition-colors duration-[var(--nb-t-fast)] hover:bg-[var(--nb-hover)] hover:text-nb-text-2"
           >
-            <Eraser size={13} />
+            <Eraser size={13} aria-hidden />
           </button>
         )}
       </div>
-
-      <GlassSegmentedControl<AskScope>
-        label={t('ai.askScope')}
-        value={scope}
-        onChange={setAskScope}
-        disabled={running}
-        fill
-        options={[
-          { value: 'note', label: t('ai.askScopeNote') },
-          {
-            value: 'course',
-            label: t('ai.askScopeCourse'),
-            // Nothing to search: an inbox note belongs to no course.
-            disabled: !note?.courseId,
-            title: note?.courseId ? undefined : t('ai.askScopeCourseDisabled'),
-          },
-          { value: 'library', label: t('ai.askScopeLibrary') },
-        ]}
-      />
-
-      <GlassSegmentedControl<AskMode>
-        label={t('ai.askMode')}
-        value={mode}
-        onChange={setAskMode}
-        disabled={running}
-        fill
-        options={[
-          { value: 'note', label: t('ai.askModeNote') },
-          { value: 'knowledge', label: t('ai.askModeKnowledge') },
-        ]}
-      />
 
       <div className="-mx-0.5 min-h-0 flex-1 space-y-2.5 overflow-y-auto px-0.5">
         {empty ? (
@@ -261,10 +288,16 @@ export function AskPanel({ noteId }: { noteId: string }) {
           rows={2}
           value={question}
           disabled={!availability.available}
-          placeholder={
-            availability.available ? t('ai.askPlaceholder') : t('ai.notConfigured')
-          }
+          // Says the same thing whether or not a provider is configured. The
+          // pill below is the one that reports "connect a provider", and it is
+          // the one you can click to do it — two copies of that sentence in one
+          // box is one copy too many.
+          placeholder={t('ai.askPlaceholder')}
           aria-label={t('ai.ask')}
+          // Enter-to-send is the contract every chat box already taught the
+          // reader, so the reminder is a tooltip rather than a permanent line
+          // in a 280px panel.
+          title={t('ai.composerHint')}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={(event) => {
             // Enter sends; Shift-Enter is a newline. The same contract as every
@@ -276,10 +309,11 @@ export function AskPanel({ noteId }: { noteId: string }) {
           }}
           className="block w-full resize-none bg-transparent px-1 py-0.5 text-[12.5px] leading-relaxed outline-none placeholder:text-nb-text-3"
         />
-        <div className="mt-1 flex items-end justify-between gap-2 pl-1">
-          <span className="min-w-0 truncate text-[10.5px] text-nb-text-3">
-            {t('ai.composerHint')}
-          </span>
+        {/* Where the answer is about to go, next to the button that sends it.
+            The pill used to head the panel, which is the one place its cost and
+            trust argument does not apply — nothing is being sent up there. */}
+        <div className="mt-1 flex items-center justify-end gap-1.5">
+          <AiStatusPill feature="ask" compact className="min-w-0" />
           <GlassButton
             size="sm"
             variant={running ? 'default' : 'accent'}
@@ -419,26 +453,46 @@ function Bubble({
     );
   }
 
+  const citations = sources && sources.length > 1 ? sources : undefined;
+
   return (
     <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-paper)] px-3 py-2.5">
       <AiRichText markdown={content} />
-      {sources && sources.length > 1 && (
-        <Sources
-          sources={sources}
-          droppedCount={droppedCount ?? 0}
-          onOpen={onOpenSource}
-        />
-      )}
-      {onSave && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-0.5 border-t border-[var(--nb-divider)] pt-1.5">
-          <BubbleAction icon={StickyNote} label={t('ai.saveAsNote')} onClick={onSave} />
-          <BubbleAction
-            icon={copied ? Check : Copy}
-            label={copied ? t('common.copied') : t('common.copy')}
-            onClick={() => {
-              void navigator.clipboard?.writeText(content).then(() => setCopied(true));
-            }}
-          />
+
+      {/* One footer for both — where the answer came from, and what you can do
+          with it. They were two stacked rows, the citations always open, which
+          in a 280px pane put more chrome under a short answer than the answer
+          itself took. `items-start` keeps the actions on the disclosure's line
+          when the citation list opens underneath it. */}
+      {(citations || onSave) && (
+        <div className="mt-2 flex items-start gap-1 border-t border-[var(--nb-divider)] pt-1.5">
+          {citations ? (
+            <Sources
+              sources={citations}
+              droppedCount={droppedCount ?? 0}
+              onOpen={onOpenSource}
+            />
+          ) : (
+            <span className="flex-1" />
+          )}
+          {onSave && (
+            <>
+              <BubbleAction
+                icon={copied ? Check : Copy}
+                label={copied ? t('common.copied') : t('common.copy')}
+                onClick={() => {
+                  void navigator.clipboard
+                    ?.writeText(content)
+                    .then(() => setCopied(true));
+                }}
+              />
+              <BubbleAction
+                icon={StickyNote}
+                label={t('ai.saveAsNote')}
+                onClick={onSave}
+              />
+            </>
+          )}
         </div>
       )}
     </div>
@@ -448,10 +502,16 @@ function Bubble({
 /**
  * Which notes the answer was given.
  *
- * Built from what was *sent*, never from what the model wrote — so a chip
- * always opens a note that really exists and really was in the prompt. Shown
- * only when there is more than the open note to report; a single-source answer
- * has nothing to disclose.
+ * Built from what was *sent*, never from what the model wrote — so a row always
+ * opens a note that really exists and really was in the prompt. Shown only when
+ * there is more than the open note to report; a single-source answer has
+ * nothing to disclose.
+ *
+ * Closed by default, and that is the point. The citation list answers "where
+ * did this come from", which is a question you ask about *one* answer in ten;
+ * open, it put a wrapped field of chips under every reply in a 280px pane. The
+ * count is the part worth having on screen, because it is what tells you there
+ * is anything to check.
  */
 function Sources({
   sources,
@@ -463,54 +523,85 @@ function Sources({
   onOpen?(noteId: string): void;
 }) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+
   return (
-    <div className="mt-2 border-t border-[var(--nb-divider)] pt-1.5">
-      <p className="text-[10.5px] font-medium uppercase tracking-wide text-nb-text-3">
-        {t('ai.askSources')}
-      </p>
-      <div className="mt-1 flex flex-wrap gap-1">
-        {sources.map((source) => (
-          <button
-            key={source.noteId}
-            type="button"
-            onClick={() => onOpen?.(source.noteId)}
-            title={source.truncated ? t('ai.askSourceTruncatedHint') : source.title}
-            className={cn(
-              'inline-flex max-w-full items-center gap-1 rounded-nb-xs',
-              'border border-[var(--nb-divider)] px-1.5 py-0.5',
-              'text-[10.5px] text-nb-text-2',
-              'transition-colors duration-[var(--nb-t-fast)]',
-              'hover:border-[var(--nb-divider-strong)] hover:bg-[var(--nb-hover)] hover:text-nb-text',
-            )}
-          >
-            <FileText size={10} aria-hidden className="shrink-0" />
-            <span className="truncate">{source.title}</span>
-            {source.truncated && (
-              <span className="shrink-0 text-nb-text-3">
-                {t('ai.askSourceTruncated')}
-              </span>
-            )}
-            {/* Development only, and untranslated on purpose: this is the
-                readout that says whether a note the search should have found
-                ranked just below the cut or never surfaced at all. Tuning the
-                weights without it is guesswork. */}
-            {import.meta.env.DEV && (
-              <span className="shrink-0 font-mono text-nb-text-3">
-                {source.score.toFixed(2)}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-      {droppedCount > 0 && (
-        <p className="mt-1 text-[10.5px] text-nb-text-3">
-          {t('ai.askSourcesMore', { count: droppedCount })}
-        </p>
+    <div className="min-w-0 flex-1">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          // Same height as the action buttons beside it, so the two sit on one
+          // baseline whether the list below is open or shut.
+          'inline-flex h-6 max-w-full items-center gap-1 rounded-nb-xs pr-1.5',
+          'text-[11px] text-nb-text-3',
+          'transition-colors duration-[var(--nb-t-fast)]',
+          'hover:text-nb-text-2 focus-visible:text-nb-text-2',
+        )}
+      >
+        <ChevronRight
+          size={11}
+          aria-hidden
+          className={cn(
+            'shrink-0 transition-transform duration-[var(--nb-t-fast)]',
+            open && 'rotate-90',
+          )}
+        />
+        <span className="truncate">
+          {t('ai.askSourcesCount', { count: sources.length })}
+        </span>
+      </button>
+
+      {open && (
+        <ul id={listId} className="mb-0.5 mt-0.5 flex flex-col gap-px">
+          {sources.map((source) => (
+            <li key={source.noteId}>
+              <button
+                type="button"
+                onClick={() => onOpen?.(source.noteId)}
+                title={source.truncated ? t('ai.askSourceTruncatedHint') : source.title}
+                className={cn(
+                  'flex w-full items-center gap-1.5 rounded-nb-xs px-1 py-1',
+                  'text-left text-[11px] text-nb-text-2',
+                  'transition-colors duration-[var(--nb-t-fast)]',
+                  'hover:bg-[var(--nb-hover)] hover:text-nb-text',
+                )}
+              >
+                <FileText size={11} aria-hidden className="shrink-0 text-nb-text-3" />
+                <span className="truncate">{source.title}</span>
+                {source.truncated && (
+                  <span className="shrink-0 text-nb-text-3">
+                    {t('ai.askSourceTruncated')}
+                  </span>
+                )}
+                {/* Development only, and untranslated on purpose: this is the
+                    readout that says whether a note the search should have found
+                    ranked just below the cut or never surfaced at all. Tuning the
+                    weights without it is guesswork. */}
+                {import.meta.env.DEV && (
+                  <span className="ml-auto shrink-0 font-mono text-nb-text-3">
+                    {source.score.toFixed(2)}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+          {droppedCount > 0 && (
+            <li className="px-1 pt-0.5 text-[10.5px] text-nb-text-3">
+              {t('ai.askSourcesMore', { count: droppedCount })}
+            </li>
+          )}
+        </ul>
       )}
     </div>
   );
 }
 
+/** Icon-only, because the label is the same two words under every answer in a
+ * pane this narrow, and the tooltip says them for anyone who needs asking. */
 function BubbleAction({
   icon: Icon,
   label,
@@ -523,16 +614,16 @@ function BubbleAction({
   return (
     <button
       type="button"
+      aria-label={label}
+      title={label}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1 rounded-nb-xs px-1.5 py-1',
-        'whitespace-nowrap text-[11px] text-nb-text-3',
+        'grid size-6 shrink-0 place-items-center rounded-nb-xs text-nb-text-3',
         'transition-colors duration-[var(--nb-t-fast)]',
         'hover:bg-[var(--nb-hover)] hover:text-nb-text focus-visible:text-nb-text',
       )}
     >
-      <Icon size={11} aria-hidden className="shrink-0" />
-      {label}
+      <Icon size={12} aria-hidden />
     </button>
   );
 }

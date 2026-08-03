@@ -16,9 +16,20 @@ import { useAiAvailability } from './useAiAvailability';
 
 export function AiStatusPill({
   feature,
+  compact = false,
   className,
 }: {
   feature: AiFeature;
+  /**
+   * Say it with a glyph once there is nothing to do about it.
+   *
+   * A configured provider is a detail you check, not a thing you act on, so in
+   * a pane too narrow to hold "Mistral · mistral-medium-latest" it becomes the
+   * sparkle alone with the full line in its tooltip. Unconfigured it stays
+   * spelled out and accented, because then it is the only way in and a glyph
+   * would be a puzzle in place of an instruction.
+   */
+  compact?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -31,26 +42,32 @@ export function AiStatusPill({
     setSettingsOpen(true);
   }
 
+  const full = availability.available
+    ? `${availability.definition.label} · ${availability.model}`
+    : t(`ai.unavailable_${availability.reason}`);
+
+  const glyphOnly = compact && availability.available;
+
   return (
     <button
       type="button"
       onClick={openProviders}
-      title={t('ai.pillHint')}
+      aria-label={glyphOnly ? `${full} — ${t('ai.pillHint')}` : undefined}
+      title={availability.available ? `${full} — ${t('ai.pillHint')}` : t('ai.pillHint')}
       className={cn(
-        'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px]',
+        'inline-flex max-w-full items-center gap-1 rounded-full text-[11px]',
         'transition-colors duration-[var(--nb-t-fast)]',
-        availability.available
-          ? 'bg-[var(--nb-hover)] text-nb-text-3 hover:text-nb-text-2'
-          : 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]',
+        glyphOnly ? 'size-6 justify-center' : 'px-2 py-0.5',
+        !availability.available
+          ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
+          : glyphOnly
+            ? 'text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text-2'
+            : 'bg-[var(--nb-hover)] text-nb-text-3 hover:text-nb-text-2',
         className,
       )}
     >
-      <Sparkles size={10} className="shrink-0" aria-hidden />
-      <span className="truncate">
-        {availability.available
-          ? `${availability.definition.label} · ${availability.model}`
-          : t(`ai.unavailable_${availability.reason}`)}
-      </span>
+      <Sparkles size={glyphOnly ? 12 : 10} className="shrink-0" aria-hidden />
+      {!glyphOnly && <span className="truncate">{full}</span>}
     </button>
   );
 }
