@@ -4,6 +4,7 @@ import {
   Dialog,
   FieldNote,
   FieldRow,
+  FieldToggle,
   GlassButton,
   GlassSelect,
 } from '@/components/glass';
@@ -132,13 +133,11 @@ export function ExportDialog() {
         </GlassSelect>
       </FieldRow>
 
-      <FieldRow label={t('export.includeToc')} htmlFor="nb-export-toc" align="end">
-        <input
-          id="nb-export-toc"
-          type="checkbox"
+      <FieldRow label={t('export.includeToc')} align="end">
+        <FieldToggle
+          label={t('export.includeToc')}
           checked={preset.includeToc}
-          onChange={(event) => setPreset({ includeToc: event.target.checked })}
-          className="size-4 accent-[var(--nb-accent)]"
+          onChange={(includeToc) => setPreset({ includeToc })}
         />
       </FieldRow>
 

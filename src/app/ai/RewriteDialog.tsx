@@ -14,7 +14,7 @@
 import { Check, Loader2, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, GlassSegmentedControl, ModalOverlay } from '@/components/glass';
+import { Dialog, GlassButton, GlassSegmentedControl } from '@/components/glass';
 import { proposalMarkdown, type RewriteMode, type RewriteResult } from '@/lib/ai';
 import type { RewriteProposal } from '@/lib/schema';
 import { applyRewriteCommand, proposeRewriteCommand } from '@/lib/commands';
@@ -97,45 +97,68 @@ export function RewriteDialog() {
 
   const blocks = result?.proposal.blocks ?? [];
 
+  const staged = blocks.length > 0;
+
   return (
-    <ModalOverlay
+    <Dialog
       open={open}
       onClose={() => {
         cancelRun('rewrite');
         setOpen(false);
       }}
-      label={t('ai.rewrite')}
-      className="w-[min(900px,94vw)]"
-    >
-      <div className="flex max-h-[min(760px,86vh)] w-full flex-col">
-        <header className="flex items-center gap-3 border-b border-[var(--nb-divider)] p-4">
-          <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold">
-            {t('ai.rewrite')}
-          </h2>
-          <AiStatusPill feature="rewrite" className="max-w-[45%] shrink-0" />
-        </header>
-
-        <div className="flex flex-col gap-3 border-b border-[var(--nb-divider)] p-4">
-          <GlassSegmentedControl<RewriteMode>
-            label={t('ai.rewriteMode')}
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'light', label: t('ai.modeLight') },
-              { value: 'full', label: t('ai.modeFull') },
-              { value: 'custom', label: t('ai.modeCustom') },
-            ]}
-          />
-          {mode === 'custom' && (
-            <input
-              value={instruction}
-              onChange={(event) => setInstruction(event.target.value)}
-              placeholder={t('ai.instructionPlaceholder')}
-              aria-label={t('ai.instruction')}
-              className="h-8 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
-            />
-          )}
-          <div className="flex flex-wrap items-center gap-2">
+      title={t('ai.rewrite')}
+      description={t('ai.rewriteIntro')}
+      // The sheet grows when there is something to compare. Before that it is
+      // one control, and 900px of empty paper around it reads as a mistake;
+      // after it, two columns of prose need every pixel.
+      size={staged ? 'xl' : 'md'}
+      headerAction={<AiStatusPill feature="rewrite" compact />}
+      footer={
+        /* The primary action follows the stage. There is one thing to do before
+           a proposal exists and a different one after, and showing both at once
+           put two accent buttons on screen with the live one buried in the body
+           above the footer that held the dead one. */
+        staged ? (
+          <>
+            <GlassButton
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                setAccepted(
+                  accepted.size === blocks.length
+                    ? new Set()
+                    : new Set(blocks.map((_, index) => index)),
+                )
+              }
+            >
+              {accepted.size === blocks.length ? t('ai.rejectAll') : t('ai.acceptAll')}
+            </GlassButton>
+            <span className="mr-auto text-[11px] text-nb-text-3">
+              {t('ai.acceptedCount', { count: accepted.size, total: blocks.length })}
+            </span>
+            <GlassButton size="sm" onClick={() => setOpen(false)}>
+              {t('common.cancel')}
+            </GlassButton>
+            <GlassButton
+              size="sm"
+              variant="accent"
+              disabled={!accepted.size || applying}
+              onClick={() => void apply()}
+            >
+              {t('ai.apply')}
+            </GlassButton>
+          </>
+        ) : (
+          <>
+            <GlassButton
+              size="sm"
+              onClick={() => {
+                cancelRun('rewrite');
+                setOpen(false);
+              }}
+            >
+              {running ? t('ai.cancel') : t('common.cancel')}
+            </GlassButton>
             <GlassButton
               size="sm"
               variant="accent"
@@ -150,31 +173,46 @@ export function RewriteDialog() {
               {running && <Loader2 size={12} className="animate-spin" />}
               {running ? t('ai.running') : t('ai.propose')}
             </GlassButton>
-            {running && (
-              <GlassButton size="sm" variant="ghost" onClick={() => cancelRun('rewrite')}>
-                {t('ai.cancel')}
-              </GlassButton>
-            )}
-          </div>
-          {result?.summary && (
-            <div className="flex items-start gap-2 rounded-nb-xs bg-[var(--nb-inset-surface)] px-3 py-2 text-[12px] leading-relaxed text-nb-text-2">
-              <Sparkles
-                size={13}
-                aria-hidden
-                className="mt-[3px] shrink-0 text-[var(--nb-accent)]"
-              />
-              <p>{result.summary}</p>
-            </div>
-          )}
-          {error && <p className="text-[12px] text-[var(--nb-danger)]">{error}</p>}
-        </div>
+          </>
+        )
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <GlassSegmentedControl<RewriteMode>
+          label={t('ai.rewriteMode')}
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'light', label: t('ai.modeLight') },
+            { value: 'full', label: t('ai.modeFull') },
+            { value: 'custom', label: t('ai.modeCustom') },
+          ]}
+        />
+        {mode === 'custom' && (
+          <input
+            data-autofocus
+            value={instruction}
+            onChange={(event) => setInstruction(event.target.value)}
+            placeholder={t('ai.instructionPlaceholder')}
+            aria-label={t('ai.instruction')}
+            className="h-8 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
+          />
+        )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {!result ? (
-            <p className="text-[12px] text-nb-text-3">{t('ai.rewriteIntro')}</p>
-          ) : !blocks.length ? (
-            <p className="text-[12px] text-nb-text-3">{t('ai.noChanges')}</p>
-          ) : (
+        {result?.summary && (
+          <div className="flex items-start gap-2 rounded-nb-xs bg-[var(--nb-inset-surface)] px-3 py-2 text-[12px] leading-relaxed text-nb-text-2">
+            <Sparkles
+              size={13}
+              aria-hidden
+              className="mt-[3px] shrink-0 text-[var(--nb-accent)]"
+            />
+            <p>{result.summary}</p>
+          </div>
+        )}
+        {error && <p className="text-[12px] text-[var(--nb-danger)]">{error}</p>}
+
+        {result &&
+          (blocks.length ? (
             <ul className="flex flex-col gap-2">
               {blocks.map((block, index) => (
                 <BlockDiff
@@ -186,44 +224,13 @@ export function RewriteDialog() {
                 />
               ))}
             </ul>
-          )}
-        </div>
-
-        <footer className="flex items-center justify-end gap-2 border-t border-[var(--nb-divider)] p-3">
-          {blocks.length > 0 && (
-            <>
-              <GlassButton
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  setAccepted(
-                    accepted.size === blocks.length
-                      ? new Set()
-                      : new Set(blocks.map((_, index) => index)),
-                  )
-                }
-              >
-                {accepted.size === blocks.length ? t('ai.rejectAll') : t('ai.acceptAll')}
-              </GlassButton>
-              <span className="mr-auto text-[11px] text-nb-text-3">
-                {t('ai.acceptedCount', { count: accepted.size, total: blocks.length })}
-              </span>
-            </>
-          )}
-          <GlassButton size="sm" onClick={() => setOpen(false)}>
-            {t('common.cancel')}
-          </GlassButton>
-          <GlassButton
-            size="sm"
-            variant="accent"
-            disabled={!accepted.size || applying}
-            onClick={() => void apply()}
-          >
-            {t('ai.apply')}
-          </GlassButton>
-        </footer>
+          ) : (
+            <p className="py-6 text-center text-[12px] text-nb-text-3">
+              {t('ai.noChanges')}
+            </p>
+          ))}
       </div>
-    </ModalOverlay>
+    </Dialog>
   );
 }
 
