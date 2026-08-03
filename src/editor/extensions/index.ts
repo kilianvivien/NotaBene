@@ -18,15 +18,24 @@ import { MindMap } from './MindMap';
 import { AssetImage } from './AssetImage';
 import { AlignedTableCell, AlignedTableHeader } from './AlignedTable';
 import { Abbreviation } from './Abbreviation';
+import { Concentration, type ConcentrationState } from './Concentration';
+
+const CONCENTRATION_OFF: ConcentrationState = {
+  active: false,
+  lineFocus: 'off',
+  blockCaret: false,
+  typewriterScrolling: false,
+};
 
 /**
- * `resolveAbbreviations` is a getter, not a list: the extensions array is
- * memoised for the life of an editor, and typing shortcuts are edited in
- * Settings while a note is open.
+ * `resolveAbbreviations` and `resolveConcentration` are getters, not values:
+ * the extensions array is memoised for the life of an editor, and both are
+ * edited in Settings while a note is open.
  */
 export function editorExtensions(
   placeholder: string,
   resolveAbbreviations: () => readonly AbbreviationRule[] = () => [],
+  resolveConcentration: () => ConcentrationState = () => CONCENTRATION_OFF,
 ): Extensions {
   return [
     StarterKit.configure({
@@ -57,5 +66,6 @@ export function editorExtensions(
     Drawing,
     MindMap,
     Abbreviation.configure({ resolve: resolveAbbreviations }),
+    Concentration.configure({ resolve: resolveConcentration }),
   ];
 }

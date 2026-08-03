@@ -10,7 +10,20 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { configuredProviderIds } from '@/lib/ai';
-import type { AskMode, AskTurn } from '@/lib/ai';
+import type { AskMode, AskScope, AskTurn } from '@/lib/ai';
+
+/**
+ * One thread per grounding mode *and* scope.
+ *
+ * Mode already had to be separate: a strict thread must never receive an
+ * earlier answer that was allowed to use outside knowledge. Scope needs the
+ * same isolation for the same reason — an answer grounded in twelve notes is
+ * not valid history for a question about one, and the `<note index>` positions
+ * the model saw shift between turns anyway.
+ */
+export function threadKey(mode: AskMode, scope: AskScope): string {
+  return `${mode}|${scope}`;
+}
 
 /** In-flight work, so the cancel button has something to cancel and two
  * features cannot fight over the same panel. `speech` is the odd one out: it is
@@ -32,21 +45,21 @@ interface AiState {
   running: AiActivity | null;
   error: string | null;
   askMode: AskMode;
-  /** Ask conversations are isolated by note and grounding mode. Strict mode
-   * must never receive an earlier answer that was allowed to use outside
-   * knowledge as conversation context. */
-  threads: Record<string, Partial<Record<AskMode, AskThread>>>;
+  askScope: AskScope;
+  /** Keyed by note, then by `threadKey(mode, scope)`. */
+  threads: Record<string, Record<string, AskThread>>;
 
   refreshProviders(): Promise<void>;
   setRunning(activity: AiActivity | null): void;
   setError(message: string | null): void;
   setAskMode(mode: AskMode): void;
-  appendToken(noteId: string, mode: AskMode, token: string): void;
-  commitTurn(noteId: string, mode: AskMode, turn: AskTurn): void;
+  setAskScope(scope: AskScope): void;
+  appendToken(noteId: string, key: string, token: string): void;
+  commitTurn(noteId: string, key: string, turn: AskTurn): void;
   /** Drop a partial answer without turning it into a turn — a failure that
    * produced no text should leave no empty bubble behind. */
-  discardStreaming(noteId: string, mode: AskMode): void;
-  clearThread(noteId: string, mode: AskMode): void;
+  discardStreaming(noteId: string, key: string): void;
+  clearThread(noteId: string, key: string): void;
 }
 
 /** One controller per activity. Kept out of the store because an AbortController
@@ -80,6 +93,7 @@ export const useAiStore = create<AiState>()(
     running: null,
     error: null,
     askMode: 'knowledge',
+    askScope: 'note',
     threads: {},
 
     async refreshProviders() {
@@ -107,36 +121,44 @@ export const useAiStore = create<AiState>()(
       });
     },
 
-    appendToken(noteId, mode, token) {
+    setAskScope(scope) {
+      set((state) => {
+        state.askScope = scope;
+      });
+    },
+
+    appendToken(noteId, key, token) {
       set((state) => {
         const noteThreads = (state.threads[noteId] ??= {});
-        const thread = (noteThreads[mode] ??= { turns: [], streaming: '' });
+        const thread = (noteThreads[key] ??= { turns: [], streaming: '' });
         thread.streaming += token;
       });
     },
 
-    commitTurn(noteId, mode, turn) {
+    commitTurn(noteId, key, turn) {
       set((state) => {
         const noteThreads = (state.threads[noteId] ??= {});
-        const thread = (noteThreads[mode] ??= { turns: [], streaming: '' });
+        const thread = (noteThreads[key] ??= { turns: [], streaming: '' });
         thread.turns.push(turn);
         thread.streaming = '';
       });
     },
 
-    discardStreaming(noteId, mode) {
+    discardStreaming(noteId, key) {
       set((state) => {
-        const thread = state.threads[noteId]?.[mode];
+        const thread = state.threads[noteId]?.[key];
         if (thread) thread.streaming = '';
       });
     },
 
-    clearThread(noteId, mode) {
+    clearThread(noteId, key) {
       set((state) => {
         const noteThreads = state.threads[noteId];
         if (!noteThreads) return;
-        delete noteThreads[mode];
-        if (!noteThreads.note && !noteThreads.knowledge) delete state.threads[noteId];
+        delete noteThreads[key];
+        // Keyed by a composite now, so the old explicit two-mode check would
+        // have kept an empty record alive forever.
+        if (!Object.keys(noteThreads).length) delete state.threads[noteId];
       });
     },
   })),

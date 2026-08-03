@@ -9,6 +9,10 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { editorExtensions } from './extensions';
+import {
+  concentrationPluginKey,
+  type ConcentrationState,
+} from './extensions/Concentration';
 import { registerEditorCommandRunner, type EditorCommand } from './commandBridge';
 import { registerEditorPrompt, type EditorPromptRequest } from './editorPrompt';
 import { EditorPromptDialog } from './EditorPromptDialog';
@@ -39,16 +43,29 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
   const [prompt, setPrompt] = useState<EditorPromptRequest | null>(null);
   const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
   const [, refresh] = useState(0);
-  useUiStore((state) => state.focusMode);
-  // Read through the store rather than subscribing: editing the list in
-  // Settings must not remount the editor the user is typing in.
+  // Read through the store rather than subscribing: editing either in Settings
+  // must not remount the editor the user is typing in.
   const resolveAbbreviations = useCallback(
     () => useSettingsStore.getState().settings.abbreviations,
     [],
   );
+  const resolveConcentration = useCallback((): ConcentrationState => {
+    const { focus } = useSettingsStore.getState().settings;
+    return {
+      active: useUiStore.getState().focusMode,
+      lineFocus: focus.lineFocus,
+      blockCaret: focus.appearance === 'typewriter',
+      typewriterScrolling: focus.typewriterScrolling,
+    };
+  }, []);
   const extensions = useMemo(
-    () => editorExtensions(t('editor.bodyPlaceholder'), resolveAbbreviations),
-    [resolveAbbreviations, t],
+    () =>
+      editorExtensions(
+        t('editor.bodyPlaceholder'),
+        resolveAbbreviations,
+        resolveConcentration,
+      ),
+    [resolveAbbreviations, resolveConcentration, t],
   );
 
   const insertImages = useCallback(async (files: File[]) => {
@@ -177,14 +194,6 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
     onTransaction() {
       refresh((value) => value + 1);
     },
-    onSelectionUpdate({ editor: current }) {
-      if (!useUiStore.getState().focusMode) return;
-      requestAnimationFrame(() => {
-        const { node } = current.view.domAtPos(current.state.selection.from);
-        const element = node instanceof HTMLElement ? node : node.parentElement;
-        element?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      });
-    },
   });
   editorRef.current = editor;
 
@@ -194,6 +203,34 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
     const incoming = JSON.stringify(doc);
     if (current !== incoming) editor.commands.setContent(doc, { emitUpdate: false });
   }, [doc, editor]);
+
+  /**
+   * Concentration decorations are derived from the selection, so they only get
+   * recomputed when a transaction lands. Toggling line focus in Settings while
+   * the editor sits idle is a change with no transaction behind it — this is
+   * the nudge. History-free, because redecorating is not an edit.
+   */
+  useEffect(() => {
+    if (!editor) return;
+    const nudge = () => {
+      if (editor.isDestroyed) return;
+      editor.view.dispatch(
+        editor.view.state.tr
+          .setMeta(concentrationPluginKey, 'refresh')
+          .setMeta('addToHistory', false),
+      );
+    };
+    const stopSettings = useSettingsStore.subscribe((state, previous) =>
+      state.settings.focus === previous.settings.focus ? undefined : nudge(),
+    );
+    const stopUi = useUiStore.subscribe((state, previous) =>
+      state.focusMode === previous.focusMode ? undefined : nudge(),
+    );
+    return () => {
+      stopSettings();
+      stopUi();
+    };
+  }, [editor]);
 
   const run = useCallback(
     async (command: EditorCommand): Promise<boolean> => {

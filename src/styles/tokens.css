@@ -40,6 +40,12 @@
   --nb-editor-title-size: 40px;
   --nb-editor-leading: 1.7;
 
+  /* Where concentration mode holds the caret's line, as a percentage of the
+     editor scroller's height. Slightly above centre: a typewriter's platen sits
+     high enough that you can see the paragraph you are finishing without
+     staring at the middle of the page. */
+  --nb-typewriter-anchor: 42%;
+
   /* Motion */
   --nb-t-fast: 160ms;
   --nb-t-base: 240ms;
@@ -70,6 +76,10 @@ html[data-theme='light'] {
   --nb-text-2: #55534f;
   --nb-text-3: #85817a;
   --nb-text-on-accent: #ffffff;
+  /* What the paragraphs you are *not* writing fall back to in concentration
+     mode. Dimming by colour rather than opacity so it inherits to any depth —
+     a paragraph nested in a list item recedes the same as a top-level one. */
+  --nb-text-recede: #b3aea5;
 
   --nb-accent: #9b5c2f;
   --nb-accent-strong: #814823;
@@ -121,6 +131,7 @@ html[data-theme='dark'] {
   --nb-text-2: #bbb8b2;
   --nb-text-3: #77736d;
   --nb-text-on-accent: #ffffff;
+  --nb-text-recede: #504d49;
 
   --nb-accent: #d19a70;
   --nb-accent-strong: #b77d54;
@@ -246,4 +257,61 @@ html[data-theme='dark'][data-accent='graphite'] {
   --nb-accent-soft: #292825;
   --nb-accent-ring: rgba(170, 166, 159, 0.3);
   --nb-link: #bbb7b0;
+}
+
+/* Concentration mode's typewriter look.
+ *
+ * Scoped to the editor column and to the mode being on, so nothing here leaks
+ * into the library, a peeked inspector, or a dialog. It changes the rhythm of
+ * the page — stock, ink, measure, leading — and deliberately not the typeface:
+ * the font is the reader's choice in Settings and stays theirs. */
+/* The stock the page is printed on. It is a token of its own rather than just
+   `--nb-paper` because two elements need it: the editor column, and the shell
+   behind the retreated bars — those keep their space in the layout, so without
+   this the warm page sits framed between two strips of ordinary app surface. */
+html[data-focus='true'] {
+  --nb-stock: var(--nb-paper);
+}
+
+html[data-focus='true'] .nb-editor-surface {
+  --nb-paper: var(--nb-stock);
+}
+
+/* No measure override here on purpose. Width is the reader's, set from the
+   reading controls and stored in `editorMeasure`; a look that quietly narrowed
+   the column would win on specificity and leave that control doing nothing. */
+html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-surface {
+  --nb-editor-leading: 1.85;
+  --nb-typewriter-anchor: 38%;
+}
+
+/* Warm stock, ribbon ink. Neither is pure — paper is not #fff and a ribbon
+   never printed #000, and the reduced contrast is the point: it is what lets
+   you sit in front of the page for an hour. */
+html[data-theme='light'][data-focus='true'][data-focus-look='typewriter'] {
+  --nb-stock: #f4efe4;
+}
+
+html[data-theme='light'][data-focus='true'][data-focus-look='typewriter']
+  .nb-editor-surface {
+  --nb-text: #2f2a23;
+  --nb-text-2: #6a6153;
+  --nb-text-recede: #bcb2a0;
+  --nb-divider: #ded5c3;
+  --nb-divider-strong: #cabfa9;
+}
+
+/* Dark is a night ribbon, not an inverted sheet: the ink glows a little, the
+   stock goes almost to black, and nothing on the page is at full white. */
+html[data-theme='dark'][data-focus='true'][data-focus-look='typewriter'] {
+  --nb-stock: #0c0b09;
+}
+
+html[data-theme='dark'][data-focus='true'][data-focus-look='typewriter']
+  .nb-editor-surface {
+  --nb-text: #ddd5c6;
+  --nb-text-2: #948c7e;
+  --nb-text-recede: #4d4842;
+  --nb-divider: #211e1a;
+  --nb-divider-strong: #322e28;
 }

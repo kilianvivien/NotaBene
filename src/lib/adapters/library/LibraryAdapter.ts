@@ -17,6 +17,7 @@ import type {
   JournalEntry,
   Library,
   Note,
+  NoteMatch,
   NoteSummary,
   NoteTemplate,
   PendingRecovery,
@@ -26,6 +27,8 @@ import type {
   SnapshotCause,
   Tag,
 } from '@/lib/schema';
+
+export type { NoteMatch };
 
 /** Parsed form of the search box. See `src/lib/search/query.ts`. */
 export interface NoteQuery {
@@ -44,6 +47,13 @@ export interface NoteQuery {
   sort?: 'updated' | 'created' | 'title' | 'manual' | 'relevance';
   limit?: number;
   offset?: number;
+  /**
+   * How the words of `text` combine. `'all'` is the default and what a search
+   * box wants — typing another word narrows the list. `'any'` is for retrieval,
+   * where the words are a question rather than a filter and requiring all of
+   * them returns nothing.
+   */
+  textMatch?: 'all' | 'any';
 }
 
 export interface SnapshotRetentionPolicy {
@@ -71,6 +81,12 @@ export interface LibraryAdapter {
 
   /** Summaries only — the note list must never pay for full documents. */
   queryNotes(query: NoteQuery): Promise<NoteSummary[]>;
+  /**
+   * The same query, ranked and scored, ordered by relevance alone — pinning is
+   * ignored, because pinning says "keep this handy", not "this answers the
+   * question". Requires `text`; a ranked search with nothing to rank throws.
+   */
+  searchNotes(query: NoteQuery): Promise<NoteMatch[]>;
   getNote(noteId: string): Promise<Note | null>;
   upsertNote(note: Note): Promise<void>;
   /** Soft delete: sets `trashedAt`. Hard removal is `purgeNote`. */

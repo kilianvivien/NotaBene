@@ -16,9 +16,11 @@
  * *Calqo's `APP_COMMAND_IDS` is the pattern; the phase column is ours.*
  */
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useSpeechStore } from '@/lib/state/speechStore';
 import { useUiStore } from '@/lib/state/uiStore';
-import { externalLinks } from '@/lib/adapters';
+import { docStats } from '@/lib/notes/docText';
+import { appWindow, externalLinks } from '@/lib/adapters';
 import { createNoteCommand } from './noteCommands';
 import { createCourseCommand } from './organizationCommands';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
@@ -122,6 +124,39 @@ function editorAction(command: EditorCommand) {
     (await runEditorCommand(command))
       ? ok(undefined)
       : fail('not_supported', 'Open a note to use editor commands');
+}
+
+/**
+ * True only while *we* put the window in fullscreen.
+ *
+ * Someone who was already fullscreen — `⌃⌘F`, the green button, a Space they
+ * live in — must not be thrown back to a windowed desktop just because they
+ * left concentration mode. So we only undo what we did.
+ */
+let enteredFullscreen = false;
+
+/**
+ * The single entry point for concentration mode: the command, the title bar
+ * button and the Escape handler all come through here, so the session stamp and
+ * the window state can never disagree with the flag.
+ */
+export async function setConcentrationMode(on: boolean): Promise<void> {
+  const ui = useUiStore.getState();
+  if (ui.focusMode === on) return;
+
+  const note = useEditorStore.getState().note;
+  ui.setFocusMode(on, note ? docStats(note.doc).words : 0);
+
+  if (!useSettingsStore.getState().settings.focus.fullscreen) return;
+  if (on) {
+    if (await appWindow.isFullscreen()) return;
+    enteredFullscreen = true;
+    await appWindow.setFullscreen(true);
+    return;
+  }
+  if (!enteredFullscreen) return;
+  enteredFullscreen = false;
+  await appWindow.setFullscreen(false);
 }
 
 export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
@@ -368,9 +403,8 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     labelKey: 'menu.focusMode',
     accelerator: 'CmdOrCtrl+Shift+F',
     landsIn: 'A',
-    run: () => {
-      const ui = useUiStore.getState();
-      ui.setFocusMode(!ui.focusMode);
+    run: async () => {
+      await setConcentrationMode(!useUiStore.getState().focusMode);
       return ok(undefined);
     },
   },

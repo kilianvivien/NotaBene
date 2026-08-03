@@ -15,8 +15,10 @@ import {
   bindCommandKeys,
   runAppCommand,
   setCommandTranslator,
+  setConcentrationMode,
   type AppCommandId,
 } from '@/lib/commands';
+import { isOverlayOpen, useUiStore } from '@/lib/state/uiStore';
 import { buildMenuBar } from './menuBar';
 
 function isAppCommandId(value: string): value is AppCommandId {
@@ -65,4 +67,43 @@ export function useAppCommands(): void {
     if (nativeMenus) return;
     return bindCommandKeys();
   }, [nativeMenus]);
+
+  useFocusModeEscape();
+}
+
+/** Transient surfaces that own Escape while they are on screen. They are not
+ * store state — the slash and wiki-link menus live in the editor's local state,
+ * the find bar in the editor's — so the DOM is where to ask. */
+const ESCAPE_HOLDERS = '.nb-slash-menu, .nb-find-replace, [role="menu"]';
+
+/**
+ * Escape leaves concentration mode.
+ *
+ * A mode that fills the window needs the key everyone already tries, but Escape
+ * is the most contested key in the app. `defaultPrevented` is no help here:
+ * ProseMirror marks Escape handled whenever the editor has focus, which is
+ * precisely when someone would press it to get out. So the claim is made
+ * positively instead — nothing modal open, no transient menu on screen, and
+ * focus either in the note or nowhere in particular. A dialog, the command
+ * palette, the find bar and the title bar's search field all hold focus while
+ * they are open, so each of them keeps the key.
+ */
+function useFocusModeEscape(): void {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const ui = useUiStore.getState();
+      if (!ui.focusMode || isOverlayOpen(ui)) return;
+      if (document.querySelector(ESCAPE_HOLDERS)) return;
+
+      const active = document.activeElement;
+      const inEditor = active?.closest('.nb-editor-scroll') != null;
+      if (active && active !== document.body && !inEditor) return;
+
+      event.preventDefault();
+      void setConcentrationMode(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 }

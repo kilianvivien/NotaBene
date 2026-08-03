@@ -37,7 +37,8 @@ import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils/cn';
-import type { AccentColor, AppSettings } from '@/lib/adapters';
+import type { AccentColor, AppSettings, FocusSettings } from '@/lib/adapters';
+import { EDITOR_FONT_SIZES, EDITOR_MEASURES } from '@/app/shell/readingScale';
 import { AbbreviationSettings } from './AbbreviationSettings';
 import { BackupSettings } from './BackupSettings';
 import { AiProviderSettings } from './AiProviderSettings';
@@ -79,7 +80,6 @@ const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
   { labelKey: 'settings.groupAbout', tabs: [{ id: 'about', icon: Info }] },
 ];
 
-const EDITOR_FONT_SIZES = { min: 13, max: 22 };
 const EDITOR_TITLE_SIZES = { min: 28, max: 52 };
 const ACCENTS: { value: AccentColor; color: string }[] = [
   { value: 'orange', color: '#c17a47' },
@@ -101,6 +101,12 @@ export function SettingsWindow() {
 
   function set<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
     void update({ [key]: value } as Partial<AppSettings>);
+  }
+
+  /** `focus` is a group, so a patch has to carry the fields it is not
+   * changing — `update` merges at the top level only. */
+  function setFocus(patch: Partial<FocusSettings>): void {
+    void update({ focus: { ...settings.focus, ...patch } });
   }
 
   return (
@@ -247,6 +253,84 @@ export function SettingsWindow() {
                       range={EDITOR_TITLE_SIZES}
                       value={settings.editorTitleSize}
                       onChange={(value) => set('editorTitleSize', value)}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.editorMeasure')}
+                    hint={t('settings.editorMeasureHint')}
+                    align="end"
+                  >
+                    <SizeSlider
+                      label={t('settings.editorMeasure')}
+                      range={EDITOR_MEASURES}
+                      value={settings.editorMeasure}
+                      onChange={(value) => set('editorMeasure', value)}
+                    />
+                  </FieldRow>
+                </FieldSection>
+
+                <FieldSection
+                  title={t('settings.focusSection')}
+                  description={t('settings.focusSectionHint')}
+                >
+                  <FieldRow label={t('settings.focusAppearance')}>
+                    <GlassSegmentedControl<FocusSettings['appearance']>
+                      label={t('settings.focusAppearance')}
+                      value={settings.focus.appearance}
+                      onChange={(appearance) => setFocus({ appearance })}
+                      options={[
+                        { value: 'typewriter', label: t('settings.focusLookTypewriter') },
+                        { value: 'app', label: t('settings.focusLookApp') },
+                      ]}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.focusLine')}
+                    hint={t('settings.focusLineHint')}
+                  >
+                    <GlassSegmentedControl<FocusSettings['lineFocus']>
+                      label={t('settings.focusLine')}
+                      value={settings.focus.lineFocus}
+                      onChange={(lineFocus) => setFocus({ lineFocus })}
+                      options={[
+                        { value: 'paragraph', label: t('settings.focusLineParagraph') },
+                        { value: 'off', label: t('settings.focusLineOff') },
+                      ]}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.focusTypewriterScroll')}
+                    hint={t('settings.focusTypewriterScrollHint')}
+                    align="end"
+                  >
+                    <FieldToggle
+                      label={t('settings.focusTypewriterScroll')}
+                      checked={settings.focus.typewriterScrolling}
+                      onChange={(typewriterScrolling) =>
+                        setFocus({ typewriterScrolling })
+                      }
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.focusHideChrome')}
+                    hint={t('settings.focusHideChromeHint')}
+                    align="end"
+                  >
+                    <FieldToggle
+                      label={t('settings.focusHideChrome')}
+                      checked={settings.focus.hideChrome}
+                      onChange={(hideChrome) => setFocus({ hideChrome })}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.focusFullscreen')}
+                    hint={t('settings.focusFullscreenHint')}
+                    align="end"
+                  >
+                    <FieldToggle
+                      label={t('settings.focusFullscreen')}
+                      checked={settings.focus.fullscreen}
+                      onChange={(fullscreen) => setFocus({ fullscreen })}
                     />
                   </FieldRow>
                 </FieldSection>

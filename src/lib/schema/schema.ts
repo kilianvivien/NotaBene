@@ -141,6 +141,21 @@ export const NoteSummarySchema = NoteSchema.omit({ doc: true, plainText: true })
 });
 export type NoteSummary = z.infer<typeof NoteSummarySchema>;
 
+/**
+ * A summary with the relevance score that put it there.
+ *
+ * Nested rather than merged into `NoteSummary`: a score describes a query
+ * result, not a note, and every existing consumer of a summary — the note list,
+ * the palette, the MCP payload — would otherwise gain a field that means
+ * nothing to it.
+ */
+export const NoteMatchSchema = z.object({
+  note: NoteSummarySchema,
+  /** Larger is closer. Comparable within one result set, not across queries. */
+  score: z.number(),
+});
+export type NoteMatch = z.infer<typeof NoteMatchSchema>;
+
 /** Content-addressed blob: images, drawing renders, attachment payloads, audio. */
 export const AssetSchema = z.object({
   /** SHA-256 of the bytes — identity and deduplication in one. */
