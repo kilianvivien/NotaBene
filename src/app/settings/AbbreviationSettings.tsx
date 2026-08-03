@@ -53,13 +53,6 @@ export function AbbreviationSettings() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-[15px] font-semibold">{t('abbreviations.title')}</h2>
-        <p className="mt-1 text-[12px] leading-snug text-nb-text-3">
-          {t('abbreviations.description')}
-        </p>
-      </div>
-
       <div className="overflow-hidden rounded-nb-sm border border-[var(--nb-divider)]">
         {rows.length === 0 ? (
           <p className="p-3 text-[12px] text-nb-text-3">{t('abbreviations.empty')}</p>
