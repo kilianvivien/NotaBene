@@ -16,14 +16,17 @@ import {
   Copy,
   Eraser,
   FileText,
+  Files,
+  GraduationCap,
   Loader2,
   Send,
   Sparkles,
   StickyNote,
+  type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, GlassSegmentedControl } from '@/components/glass';
+import { GlassButton, GlassPopupButton } from '@/components/glass';
 import type { AskMode, AskScope, AskTurn } from '@/lib/ai';
 import { askAboutNotesCommand, saveAnswerAsNoteCommand } from '@/lib/commands';
 import {
@@ -42,6 +45,14 @@ import { AiRichText } from './AiRichText';
 import { useAiAvailability } from './useAiAvailability';
 
 const SUGGESTIONS = ['summary', 'explain', 'quiz'] as const;
+
+/** The scope button wears its own value. `Files` is the sidebar's glyph for
+ * "All notes", so widening the search points at the row it widens to. */
+const SCOPE_ICONS: Record<AskScope, LucideIcon> = {
+  note: FileText,
+  course: GraduationCap,
+  library: Files,
+};
 
 /** Enough for four or five lines; past that the thread matters more. */
 const COMPOSER_MAX_HEIGHT = 108;
@@ -159,8 +170,42 @@ export function AskPanel({ noteId }: { noteId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-      <div className="flex items-center gap-1.5">
-        <AiStatusPill feature="ask" className="min-w-0" />
+      {/* Two axes and a thread action on one line. They were three full-width
+          rows — a status pill and two segmented controls — which is a lot of
+          chrome to read past on the way to the question, and at 280px the
+          three scope labels had no room to be words. */}
+      <div className="-ml-1.5 flex items-center gap-0.5">
+        <GlassPopupButton<AskScope>
+          label={t('ai.askScope')}
+          value={scope}
+          onChange={setAskScope}
+          disabled={running}
+          icon={SCOPE_ICONS[scope]}
+          className="shrink"
+          options={[
+            { value: 'note', label: t('ai.askScopeNote') },
+            {
+              value: 'course',
+              label: t('ai.askScopeCourse'),
+              // Nothing to search: an inbox note belongs to no course.
+              disabled: !note?.courseId,
+              title: note?.courseId ? undefined : t('ai.askScopeCourseDisabled'),
+            },
+            { value: 'library', label: t('ai.askScopeLibrary') },
+          ]}
+        />
+        <GlassPopupButton<AskMode>
+          label={t('ai.askMode')}
+          value={mode}
+          onChange={setAskMode}
+          disabled={running}
+          icon={Sparkles}
+          className="shrink"
+          options={[
+            { value: 'note', label: t('ai.askModeNote') },
+            { value: 'knowledge', label: t('ai.askModeKnowledge') },
+          ]}
+        />
         {!empty && (
           <button
             type="button"
@@ -173,37 +218,6 @@ export function AskPanel({ noteId }: { noteId: string }) {
           </button>
         )}
       </div>
-
-      <GlassSegmentedControl<AskScope>
-        label={t('ai.askScope')}
-        value={scope}
-        onChange={setAskScope}
-        disabled={running}
-        fill
-        options={[
-          { value: 'note', label: t('ai.askScopeNote') },
-          {
-            value: 'course',
-            label: t('ai.askScopeCourse'),
-            // Nothing to search: an inbox note belongs to no course.
-            disabled: !note?.courseId,
-            title: note?.courseId ? undefined : t('ai.askScopeCourseDisabled'),
-          },
-          { value: 'library', label: t('ai.askScopeLibrary') },
-        ]}
-      />
-
-      <GlassSegmentedControl<AskMode>
-        label={t('ai.askMode')}
-        value={mode}
-        onChange={setAskMode}
-        disabled={running}
-        fill
-        options={[
-          { value: 'note', label: t('ai.askModeNote') },
-          { value: 'knowledge', label: t('ai.askModeKnowledge') },
-        ]}
-      />
 
       <div className="-mx-0.5 min-h-0 flex-1 space-y-2.5 overflow-y-auto px-0.5">
         {empty ? (
@@ -261,10 +275,16 @@ export function AskPanel({ noteId }: { noteId: string }) {
           rows={2}
           value={question}
           disabled={!availability.available}
-          placeholder={
-            availability.available ? t('ai.askPlaceholder') : t('ai.notConfigured')
-          }
+          // Says the same thing whether or not a provider is configured. The
+          // pill below is the one that reports "connect a provider", and it is
+          // the one you can click to do it — two copies of that sentence in one
+          // box is one copy too many.
+          placeholder={t('ai.askPlaceholder')}
           aria-label={t('ai.ask')}
+          // Enter-to-send is the contract every chat box already taught the
+          // reader, so the reminder is a tooltip rather than a permanent line
+          // in a 280px panel.
+          title={t('ai.composerHint')}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={(event) => {
             // Enter sends; Shift-Enter is a newline. The same contract as every
@@ -276,10 +296,11 @@ export function AskPanel({ noteId }: { noteId: string }) {
           }}
           className="block w-full resize-none bg-transparent px-1 py-0.5 text-[12.5px] leading-relaxed outline-none placeholder:text-nb-text-3"
         />
+        {/* Where the answer is about to go, next to the button that sends it.
+            The pill used to head the panel, which is the one place its cost and
+            trust argument does not apply — nothing is being sent up there. */}
         <div className="mt-1 flex items-end justify-between gap-2 pl-1">
-          <span className="min-w-0 truncate text-[10.5px] text-nb-text-3">
-            {t('ai.composerHint')}
-          </span>
+          <AiStatusPill feature="ask" compact className="min-w-0" />
           <GlassButton
             size="sm"
             variant={running ? 'default' : 'accent'}

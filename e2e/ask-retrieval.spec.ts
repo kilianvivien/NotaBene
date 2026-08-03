@@ -59,6 +59,12 @@ async function createNote(page: Page, title: string, body: string) {
   });
 }
 
+/** The scope control is a pop-up button: open it, then pick a row. */
+async function chooseScope(page: import('@playwright/test').Page, name: string) {
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.getByRole('menuitemradio', { name }).click();
+}
+
 async function ask(page: Page, question: string) {
   const composer = page.getByRole('textbox', { name: 'Ask' });
   await expect(composer).toBeEnabled();
@@ -86,10 +92,7 @@ test('answers from a note the question never names, and cites it', async ({ page
 
   await page.getByRole('button', { name: 'Show inspector' }).click();
   await page.getByRole('radio', { name: 'Ask', exact: true }).click();
-  await page
-    .getByRole('radiogroup', { name: 'Search' })
-    .getByRole('radio', { name: 'All notes' })
-    .click();
+  await chooseScope(page, 'All notes');
 
   // Phrased the way a student remembers it, sharing no distinctive word with
   // the note that answers it.
@@ -127,10 +130,7 @@ test('a citation opens the note it names', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Show inspector' }).click();
   await page.getByRole('radio', { name: 'Ask', exact: true }).click();
-  await page
-    .getByRole('radiogroup', { name: 'Search' })
-    .getByRole('radio', { name: 'All notes' })
-    .click();
+  await chooseScope(page, 'All notes');
   await ask(page, 'which vector keeps pointing the same way?');
   await expect(page.getByText(ANSWER)).toBeVisible({ timeout: 10_000 });
 

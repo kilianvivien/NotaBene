@@ -12,7 +12,7 @@
  * releasing over it.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { Check, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 export interface ContextPoint {
@@ -26,6 +26,13 @@ export interface ContextMenuItem {
   icon?: LucideIcon;
   danger?: boolean;
   disabled?: boolean;
+  /** Tooltip. A disabled row still owes the reader a reason, and this is the
+   * only place a menu has to put one. */
+  title?: string;
+  /** Marks the current value when the menu is a pop-up button's list. Setting
+   * it on any row gives every row the check column, so the labels line up
+   * whether or not they are the chosen one. */
+  selected?: boolean;
   /** Optional persisted color, used for tag entries without sacrificing text contrast. */
   swatch?: string;
   onSelect(): void;
@@ -93,6 +100,9 @@ export function ContextMenu({
       (index > 0 && items[index - 1] !== null && hasLater(items, index)),
   );
 
+  // One row claiming to be a value makes the whole menu a value list.
+  const checkable = visible.some((entry) => entry?.selected !== undefined);
+
   return (
     <div
       ref={panel}
@@ -120,21 +130,34 @@ export function ContextMenu({
           <button
             key={entry.id}
             type="button"
-            role="menuitem"
+            role={checkable ? 'menuitemradio' : 'menuitem'}
+            aria-checked={checkable ? entry.selected === true : undefined}
             disabled={entry.disabled}
+            title={entry.title}
             className={cn(
               'flex h-8 w-full items-center gap-2 rounded-nb-xs px-2 text-left text-[13px]',
-              'disabled:pointer-events-none disabled:opacity-40',
-              entry.danger
-                ? 'text-[var(--nb-danger)] hover:bg-[var(--nb-hover)]'
-                : 'text-nb-text-2 hover:bg-[var(--nb-hover)] hover:text-nb-text',
+              // A disabled row keeps its pointer events, so a `title` saying why
+              // it is disabled can still be read; `disabled` refuses the click.
+              // It drops the hover styling instead, because a row that lights up
+              // under the pointer is a row claiming to be available.
+              entry.disabled
+                ? 'text-nb-text-2 opacity-40'
+                : entry.danger
+                  ? 'text-[var(--nb-danger)] hover:bg-[var(--nb-hover)]'
+                  : 'text-nb-text-2 hover:bg-[var(--nb-hover)] hover:text-nb-text',
             )}
             onClick={() => {
               entry.onSelect();
               onClose();
             }}
           >
-            {entry.swatch ? (
+            {checkable ? (
+              <span aria-hidden className="grid size-3.5 shrink-0 place-items-center">
+                {entry.selected && (
+                  <Check size={13} className="text-[var(--nb-accent)]" />
+                )}
+              </span>
+            ) : entry.swatch ? (
               <span
                 aria-hidden
                 className="size-2.5 shrink-0 rounded-full border border-black/10"

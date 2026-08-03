@@ -16,9 +16,14 @@ import { useAiAvailability } from './useAiAvailability';
 
 export function AiStatusPill({
   feature,
+  compact = false,
   className,
 }: {
   feature: AiFeature;
+  /** Provider only, model in the tooltip. For the places that are narrow
+   * enough that "Mistral · mistral-medium-latest" would ellipsise the model
+   * away anyway — an ellipsis says less than the provider's name does. */
+  compact?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -31,11 +36,15 @@ export function AiStatusPill({
     setSettingsOpen(true);
   }
 
+  const full = availability.available
+    ? `${availability.definition.label} · ${availability.model}`
+    : t(`ai.unavailable_${availability.reason}`);
+
   return (
     <button
       type="button"
       onClick={openProviders}
-      title={t('ai.pillHint')}
+      title={availability.available ? `${full} — ${t('ai.pillHint')}` : t('ai.pillHint')}
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px]',
         'transition-colors duration-[var(--nb-t-fast)]',
@@ -47,9 +56,7 @@ export function AiStatusPill({
     >
       <Sparkles size={10} className="shrink-0" aria-hidden />
       <span className="truncate">
-        {availability.available
-          ? `${availability.definition.label} · ${availability.model}`
-          : t(`ai.unavailable_${availability.reason}`)}
+        {compact && availability.available ? availability.definition.label : full}
       </span>
     </button>
   );

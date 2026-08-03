@@ -280,7 +280,6 @@
     "mindMap": "Mind map",
     "flashcards": "Flashcards",
     "podcast": "Listen",
-    "notConfigured": "Connect a provider",
     "notConfiguredHint": "AI features are bring-your-own-key. Add one in Settings.",
     "running": "Working…",
     "cancel": "Cancel",

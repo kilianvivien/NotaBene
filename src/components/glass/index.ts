@@ -2,6 +2,7 @@ export { GlassPanel } from './GlassPanel';
 export { GlassButton } from './GlassButton';
 export { GlassIconButton } from './GlassIconButton';
 export { GlassSegmentedControl, type SegmentOption } from './GlassSegmentedControl';
+export { GlassPopupButton, type PopupOption } from './GlassPopupButton';
 export { GlassSelect } from './GlassSelect';
 export {
   ContextMenu,
