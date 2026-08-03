@@ -138,11 +138,15 @@ test('a citation opens the note it names', async ({ page }) => {
     'Course outline',
   );
 
-  // The citation chip lives in the inspector, after the answer.
-  await page
-    .locator('aside')
-    .getByRole('button', { name: /Lecture 4/ })
-    .click();
+  // Citations are folded away under a count, so the panel does not carry a
+  // list of notes under every answer. Open it, then follow one.
+  const inspector = page.locator('aside');
+  const citations = inspector.getByRole('button', { name: /^\d+ sources?$/ });
+  await expect(citations).toBeVisible();
+  await expect(inspector.getByRole('button', { name: /Lecture 4/ })).toHaveCount(0);
+
+  await citations.click();
+  await inspector.getByRole('button', { name: /Lecture 4/ }).click();
 
   await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveValue(
     'Lecture 4 — Eigenvectors',
