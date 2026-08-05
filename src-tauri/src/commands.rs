@@ -14,7 +14,9 @@ use crate::db::model::{
     Asset, Attachment, Backlink, Course, Library, Note, NoteMatch, NoteQuery, NoteSummary,
     NoteTemplate, SavedSearch, Section, Snapshot, SnapshotMeta, Tag,
 };
-use crate::db::{assets, collections, journal, notes, organization, DbError, DbResult, Store};
+use crate::db::{
+    assets, collections, journal, notes, organization, transfer, DbError, DbResult, Store,
+};
 
 fn now() -> String {
     chrono::Utc::now().to_rfc3339()
@@ -363,117 +365,12 @@ pub fn library_delete_template(store: State<'_, Store>, template_id: String) -> 
 
 #[tauri::command]
 pub fn library_export(store: State<'_, Store>) -> DbResult<Library> {
-    let courses = organization::list_courses(&store)?;
-    let mut sections = Vec::new();
-    for course in &courses {
-        sections.extend(organization::list_sections(&store, &course.id)?);
-    }
-
-    let summaries = notes::query(
-        &store,
-        &NoteQuery {
-            scope: Some("all".into()),
-            limit: Some(i64::MAX),
-            ..NoteQuery::default()
-        },
-    )?;
-    let mut exported_notes = Vec::with_capacity(summaries.len());
-    let mut attachments = Vec::new();
-    let mut snapshots = Vec::new();
-    for summary in summaries {
-        if let Some(note) = notes::get(&store, &summary.id)? {
-            attachments.extend(assets::list_attachments(&store, &note.id)?);
-            for snapshot in notes::list_snapshots(&store, &note.id)? {
-                if let Some(snapshot) = notes::get_snapshot(&store, &snapshot.id)? {
-                    snapshots.push(snapshot);
-                }
-            }
-            exported_notes.push(note);
-        }
-    }
-
-    Ok(Library {
-        schema_version: crate::db::migrations::SCHEMA_VERSION,
-        exported_at: now(),
-        app_version: env!("CARGO_PKG_VERSION").into(),
-        courses,
-        sections,
-        notes: exported_notes,
-        tags: organization::list_tags(&store)?,
-        assets: assets::list_assets(&store)?,
-        attachments,
-        snapshots,
-        saved_searches: collections::list_saved_searches(&store)?,
-        templates: collections::list_templates(&store)?,
-    })
+    transfer::export_library(&store)
 }
 
 #[tauri::command]
-pub fn library_import(
-    store: State<'_, Store>,
-    library: Library,
-    mode: String,
-) -> DbResult<()> {
-    if mode != "replace" && mode != "merge" {
-        return Err(DbError::Other(format!("invalid import mode {mode}")));
-    }
-    if library.schema_version != crate::db::migrations::SCHEMA_VERSION {
-        return Err(DbError::Other(format!(
-            "library schema v{} was not migrated to v{}",
-            library.schema_version,
-            crate::db::migrations::SCHEMA_VERSION
-        )));
-    }
-
-    if mode == "replace" {
-        store.transact(|transaction| {
-            transaction.execute_batch(
-                "DELETE FROM editor_journal;
-                 DELETE FROM note_links;
-                 DELETE FROM template_tags;
-                 DELETE FROM note_tags;
-                 DELETE FROM attachments;
-                 DELETE FROM snapshots;
-                 DELETE FROM templates;
-                 DELETE FROM saved_searches;
-                 DELETE FROM notes;
-                 DELETE FROM sections;
-                 DELETE FROM courses;
-                 DELETE FROM tags;
-                 DELETE FROM assets;",
-            )?;
-            Ok(())
-        })?;
-    }
-
-    for course in &library.courses {
-        organization::upsert_course(&store, course)?;
-    }
-    for section in &library.sections {
-        organization::upsert_section(&store, section)?;
-    }
-    for tag in &library.tags {
-        organization::upsert_tag(&store, tag)?;
-    }
-    for asset in &library.assets {
-        assets::upsert_asset(&store, asset)?;
-    }
-    for note in &library.notes {
-        notes::upsert(&store, note)?;
-    }
-    for attachment in &library.attachments {
-        assets::upsert_attachment(&store, attachment)?;
-    }
-    for snapshot in &library.snapshots {
-        notes::upsert_snapshot(&store, snapshot)?;
-    }
-    for search in &library.saved_searches {
-        collections::upsert_saved_search(&store, search)?;
-    }
-    for template in &library.templates {
-        collections::upsert_template(&store, template)?;
-    }
-    Ok(())
+pub fn library_import(store: State<'_, Store>, library: Library, mode: String) -> DbResult<()> {
+    transfer::import_library(&store, &library, &mode)
 }
 
 #[derive(Debug, Deserialize)]

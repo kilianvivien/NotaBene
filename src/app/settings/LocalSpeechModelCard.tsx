@@ -11,20 +11,11 @@ import {
 } from '@/lib/adapters';
 import { useSpeechStore } from '@/lib/state/speechStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { formatBytes } from '@/lib/utils/formatBytes';
 
 interface LocalSpeechModelCardProps {
   id: ManagedLocalEngineId;
   onChanged(): Promise<void>;
-}
-
-function formatBytes(value: number, locale: 'en' | 'fr'): string {
-  const gigabytes = value >= 1_000_000_000;
-  return new Intl.NumberFormat(locale, {
-    style: 'unit',
-    unit: gigabytes ? 'gigabyte' : 'megabyte',
-    unitDisplay: 'short',
-    maximumFractionDigits: 1,
-  }).format(value / (gigabytes ? 1_000_000_000 : 1_000_000));
 }
 
 export function LocalSpeechModelCard({ id, onChanged }: LocalSpeechModelCardProps) {

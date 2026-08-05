@@ -80,9 +80,21 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
     ),
   );
 
+  // Backups used to default to off, so every profile written before this
+  // change carries `backupSchedule: 'off'` — and the spread below would let
+  // that stored value win over the new daily default forever. The flag is what
+  // separates "never chose" from "chose off": it is absent exactly once, and a
+  // user who turns backups off afterwards stays off.
+  const backupSchedule =
+    rest.backupDefaultsApplied === undefined && (rest.backupSchedule ?? 'off') === 'off'
+      ? DEFAULT_SETTINGS.backupSchedule
+      : (rest.backupSchedule ?? DEFAULT_SETTINGS.backupSchedule);
+
   return {
     ...DEFAULT_SETTINGS,
     ...rest,
+    backupSchedule,
+    backupDefaultsApplied: true,
     // Hand-edited or older settings files reach the typing path directly.
     abbreviations: normalizeAbbreviations(rest.abbreviations),
     focus: { ...DEFAULT_SETTINGS.focus, ...rest.focus },

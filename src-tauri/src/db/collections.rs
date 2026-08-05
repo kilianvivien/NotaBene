@@ -1,5 +1,7 @@
 //! Smart folders and note templates.
 
+use rusqlite::Connection;
+
 use super::model::{NoteTemplate, SavedSearch};
 use super::{DbResult, Store};
 
@@ -23,15 +25,20 @@ pub fn list_saved_searches(store: &Store) -> DbResult<Vec<SavedSearch>> {
 }
 
 pub fn upsert_saved_search(store: &Store, search: &SavedSearch) -> DbResult<()> {
-    store.with(|connection| {
-        connection.execute(
-            "INSERT INTO saved_searches (id, name, query, created_at)
-             VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(id) DO UPDATE SET name = excluded.name, query = excluded.query",
-            rusqlite::params![search.id, search.name, search.query, search.created_at],
-        )?;
-        Ok(())
-    })
+    store.with(|connection| upsert_saved_search_in(connection, search))
+}
+
+pub(crate) fn upsert_saved_search_in(
+    connection: &Connection,
+    search: &SavedSearch,
+) -> DbResult<()> {
+    connection.execute(
+        "INSERT INTO saved_searches (id, name, query, created_at)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name, query = excluded.query",
+        rusqlite::params![search.id, search.name, search.query, search.created_at],
+    )?;
+    Ok(())
 }
 
 pub fn delete_saved_search(store: &Store, search_id: &str) -> DbResult<()> {
@@ -79,35 +86,37 @@ pub fn list_templates(store: &Store) -> DbResult<Vec<NoteTemplate>> {
 }
 
 pub fn upsert_template(store: &Store, template: &NoteTemplate) -> DbResult<()> {
+    store.transact(|transaction| upsert_template_in(transaction, template))
+}
+
+pub(crate) fn upsert_template_in(connection: &Connection, template: &NoteTemplate) -> DbResult<()> {
     let doc_json = serde_json::to_string(&template.doc)?;
-    store.transact(|transaction| {
-        transaction.execute(
-            "INSERT INTO templates (id, name, course_id, title_pattern, doc_json)
-             VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(id) DO UPDATE SET name = excluded.name,
-               course_id = excluded.course_id,
-               title_pattern = excluded.title_pattern,
-               doc_json = excluded.doc_json",
-            rusqlite::params![
-                template.id,
-                template.name,
-                template.course_id,
-                template.title_pattern,
-                doc_json
-            ],
+    connection.execute(
+        "INSERT INTO templates (id, name, course_id, title_pattern, doc_json)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name,
+           course_id = excluded.course_id,
+           title_pattern = excluded.title_pattern,
+           doc_json = excluded.doc_json",
+        rusqlite::params![
+            template.id,
+            template.name,
+            template.course_id,
+            template.title_pattern,
+            doc_json
+        ],
+    )?;
+    connection.execute(
+        "DELETE FROM template_tags WHERE template_id = ?",
+        [&template.id],
+    )?;
+    for tag_id in &template.tag_ids {
+        connection.execute(
+            "INSERT OR IGNORE INTO template_tags (template_id, tag_id) VALUES (?1, ?2)",
+            rusqlite::params![template.id, tag_id],
         )?;
-        transaction.execute(
-            "DELETE FROM template_tags WHERE template_id = ?",
-            [&template.id],
-        )?;
-        for tag_id in &template.tag_ids {
-            transaction.execute(
-                "INSERT OR IGNORE INTO template_tags (template_id, tag_id) VALUES (?1, ?2)",
-                rusqlite::params![template.id, tag_id],
-            )?;
-        }
-        Ok(())
-    })
+    }
+    Ok(())
 }
 
 pub fn delete_template(store: &Store, template_id: &str) -> DbResult<()> {

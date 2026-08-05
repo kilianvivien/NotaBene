@@ -1,7 +1,7 @@
 //! Asset metadata and note attachments. Blob bytes live in the app-data
 //! directory; SQLite stores only content hashes and metadata.
 
-use rusqlite::params;
+use rusqlite::{params, Connection};
 
 use super::model::{Asset, Attachment};
 use super::{notes, DbResult, Store};
@@ -18,26 +18,28 @@ fn asset_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Asset> {
 }
 
 pub fn upsert_asset(store: &Store, asset: &Asset) -> DbResult<()> {
-    store.with(|connection| {
-        connection.execute(
-            "INSERT INTO assets (id, mime, bytes, width, height, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT(id) DO UPDATE SET
-               mime = excluded.mime,
-               bytes = excluded.bytes,
-               width = COALESCE(excluded.width, assets.width),
-               height = COALESCE(excluded.height, assets.height)",
-            params![
-                asset.id,
-                asset.mime,
-                asset.bytes,
-                asset.width,
-                asset.height,
-                asset.created_at
-            ],
-        )?;
-        Ok(())
-    })
+    store.with(|connection| upsert_asset_in(connection, asset))
+}
+
+pub(crate) fn upsert_asset_in(connection: &Connection, asset: &Asset) -> DbResult<()> {
+    connection.execute(
+        "INSERT INTO assets (id, mime, bytes, width, height, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(id) DO UPDATE SET
+           mime = excluded.mime,
+           bytes = excluded.bytes,
+           width = COALESCE(excluded.width, assets.width),
+           height = COALESCE(excluded.height, assets.height)",
+        params![
+            asset.id,
+            asset.mime,
+            asset.bytes,
+            asset.width,
+            asset.height,
+            asset.created_at
+        ],
+    )?;
+    Ok(())
 }
 
 pub fn stat(store: &Store, asset_id: &str) -> DbResult<Option<Asset>> {
@@ -86,35 +88,40 @@ pub fn list_attachments(store: &Store, note_id: &str) -> DbResult<Vec<Attachment
 }
 
 pub fn upsert_attachment(store: &Store, attachment: &Attachment) -> DbResult<()> {
-    store.transact(|connection| {
-        let previous_note_id = connection
-            .query_row(
-                "SELECT note_id FROM attachments WHERE id = ?",
-                [&attachment.id],
-                |row| row.get::<_, String>(0),
-            )
-            .ok();
-        connection.execute(
-            "INSERT INTO attachments (id, note_id, asset_id, name, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(id) DO UPDATE SET
-               note_id = excluded.note_id,
-               asset_id = excluded.asset_id,
-               name = excluded.name",
-            params![
-                attachment.id,
-                attachment.note_id,
-                attachment.asset_id,
-                attachment.name,
-                attachment.created_at
-            ],
-        )?;
-        notes::reindex_note(connection, &attachment.note_id)?;
-        if let Some(previous) = previous_note_id.filter(|id| id != &attachment.note_id) {
-            notes::reindex_note(connection, &previous)?;
-        }
-        Ok(())
-    })
+    store.transact(|transaction| upsert_attachment_in(transaction, attachment))
+}
+
+pub(crate) fn upsert_attachment_in(
+    connection: &Connection,
+    attachment: &Attachment,
+) -> DbResult<()> {
+    let previous_note_id = connection
+        .query_row(
+            "SELECT note_id FROM attachments WHERE id = ?",
+            [&attachment.id],
+            |row| row.get::<_, String>(0),
+        )
+        .ok();
+    connection.execute(
+        "INSERT INTO attachments (id, note_id, asset_id, name, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(id) DO UPDATE SET
+           note_id = excluded.note_id,
+           asset_id = excluded.asset_id,
+           name = excluded.name",
+        params![
+            attachment.id,
+            attachment.note_id,
+            attachment.asset_id,
+            attachment.name,
+            attachment.created_at
+        ],
+    )?;
+    notes::reindex_note(connection, &attachment.note_id)?;
+    if let Some(previous) = previous_note_id.filter(|id| id != &attachment.note_id) {
+        notes::reindex_note(connection, &previous)?;
+    }
+    Ok(())
 }
 
 pub fn delete_attachment(store: &Store, attachment_id: &str) -> DbResult<()> {

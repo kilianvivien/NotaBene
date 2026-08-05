@@ -11,6 +11,7 @@ mod db;
 mod mcp;
 mod menu;
 mod settings;
+mod storage;
 mod tls;
 mod tts;
 
@@ -62,6 +63,19 @@ pub fn run() {
             // loudly rather than start up looking empty.
             let path = db::database_path(handle)?;
             let store = db::Store::open(&path)?;
+
+            // A quick check is cheap enough to run on every launch and catches
+            // the damage that matters. It is recorded, not raised: a database
+            // that still opens is one the user can still export out of, and
+            // refusing to start would take that away at exactly the wrong
+            // moment. Settings → Data & Storage surfaces whatever lands here.
+            let startup_integrity = store
+                .integrity_problems(true)
+                .unwrap_or_else(|error| vec![error.to_string()]);
+            if !startup_integrity.is_empty() {
+                eprintln!("database integrity warnings: {startup_integrity:?}");
+            }
+            app.manage(storage::StartupIntegrity(startup_integrity));
             app.manage(store);
 
             #[cfg(desktop)]
@@ -81,6 +95,12 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            storage::storage_summary,
+            storage::db_integrity_check,
+            storage::backups_dir,
+            storage::backups_list,
+            storage::backups_read,
+            storage::backups_prune,
             commands::library_init,
             commands::library_list_courses,
             commands::library_upsert_course,
