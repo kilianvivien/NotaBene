@@ -95,7 +95,7 @@ export function DataStorageSettings() {
   // library in memory. A pane full of "0 B" would be a claim about storage; the
   // honest answer is that there is none to describe.
   if (!summary) {
-    return <p className="text-[13px] text-nb-text-3">{t('storage.desktopOnly')}</p>;
+    return <FieldNote tone="notice">{t('storage.desktopOnly')}</FieldNote>;
   }
 
   const parts = partition(summary);
