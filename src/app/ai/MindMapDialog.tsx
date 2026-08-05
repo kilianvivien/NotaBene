@@ -78,7 +78,7 @@ export function MindMapDialog() {
       title={t('ai.mindMap')}
       description={t('ai.mindMapIntro')}
       size="lg"
-      headerAction={<AiStatusPill feature="mindMap" className="max-w-[200px]" />}
+      headerAction={<AiStatusPill feature="mindMap" compact />}
       footer={
         <>
           {running ? (
@@ -122,11 +122,7 @@ export function MindMapDialog() {
             onClick={() => setViewing(true)}
             aria-label={t('ai.mindMapZoom')}
           >
-            <img
-              src={svgDataUri(result.svg)}
-              alt={result.map.title}
-              draggable={false}
-            />
+            <img src={svgDataUri(result.svg)} alt={result.map.title} draggable={false} />
             <span className="nb-mind-map-open">
               <Maximize2 size={13} aria-hidden />
               {t('ai.mindMapZoom')}

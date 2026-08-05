@@ -20,11 +20,10 @@
  * - The height follows the content instead of being pinned. A fixed 580px left
  *   Appearance as two rows above 400px of nothing; the nav is the floor now, so
  *   a short pane is a short sheet.
- * - The body reports whether it is scrolled. A pane that is cut off says so
- *   with a fade at the edge, rather than slicing a row in half against the
- *   footer and looking like a rendering bug.
+ * - The body is a `GlassScrollArea`, so a pane that is cut off says so with a
+ *   fade at the edge rather than slicing a row in half against the footer, and
+ *   a new pane starts at its own top.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Bot,
   DatabaseBackup,
@@ -43,6 +42,7 @@ import {
   FieldSection,
   FieldToggle,
   GlassButton,
+  GlassScrollArea,
   GlassSegmentedControl,
   GlassSelect,
   ModalOverlay,
@@ -184,7 +184,7 @@ export function SettingsWindow() {
             </p>
           </header>
 
-          <PaneBody tab={tab}>
+          <GlassScrollArea resetKey={tab} className="px-6 pb-6 pt-5">
             {tab === 'general' && (
               <FieldSection>
                 <FieldRow label={t('settings.language')}>
@@ -399,7 +399,7 @@ export function SettingsWindow() {
             {tab === 'aiProviders' && <AiProviderSettings />}
             {tab === 'agent' && <AgentSettings />}
             {tab === 'about' && <AboutSettings />}
-          </PaneBody>
+          </GlassScrollArea>
 
           <div className="flex shrink-0 justify-end border-t border-[var(--nb-divider)] px-6 py-2.5">
             <GlassButton size="sm" onClick={() => setOpen(false)}>
@@ -409,72 +409,6 @@ export function SettingsWindow() {
         </div>
       </div>
     </ModalOverlay>
-  );
-}
-
-/**
- * The scrolling half of a pane, with an edge fade at whichever end is cut off.
- *
- * The fades are the point. Without them the body ends in a hard line against
- * the footer, and a row that happens to land there is sliced in half — which
- * reads as a layout bug rather than as "there is more below". They live on the
- * wrapper, not the scroller, because a pseudo-element inside a scroll container
- * scrolls away with the content.
- */
-function PaneBody({ tab, children }: { tab: SettingsTab; children: ReactNode }) {
-  const scroller = useRef<HTMLDivElement>(null);
-  const content = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ top: false, bottom: false });
-
-  const measure = useCallback((): void => {
-    const element = scroller.current;
-    if (!element) return;
-    const { scrollTop, scrollHeight, clientHeight } = element;
-    // A pane whose own controls change height — a provider row opening, a
-    // voice list arriving — has to re-answer this, so it is a callback the
-    // observer below can hold on to rather than a scroll handler.
-    setEdges({
-      top: scrollTop > 1,
-      bottom: scrollTop + clientHeight < scrollHeight - 1,
-    });
-  }, []);
-
-  useEffect(() => {
-    const element = content.current;
-    if (!element || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [measure]);
-
-  // A new pane starts at its own top: carrying the previous pane's scroll
-  // position into a shorter one put the reader halfway down a page they had
-  // not opened yet.
-  useEffect(() => {
-    if (scroller.current) scroller.current.scrollTop = 0;
-    measure();
-  }, [tab, measure]);
-
-  return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div
-        ref={scroller}
-        onScroll={measure}
-        className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5"
-      >
-        <div ref={content}>{children}</div>
-      </div>
-      <span
-        aria-hidden
-        className="nb-scroll-fade nb-scroll-fade-top"
-        data-on={edges.top || undefined}
-      />
-      <span
-        aria-hidden
-        className="nb-scroll-fade nb-scroll-fade-bottom"
-        data-on={edges.bottom || undefined}
-      />
-    </div>
   );
 }
 

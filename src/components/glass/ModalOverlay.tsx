@@ -6,6 +6,9 @@ import { GlassPanel } from './GlassPanel';
  * panel has to stay mounted for exactly as long as it is still on screen. */
 const EXIT_MS = 160;
 
+const FOCUSABLE =
+  'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])';
+
 interface ModalOverlayProps {
   open: boolean;
   onClose(): void;
@@ -60,18 +63,29 @@ export function ModalOverlay({
     previousFocus.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     requestAnimationFrame(() => {
-      const first = overlay.current?.querySelector<HTMLElement>(
-        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-      );
-      (first ?? overlay.current?.querySelector<HTMLElement>('[role="dialog"]'))?.focus();
+      // "First focusable" is the wrong default when the first thing in the DOM
+      // is a status readout. Every AI dialog opened with its provider pill
+      // focused, so Return went to Settings instead of to what the dialog is
+      // for. A region can decline the honour with `data-modal-focus="skip"`,
+      // and anything that wants it can claim it outright.
+      const claimed = overlay.current?.querySelector<HTMLElement>('[data-autofocus]');
+      const first = [
+        ...(overlay.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
+      ].find((element) => !element.closest('[data-modal-focus="skip"]'));
+      (
+        claimed ??
+        first ??
+        overlay.current?.querySelector<HTMLElement>('[role="dialog"]')
+      )?.focus();
     });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
       if (event.key !== 'Tab') return;
+      // The trap keeps every focusable in the cycle, including the ones the
+      // opening focus skips: declining to be focused *first* is not the same as
+      // being unreachable.
       const focusable = [
-        ...(overlay.current?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
-        ) ?? []),
+        ...(overlay.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
       ];
       if (!focusable.length) return;
       const first = focusable[0];

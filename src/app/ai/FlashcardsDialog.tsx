@@ -12,7 +12,15 @@
  * actually happens; the note is where it stays findable, and is what makes the
  * deck survive closing this dialog. Neither is the "real" one.
  */
-import { ChevronLeft, ChevronRight, Loader2, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, FieldNote, GlassButton, GlassSelect } from '@/components/glass';
@@ -167,7 +175,7 @@ export function FlashcardsDialog() {
       title={t('ai.flashcards')}
       description={t('ai.flashcardsIntro')}
       size="lg"
-      headerAction={<AiStatusPill feature="flashcards" className="max-w-[200px]" />}
+      headerAction={<AiStatusPill feature="flashcards" compact />}
       footer={
         <>
           {running ? (
@@ -357,9 +365,7 @@ export function FlashcardsDialog() {
             {revealed && reviewCard.hint && (
               <span className="text-[12px] text-nb-text-3">{reviewCard.hint}</span>
             )}
-            <span className="text-[11px] text-nb-text-3">
-              {t('ai.flipCardHint')}
-            </span>
+            <span className="text-[11px] text-nb-text-3">{t('ai.flipCardHint')}</span>
           </button>
           <div className="mt-3 flex items-center justify-center gap-2">
             <GlassButton

@@ -25,7 +25,7 @@ import {
   Sparkles,
   Volume2,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, FieldNote, GlassButton, GlassSelect } from '@/components/glass';
 import type { TtsVoice } from '@/lib/adapters';
@@ -51,6 +51,18 @@ import { useAiAvailability } from './useAiAvailability';
 const MODES: PodcastMode[] = ['narrator', 'dialogue'];
 const LENGTHS = [3, 6, 10, 15];
 const RATES = [0.8, 0.9, 1, 1.15, 1.3];
+
+/** A control with its name above it. Narrower than `FieldRow`, which puts the
+ * label beside the control and would stack four of these into a column where a
+ * single wrapping row does. */
+function Labelled({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="text-[11px] text-nb-text-3">{label}</span>
+      {children}
+    </label>
+  );
+}
 
 export function PodcastDialog() {
   const { t } = useTranslation();
@@ -104,6 +116,8 @@ export function PodcastDialog() {
       if (!active) return;
       if (!outcome.ok) {
         setVoices([]);
+        // Not a failure the reader caused, so it is not shown as one — the web
+        // build simply has no `say(1)` behind it, and the script still works.
         setVoicesError(t('ai.speechUnavailable'));
         return;
       }
@@ -301,7 +315,7 @@ export function PodcastDialog() {
       title={t('ai.podcast')}
       description={t('ai.podcastIntro')}
       size="lg"
-      headerAction={<AiStatusPill feature="podcast" className="max-w-[200px]" />}
+      headerAction={<AiStatusPill feature="podcast" compact />}
       footer={
         <>
           {writing || speaking ? (
@@ -369,85 +383,96 @@ export function PodcastDialog() {
       }
     >
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <GlassSelect
-            label={t('ai.podcastMode')}
-            size="sm"
-            value={podcast.mode}
-            onChange={(event) =>
-              void updateSettings({
-                podcast: { ...podcast, mode: event.target.value as PodcastMode },
-              })
-            }
-          >
-            {MODES.map((mode) => (
-              <option key={mode} value={mode}>
-                {t(`ai.podcastMode_${mode}`)}
-              </option>
-            ))}
-          </GlassSelect>
-          <GlassSelect
-            label={t('ai.podcastLength')}
-            size="sm"
-            value={String(podcast.minutes)}
-            onChange={(event) =>
-              void updateSettings({
-                podcast: { ...podcast, minutes: Number(event.target.value) },
-              })
-            }
-          >
-            {LENGTHS.map((minutes) => (
-              <option key={minutes} value={minutes}>
-                {t('ai.podcastMinutes', { count: minutes })}
-              </option>
-            ))}
-          </GlassSelect>
-          <GlassSelect
-            label={t('ai.voice')}
-            size="sm"
-            value={voiceId ?? ''}
-            disabled={!voices.length}
-            onChange={(event) =>
-              void updateSettings({
-                speech: {
-                  ...speech,
-                  voicesByEngine: {
-                    ...speech.voicesByEngine,
-                    [speech.engineId]: event.target.value,
-                  },
-                },
-              })
-            }
-          >
-            {voices.length ? (
-              voices.map((voice) => (
-                <option key={voice.id} value={voice.id}>
-                  {voice.name} · {voice.locale}
+        {/* Every control keeps its own name above it. As a bare row of
+            dropdowns, "6 min" and "1.0×" gave no clue which was the length of
+            the episode and which the speed it is read at. */}
+        <div className="flex flex-wrap items-end gap-2">
+          <Labelled label={t('ai.podcastMode')}>
+            <GlassSelect
+              label={t('ai.podcastMode')}
+              size="sm"
+              value={podcast.mode}
+              onChange={(event) =>
+                void updateSettings({
+                  podcast: { ...podcast, mode: event.target.value as PodcastMode },
+                })
+              }
+            >
+              {MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {t(`ai.podcastMode_${mode}`)}
                 </option>
-              ))
-            ) : (
-              <option value="">{t('ai.noVoices')}</option>
-            )}
-          </GlassSelect>
-          <GlassSelect
-            label={t('ai.speechRate')}
-            size="sm"
-            value={String(speech.playbackRate)}
-            onChange={(event) =>
-              void updateSettings({
-                speech: { ...speech, playbackRate: Number(event.target.value) },
-              })
-            }
-          >
-            {RATES.map((rate) => (
-              <option key={rate} value={rate}>
-                {rate.toFixed(2).replace(/0$/, '')}×
-              </option>
-            ))}
-          </GlassSelect>
+              ))}
+            </GlassSelect>
+          </Labelled>
+          <Labelled label={t('ai.podcastLength')}>
+            <GlassSelect
+              label={t('ai.podcastLength')}
+              size="sm"
+              value={String(podcast.minutes)}
+              onChange={(event) =>
+                void updateSettings({
+                  podcast: { ...podcast, minutes: Number(event.target.value) },
+                })
+              }
+            >
+              {LENGTHS.map((minutes) => (
+                <option key={minutes} value={minutes}>
+                  {t('ai.podcastMinutes', { count: minutes })}
+                </option>
+              ))}
+            </GlassSelect>
+          </Labelled>
+          <Labelled label={t('ai.voice')}>
+            <GlassSelect
+              label={t('ai.voice')}
+              size="sm"
+              value={voiceId ?? ''}
+              disabled={!voices.length}
+              onChange={(event) =>
+                void updateSettings({
+                  speech: {
+                    ...speech,
+                    voicesByEngine: {
+                      ...speech.voicesByEngine,
+                      [speech.engineId]: event.target.value,
+                    },
+                  },
+                })
+              }
+            >
+              {voices.length ? (
+                voices.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.name} · {voice.locale}
+                  </option>
+                ))
+              ) : (
+                <option value="">{t('ai.noVoices')}</option>
+              )}
+            </GlassSelect>
+          </Labelled>
+          <Labelled label={t('ai.speechRate')}>
+            <GlassSelect
+              label={t('ai.speechRate')}
+              size="sm"
+              value={String(speech.playbackRate)}
+              onChange={(event) =>
+                void updateSettings({
+                  speech: { ...speech, playbackRate: Number(event.target.value) },
+                })
+              }
+            >
+              {RATES.map((rate) => (
+                <option key={rate} value={rate}>
+                  {rate.toFixed(2).replace(/0$/, '')}×
+                </option>
+              ))}
+            </GlassSelect>
+          </Labelled>
         </div>
 
-        {voicesError && <FieldNote tone="danger">{voicesError}</FieldNote>}
+        {voicesError && <FieldNote tone="notice">{voicesError}</FieldNote>}
 
         {!script && (
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-nb-sm border border-dashed border-[var(--nb-divider)] text-nb-text-3">

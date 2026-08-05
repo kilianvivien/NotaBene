@@ -10,6 +10,7 @@ export {
   type ContextMenuItem,
   type ContextPoint,
 } from './ContextMenu';
+export { GlassScrollArea } from './GlassScrollArea';
 export { ModalOverlay } from './ModalOverlay';
 export { Dialog } from './Dialog';
 export { FieldNote, FieldRow, FieldSection, FieldToggle } from './Field';
