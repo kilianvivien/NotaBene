@@ -84,13 +84,19 @@ export function FieldNote({
   tone = 'muted',
 }: {
   children: ReactNode;
-  tone?: 'muted' | 'danger';
+  /** `notice` is for a limit of the platform rather than a fault of the user's
+   * — "this needs the desktop app". Those were coming out in danger red, which
+   * spends the one colour that should mean "something went wrong". */
+  tone?: 'muted' | 'notice' | 'danger';
 }) {
   return (
     <p
       className={cn(
         'mt-2 text-[12px] leading-snug',
-        tone === 'danger' ? 'text-[var(--nb-danger)]' : 'text-nb-text-3',
+        tone === 'danger' && 'text-[var(--nb-danger)]',
+        tone === 'notice' &&
+          'rounded-nb-xs bg-[var(--nb-inset-surface)] px-2.5 py-1.5 text-nb-text-2',
+        tone === 'muted' && 'text-nb-text-3',
       )}
     >
       {children}

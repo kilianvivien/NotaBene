@@ -47,7 +47,9 @@ export function SynthesisDialog() {
     endRun('synthesis');
 
     if (!result.ok) {
-      setError(result.code === 'not_supported' ? t('ai.notConfiguredHint') : result.message);
+      setError(
+        result.code === 'not_supported' ? t('ai.notConfiguredHint') : result.message,
+      );
       return;
     }
     // Land the student in the note that was just made. A summary filed
@@ -70,7 +72,7 @@ export function SynthesisDialog() {
       }}
       title={t('ai.synthesis')}
       size="md"
-      headerAction={<AiStatusPill feature="synthesis" className="max-w-[200px]" />}
+      headerAction={<AiStatusPill feature="synthesis" compact />}
       footer={
         <>
           {running ? (
@@ -122,7 +124,9 @@ export function SynthesisDialog() {
 
       <FieldNote>
         {t('ai.sourceCount', { count: noteIds.length })}
-        {titles.length > 0 && <span className="block truncate">{titles.join(' · ')}</span>}
+        {titles.length > 0 && (
+          <span className="block truncate">{titles.join(' · ')}</span>
+        )}
       </FieldNote>
       {error && <FieldNote tone="danger">{error}</FieldNote>}
     </Dialog>

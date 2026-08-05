@@ -19,7 +19,10 @@ export function TemplatePicker() {
     <Dialog
       open={open}
       onClose={() => setOpen(false)}
-      title={t('organization.newFromTemplate')}
+      // Not the menu item's label: a trailing ellipsis means "this opens a
+      // dialog", and inside that dialog it is a promise already kept.
+      title={t('organization.templatePickerTitle')}
+      description={t('organization.templatePickerHint')}
       size="md"
       footer={
         <GlassButton size="sm" onClick={() => setOpen(false)}>
@@ -57,9 +60,13 @@ export function TemplatePicker() {
             </button>
           ))
         ) : (
-          <p className="py-8 text-center text-[12px] text-nb-text-3">
-            {t('organization.noTemplates')}
-          </p>
+          <div className="flex flex-col items-center gap-2 py-8 text-center text-nb-text-3">
+            <FileStack size={24} aria-hidden />
+            <p className="text-[13px] text-nb-text-2">{t('organization.noTemplates')}</p>
+            <p className="max-w-[42ch] text-[11.5px] leading-snug">
+              {t('organization.noTemplatesHint')}
+            </p>
+          </div>
         )}
       </div>
     </Dialog>
