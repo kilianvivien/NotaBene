@@ -203,6 +203,7 @@
     "days": "jours",
     "backupNow": "Sauvegarder…",
     "restore": "Restaurer une sauvegarde…",
+    "restoreThis": "Restaurer",
     "emptyTrash": "Vider la corbeille…",
     "emptyTrashTitle": "Vider la corbeille",
     "created": "Sauvegarde créée",

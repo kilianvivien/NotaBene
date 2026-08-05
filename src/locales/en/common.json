@@ -203,6 +203,7 @@
     "days": "days",
     "backupNow": "Back up now…",
     "restore": "Restore backup…",
+    "restoreThis": "Restore",
     "emptyTrash": "Empty Trash…",
     "emptyTrashTitle": "Empty Trash",
     "created": "Backup created",

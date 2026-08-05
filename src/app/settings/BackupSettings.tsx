@@ -326,7 +326,9 @@ export function BackupSettings() {
                   disabled={working}
                   onClick={() => void selectRestore(file.path)}
                 >
-                  {t('backups.restore')}
+                  {/* Not `backups.restore` — that one opens a file picker and
+                      says so with an ellipsis. This row *is* the choice. */}
+                  {t('backups.restoreThis')}
                 </GlassButton>
               </li>
             ))}
