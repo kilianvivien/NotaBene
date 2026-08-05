@@ -27,6 +27,7 @@
 import {
   Bot,
   DatabaseBackup,
+  HardDrive,
   Info,
   Palette,
   Replace,
@@ -55,6 +56,7 @@ import type { AccentColor, AppSettings, FocusSettings } from '@/lib/adapters';
 import { EDITOR_FONT_SIZES, EDITOR_MEASURES } from '@/app/shell/readingScale';
 import { AbbreviationSettings } from './AbbreviationSettings';
 import { BackupSettings } from './BackupSettings';
+import { DataStorageSettings } from './DataStorageSettings';
 import { AiProviderSettings } from './AiProviderSettings';
 import { AgentSettings } from './AgentSettings';
 import { AboutSettings } from './AboutSettings';
@@ -81,6 +83,9 @@ const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
     tabs: [
       { id: 'speech', icon: Volume2 },
       { id: 'backups', icon: DatabaseBackup },
+      // Backups are what NotaBene *does* with the data; this is what is
+      // actually sitting on the disk right now. Two questions, two panes.
+      { id: 'dataStorage', icon: HardDrive },
     ],
   },
   {
@@ -395,6 +400,7 @@ export function SettingsWindow() {
 
             {tab === 'abbreviations' && <AbbreviationSettings />}
             {tab === 'backups' && <BackupSettings />}
+            {tab === 'dataStorage' && <DataStorageSettings />}
             {tab === 'speech' && <SpeechSettings />}
             {tab === 'aiProviders' && <AiProviderSettings />}
             {tab === 'agent' && <AgentSettings />}

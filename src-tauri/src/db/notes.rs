@@ -333,65 +333,67 @@ pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
 }
 
 pub fn upsert(store: &Store, note: &Note) -> DbResult<()> {
+    store.transact(|transaction| upsert_in(transaction, note))
+}
+
+pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
     let doc_json = serde_json::to_string(&note.doc)?;
     let (has_image, has_drawing, has_table) = doc_features(&note.doc);
 
-    store.transact(|transaction| {
+    transaction.execute(
+        "INSERT INTO notes (id, course_id, section_id, title, doc_json, plain_text, \
+         pinned, archived, trashed_at, created_at, updated_at, \"order\", \
+         has_image, has_drawing, has_table) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15) \
+         ON CONFLICT(id) DO UPDATE SET \
+         course_id = excluded.course_id, section_id = excluded.section_id, \
+         title = excluded.title, doc_json = excluded.doc_json, \
+         plain_text = excluded.plain_text, pinned = excluded.pinned, \
+         archived = excluded.archived, trashed_at = excluded.trashed_at, \
+         updated_at = excluded.updated_at, \"order\" = excluded.\"order\", \
+         has_image = excluded.has_image, has_drawing = excluded.has_drawing, \
+         has_table = excluded.has_table",
+        rusqlite::params![
+            note.id,
+            note.course_id,
+            note.section_id,
+            note.title,
+            doc_json,
+            note.plain_text,
+            i64::from(note.pinned),
+            i64::from(note.archived),
+            note.trashed_at,
+            note.created_at,
+            note.updated_at,
+            note.order,
+            i64::from(has_image),
+            i64::from(has_drawing),
+            i64::from(has_table),
+        ],
+    )?;
+
+    // Replace rather than diff: the set is tiny and this cannot drift.
+    transaction.execute("DELETE FROM note_tags WHERE note_id = ?", [&note.id])?;
+    for tag_id in &note.tag_ids {
         transaction.execute(
-            "INSERT INTO notes (id, course_id, section_id, title, doc_json, plain_text, \
-             pinned, archived, trashed_at, created_at, updated_at, \"order\", \
-             has_image, has_drawing, has_table) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15) \
-             ON CONFLICT(id) DO UPDATE SET \
-             course_id = excluded.course_id, section_id = excluded.section_id, \
-             title = excluded.title, doc_json = excluded.doc_json, \
-             plain_text = excluded.plain_text, pinned = excluded.pinned, \
-             archived = excluded.archived, trashed_at = excluded.trashed_at, \
-             updated_at = excluded.updated_at, \"order\" = excluded.\"order\", \
-             has_image = excluded.has_image, has_drawing = excluded.has_drawing, \
-             has_table = excluded.has_table",
-            rusqlite::params![
-                note.id,
-                note.course_id,
-                note.section_id,
-                note.title,
-                doc_json,
-                note.plain_text,
-                i64::from(note.pinned),
-                i64::from(note.archived),
-                note.trashed_at,
-                note.created_at,
-                note.updated_at,
-                note.order,
-                i64::from(has_image),
-                i64::from(has_drawing),
-                i64::from(has_table),
-            ],
+            "INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?1, ?2)",
+            rusqlite::params![note.id, tag_id],
         )?;
+    }
 
-        // Replace rather than diff: the set is tiny and this cannot drift.
-        transaction.execute("DELETE FROM note_tags WHERE note_id = ?", [&note.id])?;
-        for tag_id in &note.tag_ids {
-            transaction.execute(
-                "INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?1, ?2)",
-                rusqlite::params![note.id, tag_id],
-            )?;
-        }
+    rebuild_links(transaction, note)?;
+    // A newly-created note resolves any older `[[Title]]` links that were
+    // waiting for it. Existing id-backed links are deliberately untouched.
+    transaction.execute(
+        "UPDATE note_links SET target_id = ?1
+         WHERE target_id IS NULL AND target_title = ?2 COLLATE NOCASE",
+        rusqlite::params![note.id, note.title],
+    )?;
+    reindex_note(transaction, &note.id)?;
 
-        rebuild_links(transaction, note)?;
-        // A newly-created note resolves any older `[[Title]]` links that were
-        // waiting for it. Existing id-backed links are deliberately untouched.
-        transaction.execute(
-            "UPDATE note_links SET target_id = ?1
-             WHERE target_id IS NULL AND target_title = ?2 COLLATE NOCASE",
-            rusqlite::params![note.id, note.title],
-        )?;
-        reindex_note(transaction, &note.id)?;
-
-        // The note reached disk, so any journalled in-flight copy is stale.
-        transaction.execute("DELETE FROM editor_journal WHERE note_id = ?", [&note.id])?;
-        Ok(())
-    })
+    // The note reached disk, so any journalled in-flight copy is stale.
+    transaction.execute("DELETE FROM editor_journal WHERE note_id = ?", [&note.id])?;
+    Ok(())
 }
 
 /// Keep all FTS fields derived from surrounding entities in one row. Course,
@@ -635,29 +637,30 @@ pub fn create_snapshot(
     })
 }
 
-pub fn upsert_snapshot(store: &Store, snapshot: &Snapshot) -> DbResult<()> {
+/// Only `library_import` writes a snapshot it did not create — everything else
+/// goes through `create_snapshot` — so this exists in the connection-taking
+/// form alone.
+pub(crate) fn upsert_snapshot_in(connection: &Connection, snapshot: &Snapshot) -> DbResult<()> {
     let doc_json = serde_json::to_string(&snapshot.doc)?;
-    store.with(|connection| {
-        connection.execute(
-            "INSERT INTO snapshots (id, note_id, doc_json, title, cause, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT(id) DO UPDATE SET
-               note_id = excluded.note_id,
-               doc_json = excluded.doc_json,
-               title = excluded.title,
-               cause = excluded.cause,
-               created_at = excluded.created_at",
-            rusqlite::params![
-                snapshot.id,
-                snapshot.note_id,
-                doc_json,
-                snapshot.title,
-                snapshot.cause,
-                snapshot.created_at
-            ],
-        )?;
-        Ok(())
-    })
+    connection.execute(
+        "INSERT INTO snapshots (id, note_id, doc_json, title, cause, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(id) DO UPDATE SET
+           note_id = excluded.note_id,
+           doc_json = excluded.doc_json,
+           title = excluded.title,
+           cause = excluded.cause,
+           created_at = excluded.created_at",
+        rusqlite::params![
+            snapshot.id,
+            snapshot.note_id,
+            doc_json,
+            snapshot.title,
+            snapshot.cause,
+            snapshot.created_at
+        ],
+    )?;
+    Ok(())
 }
 
 pub fn prune_snapshots(
@@ -708,6 +711,17 @@ pub fn prune_snapshots(
 
 pub fn purge_trash(store: &Store, trashed_before: &str) -> DbResult<usize> {
     store.transact(|transaction| {
+        // `notes_fts` stopped being an external-content table in v2, so nothing
+        // clears it on our behalf. Dropping the index rows first — while the
+        // notes still exist to join against — is what `purge` does for a single
+        // note, and skipping it here left the index growing forever and skewed
+        // the bm25 statistics every search is ranked by.
+        transaction.execute(
+            "DELETE FROM notes_fts WHERE rowid IN (
+                 SELECT rowid FROM notes WHERE trashed_at IS NOT NULL AND trashed_at <= ?
+             )",
+            [trashed_before],
+        )?;
         let removed = transaction.execute(
             "DELETE FROM notes WHERE trashed_at IS NOT NULL AND trashed_at <= ?",
             [trashed_before],

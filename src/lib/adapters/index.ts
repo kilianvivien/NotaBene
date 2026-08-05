@@ -37,6 +37,10 @@ import { browserExternalLinkAdapter } from './external/browserExternalLinkAdapte
 import { tauriExternalLinkAdapter } from './external/tauriExternalLinkAdapter';
 import { browserWindowAdapter } from './window/browserWindowAdapter';
 import { tauriWindowAdapter } from './window/tauriWindowAdapter';
+import {
+  tauriStorageAdapter,
+  unavailableStorageAdapter,
+} from './storage/tauriStorageAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 
 import type { LibraryAdapter } from './library/LibraryAdapter';
@@ -49,6 +53,7 @@ import type { AiTransport } from './ai/AiTransport';
 import type { McpAdapter } from './mcp/McpAdapter';
 import type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 import type { WindowAdapter } from './window/WindowAdapter';
+import type { StorageAdapter } from './storage/StorageAdapter';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -72,6 +77,9 @@ export const externalLinks: ExternalLinkAdapter = isTauri
 export const appWindow: WindowAdapter = isTauri
   ? tauriWindowAdapter
   : browserWindowAdapter;
+export const storage: StorageAdapter = isTauri
+  ? tauriStorageAdapter
+  : unavailableStorageAdapter;
 // Desktop AI leaves through Rust so that a self-hosted or otherwise unusual
 // base URL does not require widening `connect-src` for the whole webview; the
 // browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
@@ -133,6 +141,14 @@ export type { MenuAdapter, MenuNode, MenuRole } from './menu/MenuAdapter';
 export type { AiRequest, AiResponse, AiTransport } from './ai/AiTransport';
 export type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 export type { WindowAdapter } from './window/WindowAdapter';
+export type {
+  BackupFile,
+  IntegrityReport,
+  StorageAdapter,
+  StorageCounts,
+  StorageSizes,
+  StorageSummary,
+} from './storage/StorageAdapter';
 export type {
   TtsAudioEncoding,
   TtsEngine,

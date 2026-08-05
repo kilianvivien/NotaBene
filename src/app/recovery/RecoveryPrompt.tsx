@@ -76,6 +76,12 @@ export function RecoveryPrompt() {
               <GlassButton
                 size="sm"
                 variant="accent"
+                // Claim the opening focus away from Discard, which the markup
+                // order would otherwise hand it to. Both answers are safe to
+                // *choose*, but only one is safe to hit by accident: the tail
+                // Discard drops is the one copy of it that exists, and this
+                // dialog greets someone whose app just died.
+                data-autofocus
                 onClick={() => void onRecover(entry.noteId)}
               >
                 {t('recovery.restore')}

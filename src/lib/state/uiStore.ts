@@ -29,6 +29,7 @@ export type SettingsTab =
   | 'editor'
   | 'abbreviations'
   | 'speech'
+  | 'dataStorage'
   | 'aiProviders'
   | 'backups'
   | 'agent'

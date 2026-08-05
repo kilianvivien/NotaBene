@@ -38,6 +38,10 @@ const SIDEBAR_WIDTH = 228;
 const NOTE_LIST_WIDTH = 290;
 const INSPECTOR_WIDTH = 280;
 
+/** How often to ask whether a scheduled backup is due. Not how often one runs —
+ * that is a day or a week, decided by the command itself. */
+const BACKUP_HEARTBEAT_MS = 30 * 60 * 1000;
+
 export function App() {
   const bootstrap = useLibraryStore((state) => state.bootstrap);
   const loadSettings = useSettingsStore((state) => state.load);
@@ -55,6 +59,13 @@ export function App() {
     let stopAgentBridge = () => {};
     let stopStatusWatch = () => {};
     const stopThemeWatch = watchSystemTheme();
+    // The scheduled backup used to run during bootstrap and nowhere else, so a
+    // machine left open for a fortnight backed up exactly once. The command is
+    // already gated on when the last one ran, so an extra tick is free.
+    const backupHeartbeat = window.setInterval(
+      () => void runScheduledBackupCommand(),
+      BACKUP_HEARTBEAT_MS,
+    );
     void (async () => {
       await loadSettings();
       setLocale(useSettingsStore.getState().settings.locale);
@@ -78,6 +89,7 @@ export function App() {
     return () => {
       delete document.documentElement.dataset.ready;
       active = false;
+      window.clearInterval(backupHeartbeat);
       stopAgentBridge();
       stopStatusWatch();
       stopThemeWatch();

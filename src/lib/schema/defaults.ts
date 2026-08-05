@@ -80,7 +80,17 @@ export function createNote(input: Partial<Note> = {}): Note {
   };
 }
 
-export function emptyLibrary(appVersion = '0.5.0'): Library {
+/**
+ * `appVersion` is stamped into every backup manifest, so a hardcoded literal
+ * here would quietly start lying at the next release. `__APP_VERSION__` is
+ * Vite's injection from `package.json` — the same source the Rust exporter
+ * reads through `CARGO_PKG_VERSION`. The fallback covers callers outside a
+ * bundled context, which is only ever a test.
+ */
+const APP_VERSION =
+  typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev';
+
+export function emptyLibrary(appVersion = APP_VERSION): Library {
   return {
     schemaVersion: SCHEMA_VERSION,
     exportedAt: now(),

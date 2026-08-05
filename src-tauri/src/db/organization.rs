@@ -1,5 +1,13 @@
 //! Courses, sections, and tags.
 
+//! Every writer here comes in two halves: a `*_in` function that takes a bare
+//! connection, and a thin wrapper that opens a transaction around it. The split
+//! exists so `library_import` can call all of them inside *one* transaction —
+//! the store's mutex is not reentrant, so a wrapper called from inside a
+//! transaction would deadlock rather than nest.
+
+use rusqlite::Connection;
+
 use super::model::{Course, Section, Tag};
 use super::{notes, DbResult, Store};
 
@@ -32,42 +40,44 @@ pub fn list_courses(store: &Store) -> DbResult<Vec<Course>> {
 }
 
 pub fn upsert_course(store: &Store, course: &Course) -> DbResult<()> {
-    store.transact(|connection| {
-        connection.execute(
-            "INSERT INTO courses (id, name, color, icon, professor, semester, credits, \
-             schedule, \"order\", archived, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
-             ON CONFLICT(id) DO UPDATE SET \
-             name = excluded.name, color = excluded.color, icon = excluded.icon, \
-             professor = excluded.professor, semester = excluded.semester, \
-             credits = excluded.credits, schedule = excluded.schedule, \
-             \"order\" = excluded.\"order\", archived = excluded.archived, \
-             updated_at = excluded.updated_at",
-            rusqlite::params![
-                course.id,
-                course.name,
-                course.color,
-                course.icon,
-                course.professor,
-                course.semester,
-                course.credits,
-                course.schedule,
-                course.order,
-                i64::from(course.archived),
-                course.created_at,
-                course.updated_at,
-            ],
-        )?;
-        let note_ids = note_ids(
-            connection,
-            "SELECT id FROM notes WHERE course_id = ?",
-            &course.id,
-        )?;
-        for note_id in note_ids {
-            notes::reindex_note(connection, &note_id)?;
-        }
-        Ok(())
-    })
+    store.transact(|transaction| upsert_course_in(transaction, course))
+}
+
+pub(crate) fn upsert_course_in(connection: &Connection, course: &Course) -> DbResult<()> {
+    connection.execute(
+        "INSERT INTO courses (id, name, color, icon, professor, semester, credits, \
+         schedule, \"order\", archived, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
+         ON CONFLICT(id) DO UPDATE SET \
+         name = excluded.name, color = excluded.color, icon = excluded.icon, \
+         professor = excluded.professor, semester = excluded.semester, \
+         credits = excluded.credits, schedule = excluded.schedule, \
+         \"order\" = excluded.\"order\", archived = excluded.archived, \
+         updated_at = excluded.updated_at",
+        rusqlite::params![
+            course.id,
+            course.name,
+            course.color,
+            course.icon,
+            course.professor,
+            course.semester,
+            course.credits,
+            course.schedule,
+            course.order,
+            i64::from(course.archived),
+            course.created_at,
+            course.updated_at,
+        ],
+    )?;
+    let note_ids = note_ids(
+        connection,
+        "SELECT id FROM notes WHERE course_id = ?",
+        &course.id,
+    )?;
+    for note_id in note_ids {
+        notes::reindex_note(connection, &note_id)?;
+    }
+    Ok(())
 }
 
 /// Deleting a course does not delete its notes — the foreign key is
@@ -108,15 +118,17 @@ pub fn list_sections(store: &Store, course_id: &str) -> DbResult<Vec<Section>> {
 }
 
 pub fn upsert_section(store: &Store, section: &Section) -> DbResult<()> {
-    store.with(|connection| {
-        connection.execute(
-            "INSERT INTO sections (id, course_id, name, \"order\") VALUES (?1, ?2, ?3, ?4) \
-             ON CONFLICT(id) DO UPDATE SET course_id = excluded.course_id, \
-             name = excluded.name, \"order\" = excluded.\"order\"",
-            rusqlite::params![section.id, section.course_id, section.name, section.order],
-        )?;
-        Ok(())
-    })
+    store.with(|connection| upsert_section_in(connection, section))
+}
+
+pub(crate) fn upsert_section_in(connection: &Connection, section: &Section) -> DbResult<()> {
+    connection.execute(
+        "INSERT INTO sections (id, course_id, name, \"order\") VALUES (?1, ?2, ?3, ?4) \
+         ON CONFLICT(id) DO UPDATE SET course_id = excluded.course_id, \
+         name = excluded.name, \"order\" = excluded.\"order\"",
+        rusqlite::params![section.id, section.course_id, section.name, section.order],
+    )?;
+    Ok(())
 }
 
 pub fn delete_section(store: &Store, section_id: &str) -> DbResult<()> {
@@ -145,23 +157,25 @@ pub fn list_tags(store: &Store) -> DbResult<Vec<Tag>> {
 }
 
 pub fn upsert_tag(store: &Store, tag: &Tag) -> DbResult<()> {
-    store.transact(|connection| {
-        connection.execute(
-            "INSERT INTO tags (id, namespace, name, color) VALUES (?1, ?2, ?3, ?4) \
-             ON CONFLICT(id) DO UPDATE SET namespace = excluded.namespace, \
-             name = excluded.name, color = excluded.color",
-            rusqlite::params![tag.id, tag.namespace, tag.name, tag.color],
-        )?;
-        let note_ids = note_ids(
-            connection,
-            "SELECT note_id FROM note_tags WHERE tag_id = ?",
-            &tag.id,
-        )?;
-        for note_id in note_ids {
-            notes::reindex_note(connection, &note_id)?;
-        }
-        Ok(())
-    })
+    store.transact(|transaction| upsert_tag_in(transaction, tag))
+}
+
+pub(crate) fn upsert_tag_in(connection: &Connection, tag: &Tag) -> DbResult<()> {
+    connection.execute(
+        "INSERT INTO tags (id, namespace, name, color) VALUES (?1, ?2, ?3, ?4) \
+         ON CONFLICT(id) DO UPDATE SET namespace = excluded.namespace, \
+         name = excluded.name, color = excluded.color",
+        rusqlite::params![tag.id, tag.namespace, tag.name, tag.color],
+    )?;
+    let note_ids = note_ids(
+        connection,
+        "SELECT note_id FROM note_tags WHERE tag_id = ?",
+        &tag.id,
+    )?;
+    for note_id in note_ids {
+        notes::reindex_note(connection, &note_id)?;
+    }
+    Ok(())
 }
 
 pub fn delete_tag(store: &Store, tag_id: &str) -> DbResult<()> {

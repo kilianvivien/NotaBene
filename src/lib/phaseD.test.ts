@@ -147,13 +147,14 @@ describe('Phase D versions, backups, and exports', () => {
     const payload = new Blob(['asset bytes'], { type: 'image/png' });
     const asset = await assets.put(payload);
     library.assets.push(asset);
-    const archive = await createBackupArchive(library);
+    const { blob: archive, missingAssets } = await createBackupArchive(library);
     const files = unzipSync(new Uint8Array(await bytes(archive)));
     const manifest = strFromU8(files['manifest.json']!);
     const json = strFromU8(files['library.json']!);
 
     expect(manifest).toContain('"format": "notabene-backup"');
     expect(json).not.toMatch(/api.?key|secret|settings/i);
+    expect(missingAssets).toEqual([]);
     const parsed = await parseBackupArchive(archive);
     expect(parsed.library).toEqual(library);
     expect(await bytes(parsed.assetBlobs.get(asset.id)!)).toEqual(await bytes(payload));

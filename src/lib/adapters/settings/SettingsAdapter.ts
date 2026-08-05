@@ -108,8 +108,23 @@ export interface AppSettings {
   /** How aggressively old per-note versions are thinned. */
   snapshotRetention: 'standard' | 'extended' | 'forever';
   backupSchedule: 'off' | 'daily' | 'weekly';
+  /** Where scheduled backups land. `null` means the folder NotaBene manages
+   * inside its own app data directory — which is what makes backups work on a
+   * fresh install with nothing configured. */
   backupFolder: string | null;
+  /** How many archives to keep. Applies **only** to the managed folder: files
+   * in a folder the user chose are theirs, and NotaBene never deletes them. */
+  backupsToKeep: number;
   lastBackupAt: string | null;
+  /** Where the last successful backup landed, so Settings can name it. */
+  lastBackupPath: string | null;
+  /** Why the last attempt failed, and when. Cleared by the next success —
+   * without these, "backups are on" and "backups are working" look identical. */
+  lastBackupError: string | null;
+  lastBackupErrorAt: string | null;
+  /** Set once, when the daily-by-default schedule is applied to a profile that
+   * predates it. Distinguishes "never chose" from "chose off". */
+  backupDefaultsApplied: boolean;
   exportPreset: {
     format: 'markdown' | 'html' | 'pdf' | 'docx';
     layout: 'combined' | 'separate';
@@ -171,9 +186,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   trashRetentionDays: 30,
   snapshotRetention: 'standard',
-  backupSchedule: 'off',
+  // On by default, into NotaBene's own folder. An unprotected library is the
+  // default state that costs the most and is hardest to notice.
+  backupSchedule: 'daily',
   backupFolder: null,
+  backupsToKeep: 10,
   lastBackupAt: null,
+  lastBackupPath: null,
+  lastBackupError: null,
+  lastBackupErrorAt: null,
+  backupDefaultsApplied: true,
   exportPreset: {
     format: 'pdf',
     layout: 'combined',
