@@ -2,10 +2,13 @@
  * About.
  *
  * Version, what the app promises, and where its third-party code came from.
- * The privacy line is not marketing copy here — it is the one claim a user
- * cannot verify from the outside, so it says exactly what leaves the machine
- * and under what circumstances, and nothing vaguer than that.
+ * The privacy lines are not marketing copy here — they are the one claim a user
+ * cannot verify from the outside, so they say exactly what leaves the machine
+ * and under what circumstances, and nothing vaguer than that. They are given a
+ * glyph and a row each because three long sentences in an unmarked list read as
+ * a paragraph nobody finishes; the wording itself is unchanged.
  */
+import { HardDrive, KeyRound, Wifi } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FieldSection } from '@/components/glass';
 
@@ -22,44 +25,65 @@ const CREDITS: { name: string; licence: string }[] = [
   { name: 'Lora', licence: 'SIL Open Font License 1.1' },
 ];
 
+/** One promise, one glyph: where the data sits, what may leave, where the keys
+ * are. In that order, because it is the order of the questions. */
+const PROMISES = [
+  { key: 'aboutPrivacyLocal', icon: HardDrive },
+  { key: 'aboutPrivacyNetwork', icon: Wifi },
+  { key: 'aboutPrivacyKeys', icon: KeyRound },
+] as const;
+
 export function AboutSettings() {
   const { t } = useTranslation();
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-[15px] font-semibold">{t('app.name')}</p>
-        <p className="mt-0.5 text-[12px] text-nb-text-3">
-          {t('app.version', { version: __APP_VERSION__ })}
-        </p>
-        <p className="mt-2 max-w-[46ch] text-[13px] leading-snug text-nb-text-2">
-          {t('app.tagline')}
-        </p>
+      <div className="flex items-center gap-3.5">
+        {/* The app's own icon, from `public/` — the same file the window and the
+            web manifest use, so it cannot drift from what is in the Dock. */}
+        <img
+          src="/icon-192.png"
+          alt=""
+          width={192}
+          height={192}
+          className="size-14 shrink-0"
+        />
+        <div className="min-w-0">
+          <p className="text-[17px] font-semibold tracking-[-0.01em]">{t('app.name')}</p>
+          <p className="mt-0.5 max-w-[46ch] text-[12.5px] leading-snug text-nb-text-2">
+            {t('app.tagline')}
+          </p>
+          <p className="mt-1 text-[11px] tabular-nums text-nb-text-3">
+            {t('app.version', { version: __APP_VERSION__ })} ·{' '}
+            {t('settings.aboutLicenceBody')}
+          </p>
+        </div>
       </div>
 
       <FieldSection title={t('settings.aboutPrivacy')}>
-        <ul className="space-y-1 text-[12px] leading-snug text-nb-text-2">
-          <li>{t('settings.aboutPrivacyLocal')}</li>
-          <li>{t('settings.aboutPrivacyNetwork')}</li>
-          <li>{t('settings.aboutPrivacyKeys')}</li>
+        <ul className="divide-y divide-[var(--nb-divider)] overflow-hidden rounded-nb-sm bg-[var(--nb-inset-surface)]">
+          {PROMISES.map(({ key, icon: Icon }) => (
+            <li key={key} className="flex items-start gap-2.5 px-3 py-2.5">
+              <Icon size={14} className="mt-px shrink-0 text-nb-text-3" aria-hidden />
+              <span className="text-[12px] leading-snug text-nb-text-2">
+                {t(`settings.${key}`)}
+              </span>
+            </li>
+          ))}
         </ul>
       </FieldSection>
 
-      <FieldSection title={t('settings.aboutLicence')}>
-        <p className="text-[12px] leading-snug text-nb-text-2">
-          {t('settings.aboutLicenceBody')}
-        </p>
-      </FieldSection>
-
       <FieldSection title={t('settings.aboutCredits')}>
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
+        <ul className="grid grid-cols-2 gap-x-5">
           {CREDITS.map((credit) => (
             <li
               key={credit.name}
-              className="flex items-baseline justify-between gap-2 text-[12px]"
+              className="flex items-baseline justify-between gap-2 border-b border-[var(--nb-divider)] py-1.5 text-[12px] last:border-0 [&:nth-last-child(2)]:border-0"
             >
               <span className="truncate text-nb-text-2">{credit.name}</span>
-              <span className="shrink-0 text-nb-text-3">{credit.licence}</span>
+              <span className="shrink-0 text-[11px] text-nb-text-3">
+                {credit.licence}
+              </span>
             </li>
           ))}
         </ul>

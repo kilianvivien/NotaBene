@@ -661,8 +661,7 @@
     "aboutPrivacyLocal": "Chaque note, dessin et pièce jointe réside dans un dossier sur ce Mac. Aucun compte, aucune synchronisation.",
     "aboutPrivacyNetwork": "Les seules requêtes sortantes vont au fournisseur d’IA que vous avez configuré et à la vérification des mises à jour, désactivable. Aucune télémétrie, jamais.",
     "aboutPrivacyKeys": "Les clés d’API sont conservées dans le trousseau macOS et ne peuvent apparaître ni dans une sauvegarde ni dans un export.",
-    "aboutLicence": "Licence",
-    "aboutLicenceBody": "NotaBene est distribué sous licence Apache 2.0.",
+    "aboutLicenceBody": "Licence Apache 2.0",
     "aboutCredits": "Construit avec",
     "dataStorage": "Données et stockage",
     "desc_dataStorage": "Où NotaBene conserve vos données sur ce Mac, l’espace qu’elles occupent, et si elles sont intactes."
