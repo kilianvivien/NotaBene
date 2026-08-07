@@ -1,12 +1,12 @@
 /**
  * Synthesis.
  *
- * Four output styles over the current note or the whole multi-selection. The
- * result is a new note, so there is no diff to gate — the worst case is a note
- * you delete, not an edit you have to unpick.
+ * Four output styles and a brief of the student's own, over the current note or
+ * the whole multi-selection. The result is a new note, so there is no diff to
+ * gate — the worst case is a note you delete, not an edit you have to unpick.
  */
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, FieldNote, GlassButton } from '@/components/glass';
 import type { SynthesisStyle } from '@/lib/ai';
@@ -15,10 +15,14 @@ import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { cn } from '@/lib/utils/cn';
 import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
-const STYLES: SynthesisStyle[] = ['summary', 'revision', 'qa', 'glossary'];
+/** Four shapes somebody guessed would be wanted, and the one that admits they
+ * might want something else. `custom` sits last because it is the answer to
+ * "none of these", which is a thing you conclude after reading the four. */
+const STYLES: SynthesisStyle[] = ['summary', 'revision', 'qa', 'glossary', 'custom'];
 
 export function SynthesisDialog() {
   const { t } = useTranslation();
@@ -32,7 +36,18 @@ export function SynthesisDialog() {
   const availability = useAiAvailability('synthesis');
 
   const [style, setStyle] = useState<SynthesisStyle>('revision');
+  const [instructions, setInstructions] = useState('');
   const [error, setError] = useState('');
+  const custom = style === 'custom';
+  const briefed = !custom || instructions.trim().length > 0;
+  const briefRef = useRef<HTMLTextAreaElement>(null);
+
+  // Choosing "your own brief" is asking to write one. The dialog's own opening
+  // focus belongs to the radio list, so this waits for the box to exist rather
+  // than declaring `autoFocus`, which the modal's focus manager overrides.
+  useEffect(() => {
+    if (custom) briefRef.current?.focus();
+  }, [custom]);
 
   const noteIds = multiSelection.length
     ? multiSelection
@@ -43,7 +58,10 @@ export function SynthesisDialog() {
   async function run() {
     setError('');
     const signal = beginRun('synthesis');
-    const result = await synthesizeNotesCommand({ noteIds, style }, { signal });
+    const result = await synthesizeNotesCommand(
+      { noteIds, style, instructions: custom ? instructions.trim() : undefined },
+      { signal },
+    );
     endRun('synthesis');
 
     if (!result.ok) {
@@ -92,7 +110,7 @@ export function SynthesisDialog() {
           <GlassButton
             size="sm"
             variant="accent"
-            disabled={!noteIds.length || !availability.available || running}
+            disabled={!noteIds.length || !availability.available || !briefed || running}
             onClick={() => void run()}
           >
             {running && <Loader2 size={12} className="animate-spin" />}
@@ -126,6 +144,26 @@ export function SynthesisDialog() {
           </label>
         ))}
       </fieldset>
+
+      {/* Under the option it belongs to, and only then: a text box that does
+          nothing until a radio above it is chosen is a box people type into
+          and then wonder why it was ignored. */}
+      {custom && (
+        <textarea
+          ref={briefRef}
+          rows={3}
+          value={instructions}
+          onChange={(event) => setInstructions(event.target.value)}
+          placeholder={t('ai.styleCustomPlaceholder')}
+          aria-label={t('ai.style_custom')}
+          className={cn(
+            'mt-1.5 block w-full resize-y rounded-nb-sm px-2.5 py-2',
+            'border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)]',
+            'text-[12.5px] leading-relaxed outline-none placeholder:text-nb-text-3',
+            'transition-colors duration-[var(--nb-t-fast)] focus:border-[var(--nb-accent)]',
+          )}
+        />
+      )}
 
       <FieldNote>
         {t('ai.sourceCount', { count: noteIds.length })}

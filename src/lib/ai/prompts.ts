@@ -17,7 +17,7 @@ import type { AiMessage } from './protocols';
 import type { AskScope } from './retrieval';
 
 export type RewriteMode = 'light' | 'full' | 'custom';
-export type SynthesisStyle = 'summary' | 'revision' | 'qa' | 'glossary';
+export type SynthesisStyle = 'summary' | 'revision' | 'qa' | 'glossary' | 'custom';
 export type AskMode = 'note' | 'knowledge';
 
 const DIALECT = `The note is written in a Markdown dialect with a few additions:
@@ -99,19 +99,40 @@ const SYNTHESIS_INTENT: Record<SynthesisStyle, string> = {
   qa: 'Write a self-test: questions that probe understanding rather than recall of wording, each followed by its answer inside a collapsible toggle so the reader can cover it up.',
   glossary:
     'Write a glossary: every term of art that appears in the material, defined in one or two sentences, in alphabetical order, as a definition list of bold term followed by its definition.',
+  // Replaced wholesale by what the student typed. The four above are shapes
+  // somebody guessed would be wanted; this is the one that admits they might
+  // want something else.
+  custom: '',
 };
+
+/**
+ * What the student typed, framed as the brief rather than pasted as prose.
+ *
+ * The tag is what keeps a long instruction from reading as though the sources
+ * had started early, and the sentence after it is what keeps "ignore the notes
+ * and write about Rome" from being obeyed: the grounding rule in the system
+ * message is not the student's to relax here, because the note this produces
+ * has to be about their notes to be worth filing beside them.
+ */
+function customIntent(instructions: string): string {
+  return `Follow the reader's own brief for this note:\n\n<brief>\n${instructions.trim()}\n</brief>\n\nWrite what the brief asks for, from the sources below and nothing else. If the brief asks for something the sources cannot support, say so in the note rather than inventing it.`;
+}
 
 export function synthesisPrompt(options: {
   style: SynthesisStyle;
   sources: { title: string; markdown: string }[];
   language: string;
+  /** The brief, when the style is `custom`. */
+  instructions?: string;
 }): AiMessage[] {
   const intent =
-    options.style === 'qa'
-      ? `${SYNTHESIS_INTENT.qa} Use \`> [!TOGGLE ${
-          options.language.startsWith('fr') ? 'Réponse' : 'Answer'
-        }]\` for every answer.`
-      : SYNTHESIS_INTENT[options.style];
+    options.style === 'custom'
+      ? customIntent(options.instructions ?? '')
+      : options.style === 'qa'
+        ? `${SYNTHESIS_INTENT.qa} Use \`> [!TOGGLE ${
+            options.language.startsWith('fr') ? 'Réponse' : 'Answer'
+          }]\` for every answer.`
+        : SYNTHESIS_INTENT[options.style];
   const body = options.sources
     .map(
       (source, index) =>

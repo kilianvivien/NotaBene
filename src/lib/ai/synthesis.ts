@@ -19,6 +19,8 @@ export interface SynthesisRequest {
   provider: ResolvedProvider;
   sources: Pick<Note, 'id' | 'title' | 'doc'>[];
   style: SynthesisStyle;
+  /** The student's own brief, when `style` is `custom`. */
+  instructions?: string;
   language: string;
 }
 
@@ -32,6 +34,11 @@ export async function requestSynthesis(
   options: AiRunOptions = {},
 ): Promise<SynthesisResult> {
   if (!request.sources.length) throw new Error('select at least one note to summarize');
+  // The custom style has no intent of its own — without a brief the model would
+  // be asked for "" and would invent the assignment.
+  if (request.style === 'custom' && !request.instructions?.trim()) {
+    throw new Error('write what this note should be');
+  }
 
   const text = await runAi(
     {
@@ -43,6 +50,7 @@ export async function requestSynthesis(
           markdown: docToMarkdown(note.doc),
         })),
         language: request.language,
+        instructions: request.instructions,
       }),
       maxTokens: 8_000,
       temperature: 0.3,

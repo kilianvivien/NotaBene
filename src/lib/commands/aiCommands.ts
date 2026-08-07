@@ -158,6 +158,8 @@ export async function applyRewriteCommand(
 export interface SynthesizeInput {
   noteIds: string[];
   style: SynthesisStyle;
+  /** Free-text brief, for the `custom` style. Empty for the preset shapes. */
+  instructions?: string;
 }
 
 /**
@@ -191,6 +193,7 @@ export async function synthesizeNotesCommand(
         provider: lookup.provider,
         sources: notes,
         style: input.style,
+        instructions: input.instructions,
         language: language(),
       },
       options,
