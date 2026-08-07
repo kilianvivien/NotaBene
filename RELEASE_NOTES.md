@@ -1,5 +1,49 @@
 # Release notes
 
+## NotaBene 0.6.0
+
+- **A document becomes a note, on your Mac.** File → Convert a document to note
+  (⌘⇧O) reads a PDF, Word, PowerPoint, Excel, OpenDocument, EPUB, RTF, CSV,
+  Markdown, or plain-text file and turns it into a real NotaBene note —
+  headings, paragraphs, lists, and tables, in the editor, editable. Extraction
+  runs entirely in the app's own process through a bundled converter: nothing is
+  uploaded, and no key is needed. An attachment you already have can be
+  converted in place, from the Attachments pane or from its preview window, and
+  the original file can be kept attached to the note that came out of it.
+- **Optional layout by a model, which cannot rewrite your handout.** A
+  converted PDF often arrives as the right words with none of the shape. The
+  import dialog offers a second pass — off by default, and a separate step
+  because it is the one part that leaves the machine — that asks your
+  configured provider to put headings, paragraphs, and lists back. The promise
+  is that the _wording_ never changes, and the promise is enforced rather than
+  requested: every proposed edit is measured against the block it claims to lay
+  out, and one that drops a word, rewrites a sentence, or invents more than a
+  heading's worth of text is discarded. The dialog reports how many edits were
+  applied and how many were refused, and a note a model shaped is recorded with
+  `source: 'ai'` like every other one. Settings → AI can point **Document
+  layout** at a model of its own.
+- **A scanned PDF says so.** A PDF with no text layer used to be a conversion
+  that produced nothing; it now fails with an OCR message that explains why.
+- **More files can be attached**, including `.doc`, `.ppt`/`.pptx`, `.xls`/`.xlsx`,
+  `.ods`, `.odp`, `.epub`, and `.csv`. These are stored and convertible; the
+  in-app preview still covers images, audio, video, PDF, DOCX, ODT, RTF,
+  Markdown, and text, and the preview button is now shown only where a preview
+  actually exists.
+- **The attachment viewer says DOCX.** Its badge showed the raw MIME type,
+  which spells `DOCX` in fifty more characters. It now shows the file's own
+  kind, with the full type on hover.
+
+Nothing here is persisted differently: no schema change, no `SCHEMA_VERSION`
+bump.
+
+## NotaBene 0.5.1
+
+- Settings moved to a more findable place in the shell.
+- A local model endpoint is asked what it is running, so the model's real name
+  is shown instead of a generic label, and a local provider is labelled as
+  local.
+- Minor fixes.
+
 ## NotaBene 0.5.0
 
 - **Concentration mode is a place to write.** The mode used to collapse three

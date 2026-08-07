@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.5.0"><img alt="Latest release: 0.5.0" src="https://img.shields.io/badge/release-0.5.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.0"><img alt="Latest release: 0.6.0" src="https://img.shields.io/badge/release-0.6.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,12 +24,12 @@
 
 ## Download
 
-Download **[NotaBene 0.5.0 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.5.0/NotaBene_0.5.0_aarch64.dmg)**.
+Download **[NotaBene 0.6.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.6.0/NotaBene_0.6.0_aarch64.dmg)**.
 NotaBene requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
-> The 0.5.0 DMG is ad-hoc signed only — it is not Developer ID signed or
+> The 0.6.0 DMG is ad-hoc signed only — it is not Developer ID signed or
 > notarized, so macOS Gatekeeper may warn or block it. Signed builds and
 > automatic updates are intentionally deferred.
 
@@ -49,14 +49,15 @@ and control over your own data. NotaBene is being built so you do not have to.
 
 ## Highlights
 
-| Write                                 | Organize                             | Study                             | Own                          |
-| ------------------------------------- | ------------------------------------ | --------------------------------- | ---------------------------- |
-| Rich-text and Markdown shortcuts      | Courses, sections, and smart folders | AI synthesis and Q&A              | Local SQLite + FTS5          |
-| Abbreviations that expand as you type | Templates for recurring notes        | Flashcard review in the app       | API keys in the Keychain     |
-| Tables, callouts, toggles, and code   | Typed, facetable tags                | Mind maps and flashcards          | Continuous autosave          |
-| LaTeX maths and inline images         | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery |
-| Re-editable Excalidraw drawings       | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports |
-| Attachments with in-app preview       | Search across notes and commands     | On-device or hosted neural voices | No account, no telemetry     |
+| Write                                 | Organize                             | Study                             | Own                           |
+| ------------------------------------- | ------------------------------------ | --------------------------------- | ----------------------------- |
+| Rich-text and Markdown shortcuts      | Courses, sections, and smart folders | AI synthesis and Q&A              | Local SQLite + FTS5           |
+| Abbreviations that expand as you type | Templates for recurring notes        | Flashcard review in the app       | API keys in the Keychain      |
+| Tables, callouts, toggles, and code   | Typed, facetable tags                | Mind maps and flashcards          | Continuous autosave           |
+| LaTeX maths and inline images         | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery  |
+| Re-editable Excalidraw drawings       | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports  |
+| Attachments with in-app preview       | Search across notes and commands     | On-device or hosted neural voices | No account, no telemetry      |
+| Import PDF, Word, and slides as notes | Convert an attachment in place       | Optional AI layout for a handout  | Documents converted on-device |
 
 ### A serious authoring surface
 
@@ -72,10 +73,30 @@ intermédiaires". A shortcut only fires at the end of a word and never inside
 code, a lower-case one also matches its capitalised spelling, and the words it
 wrote are briefly tinted so an expansion is never mistaken for your own typo.
 
-Notes also carry attachments. Images, audio, video, PDF, DOCX, ODT, RTF,
-Markdown, and plain-text files open in an in-app viewer with zoom, so course
-handouts and recordings live beside the note instead of in a folder somewhere
-else.
+Notes also carry attachments — slide decks, spreadsheets, handouts, lecture
+recordings, and e-books all live beside the note instead of in a folder
+somewhere else. Images, audio, video, PDF, DOCX, ODT, RTF, Markdown, and
+plain-text files open in an in-app viewer with zoom.
+
+### Documents you were given, as notes you can edit
+
+**File → Convert a document to note** (⌘⇧O) turns a PDF, Word, PowerPoint,
+Excel, OpenDocument, EPUB, RTF, CSV, Markdown, or text file into a real
+NotaBene note: headings, paragraphs, lists, and tables in the editor, ready to
+annotate. Extraction runs inside the app on your own Mac — nothing is uploaded
+and no API key is involved. A file you have already attached can be converted
+in place from the Attachments pane or its preview window, and the original can
+stay attached to the note it produced.
+
+Because a converted PDF usually keeps the words and loses the shape, the import
+dialog offers an optional second pass that asks your configured model to put
+the layout back. It is off by default and kept separate on purpose: it is the
+only part of the import that leaves your machine. Its promise — that your
+wording is never changed — is enforced rather than requested. Every proposed
+edit is checked against the text it claims to lay out, and one that drops a
+word, rewrites a sentence, or adds more than a heading's worth of its own is
+discarded before it reaches the note. The dialog tells you how many edits were
+applied and how many were refused.
 
 ### Organization that matches a semester
 
@@ -156,7 +177,9 @@ delete operation.
 ## Privacy model
 
 NotaBene has no accounts, cloud sync, telemetry, advertising, or analytics.
-Normal note-taking does not require an internet connection.
+Normal note-taking does not require an internet connection. Documents you
+import are converted on your own machine; only the optional layout pass sends
+anything anywhere, and only when you ask for it.
 
 Network access is limited to services that are visible and initiated by you:
 
@@ -173,8 +196,8 @@ Keychain and cannot be represented in the backup schema.
 
 ## Current status
 
-NotaBene 0.5.0 is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.5.0).
+NotaBene 0.6.0 is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.0).
 The product foundation and phases A–H are code-complete, except for the
 explicitly deferred signing, notarization, and signed-update work:
 
@@ -188,7 +211,8 @@ explicitly deferred signing, notarization, and signed-update work:
 - editable mind maps with image/outline export, flashcard review, and spoken
   episodes on on-device, system, or hosted voices; and
 - first-run guidance, EN/FR coverage, keyboard accessibility, and local
-  performance instrumentation.
+  performance instrumentation; and
+- local document import, with an optional model-assisted layout pass.
 
 0.3.x focused on making those features hold up in daily use: audio generation
 and playback, attachment handling and previews, a reworked Ask panel, working
@@ -198,7 +222,10 @@ your own machine, with no key and no upload. 0.5.0 turns concentration mode
 into a place to write and puts ranked retrieval behind Ask, so a question is
 answered from the notes that actually match it. It also adds scoped Ask
 queries, drag-and-drop attachments, clearer model-use cues, and a more
-survivable restore flow.
+survivable restore flow. 0.6.0 opens the app to the material a course actually
+hands you: a PDF, deck, or Word file becomes an editable note, converted on
+your own Mac, with an optional layout pass that is checked against your text
+rather than trusted with it.
 
 See [release notes](./RELEASE_NOTES.md), the [security policy](./SECURITY.md),
 and [third-party notices](./THIRD_PARTY_NOTICES.md).
