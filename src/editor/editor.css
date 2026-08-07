@@ -1171,25 +1171,74 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
   gap: 10px;
 }
 
-/* Drag feedback. The overlay covers the panel rather than outlining it: what a
-   dropped file will do is add to *this note*, and saying so is worth more than
-   a dashed border on a list nobody is reading mid-drag. `pointer-events: none`
-   because a panel that swallows its own `dragleave` never stops dropping. */
+/* Drag feedback.
+ *
+ * The overlay covers the panel — what a dropped file will do is add to *this
+ * note*, and saying so is worth more than a dashed border round a list nobody
+ * is reading mid-drag — but the message inside it is a card of its own size,
+ * not a rule stretched down the whole inspector. A dashed rectangle as tall as
+ * the pane reads as a broken layout; a small card reads as a target.
+ *
+ * `pointer-events: none` because a panel that swallows its own `dragleave`
+ * never stops dropping. */
 .nb-attachment-drop {
   position: absolute;
   z-index: 3;
   display: flex;
-  margin: 0;
+  padding: 8px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 1px dashed var(--nb-accent);
-  border-radius: 9px;
-  background: var(--nb-inset-surface);
-  color: var(--nb-accent);
-  font-size: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--nb-paper) 88%, transparent);
   inset: 0;
   pointer-events: none;
+}
+
+.nb-attachment-drop-card {
+  display: flex;
+  width: 100%;
+  max-width: 240px;
+  padding: 20px 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1.5px dashed color-mix(in srgb, var(--nb-accent) 55%, transparent);
+  border-radius: 12px;
+  background: var(--nb-accent-soft);
+  flex-direction: column;
+  text-align: center;
+}
+
+.nb-attachment-drop-card p {
+  margin: 0;
+  color: var(--nb-accent);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.nb-attachment-drop-glyph {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--nb-accent) 16%, transparent);
+  color: var(--nb-accent);
+  place-items: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-attachment-drop-card {
+    animation: nb-attachment-drop-in var(--nb-t-fast) var(--nb-ease-out);
+  }
+
+  @keyframes nb-attachment-drop-in {
+    from {
+      transform: scale(0.97);
+      opacity: 0;
+    }
+  }
 }
 
 .nb-editor-scroll {

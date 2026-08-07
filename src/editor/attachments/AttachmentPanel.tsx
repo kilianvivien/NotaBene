@@ -144,10 +144,14 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
       }}
     >
       {dropping && (
-        <p className="nb-attachment-drop" aria-hidden>
-          <Paperclip size={16} />
-          {t('editor.dropAttachments')}
-        </p>
+        <div className="nb-attachment-drop" aria-hidden>
+          <div className="nb-attachment-drop-card">
+            <span className="nb-attachment-drop-glyph">
+              <Paperclip size={18} />
+            </span>
+            <p>{t('editor.dropAttachments')}</p>
+          </div>
+        </div>
       )}
       <input
         ref={input}
