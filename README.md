@@ -374,6 +374,45 @@ while NotaBene takes shape. Please:
 Please do not include real notes, API keys, databases, or other personal data
 in bug reports and test fixtures.
 
+## Acknowledgements
+
+NotaBene is a small app standing on a lot of other people's work. Copyright
+stays with each project's contributors; the list below is attribution, not a
+substitute for the licences themselves, which ship in full inside the installed
+packages.
+
+| Project                                                                                                                     | Licence                                            | What it does here                       |
+| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------- |
+| [Tauri](https://tauri.app/)                                                                                                 | Apache-2.0 OR MIT                                  | Native macOS shell and plugins          |
+| [rusqlite](https://github.com/rusqlite/rusqlite) / [SQLite](https://sqlite.org/)                                            | MIT / public domain                                | The local library and FTS5 search       |
+| [rmcp](https://github.com/modelcontextprotocol/rust-sdk) / [axum](https://github.com/tokio-rs/axum)                         | Apache-2.0 / MIT                                   | The authenticated local MCP server      |
+| [Tokio](https://tokio.rs/) / [reqwest](https://github.com/seanmonstar/reqwest) / [rustls](https://github.com/rustls/rustls) | MIT / Apache-2.0 OR MIT / Apache-2.0 OR ISC OR MIT | Async runtime and AI provider transport |
+| [React](https://react.dev/)                                                                                                 | MIT                                                | Interface runtime                       |
+| [TipTap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/)                                                     | MIT                                                | The authoring surface                   |
+| [Excalidraw](https://excalidraw.com/)                                                                                       | MIT                                                | Re-editable drawings                    |
+| [KaTeX](https://katex.org/)                                                                                                 | MIT                                                | LaTeX maths rendering                   |
+| [Tailwind CSS](https://tailwindcss.com/)                                                                                    | MIT                                                | Styling toolchain                       |
+| [Lucide](https://lucide.dev/)                                                                                               | ISC                                                | Interface icons                         |
+| [Zustand](https://github.com/pmndrs/zustand) / [Immer](https://immerjs.github.io/immer/)                                    | MIT                                                | Application state                       |
+| [Zod](https://zod.dev/)                                                                                                     | MIT                                                | Runtime schema validation               |
+| [i18next](https://www.i18next.com/)                                                                                         | MIT                                                | English and French localization         |
+| [AnyDoc](https://crates.io/crates/anydoc)                                                                                   | MIT                                                | Local document import                   |
+| [PDF.js](https://mozilla.github.io/pdf.js/)                                                                                 | Apache-2.0                                         | In-app PDF preview                      |
+| [docx-preview](https://github.com/VolodymyrBaydalka/docxjs)                                                                 | Apache-2.0                                         | In-app DOCX preview                     |
+| [docx](https://docx.js.org/) / [pdfmake](https://pdfmake.github.io/docs/)                                                   | MIT                                                | Word and PDF export                     |
+| [fflate](https://github.com/101arrowz/fflate)                                                                               | MIT                                                | Backups and portable archives           |
+| [CrispASR](https://github.com/CrispStrobe/CrispASR) / [GGML](https://github.com/ggml-org/ggml)                              | MIT                                                | On-device neural speech runtime         |
+| [wasm-media-encoders](https://github.com/arseneyr/wasm-media-encoders)                                                      | MIT                                                | Local MP3 podcast encoding              |
+| [Lora](https://fonts.google.com/specimen/Lora)                                                                              | SIL OFL 1.1                                        | The bundled typeface                    |
+
+Speech models are **not** bundled or redistributed. If you choose to install
+one, it is downloaded from a pinned Hugging Face revision under its own terms:
+**Kokoro 82M** under Apache-2.0, with voice packs and pronunciation
+dictionaries under MIT, and **Voxtral 4B** under CC BY-NC 4.0, which restricts
+it to non-commercial use.
+
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) holds the complete notices.
+
 ## License
 
 NotaBene is available under the [Apache License 2.0](./LICENSE).
