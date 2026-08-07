@@ -46,15 +46,25 @@ body {
   overflow: hidden;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
+/* Form controls inherit the app's typeface instead of the platform's.
+ *
+ * In `@layer base`, and that is the whole point rather than tidiness: unlayered
+ * CSS beats every cascade layer, so as a bare rule this shorthand — `font`, not
+ * `font-family` — silently overrode Tailwind's `text-[12px]` on every button,
+ * input, select and textarea in the app. They all rendered at the inherited
+ * 16px, and no amount of adjusting a class on the element could change it.
+ * Layered, a utility on the element wins, which is what a utility is for. */
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
 
-button {
-  cursor: default;
+  button {
+    cursor: default;
+  }
 }
 
 /* macOS-style overlay scrollbars that stay out of the way. */
