@@ -56,6 +56,8 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('note.newFromTemplate', t),
         command('course.new', t),
         separator,
+        command('note.importDocument', t),
+        separator,
         command('note.save', t),
         separator,
         command('note.export', t),

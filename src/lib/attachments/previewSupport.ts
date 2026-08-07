@@ -71,6 +71,22 @@ export const ATTACHMENT_ACCEPT = [
   '.markdown',
   '.rtf',
   '.txt',
+  '.doc',
+  '.docm',
+  '.ppt',
+  '.pptx',
+  '.pptm',
+  '.pps',
+  '.ppsx',
+  '.ppsm',
+  '.xls',
+  '.xlsx',
+  '.xlsm',
+  '.xlsb',
+  '.ods',
+  '.odp',
+  '.epub',
+  '.csv',
 ].join(',');
 
 export function attachmentPreviewKind(

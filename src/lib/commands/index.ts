@@ -13,3 +13,4 @@ export * from './studyCommands';
 export * from './readCommands';
 export * from './retrievalCommands';
 export * from './onboardingCommands';
+export * from './importCommands';

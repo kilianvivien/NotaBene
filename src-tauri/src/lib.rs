@@ -8,6 +8,7 @@
 mod ai;
 mod commands;
 mod db;
+mod document_import;
 mod mcp;
 mod menu;
 mod settings;
@@ -159,6 +160,7 @@ pub fn run() {
             commands::library_export,
             commands::library_import,
             commands::export_write,
+            document_import::document_import_bytes,
             settings::settings_load,
             settings::settings_save,
             settings::secrets_get,

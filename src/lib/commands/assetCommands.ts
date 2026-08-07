@@ -1,5 +1,6 @@
 import { assets, dialog, exporter, library } from '@/lib/adapters';
 import { canPreviewAttachment } from '@/lib/attachments/previewSupport';
+import { documentImportSupported } from '@/lib/import/documentImport';
 import { AttachmentSchema, newId, type Asset, type Attachment } from '@/lib/schema';
 import { attachmentsChanged } from '@/lib/state/attachmentStore';
 import { fail, ok, type CommandResult } from './types';
@@ -16,7 +17,10 @@ export async function addAttachmentCommand(
   noteId: string,
   file: File,
 ): Promise<CommandResult<Attachment>> {
-  if (!canPreviewAttachment(file.name, file.type)) {
+  if (
+    !canPreviewAttachment(file.name, file.type) &&
+    !documentImportSupported(file.name)
+  ) {
     return fail('invalid_input', 'unsupported attachment format');
   }
   const stored = await storeAssetCommand(file);
@@ -33,6 +37,29 @@ export async function addAttachmentCommand(
     return fail('invalid_input', 'invalid attachment', parsed.error.issues);
   }
 
+  try {
+    await library.upsertAttachment(parsed.data);
+    attachmentsChanged();
+    return ok(parsed.data);
+  } catch (error) {
+    return fail('storage_failed', String(error));
+  }
+}
+
+/** Point another note at the same immutable asset bytes. */
+export async function copyAttachmentCommand(
+  attachment: Attachment,
+  noteId: string,
+): Promise<CommandResult<Attachment>> {
+  const parsed = AttachmentSchema.safeParse({
+    ...attachment,
+    id: newId(),
+    noteId,
+    createdAt: new Date().toISOString(),
+  });
+  if (!parsed.success) {
+    return fail('invalid_input', 'invalid attachment', parsed.error.issues);
+  }
   try {
     await library.upsertAttachment(parsed.data);
     attachmentsChanged();

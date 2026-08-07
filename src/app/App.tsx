@@ -33,6 +33,7 @@ import {
 import { startAgentBridge } from '@/lib/mcp/agentBridge';
 import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 import { EditorConflictDialog } from './editor/EditorConflictDialog';
+import { ImportDocumentDialog } from './import/ImportDocumentDialog';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -160,6 +161,7 @@ export function App() {
       <RecoveryPrompt />
       <TemplatePicker />
       <ExportDialog />
+      <ImportDocumentDialog />
       <RewriteDialog />
       <SynthesisDialog />
       <MindMapDialog />

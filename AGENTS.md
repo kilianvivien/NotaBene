@@ -9,9 +9,14 @@ the bundled Browser plugin over Playwright CLI.
 
 ## App launch and UI verification
 
-- For development and UI verification, use the app window already launched by
-  `pnpm tauri:dev`. It has HMR, reflects the current workspace, and its process
-  name is lowercase `notabene`.
+- Do not use Computer Use or other desktop automation to inspect the NotaBene
+  app. If visual UI inspection is useful, run the web app and use the bundled
+  Browser plugin, even though it does not reproduce the exact Tauri shell.
+  Leave Tauri-specific UI verification to the user; agents should otherwise
+  verify app changes with builds, checks, and automated tests.
+- The app window the user uses for development and UI verification is already
+  launched by `pnpm tauri:dev`. It has HMR, reflects the current workspace, and
+  its process name is lowercase `notabene`.
 - Production builds are named `NotaBene` (capital N and B). Treat that casing
   difference as significant: `notabene` means the Tauri dev process;
   `NotaBene` means a production app bundle.

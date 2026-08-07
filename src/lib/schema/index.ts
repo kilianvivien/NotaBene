@@ -3,3 +3,4 @@ export * from './migrations';
 export * from './defaults';
 export * from './ttsApi';
 export * from './modelListApi';
+export * from './importedDocument';

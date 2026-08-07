@@ -1,6 +1,6 @@
 [package]
 name = "notabene"
-version = "0.5.1"
+version = "0.6.0"
 description = "A simple, privacy-first note-taking app for students"
 authors = ["NotaBene contributors"]
 edition = "2021"
@@ -70,6 +70,7 @@ reqwest = { version = "0.13", default-features = false, features = [
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 futures-util = "0.3"
 regex = "1"
+anydoc = "0.1.7"
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"

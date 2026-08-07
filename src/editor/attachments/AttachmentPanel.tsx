@@ -1,9 +1,26 @@
-import { Eye, File, FileText, Image, Paperclip, Plus, Trash2 } from 'lucide-react';
+import {
+  Eye,
+  File,
+  FileOutput,
+  FileText,
+  Image,
+  Paperclip,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { assets, dialog, library } from '@/lib/adapters';
-import { ATTACHMENT_ACCEPT } from '@/lib/attachments/previewSupport';
-import { addAttachmentCommand, deleteAttachmentCommand } from '@/lib/commands';
+import {
+  ATTACHMENT_ACCEPT,
+  canPreviewAttachment,
+} from '@/lib/attachments/previewSupport';
+import {
+  addAttachmentCommand,
+  beginAttachmentImportCommand,
+  deleteAttachmentCommand,
+} from '@/lib/commands';
+import { documentImportSupported } from '@/lib/import/documentImport';
 import type { Attachment } from '@/lib/schema';
 import { useAttachmentStore } from '@/lib/state/attachmentStore';
 import { AttachmentViewer } from './AttachmentViewer';
@@ -192,14 +209,16 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
                 <AttachmentIcon mime={mimes[attachment.assetId] ?? null} />
               </span>
               <span title={attachment.name}>{attachment.name}</span>
-              <button
-                type="button"
-                aria-label={t('editor.previewAttachment')}
-                title={t('editor.previewAttachment')}
-                onClick={() => void openPreview(attachment)}
-              >
-                <Eye size={13} />
-              </button>
+              {canPreviewAttachment(attachment.name, mimes[attachment.assetId] ?? '') && (
+                <button
+                  type="button"
+                  aria-label={t('editor.previewAttachment')}
+                  title={t('editor.previewAttachment')}
+                  onClick={() => void openPreview(attachment)}
+                >
+                  <Eye size={13} />
+                </button>
+              )}
               <button
                 type="button"
                 aria-label={t('common.delete')}
@@ -209,6 +228,18 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
               >
                 <Trash2 size={13} />
               </button>
+              {documentImportSupported(attachment.name) && (
+                <button
+                  type="button"
+                  className="nb-attachment-convert"
+                  onClick={() =>
+                    beginAttachmentImportCommand({ kind: 'attachment', attachment })
+                  }
+                >
+                  <FileOutput size={13} />
+                  {t('editor.convertAttachmentToNote')}
+                </button>
+              )}
             </li>
           ))}
         </ul>

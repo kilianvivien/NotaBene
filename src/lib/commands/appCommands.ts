@@ -23,6 +23,7 @@ import { docStats } from '@/lib/notes/docText';
 import { appWindow, externalLinks } from '@/lib/adapters';
 import { createNoteCommand } from './noteCommands';
 import { createCourseCommand } from './organizationCommands';
+import { beginDocumentImportCommand } from './importCommands';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
 import { runEditorCommand, type EditorCommand } from '@/editor/commandBridge';
 
@@ -33,6 +34,7 @@ export const APP_COMMAND_IDS = [
   'note.quick',
   'note.newFromTemplate',
   'course.new',
+  'note.importDocument',
   'note.save',
   'note.export',
   'backup.create',
@@ -217,6 +219,13 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     accelerator: 'CmdOrCtrl+Shift+N',
     landsIn: 'A',
     run: (context) => createCourseCommand({ name: newCourseName() }, context),
+  },
+  'note.importDocument': {
+    id: 'note.importDocument',
+    labelKey: 'menu.convertDocumentToNote',
+    accelerator: 'CmdOrCtrl+Shift+O',
+    landsIn: 'H',
+    run: beginDocumentImportCommand,
   },
   'note.save': {
     id: 'note.save',

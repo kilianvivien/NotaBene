@@ -41,6 +41,8 @@ import {
   tauriStorageAdapter,
   unavailableStorageAdapter,
 } from './storage/tauriStorageAdapter';
+import { tauriDocumentImportAdapter } from './documentImport/tauriDocumentImportAdapter';
+import { memoryDocumentImportAdapter } from './documentImport/memoryDocumentImportAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 
 import type { LibraryAdapter } from './library/LibraryAdapter';
@@ -54,6 +56,7 @@ import type { McpAdapter } from './mcp/McpAdapter';
 import type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 import type { WindowAdapter } from './window/WindowAdapter';
 import type { StorageAdapter } from './storage/StorageAdapter';
+import type { DocumentImportAdapter } from './documentImport/DocumentImportAdapter';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -80,6 +83,9 @@ export const appWindow: WindowAdapter = isTauri
 export const storage: StorageAdapter = isTauri
   ? tauriStorageAdapter
   : unavailableStorageAdapter;
+export const documentImporter: DocumentImportAdapter = isTauri
+  ? tauriDocumentImportAdapter
+  : memoryDocumentImportAdapter;
 // Desktop AI leaves through Rust so that a self-hosted or otherwise unusual
 // base URL does not require widening `connect-src` for the whole webview; the
 // browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
@@ -168,4 +174,5 @@ export type {
   McpClientId,
   McpStatus,
 } from './mcp/McpAdapter';
+export type { DocumentImportAdapter } from './documentImport/DocumentImportAdapter';
 export { MCP_CLIENTS } from './mcp/McpAdapter';

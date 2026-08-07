@@ -4,6 +4,7 @@
  * disturbs the user's layout. */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import type { DocumentImportSource } from '@/lib/import/documentImport';
 
 /** What the note list is currently showing. */
 export type ViewKind =
@@ -72,6 +73,7 @@ interface UiState {
   quickSwitcherOpen: boolean;
   templatePickerOpen: boolean;
   exportOpen: boolean;
+  documentImportSource: DocumentImportSource | null;
   aiRewriteOpen: boolean;
   aiSynthesisOpen: boolean;
   aiMindMapOpen: boolean;
@@ -100,6 +102,7 @@ interface UiState {
   setQuickSwitcherOpen(open: boolean): void;
   setTemplatePickerOpen(open: boolean): void;
   setExportOpen(open: boolean): void;
+  setDocumentImportSource(source: DocumentImportSource | null): void;
   setAiRewriteOpen(open: boolean): void;
   setAiSynthesisOpen(open: boolean): void;
   setAiMindMapOpen(open: boolean): void;
@@ -125,6 +128,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.quickSwitcherOpen ||
     state.templatePickerOpen ||
     state.exportOpen ||
+    state.documentImportSource !== null ||
     state.settingsOpen ||
     state.aiRewriteOpen ||
     state.aiSynthesisOpen ||
@@ -151,6 +155,7 @@ export const useUiStore = create<UiState>()(
     quickSwitcherOpen: false,
     templatePickerOpen: false,
     exportOpen: false,
+    documentImportSource: null,
     aiRewriteOpen: false,
     aiSynthesisOpen: false,
     aiMindMapOpen: false,
@@ -283,6 +288,12 @@ export const useUiStore = create<UiState>()(
     setExportOpen(open) {
       set((state) => {
         state.exportOpen = open;
+      });
+    },
+
+    setDocumentImportSource(source) {
+      set((state) => {
+        state.documentImportSource = source;
       });
     },
 
