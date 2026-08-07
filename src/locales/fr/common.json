@@ -518,7 +518,15 @@
     "askSourcesMore_other": "+{{count}} autres notes non affichées",
     "askSourceTruncated": "partiel",
     "askSourceTruncatedHint": "Seule la partie correspondante de cette note a été utilisée.",
-    "askSourcesMore_one": "+{{count}} autre note non affichée"
+    "askSourcesMore_one": "+{{count}} autre note non affichée",
+    "local": "Local",
+    "localHint": "S'exécute sur ce Mac — rien n'est envoyé à un fournisseur.",
+    "loadedModel": "Chargé : {{model}}",
+    "detectedIdle_one": "En cours — {{count}} modèle disponible, aucun chargé",
+    "detectedIdle_other": "En cours — {{count}} modèles disponibles, aucun chargé",
+    "notDetected": "Injoignable — lancez l'application, puis revérifiez.",
+    "redetect": "Revérifier",
+    "detectedHint": "Détecté depuis l'application en cours : {{model}}. Saisissez un identifiant pour en fixer un autre."
   },
   "tags": {
     "facet_topic": "Thème",

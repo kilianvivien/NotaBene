@@ -62,7 +62,11 @@ export type ProviderLookup =
 export async function providerFor(feature: AiFeature): Promise<ProviderLookup> {
   const settings = useSettingsStore.getState().settings;
   const keyed = useAiStore.getState().configuredProviderIds;
-  const availability = resolveFeature(feature, settings, keyed);
+  // Detection is refreshed by the UI, not here: a run must not wait on a probe
+  // to a runtime that may not be listening. Whatever the last look found is
+  // what the pill promised, and the two have to agree.
+  const detected = useAiStore.getState().localModels;
+  const availability = resolveFeature(feature, settings, keyed, detected);
   if (!availability.available) return { ok: false, reason: availability.reason };
   try {
     return { ok: true, provider: await loadProvider(availability) };

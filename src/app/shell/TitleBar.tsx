@@ -8,7 +8,6 @@ import {
   Plus,
   Save,
   Search,
-  Settings,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -290,14 +289,9 @@ export function TitleBar() {
         <PanelRight size={16} />
       </GlassIconButton>
 
-      {/* The desktop build reaches Settings from the app menu too; the browser
-          build has only this. */}
-      <GlassIconButton
-        label={t('settings.title')}
-        onClick={() => void runAppCommand('app.settings')}
-      >
-        <Settings size={16} />
-      </GlassIconButton>
+      {/* Settings lives in the status bar now — see `StatusBar`. It is the one
+          button here you press once a term, and it was sitting at the same
+          weight as the panes you toggle all day. */}
 
       <NameDialog
         open={saveSearchOpen}

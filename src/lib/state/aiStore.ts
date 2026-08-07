@@ -9,8 +9,15 @@
  */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { configuredProviderIds } from '@/lib/ai';
-import type { AskMode, AskScope, AskTurn } from '@/lib/ai';
+import {
+  AI_PROVIDERS,
+  baseUrlFor,
+  configuredProviderIds,
+  detectLocalModels,
+  supportsModelDetection,
+} from '@/lib/ai';
+import type { AskMode, AskScope, AskTurn, DetectedModels } from '@/lib/ai';
+import type { AppSettings } from '@/lib/adapters';
 
 /**
  * One thread per grounding mode *and* scope.
@@ -42,6 +49,8 @@ export interface AskThread {
 interface AiState {
   /** Provider ids with a key on file. Names only — never a value. */
   configuredProviderIds: string[];
+  /** What each local runtime reported it was running, last time we asked. */
+  localModels: DetectedModels;
   running: AiActivity | null;
   error: string | null;
   askMode: AskMode;
@@ -50,6 +59,9 @@ interface AiState {
   threads: Record<string, Record<string, AskThread>>;
 
   refreshProviders(): Promise<void>;
+  /** Ask every enabled local runtime what it has loaded. Cheap, silent, and
+   * throttled — see `PROBE_INTERVAL_MS`. */
+  refreshLocalModels(settings: AppSettings, force?: boolean): Promise<void>;
   setRunning(activity: AiActivity | null): void;
   setError(message: string | null): void;
   setAskMode(mode: AskMode): void;
@@ -65,6 +77,22 @@ interface AiState {
 /** One controller per activity. Kept out of the store because an AbortController
  * is neither serialisable nor comparable, and immer would freeze it. */
 const controllers = new Map<AiActivity, AbortController>();
+
+/**
+ * How stale a detection may get before the next mount re-runs it.
+ *
+ * Every status pill refreshes providers on mount, and there are several on
+ * screen at once; without a floor, opening the AI panel would fire a burst of
+ * probes at localhost. Twenty seconds is short enough that loading a different
+ * model in LM Studio shows up while the student is still looking at the app,
+ * and long enough that the burst becomes one request.
+ */
+const PROBE_INTERVAL_MS = 20_000;
+
+/** Outside the store for the same reason as the controllers: it is bookkeeping
+ * about a request, not state anything renders. */
+let lastProbeAt = 0;
+let probeInFlight: Promise<void> | null = null;
 
 export function beginRun(activity: AiActivity): AbortSignal {
   cancelRun(activity);
@@ -90,6 +118,7 @@ export function cancelRun(activity: AiActivity): void {
 export const useAiStore = create<AiState>()(
   immer((set) => ({
     configuredProviderIds: [],
+    localModels: {},
     running: null,
     error: null,
     askMode: 'knowledge',
@@ -101,6 +130,49 @@ export const useAiStore = create<AiState>()(
       set((state) => {
         state.configuredProviderIds = ids;
       });
+    },
+
+    async refreshLocalModels(settings, force = false) {
+      // A forced probe queues behind an in-flight one rather than joining it:
+      // the reason to force is that the settings just changed, and the running
+      // probe was started against the old ones. Joining it would answer the
+      // previous question.
+      if (probeInFlight) {
+        if (!force) return probeInFlight;
+        await probeInFlight.catch(() => {});
+      } else if (!force && Date.now() - lastProbeAt < PROBE_INTERVAL_MS) {
+        return;
+      }
+
+      // A runtime nobody switched on is a runtime we have no business
+      // knocking on: the checkbox is the user's "yes, I run this".
+      const targets = AI_PROVIDERS.filter(
+        (definition) =>
+          supportsModelDetection(definition) &&
+          settings.aiProviders[definition.id]?.enabled === true,
+      );
+
+      probeInFlight = (async () => {
+        const found = await Promise.all(
+          targets.map(async (definition) => {
+            const models = await detectLocalModels(
+              definition,
+              baseUrlFor(definition, settings),
+            );
+            return [definition.id, models] as const;
+          }),
+        );
+        lastProbeAt = Date.now();
+        set((state) => {
+          // Replaced wholesale rather than merged: a runtime that has been shut
+          // down since the last probe must stop claiming a loaded model.
+          state.localModels = Object.fromEntries(found);
+        });
+      })().finally(() => {
+        probeInFlight = null;
+      });
+
+      return probeInFlight;
     },
 
     setRunning(activity) {

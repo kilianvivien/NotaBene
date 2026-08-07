@@ -1,6 +1,7 @@
-import { Bot } from 'lucide-react';
+import { Bot, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { runAppCommand } from '@/lib/commands';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docStats } from '@/lib/notes/docText';
@@ -62,6 +63,20 @@ export function StatusBar() {
       <span title={t('app.version', { version: __APP_VERSION__ })}>
         v{__APP_VERSION__}
       </span>
+
+      {/* Next to the version number, where the things you check rather than use
+          live. Through the command router like every other chrome control, so
+          the button and the app menu stay one action. A 12px glyph is what a
+          24px bar has room for — the hit area is the whole height of it. */}
+      <button
+        type="button"
+        aria-label={t('settings.title')}
+        title={t('settings.title')}
+        onClick={() => void runAppCommand('app.settings')}
+        className="-mr-1 grid h-6 w-6 shrink-0 place-items-center rounded-nb-xs text-nb-text-3 transition-colors duration-[var(--nb-t-fast)] hover:bg-[var(--nb-hover)] hover:text-nb-text"
+      >
+        <Settings size={12} aria-hidden />
+      </button>
     </footer>
   );
 }

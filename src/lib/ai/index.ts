@@ -1,5 +1,6 @@
 export * from './providers';
 export * from './protocols';
+export * from './localModels';
 export * from './resolve';
 export * from './client';
 export * from './json';

@@ -10,6 +10,7 @@
  */
 import { secrets } from '@/lib/adapters';
 import type { AppSettings } from '@/lib/adapters';
+import type { LocalModels } from './localModels';
 import type { ResolvedProvider } from './protocols';
 import {
   AI_PROVIDERS,
@@ -18,6 +19,11 @@ import {
   type AiFeature,
   type ProviderDefinition,
 } from './providers';
+
+/** What each local runtime reported it was running, keyed by provider id.
+ * Detection is asynchronous and resolution is not, so the answer is passed in
+ * rather than fetched here — see `src/lib/state/aiStore.ts`. */
+export type DetectedModels = Record<string, LocalModels>;
 
 /** Why a feature cannot run. Each maps to one sentence in the UI — never to a
  * disabled button with no explanation. */
@@ -68,20 +74,37 @@ export function baseUrlFor(
   return configured || definition.defaultBaseUrl;
 }
 
-/** Every model the picker should offer for a provider: the catalogue, plus
- * whatever the user has typed in before. */
+/**
+ * Every model the picker should offer for a provider: whatever the runtime says
+ * it has, then the catalogue, then whatever the user has typed in before.
+ *
+ * Detected models lead because they are the only entries known to exist. LM
+ * Studio ships with an empty catalogue precisely because there is nothing true
+ * to put in it, and Ollama's four suggestions are a guess at what somebody
+ * might have pulled.
+ */
 export function modelsFor(
   definition: ProviderDefinition,
   settings: AppSettings,
+  detected?: DetectedModels,
 ): string[] {
   const extra = settings.aiProviders[definition.id]?.extraModels ?? [];
-  return [...new Set([...definition.models, ...extra])];
+  const local = detected?.[definition.id];
+  return [
+    ...new Set([
+      ...(local?.loaded ?? []),
+      ...(local?.available ?? []),
+      ...definition.models,
+      ...extra,
+    ]),
+  ];
 }
 
 export function resolveFeature(
   feature: AiFeature,
   settings: AppSettings,
   keyedProviderIds: string[],
+  detected?: DetectedModels,
 ): AiAvailability {
   const choice = settings.aiFeatureModels[feature] ?? settings.aiFeatureModels.default;
   const chosen = choice ? providerById(choice.providerId) : undefined;
@@ -107,14 +130,20 @@ export function resolveFeature(
 
   // The stored model only applies when it belongs to the provider we landed on;
   // falling back past a provider must not carry its model along.
+  //
+  // What the runtime has loaded outranks `defaultModel` but never the user's
+  // own choice. A student who has qwen3 in memory and `llama3.2` in our table
+  // wants the one that is running; a student who typed an id wants that id,
+  // even if it means Ollama loads it.
   const model =
     (choice?.providerId === definition.id ? choice.model : undefined)?.trim() ||
     (settings.aiFeatureModels.default?.providerId === definition.id
       ? settings.aiFeatureModels.default.model
       : undefined
     )?.trim() ||
+    detected?.[definition.id]?.loaded[0] ||
     definition.defaultModel ||
-    modelsFor(definition, settings)[0] ||
+    modelsFor(definition, settings, detected)[0] ||
     '';
 
   if (!model) return { available: false, reason: 'no_model' };

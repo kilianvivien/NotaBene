@@ -518,7 +518,15 @@
     "askSourcesMore_other": "+{{count}} more notes not shown",
     "askSourceTruncated": "partial",
     "askSourceTruncatedHint": "Only the matching part of this note was used.",
-    "askSourcesMore_one": "+{{count}} more note not shown"
+    "askSourcesMore_one": "+{{count}} more note not shown",
+    "local": "Local",
+    "localHint": "Runs on this Mac — nothing is sent to a provider.",
+    "loadedModel": "Loaded: {{model}}",
+    "detectedIdle_one": "Running — {{count}} model available, none loaded",
+    "detectedIdle_other": "Running — {{count}} models available, none loaded",
+    "notDetected": "Not reachable — start the app, then check again.",
+    "redetect": "Check again",
+    "detectedHint": "Detected from the running app: {{model}}. Type an id to pin a different one."
   },
   "tags": {
     "facet_topic": "Topic",

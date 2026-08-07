@@ -18,7 +18,15 @@
  * `SecretsAdapter.listKeys`, which returns names. A settings screen that can
  * display your key is a settings screen that can leak it into a screenshot.
  */
-import { Check, ChevronRight, ExternalLink, Loader2, Trash2 } from 'lucide-react';
+import {
+  Check,
+  ChevronRight,
+  ExternalLink,
+  HardDrive,
+  Loader2,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FieldSection, GlassButton, GlassSelect } from '@/components/glass';
@@ -28,12 +36,14 @@ import {
   AI_FEATURES,
   AI_PROVIDERS,
   baseUrlFor,
+  isLoopbackUrl,
   isProviderUsable,
   loadProvider,
   modelsFor,
   resolveFeature,
   runAi,
   secretKeyFor,
+  supportsModelDetection,
   type AiFeature,
   type ProviderDefinition,
 } from '@/lib/ai';
@@ -46,11 +56,18 @@ export function AiProviderSettings() {
   const settings = useSettingsStore((state) => state.settings);
   const configured = useAiStore((state) => state.configuredProviderIds);
   const refreshProviders = useAiStore((state) => state.refreshProviders);
+  const refreshLocalModels = useAiStore((state) => state.refreshLocalModels);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     void refreshProviders();
-  }, [refreshProviders]);
+    // Forced: this is the one screen where the user is looking straight at the
+    // answer, and a throttled probe would show them a runtime they just quit.
+    void refreshLocalModels(settings, true);
+    // Deliberately on mount only — `settings` changes on every keystroke in the
+    // base-URL field, and each one would be a probe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshProviders, refreshLocalModels]);
 
   const connectedCount = AI_PROVIDERS.filter((definition) =>
     isProviderUsable(definition, settings, configured),
@@ -109,6 +126,8 @@ function ProviderRow({
   const settings = useSettingsStore((state) => state.settings);
   const update = useSettingsStore((state) => state.update);
   const refreshProviders = useAiStore((state) => state.refreshProviders);
+  const refreshLocalModels = useAiStore((state) => state.refreshLocalModels);
+  const detected = useAiStore((state) => state.localModels);
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -116,9 +135,11 @@ function ProviderRow({
   const config = settings.aiProviders[definition.id];
   const baseUrl = config?.baseUrl ?? '';
   const enabled = config?.enabled === true;
+  const detectable = supportsModelDetection(definition) && enabled;
+  const found = detected[definition.id];
 
-  function patchProvider(patch: Partial<AppSettings['aiProviders'][string]>) {
-    void update({
+  async function patchProvider(patch: Partial<AppSettings['aiProviders'][string]>) {
+    await update({
       aiProviders: {
         ...settings.aiProviders,
         [definition.id]: {
@@ -129,6 +150,19 @@ function ProviderRow({
         },
       },
     });
+
+    // Switching a runtime on is the moment the user expects to be told what it
+    // is running; without this the row would say "not reachable" about a
+    // runtime that is up, until something else happened to re-probe. Settings
+    // is read back from the store because the closure's copy predates the
+    // write we just made.
+    //
+    // Only for the checkbox, not the URL field beside it: that one patches on
+    // every keystroke, and `http://l` is not an address worth knocking on. The
+    // refresh button is how you re-probe after editing it.
+    if ('enabled' in patch && supportsModelDetection(definition)) {
+      await refreshLocalModels(useSettingsStore.getState().settings, true);
+    }
   }
 
   async function saveKey() {
@@ -159,8 +193,9 @@ function ProviderRow({
     setStatus(t('ai.testing'));
     const model =
       settings.aiFeatureModels[definition.id]?.model ||
+      found?.loaded[0] ||
       definition.defaultModel ||
-      modelsFor(definition, settings)[0] ||
+      modelsFor(definition, settings, detected)[0] ||
       '';
     try {
       const provider = await loadProvider({
@@ -188,6 +223,10 @@ function ProviderRow({
   }
 
   const usable = definition.requiresKey ? connected : enabled;
+  // Green rather than accent once it is usable *and* on this machine — the same
+  // signal the status pill gives, so the two screens agree about what "local"
+  // looks like.
+  const local = usable && isLoopbackUrl(baseUrlFor(definition, settings));
 
   return (
     <li className={cn(open && 'bg-[var(--nb-inset-surface)]')}>
@@ -207,9 +246,17 @@ function ProviderRow({
         />
         <span className="min-w-0 flex-1 truncate text-[13px]">{definition.label}</span>
         {usable ? (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--nb-accent-soft)] px-1.5 py-0.5 text-[10px] text-[var(--nb-accent)]">
-            <Check size={9} aria-hidden />
-            {t('ai.connected')}
+          <span
+            title={local ? t('ai.localHint') : undefined}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px]',
+              local
+                ? 'bg-[color-mix(in_srgb,var(--nb-success)_14%,transparent)] text-[var(--nb-success)]'
+                : 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]',
+            )}
+          >
+            {local ? <HardDrive size={9} aria-hidden /> : <Check size={9} aria-hidden />}
+            {local ? t('ai.local') : t('ai.connected')}
           </span>
         ) : (
           <span className="shrink-0 text-[11px] text-nb-text-3">
@@ -259,7 +306,7 @@ function ProviderRow({
               <input
                 type="checkbox"
                 checked={enabled}
-                onChange={(event) => patchProvider({ enabled: event.target.checked })}
+                onChange={(event) => void patchProvider({ enabled: event.target.checked })}
                 className="size-4 accent-[var(--nb-accent)]"
               />
               {t('ai.enableLocal')}
@@ -275,11 +322,43 @@ function ProviderRow({
                 spellCheck={false}
                 placeholder={definition.defaultBaseUrl || 'https://…/v1'}
                 onChange={(event) =>
-                  patchProvider({ baseUrl: event.target.value || null })
+                  void patchProvider({ baseUrl: event.target.value || null })
                 }
                 className="mt-1 h-8 w-full rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px] text-nb-text"
               />
             </label>
+          )}
+
+          {/* What the runtime is actually doing, in the pane where the user
+              would otherwise be copying a model id out of another app's window.
+              "Not running" is information too — it is the answer to why the AI
+              buttons went quiet. */}
+          {detectable && (
+            <div className="flex items-center gap-1.5 text-[11px]">
+              {found?.loaded.length ? (
+                <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--nb-success)_14%,transparent)] px-1.5 py-0.5 text-[var(--nb-success)]">
+                  <HardDrive size={9} aria-hidden />
+                  <span className="truncate">
+                    {t('ai.loadedModel', { model: found.loaded[0] })}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-nb-text-3">
+                  {found?.available.length
+                    ? t('ai.detectedIdle', { count: found.available.length })
+                    : t('ai.notDetected')}
+                </span>
+              )}
+              <button
+                type="button"
+                aria-label={t('ai.redetect')}
+                title={t('ai.redetect')}
+                className="grid size-5 shrink-0 place-items-center rounded-nb-xs text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text-2"
+                onClick={() => void refreshLocalModels(settings, true)}
+              >
+                <RefreshCw size={10} aria-hidden />
+              </button>
+            </div>
           )}
 
           <div className="flex items-center gap-2">
@@ -319,11 +398,29 @@ function FeatureRow({ feature, settings }: { feature: AiFeature; settings: AppSe
   const { t } = useTranslation();
   const update = useSettingsStore((state) => state.update);
   const configured = useAiStore((state) => state.configuredProviderIds);
-  const resolved = resolveFeature(feature, settings, configured);
+  const detected = useAiStore((state) => state.localModels);
+  const resolved = resolveFeature(feature, settings, configured, detected);
 
   const choice = settings.aiFeatureModels[feature];
   const definition = resolved.available ? resolved.definition : null;
   const model = resolved.available ? resolved.model : '';
+  // The row is left empty on purpose when detection answered: the placeholder
+  // already names the model that will run, and writing it into settings would
+  // pin the feature to whatever happened to be loaded this afternoon.
+  //
+  // "Answered" has to mean the same thing here as in `resolveFeature` — both
+  // the row's own model *and* the Default row it inherits from have to be
+  // empty, or a typed id that happens to match what is loaded would be shown
+  // as detected.
+  const typed =
+    (choice?.providerId === definition?.id ? choice?.model : undefined)?.trim() ||
+    (settings.aiFeatureModels.default?.providerId === definition?.id
+      ? settings.aiFeatureModels.default?.model
+      : undefined
+    )?.trim();
+  const fromRuntime = Boolean(
+    definition && !typed && detected[definition.id]?.loaded.includes(model),
+  );
 
   function choose(providerId: string, nextModel: string) {
     const target = AI_PROVIDERS.find((provider) => provider.id === providerId);
@@ -379,6 +476,7 @@ function FeatureRow({ feature, settings }: { feature: AiFeature; settings: AppSe
         list={listId}
         spellCheck={false}
         aria-label={t('ai.model')}
+        title={fromRuntime ? t('ai.detectedHint', { model }) : undefined}
         value={choice?.model ?? ''}
         placeholder={model || t('ai.modelPlaceholder')}
         onChange={(event) =>
@@ -388,11 +486,17 @@ function FeatureRow({ feature, settings }: { feature: AiFeature; settings: AppSe
         className={cn(
           'h-7 min-w-0 rounded-nb-xs border border-[var(--nb-control-border)]',
           'bg-[var(--nb-control-surface)] px-2 text-[12px] disabled:opacity-40',
+          // A detected id is a real answer, not the grey nothing a placeholder
+          // usually is, so the row stops looking unfilled.
+          fromRuntime &&
+            'border-[color-mix(in_srgb,var(--nb-success)_40%,var(--nb-control-border))] placeholder:text-[var(--nb-success)]',
         )}
       />
       <datalist id={listId}>
         {listed
-          ? modelsFor(listed, settings).map((entry) => <option key={entry} value={entry} />)
+          ? modelsFor(listed, settings, detected).map((entry) => (
+              <option key={entry} value={entry} />
+            ))
           : null}
       </datalist>
     </div>

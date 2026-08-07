@@ -7,12 +7,12 @@
  * is configured the pill becomes the way in — it says so, and clicking it opens
  * the provider settings rather than leaving a dead disabled control.
  */
-import { Sparkles } from 'lucide-react';
+import { HardDrive, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { AiFeature } from '@/lib/ai';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
-import { useAiAvailability } from './useAiAvailability';
+import { isLocalAvailability, useAiAvailability } from './useAiAvailability';
 
 export function AiStatusPill({
   feature,
@@ -68,10 +68,22 @@ export function AiStatusPill({
     ? `${availability.definition.label} · ${availability.model}`
     : t(`ai.unavailable_${availability.reason}`);
 
+  /**
+   * A model on this machine gets its own colour, because the difference it
+   * marks is the one this app is about: the same button, the same note, and
+   * either the text leaves for someone else's server or it does not. Green
+   * rather than the accent so it reads as a property of the destination and not
+   * as another piece of chrome — and it comes with the sentence in the tooltip,
+   * since a colour on its own is a claim nobody can check.
+   */
+  const local = isLocalAvailability(availability);
+
   // The glyph is only ever a shorthand for a configured provider — unconfigured,
   // the pill is the way in and has to say so in words.
   const glyphOnly = compact && !modelOnly && availability.available;
   const named = modelOnly && availability.available;
+  const detail = local ? `${full} — ${t('ai.localHint')}` : full;
+  const Glyph = local ? HardDrive : Sparkles;
 
   return (
     <button
@@ -79,8 +91,10 @@ export function AiStatusPill({
       onClick={openProviders}
       // The model name reads as a caption, so it says the provider — the half
       // it drops — in the label a screen reader gets, exactly as the glyph does.
-      aria-label={glyphOnly || named ? `${full} — ${t('ai.pillHint')}` : undefined}
-      title={availability.available ? `${full} — ${t('ai.pillHint')}` : t('ai.pillHint')}
+      aria-label={
+        glyphOnly || named || local ? `${detail} — ${t('ai.pillHint')}` : undefined
+      }
+      title={availability.available ? `${detail} — ${t('ai.pillHint')}` : t('ai.pillHint')}
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-full',
         'transition-colors duration-[var(--nb-t-fast)]',
@@ -97,14 +111,18 @@ export function AiStatusPill({
         glyphOnly ? 'size-6 justify-center' : modelOnly ? undefined : 'px-2 py-0.5',
         !availability.available
           ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
-          : glyphOnly
-            ? 'text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text-2'
-            : 'bg-[var(--nb-hover)] text-nb-text-3 hover:text-nb-text-2',
+          : local
+            ? // Tinted even in the glyph-only case: there the colour *is* the
+              // whole message, and a bare green sparkle is too easy to miss.
+              'bg-[color-mix(in_srgb,var(--nb-success)_14%,transparent)] text-[var(--nb-success)] hover:bg-[color-mix(in_srgb,var(--nb-success)_22%,transparent)]'
+            : glyphOnly
+              ? 'text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text-2'
+              : 'bg-[var(--nb-hover)] text-nb-text-3 hover:text-nb-text-2',
         className,
       )}
     >
-      {!named && (
-        <Sparkles
+      {(!named || local) && (
+        <Glyph
           size={glyphOnly ? 12 : modelOnly ? 9 : 10}
           className="shrink-0"
           aria-hidden
