@@ -196,28 +196,48 @@ export function AskPanel({ noteId }: { noteId: string }) {
             { value: 'library', label: t('ai.askScopeLibrary') },
           ]}
         />
-        {/* Two states, so a switch rather than a menu — and a switch with no
-            label, because the scope beside it is the one whose value varies in
-            length and needs the room. What it means is not left to the glyph:
-            the empty state says it in a sentence that changes with the mode,
-            and the tooltip says it on the way past. */}
+        {/* A switch, because the choice is one thing being on or off: may the
+            model add what it knows, or is it held to the notes? It was a bare
+            sparkle button, in a panel that already spent a sparkle on the empty
+            state and another on the provider — three of the same mark for three
+            different things, and the one carrying a decision was the one nobody
+            could read. A two-segment control said it in words but ate the
+            scope's label beside it; a switch says the same thing in the width
+            the glyph had, and says it *as a state* rather than a picture. The
+            sentence it stands for is in the tooltip and in the empty state. */}
         <button
           type="button"
+          role="switch"
+          aria-checked={knowledge}
           aria-label={`${t('ai.askMode')}: ${t(`ai.askMode${knowledge ? 'Knowledge' : 'Note'}`)}`}
-          aria-pressed={knowledge}
-          title={`${t('ai.askMode')} · ${t(`ai.askMode${knowledge ? 'Knowledge' : 'Note'}`)}`}
+          title={t(`ai.askIntro_${mode}`)}
           disabled={running}
           onClick={() => setAskMode(knowledge ? 'note' : 'knowledge')}
           className={cn(
-            'ml-auto grid size-7 shrink-0 place-items-center rounded-nb-xs',
-            'transition-colors duration-[var(--nb-t-fast)]',
+            'ml-auto flex h-7 shrink-0 items-center gap-1.5 rounded-nb-xs px-1.5',
+            'text-[11px] font-medium transition-colors duration-[var(--nb-t-fast)]',
             'disabled:pointer-events-none disabled:opacity-50',
             knowledge
-              ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
+              ? 'text-[var(--nb-accent)]'
               : 'text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text-2',
           )}
         >
-          <Sparkles size={13} aria-hidden />
+          {t('ai.askModeSwitch')}
+          <span
+            aria-hidden
+            className={cn(
+              'relative h-[14px] w-6 rounded-full transition-colors duration-[var(--nb-t-fast)]',
+              knowledge ? 'bg-[var(--nb-accent)]' : 'bg-[var(--nb-active)]',
+            )}
+          >
+            <span
+              className={cn(
+                'absolute top-[2px] size-[10px] rounded-full bg-white shadow-sm',
+                'transition-[left] duration-[var(--nb-t-fast)]',
+                knowledge ? 'left-3' : 'left-[2px]',
+              )}
+            />
+          </span>
         </button>
         {!empty && (
           <button
@@ -313,7 +333,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
             The pill used to head the panel, which is the one place its cost and
             trust argument does not apply — nothing is being sent up there. */}
         <div className="mt-1 flex items-center justify-end gap-1.5">
-          <AiStatusPill feature="ask" compact className="min-w-0" />
+          <AiStatusPill feature="ask" modelOnly className="min-w-0" />
           <GlassButton
             size="sm"
             variant={running ? 'default' : 'accent'}
