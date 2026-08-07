@@ -180,5 +180,6 @@ export const AI_FEATURES = [
   'mindMap',
   'flashcards',
   'podcast',
+  'importFormat',
 ] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];

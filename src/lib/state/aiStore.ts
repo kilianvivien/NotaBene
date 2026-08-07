@@ -38,7 +38,14 @@ export function threadKey(mode: AskMode, scope: AskScope): string {
  * `podcast` because a student can cancel the synthesiser without throwing away
  * the script it was reading. */
 export type AiActivity =
-  'rewrite' | 'synthesis' | 'ask' | 'mindMap' | 'flashcards' | 'podcast' | 'speech';
+  | 'rewrite'
+  | 'synthesis'
+  | 'ask'
+  | 'mindMap'
+  | 'flashcards'
+  | 'podcast'
+  | 'importFormat'
+  | 'speech';
 
 export interface AskThread {
   turns: AskTurn[];

@@ -6,6 +6,7 @@ export * from './client';
 export * from './json';
 export * from './prompts';
 export * from './rewrite';
+export * from './reformat';
 export * from './synthesis';
 export * from './ask';
 export * from './mindmap';

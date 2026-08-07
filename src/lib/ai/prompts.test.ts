@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { askPrompt, synthesisPrompt } from './prompts';
+import { askPrompt, reformatPrompt, synthesisPrompt } from './prompts';
+
+describe('Import reformatting prompt', () => {
+  const prompt = reformatPrompt({
+    blocks: ['Photosynthesis', 'It happens in the leaf.'],
+  });
+
+  it('numbers the blocks it asks about', () => {
+    expect(prompt[1]?.content).toContain('<block index="0">\nPhotosynthesis\n</block>');
+    expect(prompt[1]?.content).toContain('<block index="1">');
+  });
+
+  it('forbids the edits that would make it a rewrite', () => {
+    const content = prompt[0]?.content ?? '';
+    expect(content).toContain("Never change the document's text");
+    expect(content).toContain('"remove" is never valid here');
+    expect(content).toContain('may only ever be a heading');
+  });
+
+  it('leaves the language to the document rather than the locale', () => {
+    const content = prompt[0]?.content ?? '';
+    expect(content).toContain('Write it in the language the document is written in');
+    expect(content).not.toContain('Answer in English');
+  });
+});
 
 describe('Q&A synthesis prompt', () => {
   it('asks for a French answer label in French', () => {
@@ -80,7 +104,9 @@ describe('Ask prompt scope rules', () => {
       expect(content).toContain('not the whole library');
       // The failure this exists to prevent: reporting a retrieval miss as an
       // absence in the student's own library.
-      expect(content).toContain('Do not conclude that the user has no notes on the topic');
+      expect(content).toContain(
+        'Do not conclude that the user has no notes on the topic',
+      );
       expect(content).toContain('Cite notes by their title, never by index number');
     });
   }

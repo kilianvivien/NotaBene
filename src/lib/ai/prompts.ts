@@ -89,6 +89,64 @@ Rules:
   ];
 }
 
+// -- Import reformatting -----------------------------------------------------
+
+/**
+ * Put the shape back into a converted document.
+ *
+ * A converter gives you the words a PDF contained and very little of the layout
+ * it had: headings arrive as ordinary lines, sections run together, a slide's
+ * bullets arrive as one paragraph. This asks a model for the structure — and
+ * for nothing else. The prompt says "not a word" four different ways because
+ * every model's instinct, given a student's clumsy sentence, is to improve it,
+ * and an imported document is evidence rather than a draft.
+ *
+ * The rule is enforced downstream too: `reformat.ts` checks every edit against
+ * the block it claims to lay out and drops the ones that reworded it. This
+ * prompt is the request; that check is the guarantee.
+ *
+ * Alone among these prompts it takes no `language`. Nothing here is written in
+ * the app's locale — the only text the model may add is a heading, and a
+ * heading for a French handout belongs in French whatever language the student
+ * runs NotaBene in.
+ */
+export function reformatPrompt(options: { blocks: string[] }): AiMessage[] {
+  const numbered = options.blocks
+    .map((block, index) => `<block index="${index}">\n${block}\n</block>`)
+    .join('\n\n');
+
+  return [
+    {
+      role: 'system',
+      content: `You are laying out a document that a converter has just turned into Markdown. The conversion kept every word and lost most of the structure. You are restoring the structure. You are not an editor.
+
+${DIALECT}
+
+Never change the document's text. Not a word, not a number, not a date, not a name, not a spelling mistake, not an awkward sentence. Do not translate, do not summarise, do not reorder, do not delete anything, and do not merge two blocks into one.
+
+What you may do:
+- Promote a line that is acting as a title into a heading of the right level.
+- Split a wall of text into paragraphs where the subject changes, keeping every word.
+- Turn a run of parallel lines into a bulleted or numbered list.
+- Mark a quoted passage as a block quote, or a definition-and-explanation pair as a callout.
+- Emphasise a term the original emphasised.
+
+The one thing you may write yourself is a short heading for a section that plainly has none, and only when the document's own words do not already supply one. Write it in the language the document is written in. Never more than a few words. If in doubt, add nothing.
+
+The document is given as numbered blocks. Return only the blocks whose layout you are changing.
+
+${JSON_ONLY} It must match:
+{"summary": "one sentence describing the structure you restored", "blocks": [{"index": <number>, "action": "replace" | "insert", "markdown": "<the block, laid out, with its text untouched>", "rationale": "<short reason>"}]}
+
+Rules:
+- "replace" swaps block <index>. "insert" adds a new block *before* block <index>, and may only ever be a heading.
+- "remove" is never valid here. A block you would delete is a block you leave alone.
+- One entry per block. A block that is already laid out correctly is left out entirely, and an empty "blocks" array is a valid answer.`,
+    },
+    { role: 'user', content: numbered },
+  ];
+}
+
 // -- Synthesis ---------------------------------------------------------------
 
 const SYNTHESIS_INTENT: Record<SynthesisStyle, string> = {

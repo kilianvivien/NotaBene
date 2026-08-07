@@ -13,6 +13,7 @@
 import { docToMarkdown, markdownToDoc } from '@/editor/markdown';
 import {
   AiRewriteResponseSchema,
+  type AiRewriteResponse,
   type DocNode,
   type NoteDoc,
   type RewriteProposal,
@@ -55,6 +56,34 @@ export function proposalNodes(node: DocNode | undefined): DocNode[] {
  * than as an empty wrapper. */
 export function proposalMarkdown(node: DocNode | undefined): string {
   return docToMarkdown({ type: 'doc', content: proposalNodes(node) }).trim();
+}
+
+/**
+ * A model's block edits, read against the document it was shown.
+ *
+ * Shared with the import reformatter in `reformat.ts`, which asks for exactly
+ * this answer shape for exactly this reason: an edit list is proportional to
+ * what changed, and a converted lecture handout is far too long to ask a model
+ * to type back out in full.
+ */
+export function proposalFromResponse(
+  response: AiRewriteResponse,
+  blockCount: number,
+): RewriteProposal {
+  return {
+    blocks: response.blocks
+      // An index past the end of the note is the model losing count. Dropping
+      // the entry is right: the alternative is appending an edit somewhere the
+      // user never saw a block, which is how a diff panel loses trust.
+      .filter((block) => block.index < blockCount)
+      .map((block) => ({
+        index: block.index,
+        action: block.action,
+        node: block.markdown ? (markdownToNode(block.markdown) ?? undefined) : undefined,
+        rationale: block.rationale,
+      }))
+      .filter((block) => block.action === 'remove' || block.node !== undefined),
+  };
 }
 
 export interface RewriteRequest {
@@ -101,21 +130,8 @@ export async function requestRewrite(
 
   const response = parseModelJson(AiRewriteResponseSchema, text);
 
-  const blocks = response.blocks
-    // An index past the end of the note is the model losing count. Dropping the
-    // entry is right: the alternative is appending an edit somewhere the user
-    // never saw a block, which is how a diff panel loses trust.
-    .filter((block) => block.index < before.length)
-    .map((block) => ({
-      index: block.index,
-      action: block.action,
-      node: block.markdown ? (markdownToNode(block.markdown) ?? undefined) : undefined,
-      rationale: block.rationale,
-    }))
-    .filter((block) => block.action === 'remove' || block.node !== undefined);
-
   return {
-    proposal: { blocks },
+    proposal: proposalFromResponse(response, before.length),
     summary: response.summary,
     before,
   };
