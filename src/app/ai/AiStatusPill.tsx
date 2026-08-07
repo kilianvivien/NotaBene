@@ -73,16 +73,20 @@ export function AiStatusPill({
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-full',
         'transition-colors duration-[var(--nb-t-fast)]',
-        // A caption under the composer rather than a control: small enough that
-        // the send button beside it is plainly the thing you press. It stays
-        // small when there is no provider yet — it is still only a line of
-        // text, and the accent is what makes it findable. The dialogs' header
-        // pill keeps its own size.
-        modelOnly ? 'px-1 py-0 text-[10px]' : 'text-[11px]',
+        // A caption under the composer rather than a control: a quiet chip a
+        // size below the question above it, so the send button beside it is
+        // plainly the thing you press. Unconfigured it keeps the accent and a
+        // readable 10px — there it is not a status but the way in. The dialogs'
+        // header pill keeps its own size.
+        named
+          ? 'px-1.5 py-px text-[9.5px]'
+          : modelOnly
+            ? 'px-1 py-0 text-[10px]'
+            : 'text-[11px]',
         glyphOnly ? 'size-6 justify-center' : modelOnly ? undefined : 'px-2 py-0.5',
         !availability.available
           ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
-          : glyphOnly || named
+          : glyphOnly
             ? 'text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text-2'
             : 'bg-[var(--nb-hover)] text-nb-text-3 hover:text-nb-text-2',
         className,
