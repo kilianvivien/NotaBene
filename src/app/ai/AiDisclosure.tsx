@@ -26,7 +26,7 @@ export function AiDisclosureButton({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const setSettingsTab = useUiStore((state) => state.setSettingsTab);
+  const requestAiNotice = useUiStore((state) => state.requestAiNotice);
   const setSettingsOpen = useUiStore((state) => state.setSettingsOpen);
 
   return (
@@ -36,7 +36,7 @@ export function AiDisclosureButton({
       title={t('ai.disclosure')}
       onClick={() => {
         onLeave?.();
-        setSettingsTab('about');
+        requestAiNotice();
         setSettingsOpen(true);
       }}
       className={cn(

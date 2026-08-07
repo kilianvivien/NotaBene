@@ -5,12 +5,16 @@
  * its native viewer, while every attachment can be saved back to disk without
  * changing its original bytes.
  */
-import { Download, Maximize2, Minus, Plus, X } from 'lucide-react';
+import { Download, FileOutput, Maximize2, Minus, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { attachmentPreviewKind } from '@/lib/attachments/previewSupport';
-import { saveAttachmentCommand } from '@/lib/commands';
+import {
+  attachmentKindLabel,
+  attachmentPreviewKind,
+} from '@/lib/attachments/previewSupport';
+import { beginAttachmentImportCommand, saveAttachmentCommand } from '@/lib/commands';
+import { documentImportSupported } from '@/lib/import/documentImport';
 import type { Attachment } from '@/lib/schema';
 import { AttachmentDocumentPreview } from './AttachmentDocumentPreview';
 
@@ -60,6 +64,7 @@ export function AttachmentViewer({
   const [error, setError] = useState('');
   const previewKind = attachmentPreviewKind(attachment.name, mime);
   const isImage = previewKind === 'image';
+  const convertible = documentImportSupported(attachment.name);
   const documentKind =
     previewKind === 'pdf' ||
     previewKind === 'docx' ||
@@ -275,6 +280,13 @@ export function AttachmentViewer({
     );
   }
 
+  /** Close first: the conversion dialog would otherwise open behind a viewer
+   * that covers the whole window. */
+  function convertToNote() {
+    onClose();
+    beginAttachmentImportCommand({ kind: 'attachment', attachment });
+  }
+
   return createPortal(
     <div
       className="nb-attachment-viewer"
@@ -317,6 +329,18 @@ export function AttachmentViewer({
           </div>
         )}
 
+        {/* Two groups, not two buttons in one: `nb-map-viewer-controls` draws
+            the pill, and a shared pill reads as one segmented control — these
+            are unrelated actions. */}
+        {convertible && (
+          <div className="nb-map-viewer-controls">
+            <button type="button" onClick={convertToNote}>
+              <FileOutput size={14} aria-hidden />
+              {t('editor.convertAttachmentToNote')}
+            </button>
+          </div>
+        )}
+
         <div className="nb-map-viewer-controls">
           <button type="button" disabled={saving} onClick={() => void saveOriginal()}>
             <Download size={14} aria-hidden />
@@ -324,7 +348,9 @@ export function AttachmentViewer({
           </button>
         </div>
 
-        <span className="nb-attachment-viewer-kind">{mime}</span>
+        <span className="nb-attachment-viewer-kind" title={mime}>
+          {attachmentKindLabel(attachment.name, mime) ?? t('editor.attachmentFile')}
+        </span>
         <button
           type="button"
           className="nb-map-viewer-close"

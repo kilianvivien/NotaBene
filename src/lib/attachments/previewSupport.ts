@@ -125,3 +125,25 @@ export function attachmentPreviewKind(
 export function canPreviewAttachment(name: string, mime: string): boolean {
   return attachmentPreviewKind(name, mime) !== null;
 }
+
+/**
+ * A short badge for the viewer's header.
+ *
+ * The raw MIME type is the wrong thing to show someone —
+ * `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+ * says "DOCX" in fifty more characters. The file's own extension is what the
+ * user already knows the file by, so prefer it; the MIME subtype is only a
+ * fallback for extensionless files, and `null` means the caller should use a
+ * translated generic label.
+ */
+export function attachmentKindLabel(name: string, mime: string): string | null {
+  const extension = name.split('.').pop()?.toLowerCase() ?? '';
+  // 8, not 5, so `.markdown` gets a badge of its own rather than falling
+  // through to the MIME type it may not carry.
+  if (extension && extension !== name.toLowerCase() && extension.length <= 8) {
+    return extension.toUpperCase();
+  }
+  const subtype = mime.split('/')[1]?.split(';')[0] ?? '';
+  if (subtype && subtype.length <= 12) return subtype.toUpperCase();
+  return null;
+}

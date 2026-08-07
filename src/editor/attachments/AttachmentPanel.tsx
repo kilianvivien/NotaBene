@@ -219,6 +219,18 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
                   <Eye size={13} />
                 </button>
               )}
+              {documentImportSupported(attachment.name) && (
+                <button
+                  type="button"
+                  aria-label={t('editor.convertAttachmentToNote')}
+                  title={t('editor.convertAttachmentToNote')}
+                  onClick={() =>
+                    beginAttachmentImportCommand({ kind: 'attachment', attachment })
+                  }
+                >
+                  <FileOutput size={13} />
+                </button>
+              )}
               <button
                 type="button"
                 aria-label={t('common.delete')}
@@ -228,18 +240,6 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
               >
                 <Trash2 size={13} />
               </button>
-              {documentImportSupported(attachment.name) && (
-                <button
-                  type="button"
-                  className="nb-attachment-convert"
-                  onClick={() =>
-                    beginAttachmentImportCommand({ kind: 'attachment', attachment })
-                  }
-                >
-                  <FileOutput size={13} />
-                  {t('editor.convertAttachmentToNote')}
-                </button>
-              )}
             </li>
           ))}
         </ul>

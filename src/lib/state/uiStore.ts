@@ -81,6 +81,11 @@ interface UiState {
   aiPodcastOpen: boolean;
   settingsOpen: boolean;
   settingsTab: SettingsTab;
+  /** True when About was opened by the "i" beside a model name rather than by
+   * someone browsing Settings. About folds the AI Act notice away by default;
+   * arriving through the disclosure is the one case where that notice is the
+   * whole reason the page opened, so it must arrive unfolded. */
+  aiNoticeRequested: boolean;
   searchQuery: string;
   searchScope: 'all' | 'course';
   searchCourseId: string | null;
@@ -110,6 +115,7 @@ interface UiState {
   setAiPodcastOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
+  requestAiNotice(): void;
   setSearchQuery(query: string): void;
   setSearchScope(scope: 'all' | 'course'): void;
   setAgentBusy(busy: boolean): void;
@@ -163,6 +169,7 @@ export const useUiStore = create<UiState>()(
     aiPodcastOpen: false,
     settingsOpen: false,
     settingsTab: 'general',
+    aiNoticeRequested: false,
     searchQuery: '',
     searchScope: 'all',
     searchCourseId: null,
@@ -330,12 +337,23 @@ export const useUiStore = create<UiState>()(
     setSettingsOpen(open) {
       set((state) => {
         state.settingsOpen = open;
+        // Closing spends the request: reopening Settings by the gear is
+        // browsing, not asking for the notice again.
+        if (!open) state.aiNoticeRequested = false;
       });
     },
 
     setSettingsTab(tab) {
       set((state) => {
         state.settingsTab = tab;
+        if (tab !== 'about') state.aiNoticeRequested = false;
+      });
+    },
+
+    requestAiNotice() {
+      set((state) => {
+        state.settingsTab = 'about';
+        state.aiNoticeRequested = true;
       });
     },
 

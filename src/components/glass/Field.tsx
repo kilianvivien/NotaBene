@@ -9,7 +9,8 @@
  * grid column instead, so their edges agree by construction and stay agreeing
  * when a translation gets longer.
  */
-import type { ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
 
 export function FieldRow({
@@ -54,17 +55,53 @@ export function FieldRow({
 export function FieldSection({
   title,
   description,
+  collapsible = false,
+  defaultOpen = true,
   children,
 }: {
   title?: string;
   description?: string;
+  /** Turns the title into a disclosure. The description stays put either way —
+   * it is the label for what is folded away, so hiding it too would leave a
+   * heading that says nothing about what opening it gets you. */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
   children: ReactNode;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const folded = collapsible && !open;
+
   return (
     <section>
+      {/* The button goes inside the heading, never the other way round: a
+          heading nested in a button is not phrasing content, and the browser
+          drops it from the accessibility tree — the section would lose the
+          landmark a screen reader navigates by. */}
       {title && (
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
-          {title}
+          {collapsible ? (
+            <button
+              type="button"
+              onClick={() => setOpen((value) => !value)}
+              aria-expanded={open}
+              /* `uppercase` again, not only on the h3: the form-control reset
+                 gives buttons their own `text-transform`, so it does not
+                 inherit the way the rest of the heading's type does. */
+              className="-ml-[3px] flex items-center gap-1 text-left uppercase tracking-[0.07em] hover:text-nb-text-2"
+            >
+              <ChevronRight
+                size={12}
+                aria-hidden
+                className={cn(
+                  'shrink-0 transition-transform duration-[var(--nb-t-fast)]',
+                  open && 'rotate-90',
+                )}
+              />
+              {title}
+            </button>
+          ) : (
+            title
+          )}
         </h3>
       )}
       {description && (
@@ -72,7 +109,9 @@ export function FieldSection({
           {description}
         </p>
       )}
-      <div className={cn(title || description ? 'mt-2' : undefined)}>{children}</div>
+      {!folded && (
+        <div className={cn(title || description ? 'mt-2' : undefined)}>{children}</div>
+      )}
     </section>
   );
 }
