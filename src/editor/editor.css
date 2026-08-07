@@ -1048,6 +1048,17 @@ html[data-focus='true'] .nb-rich-editor[data-selection='text'] .nb-editor-bar {
   opacity: 1;
 }
 
+/* Fullscreen, the row gives up its space as well as its ink — the title bar has
+   already left the layout above it (`globals.css`), and stopping 56px short of
+   the top for a toolbar that is not on screen undoes half of that. It stays
+   sticky and simply has no height, so returning it overlays the page the way
+   the bars now do rather than shoving the paragraph you are writing. Both its
+   surfaces are opaque, which is what makes that legible. */
+html[data-focus='true'][data-fullscreen='true'] .nb-editor-bar {
+  height: 0;
+  margin-bottom: 0;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .nb-editor-bar {
     transition:

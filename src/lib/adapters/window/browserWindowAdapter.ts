@@ -19,4 +19,10 @@ export const browserWindowAdapter: WindowAdapter = {
   async isFullscreen() {
     return document.fullscreenElement !== null;
   },
+
+  async onFullscreenChange(listener) {
+    const onChange = () => listener(document.fullscreenElement !== null);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  },
 };

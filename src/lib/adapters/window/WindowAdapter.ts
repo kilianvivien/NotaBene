@@ -9,4 +9,11 @@
 export interface WindowAdapter {
   setFullscreen(on: boolean): Promise<void>;
   isFullscreen(): Promise<boolean>;
+  /**
+   * Report entering and leaving fullscreen, however it happened — the green
+   * button and `⌃⌘F` are not ours, and the layout that reclaims the title bar's
+   * band has to follow the window rather than our own flag. Returns the
+   * unsubscribe.
+   */
+  onFullscreenChange(listener: (fullscreen: boolean) => void): Promise<() => void>;
 }

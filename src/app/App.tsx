@@ -15,6 +15,7 @@ import { useUiStore } from '@/lib/state/uiStore';
 import { setLocale } from '@/lib/i18n';
 import { CollapsiblePane } from './shell/CollapsiblePane';
 import { useChromeRevealed } from './shell/useChromeReveal';
+import { useFullscreenAttribute } from './shell/useFullscreen';
 import { ReadingControls } from './shell/ReadingControls';
 import { TemplatePicker } from './organization/TemplatePicker';
 import { ExportDialog } from './export/ExportDialog';
@@ -54,6 +55,7 @@ export function App() {
   const inspectorVisible = useUiStore((state) => state.inspectorVisible);
   const focusMode = useUiStore((state) => state.focusMode);
   const chromeRevealed = useChromeRevealed();
+  useFullscreenAttribute();
 
   useAppCommands();
 

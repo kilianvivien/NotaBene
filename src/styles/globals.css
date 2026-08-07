@@ -117,6 +117,41 @@ html[data-focus='true'] .nb-chrome-bottom:focus-within {
   }
 }
 
+/* Fullscreen concentration mode: the bars leave the layout as well as the
+ * screen, so the page starts at the top of the display instead of below 44px of
+ * reserved nothing.
+ *
+ * Only fullscreen. Windowed, macOS draws the traffic lights over the top of the
+ * webview whether or not our bar is there, and text sliding under them is worse
+ * than the band — which is why the bars hold their space everywhere else.
+ * Out of flow, revealing one is an overlay rather than a reflow, so the page
+ * still does not jump when the pointer reaches an edge. */
+html[data-focus='true'][data-fullscreen='true'] .nb-shell {
+  position: relative;
+}
+
+html[data-focus='true'][data-fullscreen='true'] .nb-chrome-top,
+html[data-focus='true'][data-fullscreen='true'] .nb-chrome-bottom {
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  left: 0;
+}
+
+html[data-focus='true'][data-fullscreen='true'] .nb-chrome-top {
+  top: 0;
+}
+
+html[data-focus='true'][data-fullscreen='true'] .nb-chrome-bottom {
+  bottom: 0;
+}
+
+/* The reading controls come back on the same gesture as the title bar, so at
+   their usual 10px they would come back *underneath* it. */
+html[data-focus='true'][data-fullscreen='true'] .nb-reading-controls {
+  top: calc(var(--nb-titlebar-height) + 8px);
+}
+
 /* Reading controls: text size and column width, on the same reveal as the
    bars. Pinned to the editor column's top-right, opposite the toolbar, so the
    two never reach for the same corner.
