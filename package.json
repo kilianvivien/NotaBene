@@ -54,7 +54,7 @@
     "katex": "^0.18.1",
     "lucide-react": "^0.469.0",
     "nanoid": "^5.0.9",
-    "pdfjs-dist": "^6.1.200",
+    "pdfjs-dist": "^6.2.108",
     "pdfmake": "0.3.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
