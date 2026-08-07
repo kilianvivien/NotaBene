@@ -1164,8 +1164,32 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
   position: relative;
   display: flex;
   min-height: 180px;
+  /* Claim the rest of the inspector, so a file dragged anywhere over the empty
+     pane lands on the drop target rather than beside it. */
+  flex: 1;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Drag feedback. The overlay covers the panel rather than outlining it: what a
+   dropped file will do is add to *this note*, and saying so is worth more than
+   a dashed border on a list nobody is reading mid-drag. `pointer-events: none`
+   because a panel that swallows its own `dragleave` never stops dropping. */
+.nb-attachment-drop {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--nb-accent);
+  border-radius: 9px;
+  background: var(--nb-inset-surface);
+  color: var(--nb-accent);
+  font-size: 12px;
+  inset: 0;
+  pointer-events: none;
 }
 
 .nb-editor-scroll {

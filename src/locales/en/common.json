@@ -93,6 +93,7 @@
     "noBlocks": "No matching blocks",
     "addAttachment": "Add attachment",
     "addingAttachment": "Adding…",
+    "dropAttachments": "Drop files to attach them to this note",
     "unsupportedAttachment": "Choose a file that NotaBene can preview.",
     "noAttachments": "No attachments yet",
     "previewAttachment": "Preview attachment",

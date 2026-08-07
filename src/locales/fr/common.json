@@ -93,6 +93,7 @@
     "noBlocks": "Aucun bloc correspondant",
     "addAttachment": "Ajouter une pièce jointe",
     "addingAttachment": "Ajout…",
+    "dropAttachments": "Déposez des fichiers pour les joindre à cette note",
     "unsupportedAttachment": "Choisissez un fichier dont NotaBene peut afficher l’aperçu.",
     "noAttachments": "Aucune pièce jointe",
     "previewAttachment": "Aperçu de la pièce jointe",

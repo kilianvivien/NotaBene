@@ -1,5 +1,5 @@
 import { Eye, File, FileText, Image, Paperclip, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { assets, dialog, library } from '@/lib/adapters';
 import { ATTACHMENT_ACCEPT } from '@/lib/attachments/previewSupport';
@@ -28,6 +28,25 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
   const [busy, setBusy] = useState(false);
   const [addError, setAddError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  /**
+   * How deep the drag currently is, not whether it is here.
+   *
+   * `dragleave` fires every time the pointer crosses into a child — the button,
+   * a row, the empty state — so a boolean flickers the whole panel off and on
+   * as you move across it. Counting enters against leaves has no such seam.
+   */
+  const dragDepth = useRef(0);
+  const [dropping, setDropping] = useState(false);
+
+  /** Files, not a selection being dragged out of the note. */
+  function carriesFiles(event: DragEvent<HTMLElement>): boolean {
+    return [...event.dataTransfer.types].includes('Files');
+  }
+
+  function endDrag() {
+    dragDepth.current = 0;
+    setDropping(false);
+  }
 
   async function refresh() {
     const rows = await library.listAttachments(noteId);
@@ -94,7 +113,42 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
   }
 
   return (
-    <div className="nb-attachments">
+    // The pane is the drop target, not a strip inside it: someone dragging a
+    // lecture handout at the Attachments tab is aiming at the tab, and a zone
+    // small enough to miss is worse than no zone at all.
+    <div
+      className="nb-attachments"
+      data-dropping={dropping || undefined}
+      onDragEnter={(event) => {
+        if (!carriesFiles(event)) return;
+        dragDepth.current += 1;
+        setDropping(true);
+      }}
+      onDragOver={(event) => {
+        if (!carriesFiles(event)) return;
+        // Without this the webview opens the file instead, which navigates away
+        // from the app.
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+      }}
+      onDragLeave={() => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDropping(false);
+      }}
+      onDrop={(event) => {
+        if (!carriesFiles(event)) return;
+        event.preventDefault();
+        endDrag();
+        const files = [...event.dataTransfer.files];
+        if (files.length) void add(files);
+      }}
+    >
+      {dropping && (
+        <p className="nb-attachment-drop" aria-hidden>
+          <Paperclip size={16} />
+          {t('editor.dropAttachments')}
+        </p>
+      )}
       <input
         ref={input}
         hidden
