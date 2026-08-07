@@ -53,6 +53,11 @@ pub struct StorageSizes {
     pub wal_bytes: u64,
     pub assets_bytes: u64,
     pub backups_bytes: u64,
+    /// Local AI models the user chose to download — the speech ones today.
+    /// Broken out because they are gigabytes beside a library of megabytes, and
+    /// folded into "other" they made settings.json look like it had eaten the
+    /// disk.
+    pub models_bytes: u64,
     /// `settings.json` and the secret index. Bytes only — never contents.
     pub settings_bytes: u64,
     pub other_bytes: u64,
@@ -139,6 +144,9 @@ fn measure(data_dir: &Path) -> StorageSizes {
             "notabene.sqlite3-wal" | "notabene.sqlite3-shm" => sizes.wal_bytes += bytes,
             "assets" => sizes.assets_bytes += bytes,
             "backups" => sizes.backups_bytes += bytes,
+            // Where `KokoroManager` and the Voxtral manager install their
+            // artifacts: `models/<name>/<revision>/`.
+            "models" => sizes.models_bytes += bytes,
             "settings.json" | "secrets.json" | "secret-keys.json" => sizes.settings_bytes += bytes,
             _ => sizes.other_bytes += bytes,
         }
@@ -357,6 +365,8 @@ mod tests {
         fs::write(root.join("assets/ab/abcdef"), vec![0u8; 50]).unwrap();
         fs::create_dir_all(root.join("backups")).unwrap();
         fs::write(root.join("backups/a.notabene-backup"), vec![0u8; 7]).unwrap();
+        fs::create_dir_all(root.join("models/kokoro-82m/v1")).unwrap();
+        fs::write(root.join("models/kokoro-82m/v1/model.onnx"), vec![0u8; 40]).unwrap();
 
         let sizes = measure(root);
 
@@ -364,9 +374,13 @@ mod tests {
         assert_eq!(sizes.wal_bytes, 10);
         assert_eq!(sizes.assets_bytes, 50, "nested asset shards must be walked");
         assert_eq!(sizes.backups_bytes, 7);
+        assert_eq!(
+            sizes.models_bytes, 40,
+            "a downloaded model is its own category, not 'other'"
+        );
         assert_eq!(sizes.settings_bytes, 5);
         assert_eq!(sizes.other_bytes, 3);
-        assert_eq!(sizes.total_bytes, 175);
+        assert_eq!(sizes.total_bytes, 215);
     }
 
     /// Write an archive with a known modification time. Ordering is by mtime,

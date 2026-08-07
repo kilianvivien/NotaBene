@@ -26,8 +26,9 @@ import { formatBytes } from '@/lib/utils/formatBytes';
  */
 const SEGMENTS = [
   { key: 'database', opacity: 1 },
-  { key: 'attachments', opacity: 0.66 },
-  { key: 'backups', opacity: 0.42 },
+  { key: 'attachments', opacity: 0.74 },
+  { key: 'backups', opacity: 0.55 },
+  { key: 'models', opacity: 0.38 },
   { key: 'other', opacity: 0.22 },
 ] as const;
 
@@ -41,6 +42,7 @@ function partition(summary: StorageSummary): Record<SegmentKey, number> {
     database: summary.databaseBytes + summary.walBytes,
     attachments: summary.assetsBytes,
     backups: summary.backupsBytes,
+    models: summary.modelsBytes,
     other: summary.settingsBytes + summary.otherBytes,
   };
 }
@@ -185,6 +187,13 @@ export function DataStorageSettings() {
             </li>
           ))}
         </ul>
+        {summary.modelsBytes > 0 && (
+          <FieldNote>
+            {t('storage.modelsNote', {
+              size: formatBytes(summary.modelsBytes, locale),
+            })}
+          </FieldNote>
+        )}
         {summary.walBytes > 0 && (
           <FieldNote>
             {t('storage.walNote', { size: formatBytes(summary.walBytes, locale) })}

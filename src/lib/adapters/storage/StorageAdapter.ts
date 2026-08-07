@@ -14,6 +14,9 @@ export interface StorageSizes {
   walBytes: number;
   assetsBytes: number;
   backupsBytes: number;
+  /** Local AI models the user downloaded — the speech ones today. Gigabytes
+   * beside a library of megabytes, so never folded into "other". */
+  modelsBytes: number;
   /** `settings.json` and the secret index — the size of them, never contents. */
   settingsBytes: number;
   otherBytes: number;
