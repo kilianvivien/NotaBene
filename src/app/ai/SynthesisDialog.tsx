@@ -15,7 +15,7 @@ import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
-import { AiStatusPill } from './AiStatusPill';
+import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
 const STYLES: SynthesisStyle[] = ['summary', 'revision', 'qa', 'glossary'];
@@ -63,16 +63,21 @@ export function SynthesisDialog() {
     .filter((note) => noteIds.includes(note.id))
     .map((note) => note.title || t('noteList.untitled'));
 
+  /** One close for the header's Escape, the Cancel button, and the status
+   * pill on its way to Settings — a dialog left open behind that window is
+   * a window you cannot reach. */
+  function close() {
+    cancelRun('synthesis');
+    setOpen(false);
+  }
+
   return (
     <Dialog
       open={open}
-      onClose={() => {
-        cancelRun('synthesis');
-        setOpen(false);
-      }}
+      onClose={close}
       title={t('ai.synthesis')}
       size="md"
-      headerAction={<AiStatusPill feature="synthesis" compact />}
+      headerAction={<AiDialogStatus feature="synthesis" onLeave={close} />}
       footer={
         <>
           {running ? (

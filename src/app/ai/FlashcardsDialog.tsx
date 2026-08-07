@@ -35,7 +35,7 @@ import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
-import { AiStatusPill } from './AiStatusPill';
+import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
 const STYLES: FlashcardStyle[] = ['basic', 'cloze', 'mixed'];
@@ -165,17 +165,22 @@ export function FlashcardsDialog() {
     setRevealed(false);
   }
 
+  /** One close for the header's Escape, the Cancel button, and the status
+   * pill on its way to Settings — a dialog left open behind that window is
+   * a window you cannot reach. */
+  function close() {
+    cancelRun('flashcards');
+    setOpen(false);
+  }
+
   return (
     <Dialog
       open={open}
-      onClose={() => {
-        cancelRun('flashcards');
-        setOpen(false);
-      }}
+      onClose={close}
       title={t('ai.flashcards')}
       description={t('ai.flashcardsIntro')}
       size="lg"
-      headerAction={<AiStatusPill feature="flashcards" compact />}
+      headerAction={<AiDialogStatus feature="flashcards" onLeave={close} />}
       footer={
         <>
           {running ? (

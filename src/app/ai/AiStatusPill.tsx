@@ -18,9 +18,19 @@ export function AiStatusPill({
   feature,
   compact = false,
   modelOnly = false,
+  onLeave,
   className,
 }: {
   feature: AiFeature;
+  /**
+   * Called before Settings opens, for callers that are themselves modal.
+   *
+   * A dialog that leaves itself on screen gets the settings window *behind* it,
+   * where it cannot be reached or dismissed — the pill's whole promise is that
+   * you can go and change the model, so it has to take the dialog down on the
+   * way out. Passing the dialog's own close is all it takes.
+   */
+  onLeave?: () => void;
   /**
    * Say it with a glyph once there is nothing to do about it.
    *
@@ -49,6 +59,7 @@ export function AiStatusPill({
   const setSettingsOpen = useUiStore((state) => state.setSettingsOpen);
 
   function openProviders() {
+    onLeave?.();
     setSettingsTab('aiProviders');
     setSettingsOpen(true);
   }

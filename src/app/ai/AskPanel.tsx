@@ -41,6 +41,7 @@ import {
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
+import { AiDisclosureButton } from './AiDisclosure';
 import { AiStatusPill } from './AiStatusPill';
 import { AiRichText } from './AiRichText';
 import { useAiAvailability } from './useAiAvailability';
@@ -334,6 +335,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
             trust argument does not apply — nothing is being sent up there. */}
         <div className="mt-1 flex items-center justify-end gap-1.5">
           <AiStatusPill feature="ask" modelOnly className="min-w-0" />
+          <AiDisclosureButton />
           <GlassButton
             size="sm"
             variant={running ? 'default' : 'accent'}

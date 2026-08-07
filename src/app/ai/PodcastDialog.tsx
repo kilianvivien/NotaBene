@@ -45,7 +45,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
-import { AiStatusPill } from './AiStatusPill';
+import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
 const MODES: PodcastMode[] = ['narrator', 'dialogue'];
@@ -303,19 +303,24 @@ export function PodcastDialog() {
 
   const totalMs = segments.reduce((sum, segment) => sum + segment.durationMs, 0);
 
+  /** One close for Escape, for Cancel, and for the status pill on its way to
+   * Settings — a dialog left open behind that window is a window you cannot
+   * reach. */
+  function close() {
+    cancelRun('podcast');
+    cancelRun('speech');
+    audioRef.current?.pause();
+    setOpen(false);
+  }
+
   return (
     <Dialog
       open={open}
-      onClose={() => {
-        cancelRun('podcast');
-        cancelRun('speech');
-        audioRef.current?.pause();
-        setOpen(false);
-      }}
+      onClose={close}
       title={t('ai.podcast')}
       description={t('ai.podcastIntro')}
       size="lg"
-      headerAction={<AiStatusPill feature="podcast" compact />}
+      headerAction={<AiDialogStatus feature="podcast" onLeave={close} />}
       footer={
         <>
           {writing || speaking ? (

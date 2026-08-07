@@ -33,6 +33,19 @@ const PROMISES = [
   { key: 'aboutPrivacyKeys', icon: KeyRound },
 ] as const;
 
+/**
+ * What the AI features are, in the order someone finds out: there is no AI
+ * here, what you get from one can be wrong, where it lands in your note, and
+ * whose call it is to keep it. This is the page the "i" beside every model name
+ * opens, which is why the sentences are written to be read cold.
+ */
+const AI_NOTICE = [
+  'aboutAiWhat',
+  'aboutAiGenerated',
+  'aboutAiTrace',
+  'aboutAiResponsibility',
+] as const;
+
 export function AboutSettings() {
   const { t } = useTranslation();
 
@@ -68,6 +81,19 @@ export function AboutSettings() {
               <span className="text-[12px] leading-snug text-nb-text-2">
                 {t(`settings.${key}`)}
               </span>
+            </li>
+          ))}
+        </ul>
+      </FieldSection>
+
+      <FieldSection title={t('settings.aboutAi')} description={t('settings.aboutAiLaw')}>
+        <ul className="space-y-1.5">
+          {AI_NOTICE.map((key) => (
+            <li
+              key={key}
+              className="border-l-2 border-[var(--nb-divider-strong)] pl-2.5 text-[12px] leading-snug text-nb-text-2"
+            >
+              {t(`settings.${key}`)}
             </li>
           ))}
         </ul>

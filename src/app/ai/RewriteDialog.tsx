@@ -22,7 +22,7 @@ import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
-import { AiStatusPill } from './AiStatusPill';
+import { AiDialogStatus } from './AiDisclosure';
 import { AiRichText } from './AiRichText';
 import { useAiAvailability } from './useAiAvailability';
 
@@ -99,20 +99,25 @@ export function RewriteDialog() {
 
   const staged = blocks.length > 0;
 
+  /** One close for the header's Escape, the Cancel button, and the status
+   * pill on its way to Settings — a dialog left open behind that window is
+   * a window you cannot reach. */
+  function close() {
+    cancelRun('rewrite');
+    setOpen(false);
+  }
+
   return (
     <Dialog
       open={open}
-      onClose={() => {
-        cancelRun('rewrite');
-        setOpen(false);
-      }}
+      onClose={close}
       title={t('ai.rewrite')}
       description={t('ai.rewriteIntro')}
       // The sheet grows when there is something to compare. Before that it is
       // one control, and 900px of empty paper around it reads as a mistake;
       // after it, two columns of prose need every pixel.
       size={staged ? 'xl' : 'md'}
-      headerAction={<AiStatusPill feature="rewrite" compact />}
+      headerAction={<AiDialogStatus feature="rewrite" onLeave={close} />}
       footer={
         /* The primary action follows the stage. There is one thing to do before
            a proposal exists and a different one after, and showing both at once

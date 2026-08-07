@@ -19,7 +19,7 @@ import { svgDataUri } from '@/lib/mindmap/svg';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
-import { AiStatusPill } from './AiStatusPill';
+import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
 export function MindMapDialog() {
@@ -68,17 +68,22 @@ export function MindMapDialog() {
     setResult(null);
   }
 
+  /** One close for the header's Escape, the Cancel button, and the status
+   * pill on its way to Settings — a dialog left open behind that window is
+   * a window you cannot reach. */
+  function close() {
+    cancelRun('mindMap');
+    setOpen(false);
+  }
+
   return (
     <Dialog
       open={open}
-      onClose={() => {
-        cancelRun('mindMap');
-        setOpen(false);
-      }}
+      onClose={close}
       title={t('ai.mindMap')}
       description={t('ai.mindMapIntro')}
       size="lg"
-      headerAction={<AiStatusPill feature="mindMap" compact />}
+      headerAction={<AiDialogStatus feature="mindMap" onLeave={close} />}
       footer={
         <>
           {running ? (
