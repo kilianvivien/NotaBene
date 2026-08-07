@@ -9,8 +9,8 @@ if [ "$(uname -s)" != "Darwin" ]; then
 fi
 
 if [ "$(uname -m)" != "arm64" ]; then
-  echo "error: local Voxtral is supported only on Apple Silicon" >&2
-  exit 1
+  echo "warning: local CrispASR speech engines are unavailable on non-Apple-Silicon builds" >&2
+  exit 0
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -23,7 +23,10 @@ import { library } from '@/lib/adapters';
 import { flattenDoc } from '@/lib/notes/docText';
 import { useLibraryStore } from './libraryStore';
 import type { Note, NoteDoc } from '@/lib/schema';
-import { saveEditorNoteCommand } from '@/lib/commands/editorCommands';
+import {
+  keepEditorVersionCommand,
+  saveEditorNoteCommand,
+} from '@/lib/commands/editorCommands';
 
 /** Flush after this long without a keystroke. */
 export const AUTOSAVE_IDLE_MS = 800;
@@ -43,6 +46,7 @@ interface EditorState {
   lastSavedAt: string | null;
   lastSnapshotAt: number | null;
   error: string | null;
+  conflict: { mine: Note; theirs: Note } | null;
 
   openNote(noteId: string): Promise<void>;
   closeNote(): Promise<void>;
@@ -52,6 +56,7 @@ interface EditorState {
   setTitle(title: string): void;
   /** Force a write now — window blur, app quit, before an AI action. */
   flush(): Promise<void>;
+  resolveConflict(choice: 'mine' | 'theirs'): Promise<void>;
 }
 
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -60,6 +65,9 @@ let journalTimer: ReturnType<typeof setTimeout> | null = null;
 /** The journal write currently in flight, so a save can wait for it rather
  * than race it and leave a stale row to be offered back at the next launch. */
 let journalInFlight: Promise<void> = Promise.resolve();
+/** Serializes durable saves. Callers such as `openNote` must be able to wait
+ * for the outgoing note even when an autosave was already on the wire. */
+let flushInFlight: Promise<void> | null = null;
 
 function clearTimers(): void {
   if (idleTimer) clearTimeout(idleTimer);
@@ -77,6 +85,7 @@ export const useEditorStore = create<EditorState>()(
     lastSavedAt: null,
     lastSnapshotAt: null,
     error: null,
+    conflict: null,
 
     async openNote(noteId) {
       const started = performance.now();
@@ -87,6 +96,7 @@ export const useEditorStore = create<EditorState>()(
         state.note = note;
         state.saveState = 'idle';
         state.error = null;
+        state.conflict = null;
         // The first write in this open session snapshots the state the user
         // opened, so history exists immediately rather than after ten minutes.
         state.lastSnapshotAt = null;
@@ -126,55 +136,119 @@ export const useEditorStore = create<EditorState>()(
     },
 
     async flush() {
-      clearTimers();
-      // Let a journal write that is already on the wire land first: the store
-      // retires the row as part of the save, and re-creating it a moment later
-      // would look exactly like unsaved work at the next launch.
-      await journalInFlight;
+      if (flushInFlight) {
+        await flushInFlight;
+        // An edit may have landed while the previous snapshot was saving.
+        // Explicit callers (notably note navigation) must write that newer
+        // state too before they are allowed to continue.
+        if (get().saveState === 'dirty') await get().flush();
+        return;
+      }
 
-      const { note, saveState, lastSnapshotAt } = get();
-      if (!note || saveState !== 'dirty') return;
+      const run = async () => {
+        clearTimers();
+        // Let a journal write that is already on the wire land first: the store
+        // retires the row as part of the save, and re-creating it a moment later
+        // would look exactly like unsaved work at the next launch.
+        await journalInFlight;
 
-      set((state) => {
-        state.saveState = 'saving';
-      });
-      try {
-        const updated: Note = {
-          ...note,
-          plainText: flattenDoc(note.doc),
-          updatedAt: new Date().toISOString(),
-        };
-        const now = Date.now();
-        const snapshotCause =
-          lastSnapshotAt === null
-            ? 'session'
-            : now - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS
-              ? 'auto'
-              : null;
-        const saved = await saveEditorNoteCommand(updated, snapshotCause);
-        if (!saved.ok) throw new Error(saved.message);
-        if (snapshotCause) {
+        const { note, saveState, lastSnapshotAt } = get();
+        if (!note || saveState !== 'dirty') return;
+
+        set((state) => {
+          state.saveState = 'saving';
+        });
+        try {
+          const updated: Note = {
+            ...note,
+            plainText: flattenDoc(note.doc),
+            updatedAt: new Date().toISOString(),
+          };
+          const now = Date.now();
+          const snapshotCause =
+            lastSnapshotAt === null
+              ? 'session'
+              : now - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS
+                ? 'auto'
+                : null;
+          const saved = await saveEditorNoteCommand(
+            updated,
+            snapshotCause,
+            note.updatedAt,
+          );
+          if (!saved.ok) {
+            if (saved.code === 'conflict') {
+              const theirs = await library.getNote(updated.id);
+              if (theirs) {
+                set((state) => {
+                  if (state.note?.id !== updated.id) return;
+                  state.conflict = { mine: updated, theirs };
+                  state.saveState = 'error';
+                  state.error = saved.message;
+                });
+                return;
+              }
+            }
+            throw new Error(saved.message);
+          }
+          if (snapshotCause) {
+            set((state) => {
+              if (state.note?.id === updated.id) state.lastSnapshotAt = now;
+            });
+          }
+
           set((state) => {
-            state.lastSnapshotAt = now;
+            if (state.note?.id !== updated.id) return;
+            state.note.updatedAt = updated.updatedAt;
+            state.note.plainText = updated.plainText;
+            if (state.saveState === 'saving') state.saveState = 'saved';
+            state.lastSavedAt = updated.updatedAt;
+            state.error = null;
+          });
+
+          // The list renders titles and snippets from summaries, so it goes
+          // stale the moment a save lands unless it is told to re-read.
+          await useLibraryStore.getState().refreshCurrentView();
+        } catch (error) {
+          set((state) => {
+            if (state.note?.id !== note.id) return;
+            state.saveState = 'error';
+            state.error = error instanceof Error ? error.message : String(error);
           });
         }
+      };
 
-        set((state) => {
-          state.note = updated;
-          state.saveState = 'saved';
-          state.lastSavedAt = updated.updatedAt;
-          state.error = null;
-        });
-
-        // The list renders titles and snippets from summaries, so it goes
-        // stale the moment a save lands unless it is told to re-read.
-        await useLibraryStore.getState().refreshCurrentView();
-      } catch (error) {
-        set((state) => {
-          state.saveState = 'error';
-          state.error = error instanceof Error ? error.message : String(error);
-        });
+      flushInFlight = run();
+      try {
+        await flushInFlight;
+      } finally {
+        flushInFlight = null;
       }
+    },
+
+    async resolveConflict(choice) {
+      const conflict = get().conflict;
+      if (!conflict) return;
+      if (choice === 'theirs') {
+        set((state) => {
+          state.note = conflict.theirs;
+          state.saveState = 'saved';
+          state.lastSavedAt = conflict.theirs.updatedAt;
+          state.error = null;
+          state.conflict = null;
+        });
+        return;
+      }
+      const result = await keepEditorVersionCommand(conflict.mine);
+      if (!result.ok) throw new Error(result.message);
+      set((state) => {
+        state.note = result.value;
+        state.saveState = 'saved';
+        state.lastSavedAt = result.value.updatedAt;
+        state.error = null;
+        state.conflict = null;
+      });
+      await useLibraryStore.getState().refreshCurrentView();
     },
   })),
 );

@@ -8,7 +8,7 @@
  * `CommandResult` and never touch `library` directly.
  */
 import { z } from 'zod';
-import { library } from '@/lib/adapters';
+import { assets, library } from '@/lib/adapters';
 import {
   createNote,
   NoteDocSchema,
@@ -132,16 +132,6 @@ export async function updateNoteCommand(
 
   const existing = await library.getNote(parsed.data.noteId);
   if (!existing) return fail('not_found', `no note ${parsed.data.noteId}`);
-  if (
-    parsed.data.baseUpdatedAt !== undefined &&
-    parsed.data.baseUpdatedAt !== existing.updatedAt
-  ) {
-    return fail('conflict', 'the note changed after it was read', {
-      expectedUpdatedAt: parsed.data.baseUpdatedAt,
-      actualUpdatedAt: existing.updatedAt,
-    });
-  }
-
   // Snapshot *before* the write, so the history entry is the state the user
   // would want back. Only content changes deserve one; toggling `pinned`
   // should not fill the version list with noise.
@@ -186,7 +176,15 @@ export async function updateNoteCommand(
   };
 
   try {
-    await library.upsertNote(updated);
+    const baseUpdatedAt = parsed.data.baseUpdatedAt ?? existing.updatedAt;
+    const saved = await library.upsertNoteIfUnchanged(updated, baseUpdatedAt);
+    if (!saved) {
+      const current = await library.getNote(existing.id);
+      return fail('conflict', 'the note changed after it was read', {
+        expectedUpdatedAt: baseUpdatedAt,
+        actualUpdatedAt: current?.updatedAt,
+      });
+    }
   } catch (error) {
     return fail('storage_failed', String(error));
   }
@@ -214,6 +212,7 @@ export async function purgeExpiredTrashCommand(
   const cutoff = new Date(Date.now() - Math.max(0, retentionDays) * 86_400_000);
   try {
     const removed = await library.purgeTrash(cutoff.toISOString());
+    await collectAssetGarbageCommand();
     await refreshCurrentView();
     return ok(removed);
   } catch (error) {
@@ -224,11 +223,31 @@ export async function purgeExpiredTrashCommand(
 export async function emptyTrashCommand(): Promise<CommandResult<number>> {
   try {
     const removed = await library.purgeTrash(new Date().toISOString());
+    await collectAssetGarbageCommand();
     const editor = useEditorStore.getState();
     if (editor.note?.trashedAt) await editor.closeNote();
     useUiStore.getState().selectNote(null);
     await refreshCurrentView();
     return ok(removed);
+  } catch (error) {
+    return fail('storage_failed', String(error));
+  }
+}
+
+/** Reclaim content-addressed blobs no note, version, template, journal row or
+ * attachment can reach. The desktop adapter computes reachability atomically. */
+export async function collectAssetGarbageCommand(): Promise<
+  CommandResult<{ removed: number; bytes: number }>
+> {
+  try {
+    const result = await assets.collectGarbage();
+    if (result.removed > 0) {
+      await useSettingsStore.getState().update({
+        lastAssetReclaimedBytes: result.bytes,
+        lastAssetReclaimedAt: new Date().toISOString(),
+      });
+    }
+    return ok(result);
   } catch (error) {
     return fail('storage_failed', String(error));
   }
@@ -262,10 +281,7 @@ export async function fileNoteCommand(
   }
 
   await useEditorStore.getState().flush();
-  return updateNoteCommand(
-    { noteId, courseId: location.courseId, sectionId },
-    context,
-  );
+  return updateNoteCommand({ noteId, courseId: location.courseId, sectionId }, context);
 }
 
 export async function trashNoteCommand(

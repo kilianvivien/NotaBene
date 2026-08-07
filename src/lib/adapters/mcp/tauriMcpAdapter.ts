@@ -3,8 +3,8 @@ import { listen } from '@tauri-apps/api/event';
 import type { McpAdapter, McpBridgeRequest, McpClientId, McpStatus } from './McpAdapter';
 
 export const tauriMcpAdapter: McpAdapter = {
-  start: (token: string, preferredPort: number) =>
-    invoke<number>('mcp_start_server', { token, preferredPort }),
+  start: (token: string, preferredPort: number, scope: 'read' | 'write') =>
+    invoke<number>('mcp_start_server', { token, preferredPort, scope }),
   stop: () => invoke('mcp_stop_server'),
   status: () => invoke<McpStatus>('mcp_server_status'),
   onStatus: (handler) =>

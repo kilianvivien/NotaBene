@@ -181,3 +181,40 @@ export function concatWav(files: Uint8Array[], gapMs = 350): Uint8Array<ArrayBuf
 
   return encodeWav({ format, samples });
 }
+
+/** Join large episodes away from the editor's render thread. */
+export async function concatWavOffThread(
+  files: Uint8Array[],
+  gapMs = 350,
+): Promise<Uint8Array<ArrayBuffer>> {
+  if (typeof Worker === 'undefined') return concatWav(files, gapMs);
+
+  const buffers = files.map((file) => file.slice().buffer);
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./wav.worker.ts', import.meta.url), {
+      type: 'module',
+    });
+    worker.addEventListener(
+      'message',
+      (
+        event: MessageEvent<
+          { ok: true; bytes: ArrayBuffer } | { ok: false; error: string }
+        >,
+      ) => {
+        worker.terminate();
+        if (event.data.ok) resolve(new Uint8Array(event.data.bytes));
+        else reject(new Error(event.data.error));
+      },
+      { once: true },
+    );
+    worker.addEventListener(
+      'error',
+      (event) => {
+        worker.terminate();
+        reject(event.error ?? new Error(event.message));
+      },
+      { once: true },
+    );
+    worker.postMessage({ files: buffers, gapMs }, buffers);
+  });
+}

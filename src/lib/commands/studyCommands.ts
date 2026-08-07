@@ -36,7 +36,8 @@ import {
 } from '@/lib/ai';
 import { ankiFileName, deckToAnkiTsv } from '@/lib/export/anki';
 import { mindMapOutline } from '@/lib/mindmap/edit';
-import { concatWav, parseWav } from '@/lib/podcast/wav';
+import { concatWavOffThread, parseWav } from '@/lib/podcast/wav';
+import { encodeMp3OffThread } from '@/lib/podcast/mp3';
 import { isTauri } from '@/lib/platform/runtime';
 import {
   MindMapSchema,
@@ -570,7 +571,7 @@ export async function synthesizePodcastCommand(
         options.onProgress?.(completedChunks, totalChunks);
       }
       const spokenSegment = {
-        audio: new Blob([concatWav(parts, 0)], { type: 'audio/wav' }),
+        audio: new Blob([await concatWavOffThread(parts, 0)], { type: 'audio/wav' }),
         durationMs,
         playbackRate,
       };
@@ -719,13 +720,9 @@ async function synthesizeSpeechChunk(
   request: { text: string; voiceId: string; rate?: number },
   signal?: AbortSignal,
 ): Promise<TtsSegmentResult> {
-  const synthesizeChecked = async (
-    text: string,
-  ): Promise<TtsSegmentResult | null> => {
+  const synthesizeChecked = async (text: string): Promise<TtsSegmentResult | null> => {
     const result = await engine.synthesize({ ...request, text }, signal);
-    return isLikelyIncompleteVoxtralAudio(text, result.durationMs)
-      ? null
-      : result;
+    return isLikelyIncompleteVoxtralAudio(text, result.durationMs) ? null : result;
   };
 
   const result = await engine.synthesize(request, signal);
@@ -752,8 +749,7 @@ async function synthesizeSpeechChunk(
   let durationMs = 0;
   for (const text of recoveryChunks) {
     if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
-    const recovered =
-      (await synthesizeChecked(text)) ?? (await synthesizeChecked(text));
+    const recovered = (await synthesizeChecked(text)) ?? (await synthesizeChecked(text));
     if (!recovered) {
       throw new Error(
         'TTS_GENERATION_FAILED: Voxtral stopped before reading a recovery chunk twice.',
@@ -763,7 +759,7 @@ async function synthesizeSpeechChunk(
     durationMs += recovered.durationMs;
   }
   return {
-    audio: new Blob([concatWav(parts, 0)], { type: 'audio/wav' }),
+    audio: new Blob([await concatWavOffThread(parts, 0)], { type: 'audio/wav' }),
     durationMs,
     sampleRateHz: result.sampleRateHz,
     channels: result.channels,
@@ -797,11 +793,7 @@ export async function readAloudCommand(
     onChunk?(chunk: SpokenSegment, index: number, total: number): void;
   },
 ): Promise<CommandResult<number>> {
-  const chunks = preparedSpeechChunks(
-    text,
-    options.locale,
-    options.engineId ?? 'system',
-  );
+  const chunks = preparedSpeechChunks(text, options.locale, options.engineId ?? 'system');
   if (!chunks.length) return fail('invalid_input', 'there is nothing to read');
   if (!options.voiceId) return fail('invalid_input', 'choose a voice first');
 
@@ -868,7 +860,12 @@ export async function encodePodcastMp3Bytes(
   for (const segment of segments) {
     parts.push(new Uint8Array(await segment.audio.arrayBuffer()));
   }
-  const joined = parseWav(concatWav(parts));
+  const joinedBytes = await concatWavOffThread(parts);
+  if (typeof Worker !== 'undefined') {
+    const wasmUrl = (await import('wasm-media-encoders/wasm/mp3?url')).default;
+    return encodeMp3OffThread(joinedBytes, wasmUrl);
+  }
+  const joined = parseWav(joinedBytes);
   if (joined.format.bitsPerSample !== 16) {
     throw new Error('MP3 export requires 16-bit PCM audio');
   }

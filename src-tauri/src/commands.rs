@@ -7,7 +7,7 @@
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::model::{
@@ -76,6 +76,11 @@ pub fn library_query_notes(
     notes::query(&store, &query)
 }
 
+#[tauri::command]
+pub fn library_count_notes(store: State<'_, Store>, query: NoteQuery) -> DbResult<i64> {
+    notes::count(&store, &query)
+}
+
 /// The same query, scored. Retrieval's entry point — see `db::notes::search`.
 #[tauri::command]
 pub fn library_search_notes(store: State<'_, Store>, query: NoteQuery) -> DbResult<Vec<NoteMatch>> {
@@ -90,6 +95,15 @@ pub fn library_get_note(store: State<'_, Store>, note_id: String) -> DbResult<Op
 #[tauri::command]
 pub fn library_upsert_note(store: State<'_, Store>, note: Note) -> DbResult<()> {
     notes::upsert(&store, &note)
+}
+
+#[tauri::command]
+pub fn library_upsert_note_if_unchanged(
+    store: State<'_, Store>,
+    note: Note,
+    base_updated_at: String,
+) -> DbResult<bool> {
+    notes::upsert_if_unchanged(&store, &note, &base_updated_at)
 }
 
 #[tauri::command]
@@ -186,10 +200,7 @@ pub struct SnapshotRetentionPolicy {
 }
 
 #[tauri::command]
-pub fn library_purge_trash(
-    store: State<'_, Store>,
-    trashed_before: String,
-) -> DbResult<usize> {
+pub fn library_purge_trash(store: State<'_, Store>, trashed_before: String) -> DbResult<usize> {
     notes::purge_trash(&store, &trashed_before)
 }
 
@@ -315,14 +326,20 @@ pub fn assets_stat(store: State<'_, Store>, asset_id: String) -> DbResult<Option
     assets::stat(&store, &asset_id)
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetGarbageResult {
+    removed: usize,
+    bytes: i64,
+}
+
 #[tauri::command]
 pub fn assets_collect_garbage(
     app: AppHandle,
     store: State<'_, Store>,
-    referenced_ids: Vec<String>,
-) -> DbResult<usize> {
-    let removed = assets::collect_garbage(&store, &referenced_ids)?;
-    for id in &removed {
+) -> DbResult<AssetGarbageResult> {
+    let removed = assets::collect_garbage(&store)?;
+    for (id, _) in &removed {
         let path = asset_file_path(&app, id)?;
         match std::fs::remove_file(path) {
             Ok(()) => {}
@@ -330,7 +347,10 @@ pub fn assets_collect_garbage(
             Err(error) => return Err(DbError::Other(error.to_string())),
         }
     }
-    Ok(removed.len())
+    Ok(AssetGarbageResult {
+        removed: removed.len(),
+        bytes: removed.iter().map(|(_, bytes)| bytes).sum(),
+    })
 }
 
 #[tauri::command]
@@ -397,8 +417,50 @@ pub struct ExportResult {
     error: Option<String>,
 }
 
+fn export_parent_in_scope(app: &AppHandle, parent: &std::path::Path) -> DbResult<()> {
+    let roots = [
+        app.path().app_data_dir(),
+        app.path().document_dir(),
+        app.path().download_dir(),
+        app.path().desktop_dir(),
+    ]
+    .into_iter()
+    .filter_map(Result::ok)
+    .filter_map(|root| std::fs::canonicalize(root).ok())
+    .collect::<Vec<_>>();
+
+    // Validate before creating anything. The nearest existing ancestor exposes
+    // both `..` traversal and symlinks that would otherwise escape a permitted
+    // root after `create_dir_all` had already mutated the filesystem.
+    let existing = parent
+        .ancestors()
+        .find(|ancestor| ancestor.exists())
+        .ok_or_else(|| DbError::Other("export destination has no existing ancestor".into()))?;
+    let canonical_existing = std::fs::canonicalize(existing)
+        .map_err(|error| DbError::Other(format!("invalid export destination: {error}")))?;
+    if !roots
+        .iter()
+        .any(|root| canonical_existing.starts_with(root))
+    {
+        return Err(DbError::Other(
+            "EXPORT_DESTINATION_OUT_OF_SCOPE: exports may only be written to app data, Documents, Downloads, or Desktop".into(),
+        ));
+    }
+
+    std::fs::create_dir_all(parent).map_err(|error| DbError::Other(error.to_string()))?;
+    let canonical_parent = std::fs::canonicalize(parent)
+        .map_err(|error| DbError::Other(format!("invalid export destination: {error}")))?;
+    if roots.iter().any(|root| canonical_parent.starts_with(root)) {
+        Ok(())
+    } else {
+        Err(DbError::Other(
+            "EXPORT_DESTINATION_OUT_OF_SCOPE: export path escaped its permitted root".into(),
+        ))
+    }
+}
+
 #[tauri::command]
-pub fn export_write(request: ExportRequest) -> DbResult<ExportResult> {
+pub fn export_write(app: AppHandle, request: ExportRequest) -> DbResult<ExportResult> {
     let Some(file) = request.files.first() else {
         return Ok(ExportResult {
             ok: false,
@@ -422,7 +484,7 @@ pub fn export_write(request: ExportRequest) -> DbResult<ExportResult> {
         .map_err(|error| DbError::Other(format!("invalid export data: {error}")))?;
     let path = std::path::PathBuf::from(&destination);
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|error| DbError::Other(error.to_string()))?;
+        export_parent_in_scope(&app, parent)?;
     }
     let temporary = path.with_extension("notabene-tmp");
     std::fs::write(&temporary, bytes).map_err(|error| DbError::Other(error.to_string()))?;

@@ -133,6 +133,7 @@ describe('Phase D versions, backups, and exports', () => {
     const result = await saveEditorNoteCommand(
       { ...original, title: 'After', updatedAt: new Date().toISOString() },
       'session',
+      original.updatedAt,
     );
     expect(result.ok).toBe(true);
     const versions = await memoryLibraryAdapter.listSnapshots(original.id);

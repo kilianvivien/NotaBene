@@ -48,6 +48,9 @@ function partition(summary: StorageSummary): Record<SegmentKey, number> {
 export function DataStorageSettings() {
   const { t } = useTranslation();
   const locale = useSettingsStore((state) => state.settings.locale);
+  const lastAssetReclaimedBytes = useSettingsStore(
+    (state) => state.settings.lastAssetReclaimedBytes,
+  );
   const [summary, setSummary] = useState<StorageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
@@ -185,6 +188,13 @@ export function DataStorageSettings() {
         {summary.walBytes > 0 && (
           <FieldNote>
             {t('storage.walNote', { size: formatBytes(summary.walBytes, locale) })}
+          </FieldNote>
+        )}
+        {lastAssetReclaimedBytes > 0 && (
+          <FieldNote>
+            {t('storage.lastReclaimed', {
+              size: formatBytes(lastAssetReclaimedBytes, locale),
+            })}
           </FieldNote>
         )}
       </FieldSection>

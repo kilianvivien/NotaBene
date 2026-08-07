@@ -2,11 +2,7 @@ import { Check, ChevronRight, Circle, Copy, RefreshCw, Trash2 } from 'lucide-rea
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FieldToggle, GlassButton } from '@/components/glass';
-import {
-  MCP_CLIENTS,
-  type McpClientDefinition,
-  type McpClientId,
-} from '@/lib/adapters';
+import { MCP_CLIENTS, type McpClientDefinition, type McpClientId } from '@/lib/adapters';
 import { platformRuntime } from '@/lib/platform/runtime';
 import { useMcpStore, type McpActivity } from '@/lib/state/mcpStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
@@ -22,6 +18,7 @@ export function AgentSettings() {
   const activities = useMcpStore((state) => state.activities);
   const setEnabled = useMcpStore((state) => state.setEnabled);
   const setPreferredPort = useMcpStore((state) => state.setPreferredPort);
+  const setScope = useMcpStore((state) => state.setScope);
   const rotateToken = useMcpStore((state) => state.rotateToken);
   const writeClientConfig = useMcpStore((state) => state.writeClientConfig);
   const clearActivity = useMcpStore((state) => state.clearActivity);
@@ -93,6 +90,12 @@ export function AgentSettings() {
             <RefreshCw size={12} aria-hidden />
             {t('mcp.rotateToken')}
           </GlassButton>
+          <FieldToggle
+            label={t('mcp.allowWrites')}
+            checked={settings.mcpScope === 'write'}
+            disabled={pending}
+            onChange={(enabled) => void setScope(enabled ? 'write' : 'read')}
+          />
         </div>
       </div>
 
@@ -219,9 +222,7 @@ function ClientRow({
           <GlassButton size="sm" disabled={!ready || busy} onClick={onSetup}>
             {t('mcp.configure')}
           </GlassButton>
-          {!ready && (
-            <p className="text-[11px] text-nb-text-3">{t('mcp.enableFirst')}</p>
-          )}
+          {!ready && <p className="text-[11px] text-nb-text-3">{t('mcp.enableFirst')}</p>}
         </div>
       )}
     </li>

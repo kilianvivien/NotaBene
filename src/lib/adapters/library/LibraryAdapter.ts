@@ -81,6 +81,8 @@ export interface LibraryAdapter {
 
   /** Summaries only — the note list must never pay for full documents. */
   queryNotes(query: NoteQuery): Promise<NoteSummary[]>;
+  /** Count the same filtered query without its limit or offset. */
+  countNotes(query: NoteQuery): Promise<number>;
   /**
    * The same query, ranked and scored, ordered by relevance alone — pinning is
    * ignored, because pinning says "keep this handy", not "this answers the
@@ -89,6 +91,8 @@ export interface LibraryAdapter {
   searchNotes(query: NoteQuery): Promise<NoteMatch[]>;
   getNote(noteId: string): Promise<Note | null>;
   upsertNote(note: Note): Promise<void>;
+  /** Atomic optimistic write for interactive/editor and MCP updates. */
+  upsertNoteIfUnchanged(note: Note, baseUpdatedAt: string): Promise<boolean>;
   /** Soft delete: sets `trashedAt`. Hard removal is `purgeNote`. */
   trashNote(noteId: string): Promise<void>;
   restoreNote(noteId: string): Promise<void>;

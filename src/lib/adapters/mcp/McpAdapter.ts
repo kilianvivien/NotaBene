@@ -15,12 +15,7 @@ export interface McpStatus {
 
 /** Which MCP clients we can write a config file for, one click. */
 export type McpClientId =
-  | 'claude-code'
-  | 'claude-desktop'
-  | 'codex'
-  | 'antigravity'
-  | 'opencode'
-  | 'custom';
+  'claude-code' | 'claude-desktop' | 'codex' | 'antigravity' | 'opencode' | 'custom';
 
 /**
  * What the settings pane shows for each of them, and where the write lands.
@@ -83,7 +78,7 @@ export interface McpBridgeRequest {
 }
 
 export interface McpAdapter {
-  start(token: string, preferredPort: number): Promise<number>;
+  start(token: string, preferredPort: number, scope: 'read' | 'write'): Promise<number>;
   stop(): Promise<void>;
   status(): Promise<McpStatus>;
   /** Subscribe to server lifecycle changes (bind, stop, unexpected failure). */

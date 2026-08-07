@@ -24,12 +24,14 @@ import { MindMapDialog } from './ai/MindMapDialog';
 import { FlashcardsDialog } from './ai/FlashcardsDialog';
 import { PodcastDialog } from './ai/PodcastDialog';
 import {
+  collectAssetGarbageCommand,
   purgeExpiredTrashCommand,
   runOnboardingCommand,
   runScheduledBackupCommand,
 } from '@/lib/commands';
 import { startAgentBridge } from '@/lib/mcp/agentBridge';
 import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
+import { EditorConflictDialog } from './editor/EditorConflictDialog';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -41,6 +43,7 @@ const INSPECTOR_WIDTH = 280;
 /** How often to ask whether a scheduled backup is due. Not how often one runs —
  * that is a day or a week, decided by the command itself. */
 const BACKUP_HEARTBEAT_MS = 30 * 60 * 1000;
+const LAUNCH_MAINTENANCE_IDLE_MS = 10_000;
 
 export function App() {
   const bootstrap = useLibraryStore((state) => state.bootstrap);
@@ -66,6 +69,10 @@ export function App() {
       () => void runScheduledBackupCommand(),
       BACKUP_HEARTBEAT_MS,
     );
+    const maintenanceIdle = window.setTimeout(
+      () => void collectAssetGarbageCommand(),
+      LAUNCH_MAINTENANCE_IDLE_MS,
+    );
     void (async () => {
       await loadSettings();
       setLocale(useSettingsStore.getState().settings.locale);
@@ -90,6 +97,7 @@ export function App() {
       delete document.documentElement.dataset.ready;
       active = false;
       window.clearInterval(backupHeartbeat);
+      window.clearTimeout(maintenanceIdle);
       stopAgentBridge();
       stopStatusWatch();
       stopThemeWatch();
@@ -155,6 +163,7 @@ export function App() {
       <MindMapDialog />
       <FlashcardsDialog />
       <PodcastDialog />
+      <EditorConflictDialog />
     </div>
   );
 }

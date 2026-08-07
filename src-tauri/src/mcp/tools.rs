@@ -144,8 +144,14 @@ pub struct ExportNotesParams {
     pub note_ids: Vec<String>,
     /// `markdown`, `html`, `pdf`, or `docx`.
     pub format: String,
-    /// Absolute output path chosen by the user.
-    pub destination: String,
+    /// File name written inside Downloads/NotaBene exports. Path separators
+    /// are refused by the app bridge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_name: Option<String>,
+    /// Deprecated: retained for one release so old clients receive a clear
+    /// migration error instead of writing to an unexpected location.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -182,6 +188,7 @@ pub struct OrganizeParams {
 #[derive(Clone)]
 pub struct NotaBeneMcpServer {
     bridge: Arc<McpBridge>,
+    can_write: bool,
 }
 
 fn client_of(ctx: &RequestContext<RoleServer>) -> Option<ClientInfo> {
@@ -225,8 +232,23 @@ fn to_args<T: serde::Serialize>(params: &T) -> Result<Value, ErrorData> {
 
 #[tool_router]
 impl NotaBeneMcpServer {
-    pub fn new(bridge: Arc<McpBridge>) -> Self {
-        Self { bridge }
+    pub fn new(bridge: Arc<McpBridge>, can_write: bool) -> Self {
+        Self { bridge, can_write }
+    }
+
+    fn refuse_write(&self) -> Option<Result<CallToolResult, ErrorData>> {
+        (!self.can_write).then(|| {
+            Ok(CallToolResult::error(vec![ContentBlock::text(
+                json!({
+                    "error": {
+                        "code": "PAIRING_READ_ONLY",
+                        "message": "This NotaBene pairing is read-only. Enable write access in Settings → Connections to use this tool.",
+                        "recoverable": false
+                    }
+                })
+                .to_string(),
+            )]))
+        })
     }
 
     #[tool(
@@ -319,6 +341,9 @@ impl NotaBeneMcpServer {
         Parameters(params): Parameters<CreateNoteParams>,
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
         let args = to_args(&params)?;
         to_tool_result(
             self.bridge
@@ -336,6 +361,9 @@ impl NotaBeneMcpServer {
         Parameters(params): Parameters<UpdateNoteParams>,
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
         let args = to_args(&params)?;
         to_tool_result(
             self.bridge
@@ -353,6 +381,9 @@ impl NotaBeneMcpServer {
         Parameters(params): Parameters<ManageTagsParams>,
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
         let args = to_args(&params)?;
         to_tool_result(
             self.bridge
@@ -370,6 +401,9 @@ impl NotaBeneMcpServer {
         Parameters(params): Parameters<CreateCourseParams>,
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
         let args = to_args(&params)?;
         to_tool_result(
             self.bridge
@@ -380,13 +414,16 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_export_notes",
-        description = "Export selected notes to an explicit local path as Markdown, HTML, PDF, or DOCX. Separate multi-note exports are packaged as a zip. PDF uses the app's native print flow."
+        description = "Export selected notes into Downloads/NotaBene exports as Markdown, HTML, PDF, or DOCX. Pass a fileName, never a path. Separate multi-note exports are packaged as a zip."
     )]
     pub async fn export_notes(
         &self,
         Parameters(params): Parameters<ExportNotesParams>,
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
         let args = to_args(&params)?;
         to_tool_result(
             self.bridge
@@ -404,6 +441,9 @@ impl NotaBeneMcpServer {
         Parameters(params): Parameters<OrganizeParams>,
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
         let args = to_args(&params)?;
         to_tool_result(
             self.bridge

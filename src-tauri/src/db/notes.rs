@@ -7,9 +7,7 @@
 
 use rusqlite::{params_from_iter, types::Value as SqlValue, Connection, OptionalExtension, Row};
 
-use super::model::{
-    Backlink, Note, NoteMatch, NoteQuery, NoteSummary, Snapshot, SnapshotMeta,
-};
+use super::model::{Backlink, Note, NoteMatch, NoteQuery, NoteSummary, Snapshot, SnapshotMeta};
 use super::{DbError, DbResult, Store};
 use crate::commands::SnapshotRetentionPolicy;
 
@@ -56,6 +54,21 @@ pub fn query(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteSummary>> {
             .collect::<rusqlite::Result<Vec<_>>>()?;
 
         attach_tags(connection, rows)
+    })
+}
+
+pub fn count(store: &Store, query: &NoteQuery) -> DbResult<i64> {
+    store.with(|connection| {
+        let (sql, mut binds) = build_note_query(query, false);
+        let from = sql
+            .find(" FROM notes n")
+            .ok_or_else(|| DbError::Other("note query has no FROM clause".into()))?;
+        let order = sql
+            .find(" ORDER BY")
+            .ok_or_else(|| DbError::Other("note query has no ORDER BY clause".into()))?;
+        let count_sql = format!("SELECT count(*){}", &sql[from..order]);
+        binds.truncate(binds.len().saturating_sub(2));
+        Ok(connection.query_row(&count_sql, params_from_iter(binds.iter()), |row| row.get(0))?)
     })
 }
 
@@ -118,9 +131,7 @@ fn build_note_query(query: &NoteQuery, ranked: bool) -> (String, Vec<SqlValue>) 
             // Negated: SQLite's `bm25()` is more-negative-is-better, and every
             // consumer on the TypeScript side expects larger to mean closer.
             let [title, body, tags, course, attachments] = BM25_WEIGHTS;
-            format!(
-                ", -bm25(notes_fts, {title}, {body}, {tags}, {course}, {attachments}) AS score"
-            )
+            format!(", -bm25(notes_fts, {title}, {body}, {tags}, {course}, {attachments}) AS score")
         } else {
             String::new()
         };
@@ -133,7 +144,12 @@ fn build_note_query(query: &NoteQuery, ranked: bool) -> (String, Vec<SqlValue>) 
         let mut binds: Vec<SqlValue> = Vec::new();
 
         // Free text goes through FTS5; everything else is a column predicate.
-        if let Some(text) = query.text.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
+        if let Some(text) = query
+            .text
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        {
             let mode = match query.text_match.as_deref() {
                 Some("any") => TextMatch::Any,
                 _ => TextMatch::All,
@@ -192,9 +208,8 @@ fn build_note_query(query: &NoteQuery, ranked: bool) -> (String, Vec<SqlValue>) 
                 "image" => clauses.push("n.has_image = 1".into()),
                 "drawing" => clauses.push("n.has_drawing = 1".into()),
                 "table" => clauses.push("n.has_table = 1".into()),
-                "attachment" => clauses.push(
-                    "EXISTS (SELECT 1 FROM attachments a WHERE a.note_id = n.id)".into(),
-                ),
+                "attachment" => clauses
+                    .push("EXISTS (SELECT 1 FROM attachments a WHERE a.note_id = n.id)".into()),
                 _ => {}
             }
         }
@@ -332,8 +347,112 @@ pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
     })
 }
 
+pub(crate) fn list_all_in(connection: &Connection) -> DbResult<Vec<Note>> {
+    let mut statement = connection.prepare(
+        "SELECT id, course_id, section_id, title, doc_json, plain_text, pinned, archived,
+         trashed_at, created_at, updated_at, \"order\" FROM notes ORDER BY rowid",
+    )?;
+    let mut notes = statement
+        .query_map([], |row| {
+            let doc_json: String = row.get(4)?;
+            Ok(Note {
+                id: row.get(0)?,
+                course_id: row.get(1)?,
+                section_id: row.get(2)?,
+                title: row.get(3)?,
+                doc: serde_json::from_str(&doc_json).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        4,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?,
+                plain_text: row.get(5)?,
+                tag_ids: Vec::new(),
+                pinned: row.get::<_, i64>(6)? != 0,
+                archived: row.get::<_, i64>(7)? != 0,
+                trashed_at: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
+                order: row.get(11)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    let positions: std::collections::HashMap<String, usize> = notes
+        .iter()
+        .enumerate()
+        .map(|(index, note)| (note.id.clone(), index))
+        .collect();
+    let mut tags = connection.prepare("SELECT note_id, tag_id FROM note_tags")?;
+    let pairs = tags
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for (note_id, tag_id) in pairs {
+        if let Some(index) = positions.get(&note_id) {
+            notes[*index].tag_ids.push(tag_id);
+        }
+    }
+    Ok(notes)
+}
+
 pub fn upsert(store: &Store, note: &Note) -> DbResult<()> {
     store.transact(|transaction| upsert_in(transaction, note))
+}
+
+/// Atomically replace a note only if the durable row is still the version the
+/// caller read. Imports and recovery continue to use unconditional `upsert`.
+pub fn upsert_if_unchanged(store: &Store, note: &Note, base_updated_at: &str) -> DbResult<bool> {
+    store.transact(|transaction| {
+        let doc_json = serde_json::to_string(&note.doc)?;
+        let (has_image, has_drawing, has_table) = doc_features(&note.doc);
+        let changed = transaction.execute(
+            "UPDATE notes SET course_id = ?1, section_id = ?2, title = ?3,
+             doc_json = ?4, plain_text = ?5, pinned = ?6, archived = ?7,
+             trashed_at = ?8, updated_at = ?9, \"order\" = ?10,
+             has_image = ?11, has_drawing = ?12, has_table = ?13
+             WHERE id = ?14 AND updated_at = ?15",
+            rusqlite::params![
+                note.course_id,
+                note.section_id,
+                note.title,
+                doc_json,
+                note.plain_text,
+                i64::from(note.pinned),
+                i64::from(note.archived),
+                note.trashed_at,
+                note.updated_at,
+                note.order,
+                i64::from(has_image),
+                i64::from(has_drawing),
+                i64::from(has_table),
+                note.id,
+                base_updated_at,
+            ],
+        )?;
+        if changed == 0 {
+            return Ok(false);
+        }
+
+        transaction.execute("DELETE FROM note_tags WHERE note_id = ?", [&note.id])?;
+        for tag_id in &note.tag_ids {
+            transaction.execute(
+                "INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?1, ?2)",
+                rusqlite::params![note.id, tag_id],
+            )?;
+        }
+        rebuild_links(transaction, note)?;
+        transaction.execute(
+            "UPDATE note_links SET target_id = ?1
+             WHERE target_id IS NULL AND target_title = ?2 COLLATE NOCASE",
+            rusqlite::params![note.id, note.title],
+        )?;
+        reindex_note(transaction, &note.id)?;
+        transaction.execute("DELETE FROM editor_journal WHERE note_id = ?", [&note.id])?;
+        Ok(true)
+    })
 }
 
 pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
@@ -607,6 +726,33 @@ pub fn get_snapshot(store: &Store, snapshot_id: &str) -> DbResult<Option<Snapsho
     })
 }
 
+pub(crate) fn list_all_snapshots_in(connection: &Connection) -> DbResult<Vec<Snapshot>> {
+    let mut statement = connection.prepare(
+        "SELECT id, note_id, doc_json, title, cause, created_at
+         FROM snapshots ORDER BY created_at",
+    )?;
+    let rows = statement
+        .query_map([], |row| {
+            let doc_json: String = row.get(2)?;
+            Ok(Snapshot {
+                id: row.get(0)?,
+                note_id: row.get(1)?,
+                doc: serde_json::from_str(&doc_json).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        2,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?,
+                title: row.get(3)?,
+                cause: row.get(4)?,
+                created_at: row.get(5)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 pub fn create_snapshot(
     store: &Store,
     id: &str,
@@ -858,6 +1004,48 @@ mod tests {
     }
 
     #[test]
+    fn conditional_upsert_rejects_a_stale_writer_atomically() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        let original = note_with("shared", "Original", "first");
+        upsert(store, &original).unwrap();
+
+        let mut first_writer = original.clone();
+        first_writer.title = "First writer".into();
+        first_writer.updated_at = "2026-07-27T00:01:00.000Z".into();
+        assert!(upsert_if_unchanged(store, &first_writer, &original.updated_at).unwrap());
+
+        let mut stale_writer = original.clone();
+        stale_writer.title = "Stale writer".into();
+        stale_writer.updated_at = "2026-07-27T00:02:00.000Z".into();
+        assert!(!upsert_if_unchanged(store, &stale_writer, &original.updated_at).unwrap());
+        assert_eq!(get(store, "shared").unwrap().unwrap().title, "First writer");
+    }
+
+    #[test]
+    fn count_uses_the_query_filters_but_not_its_page_limit() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        for index in 0..3 {
+            upsert(
+                store,
+                &note_with(&format!("match-{index}"), "Vectors", "eigenvector lecture"),
+            )
+            .unwrap();
+        }
+        upsert(store, &note_with("other", "Topology", "compact set")).unwrap();
+
+        let query = NoteQuery {
+            text: Some("eigenvector".into()),
+            limit: Some(1),
+            offset: Some(1),
+            ..NoteQuery::default()
+        };
+        assert_eq!(super::query(store, &query).unwrap().len(), 1);
+        assert_eq!(count(store, &query).unwrap(), 3);
+    }
+
+    #[test]
     fn fts_is_diacritics_insensitive_and_returns_marked_snippets() {
         let temporary = temp_store();
         let store = &temporary.store;
@@ -1092,7 +1280,10 @@ mod tests {
             .expect("failed to seed a corpus note");
         }
 
-        for query in corpus["queries"].as_array().expect("queries must be an array") {
+        for query in corpus["queries"]
+            .as_array()
+            .expect("queries must be an array")
+        {
             let terms: Vec<String> = query["terms"]
                 .as_array()
                 .unwrap()
@@ -1221,10 +1412,7 @@ mod tests {
 
         note.trashed_at = Some("2026-01-01T00:00:00Z".into());
         upsert(store, &note).unwrap();
-        assert_eq!(
-            purge_trash(store, "2026-02-01T00:00:00Z").unwrap(),
-            1
-        );
+        assert_eq!(purge_trash(store, "2026-02-01T00:00:00Z").unwrap(), 1);
         assert!(get(store, &note.id).unwrap().is_none());
     }
 

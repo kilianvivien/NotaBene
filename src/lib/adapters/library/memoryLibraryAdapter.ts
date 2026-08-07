@@ -217,6 +217,16 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     return rows.slice(offset, offset + limit).map((note) => toSummary(note, text));
   }
 
+  async countNotes(query: NoteQuery): Promise<number> {
+    return (
+      await this.queryNotes({
+        ...query,
+        limit: Number.MAX_SAFE_INTEGER,
+        offset: 0,
+      })
+    ).length;
+  }
+
   async searchNotes(query: NoteQuery): Promise<NoteMatch[]> {
     const text = query.text?.trim();
     if (!text) {
@@ -262,6 +272,13 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     // The note reached the store, so any journalled in-flight copy is stale —
     // the SQLite adapter does this inside the write transaction.
     this.journal.delete(note.id);
+  }
+
+  async upsertNoteIfUnchanged(note: Note, baseUpdatedAt: string): Promise<boolean> {
+    const existing = this.library.notes.find((entry) => entry.id === note.id);
+    if (!existing || existing.updatedAt !== baseUpdatedAt) return false;
+    await this.upsertNote(note);
+    return true;
   }
 
   async trashNote(noteId: string): Promise<void> {
@@ -388,10 +405,7 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     return clone(snapshot);
   }
 
-  async pruneSnapshots(
-    noteId: string,
-    policy: SnapshotRetentionPolicy,
-  ): Promise<void> {
+  async pruneSnapshots(noteId: string, policy: SnapshotRetentionPolicy): Promise<void> {
     const candidates = this.library.snapshots.filter((entry) => entry.noteId === noteId);
     const retained = retainedSnapshotIds(candidates, policy);
     this.library.snapshots = this.library.snapshots.filter(
@@ -488,9 +502,7 @@ class MemoryLibraryAdapter implements LibraryAdapter {
       else this.library.assets.push(clone(asset));
     }
     for (const snapshot of library.snapshots) {
-      const index = this.library.snapshots.findIndex(
-        (entry) => entry.id === snapshot.id,
-      );
+      const index = this.library.snapshots.findIndex((entry) => entry.id === snapshot.id);
       if (index >= 0) this.library.snapshots[index] = clone(snapshot);
       else this.library.snapshots.push(clone(snapshot));
     }

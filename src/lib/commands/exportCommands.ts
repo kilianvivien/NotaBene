@@ -1,10 +1,11 @@
-import { strToU8, zipSync } from 'fflate';
+import { strToU8 } from 'fflate';
 import { assets, dialog, exporter, library, type NoteExportFormat } from '@/lib/adapters';
 import { docToMarkdown } from '@/editor/markdown';
 import { completeHtmlDocument, docToSemanticHtml, htmlText } from '@/lib/export/render';
 import { notesToDocx } from '@/lib/export/docx';
 import type { Course, DocNode, Note, Tag } from '@/lib/schema';
 import { fail, ok, type CommandResult } from './types';
+import { zipFiles as compressFiles } from '@/lib/archive/zip';
 
 export interface NoteExportOptions {
   format: NoteExportFormat;
@@ -122,7 +123,7 @@ async function zipFiles(files: Map<string, Blob>): Promise<Blob> {
   for (const [path, blob] of files) {
     entries[path] = new Uint8Array(await blob.arrayBuffer());
   }
-  return new Blob([zipSync(entries, { level: 6 })], { type: 'application/zip' });
+  return new Blob([await compressFiles(entries)], { type: 'application/zip' });
 }
 
 function notePath(note: Note, courses: Course[], extension: string): string {

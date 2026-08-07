@@ -195,6 +195,18 @@ pub fn backups_dir(app: AppHandle) -> DbResult<String> {
     Ok(dir.to_string_lossy().into_owned())
 }
 
+/// Fixed destination for non-interactive exports requested over MCP.
+#[tauri::command]
+pub fn exports_dir(app: AppHandle) -> DbResult<String> {
+    let dir = app
+        .path()
+        .download_dir()
+        .map_err(|error| DbError::Other(error.to_string()))?
+        .join("NotaBene exports");
+    fs::create_dir_all(&dir).map_err(|error| DbError::Other(error.to_string()))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
 /// List archives. `folder` is the user's chosen folder when they have one;
 /// omitting it reads the folder NotaBene manages.
 #[tauri::command]

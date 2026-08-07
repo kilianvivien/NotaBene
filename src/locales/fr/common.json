@@ -26,6 +26,7 @@
     "untitled": "Note sans titre",
     "count_one": "{{count}} note",
     "count_other": "{{count}} notes",
+    "countPaged": "{{shown}} notes sur {{total}}",
     "sortBy": "Trier par",
     "sort": {
       "updated": "Dernière modification",
@@ -258,6 +259,7 @@
     "part_backups": "Sauvegardes",
     "part_other": "Réglages et divers",
     "walNote": "Dont {{size}} de journal d’écriture, que SQLite réintègre à la base de données au fil de votre travail.",
+    "lastReclaimed": "Le nettoyage automatique a récupéré {{size}} de pièces jointes inaccessibles lors de son dernier passage.",
     "contentsSection": "Contenu de la bibliothèque",
     "count_courses": "Cours",
     "count_notes": "Notes",
@@ -553,6 +555,7 @@
     "loopbackHint": "Boucle locale uniquement · jeton d’appairage requis",
     "preferredPort": "Port préféré",
     "rotateToken": "Renouveler le jeton",
+    "allowWrites": "Autoriser la modification des notes",
     "clientSetup": "Configuration du client",
     "clientSetupHint": "Ajoutez ce serveur local sans modifier vos autres entrées MCP.",
     "copied": "Copié",
@@ -790,6 +793,13 @@
     "githubRepository": "NotaBene sur GitHub",
     "readAloud": "Lire la note à voix haute",
     "commandPalette": "Commandes…"
+  },
+  "editorConflict": {
+    "title": "Cette note a été modifiée ailleurs",
+    "description": "Un autre processus NotaBene a enregistré cette note pendant votre saisie.",
+    "body": "Choisissez la copie à conserver. L’autre reste disponible dans l’historique des versions.",
+    "takeTheirs": "Utiliser l’autre copie",
+    "keepMine": "Conserver mes modifications"
   },
   "reading": {
     "controls": "Réglages de lecture",
