@@ -16,20 +16,20 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.4.0"><img alt="Latest release: 0.4.0" src="https://img.shields.io/badge/release-0.4.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.5.0"><img alt="Latest release: 0.5.0" src="https://img.shields.io/badge/release-0.5.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
-![NotaBene 0.3 showing the three-pane library, the rich editor, and the Ask panel answering a question about the open note](./assets/screenshots/notabene-0.3.png)
+![NotaBene 0.5 showing concentration mode, the rich editor, and the Ask panel answering a question about the open note](./assets/screenshots/notabene-0.5.png)
 
 ## Download
 
-Download **[NotaBene 0.4.0 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.4.0/NotaBene_0.4.0_aarch64.dmg)**.
+Download **[NotaBene 0.5.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.5.0/NotaBene_0.5.0_aarch64.dmg)**.
 NotaBene requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
-> The 0.4.0 DMG is ad-hoc signed only — it is not Developer ID signed or
+> The 0.5.0 DMG is ad-hoc signed only — it is not Developer ID signed or
 > notarized, so macOS Gatekeeper may warn or block it. Signed builds and
 > automatic updates are intentionally deferred.
 
@@ -173,8 +173,8 @@ Keychain and cannot be represented in the backup schema.
 
 ## Current status
 
-NotaBene 0.4.0 is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.4.0).
+NotaBene 0.5.0 is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.5.0).
 The product foundation and phases A–H are code-complete, except for the
 explicitly deferred signing, notarization, and signed-update work:
 
@@ -194,9 +194,11 @@ explicitly deferred signing, notarization, and signed-update work:
 and playback, attachment handling and previews, a reworked Ask panel, working
 equations in the desktop build, and user-defined abbreviations. 0.4.0 brings
 speech back in line with the rest of the product — neural voices that run on
-your own machine, with no key and no upload. 0.5.0, in development, turns
-concentration mode into a place to write and puts ranked retrieval behind Ask,
-so a question is answered from the notes that actually match it.
+your own machine, with no key and no upload. 0.5.0 turns concentration mode
+into a place to write and puts ranked retrieval behind Ask, so a question is
+answered from the notes that actually match it. It also adds scoped Ask
+queries, drag-and-drop attachments, clearer model-use cues, and a more
+survivable restore flow.
 
 See [release notes](./RELEASE_NOTES.md), the [security policy](./SECURITY.md),
 and [third-party notices](./THIRD_PARTY_NOTICES.md).
