@@ -35,6 +35,7 @@ pub async fn mcp_start_server(
     state: State<'_, McpShared>,
     token: String,
     preferred_port: u16,
+    scope: String,
 ) -> Result<u16, String> {
     // A short token would make the loopback port a free-for-all for anything
     // else running on the machine.
@@ -44,12 +45,22 @@ pub async fn mcp_start_server(
     if !(1024..=65525).contains(&preferred_port) {
         return Err("preferred port must be between 1024 and 65525".into());
     }
+    if scope != "read" && scope != "write" {
+        return Err("scope must be read or write".into());
+    }
 
     let mut guard = state.server.lock().await;
     if let Some(existing) = guard.take() {
         existing.shutdown();
     }
-    let handle = server::start_server(app, state.bridge.clone(), token, preferred_port).await?;
+    let handle = server::start_server(
+        app,
+        state.bridge.clone(),
+        token,
+        preferred_port,
+        scope == "write",
+    )
+    .await?;
     let port = handle.port;
     *guard = Some(handle);
     Ok(port)

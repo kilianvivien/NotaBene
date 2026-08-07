@@ -60,18 +60,10 @@ class MemoryAssetAdapter implements AssetAdapter {
     return this.metas.get(assetId) ?? null;
   }
 
-  async collectGarbage(referencedIds: Set<string>): Promise<number> {
-    let removed = 0;
-    for (const id of [...this.metas.keys()]) {
-      if (referencedIds.has(id)) continue;
-      const url = this.urls.get(id);
-      if (url) URL.revokeObjectURL(url);
-      this.urls.delete(id);
-      this.blobs.delete(id);
-      this.metas.delete(id);
-      removed += 1;
-    }
-    return removed;
+  async collectGarbage(): Promise<{ removed: number; bytes: number }> {
+    // The browser library is ephemeral and has no database-side document scan.
+    // Reclaiming nothing is safer than guessing reachability from blob state.
+    return { removed: 0, bytes: 0 };
   }
 }
 

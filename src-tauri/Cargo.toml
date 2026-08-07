@@ -71,6 +71,9 @@ rustls = { version = "0.23", default-features = false, features = ["ring"] }
 futures-util = "0.3"
 regex = "1"
 
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
 crispasr = { version = "=0.8.23", default-features = false, features = ["metal"] }
 crispasr-sys = { version = "=0.8.23", default-features = false, features = ["metal"] }

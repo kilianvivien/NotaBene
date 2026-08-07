@@ -157,7 +157,9 @@ export async function pickBackupCommand(): Promise<CommandResult<ParsedBackup>> 
   return readBackupCommand(path);
 }
 
-export async function readBackupCommand(path: string): Promise<CommandResult<ParsedBackup>> {
+export async function readBackupCommand(
+  path: string,
+): Promise<CommandResult<ParsedBackup>> {
   try {
     return ok(await parseBackupArchive(await readArchive(path)));
   } catch (error) {
@@ -198,11 +200,11 @@ export async function restoreBackupCommand(
       safetyPath = safety.value;
     }
 
-    await library.importLibrary(backup.library, mode);
     for (const [id, blob] of backup.assetBlobs) {
       const restored = await assets.put(blob, { mime: blob.type });
       if (restored.id !== id) throw new Error(`Asset ${id} changed while restoring`);
     }
+    await library.importLibrary(backup.library, mode);
     await useLibraryStore.getState().bootstrap();
     return ok({ safetyPath });
   } catch (error) {

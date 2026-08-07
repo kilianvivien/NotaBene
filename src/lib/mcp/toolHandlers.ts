@@ -25,6 +25,8 @@ import {
   type CommandContext,
   type CommandResult,
 } from '@/lib/commands';
+import { storage } from '@/lib/adapters';
+import { joinPath } from '@/lib/commands/backupCommands';
 import { NoteDocSchema, TAG_NAMESPACES } from '@/lib/schema';
 import { parseQuery, resolveQuery } from '@/lib/search/query';
 import { useEditorStore } from '@/lib/state/editorStore';
@@ -109,7 +111,9 @@ const CreateCourseArgs = z.object({
 const ExportNotesArgs = z.object({
   noteIds: z.array(z.string().min(1)).min(1).max(500),
   format: z.enum(['markdown', 'html', 'pdf', 'docx']),
-  destination: z.string().min(1),
+  fileName: z.string().min(1).max(200).optional(),
+  /** Accepted for one release only so callers receive an actionable refusal. */
+  destination: z.string().min(1).optional(),
   layout: z.enum(['combined', 'separate']).default('combined'),
   includeToc: z.boolean().default(true),
 });
@@ -336,9 +340,21 @@ export const TOOL_HANDLERS = {
   async export_notes(args: unknown) {
     const parsed = ExportNotesArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
+    if (parsed.data.destination !== undefined) {
+      return fail(
+        'invalid_input',
+        'destination is no longer accepted; pass fileName to write inside Downloads/NotaBene exports',
+      );
+    }
+    const fileName = parsed.data.fileName;
+    if (!fileName) return fail('invalid_input', 'fileName is required');
+    if (fileName.includes('/') || fileName.includes('\\')) {
+      return fail('invalid_input', 'fileName must not contain a path separator');
+    }
+    const destination = joinPath(await storage.exportsDir(), fileName);
     return exportNotesCommand(parsed.data.noteIds, {
       format: parsed.data.format,
-      destination: parsed.data.destination,
+      destination,
       layout: parsed.data.layout,
       includeToc: parsed.data.includeToc,
     });

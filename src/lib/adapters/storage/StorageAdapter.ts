@@ -61,6 +61,8 @@ export interface StorageAdapter {
   integrityCheck(): Promise<IntegrityReport>;
   /** Absolute path of the managed backup folder, created if absent. */
   backupsDir(): Promise<string>;
+  /** Fixed Downloads subfolder used by non-interactive MCP exports. */
+  exportsDir(): Promise<string>;
   /** Archives in `folder`, or in the managed folder when omitted. */
   listBackups(folder?: string): Promise<BackupFile[]>;
   /**

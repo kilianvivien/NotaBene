@@ -1,4 +1,5 @@
 import type { TtsEngineId } from '../tts/TtsEngine';
+import type { McpClientId } from '../mcp/McpAdapter';
 
 /**
  * App settings and secrets.
@@ -125,6 +126,9 @@ export interface AppSettings {
   /** Set once, when the daily-by-default schedule is applied to a profile that
    * predates it. Distinguishes "never chose" from "chose off". */
   backupDefaultsApplied: boolean;
+  /** Last automatic removal of unreachable asset data. */
+  lastAssetReclaimedBytes: number;
+  lastAssetReclaimedAt: string | null;
   exportPreset: {
     format: 'markdown' | 'html' | 'pdf' | 'docx';
     layout: 'combined' | 'separate';
@@ -143,6 +147,10 @@ export interface AppSettings {
   podcast: PodcastSettings;
   mcpEnabled: boolean;
   mcpPort: number;
+  /** Existing pairings migrate to write; newly minted tokens start read-only. */
+  mcpScope: 'read' | 'write';
+  /** Configs authored by NotaBene and therefore safe to refresh on rotation. */
+  mcpConfiguredClients: Exclude<McpClientId, 'custom'>[];
   checkForUpdates: boolean;
   /** Sort choice per stable view key (`all`, `course:<id>`, …). */
   viewSorts: Record<string, 'updated' | 'created' | 'title' | 'manual' | 'relevance'>;
@@ -196,6 +204,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastBackupError: null,
   lastBackupErrorAt: null,
   backupDefaultsApplied: true,
+  lastAssetReclaimedBytes: 0,
+  lastAssetReclaimedAt: null,
   exportPreset: {
     format: 'pdf',
     layout: 'combined',
@@ -213,6 +223,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   podcast: { mode: 'narrator', minutes: 6 },
   mcpEnabled: false,
   mcpPort: 22600,
+  mcpScope: 'write',
+  mcpConfiguredClients: [],
   checkForUpdates: true,
   viewSorts: {},
   recentSearches: [],

@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "macOS": {
+      "frameworks": [
+        "native/crispasr/arm64/src/libcrispasr.1.dylib",
+        "native/crispasr/arm64/src/libggml.0.dylib",
+        "native/crispasr/arm64/src/libggml-base.0.dylib",
+        "native/crispasr/arm64/src/libggml-cpu.0.dylib",
+        "native/crispasr/arm64/src/libggml-metal.0.dylib"
+      ]
+    }
+  }
+}

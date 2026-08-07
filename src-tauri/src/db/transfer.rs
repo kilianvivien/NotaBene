@@ -11,38 +11,24 @@
 //! than re-locking the store.
 
 use super::migrations::SCHEMA_VERSION;
-use super::model::{Library, NoteQuery};
+use super::model::Library;
 use super::{assets, collections, notes, organization, DbError, DbResult, Store};
 
 pub fn export_library(store: &Store) -> DbResult<Library> {
     let courses = organization::list_courses(store)?;
-    let mut sections = Vec::new();
-    for course in &courses {
-        sections.extend(organization::list_sections(store, &course.id)?);
-    }
+    let sections = organization::list_all_sections(store)?;
 
-    let summaries = notes::query(
-        store,
-        &NoteQuery {
-            scope: Some("all".into()),
-            limit: Some(i64::MAX),
-            ..NoteQuery::default()
-        },
-    )?;
-    let mut exported_notes = Vec::with_capacity(summaries.len());
-    let mut attachments = Vec::new();
-    let mut snapshots = Vec::new();
-    for summary in summaries {
-        if let Some(note) = notes::get(store, &summary.id)? {
-            attachments.extend(assets::list_attachments(store, &note.id)?);
-            for snapshot in notes::list_snapshots(store, &note.id)? {
-                if let Some(snapshot) = notes::get_snapshot(store, &snapshot.id)? {
-                    snapshots.push(snapshot);
-                }
-            }
-            exported_notes.push(note);
-        }
-    }
+    // The daily backup path must stay proportional to the library, not to the
+    // number of notes and versions. Read each table once (plus one tag join)
+    // under the same connection instead of issuing three queries per note.
+    let (exported_notes, attachments, snapshots, exported_assets) = store.with(|connection| {
+        Ok((
+            notes::list_all_in(connection)?,
+            assets::list_all_attachments_in(connection)?,
+            notes::list_all_snapshots_in(connection)?,
+            assets::list_assets_in(connection)?,
+        ))
+    })?;
 
     Ok(Library {
         schema_version: SCHEMA_VERSION,
@@ -52,7 +38,7 @@ pub fn export_library(store: &Store) -> DbResult<Library> {
         sections,
         notes: exported_notes,
         tags: organization::list_tags(store)?,
-        assets: assets::list_assets(store)?,
+        assets: exported_assets,
         attachments,
         snapshots,
         saved_searches: collections::list_saved_searches(store)?,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import pkg from '../../package.json';
-import { exporter, library } from '@/lib/adapters';
+import { exporter, library, storage } from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { createCourseCommand, createSectionCommand } from '@/lib/commands';
 import { TOOL_HANDLERS } from '@/lib/mcp/toolHandlers';
@@ -171,24 +171,51 @@ describe('Phase F MCP tool contracts', () => {
     expect(result).toMatchObject({ ok: false, code: 'invalid_input' });
   });
 
-  it('exports selected notes to the caller-provided destination', async () => {
+  it('exports selected notes into the fixed managed Downloads folder', async () => {
     const { note } = await createFixture();
     if (!note) throw new Error('fixture note missing');
     const write = vi
       .spyOn(exporter, 'write')
-      .mockResolvedValue({ ok: true, path: '/tmp/lecture.md' });
+      .mockResolvedValue({ ok: true, path: '/Downloads/NotaBene exports/lecture.md' });
+    vi.spyOn(storage, 'exportsDir').mockResolvedValue('/Downloads/NotaBene exports');
 
     const result = await call('export_notes', {
       noteIds: [note.id],
       format: 'markdown',
-      destination: '/tmp/lecture.md',
+      fileName: 'lecture.md',
       layout: 'combined',
       includeToc: false,
     });
-    expect(result).toEqual({ ok: true, value: '/tmp/lecture.md' });
+    expect(result).toEqual({
+      ok: true,
+      value: '/Downloads/NotaBene exports/lecture.md',
+    });
     expect(write).toHaveBeenCalledWith(
-      expect.objectContaining({ destination: '/tmp/lecture.md' }),
+      expect.objectContaining({
+        destination: '/Downloads/NotaBene exports/lecture.md',
+      }),
     );
+  });
+
+  it('rejects the deprecated arbitrary destination and path-like file names', async () => {
+    const { note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+    const base = {
+      noteIds: [note.id],
+      format: 'markdown',
+      layout: 'combined',
+      includeToc: false,
+    };
+
+    await expect(
+      call('export_notes', { ...base, destination: '/tmp/lecture.md' }),
+    ).resolves.toMatchObject({ ok: false, message: expect.stringContaining('fileName') });
+    await expect(
+      call('export_notes', { ...base, fileName: '../lecture.md' }),
+    ).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringContaining('separator'),
+    });
   });
 
   it('creates sections and moves notes with a versioned organize call', async () => {

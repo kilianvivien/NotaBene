@@ -58,7 +58,14 @@ jobs:
       # `frontendDist` points at to exist.
       - run: mkdir -p dist && touch dist/index.html
 
-      - run: brew install cmake ninja
+      - uses: actions/cache@v4
+        id: crispasr-cache
+        with:
+          path: src-tauri/native/crispasr
+          key: crispasr-${{ runner.arch }}-${{ hashFiles('scripts/prepare-crispasr-macos.sh', 'scripts/patches/crispasr-voxtral-bounded-codec.patch') }}
+
+      - if: steps.crispasr-cache.outputs.cache-hit != 'true'
+        run: brew install cmake ninja
       - run: ./scripts/prepare-crispasr-macos.sh
 
       - run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets
@@ -66,4 +73,6 @@ jobs:
       # here; they are what keep Zod, the serde structs, and the SQL from
       # drifting apart.
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+        env:
+          DYLD_LIBRARY_PATH: ${{ github.workspace }}/src-tauri/native/crispasr/arm64/src
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

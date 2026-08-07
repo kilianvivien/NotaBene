@@ -29,6 +29,8 @@ interface LibraryState {
   savedSearches: SavedSearch[];
   templates: NoteTemplate[];
   notes: NoteSummary[];
+  totalNotes: number;
+  loadingMore: boolean;
   /** Unsaved editor state a crash left behind, waiting to be offered back. */
   pendingRecoveries: PendingRecovery[];
   loading: boolean;
@@ -47,6 +49,7 @@ interface LibraryState {
   refreshPendingRecoveries(): Promise<void>;
   /** Run a note query and remember it as the current view. */
   refreshNotes(query: NoteQuery): Promise<void>;
+  appendNotes(): Promise<void>;
   /** Re-run the last query. Used after any write, so the list never shows a
    * stale title or snippet. */
   refreshCurrentView(): Promise<void>;
@@ -63,6 +66,8 @@ export const useLibraryStore = create<LibraryState>()(
     savedSearches: [],
     templates: [],
     notes: [],
+    totalNotes: 0,
+    loadingMore: false,
     pendingRecoveries: [],
     loading: false,
     error: null,
@@ -138,12 +143,40 @@ export const useLibraryStore = create<LibraryState>()(
 
     async refreshNotes(query) {
       const generation = ++noteQueryGeneration;
-      const notes = await library.queryNotes(query);
+      const normalized = { ...query, offset: 0 };
+      const [notes, totalNotes] = await Promise.all([
+        library.queryNotes(normalized),
+        library.countNotes(normalized),
+      ]);
       if (generation !== noteQueryGeneration) return;
       set((state) => {
         state.notes = notes;
-        state.lastQuery = query;
+        state.totalNotes = totalNotes;
+        state.lastQuery = normalized;
       });
+    },
+
+    async appendNotes() {
+      const generation = noteQueryGeneration;
+      const { notes, totalNotes, lastQuery, loadingMore } = get();
+      if (loadingMore || notes.length >= totalNotes) return;
+      set((state) => {
+        state.loadingMore = true;
+      });
+      try {
+        const page = await library.queryNotes({ ...lastQuery, offset: notes.length });
+        if (generation !== noteQueryGeneration) return;
+        set((state) => {
+          const seen = new Set(state.notes.map((note) => note.id));
+          state.notes.push(...page.filter((note) => !seen.has(note.id)));
+        });
+      } finally {
+        if (generation === noteQueryGeneration) {
+          set((state) => {
+            state.loadingMore = false;
+          });
+        }
+      }
     },
 
     async refreshCurrentView() {

@@ -26,6 +26,7 @@
     "untitled": "Untitled note",
     "count_one": "{{count}} note",
     "count_other": "{{count}} notes",
+    "countPaged": "{{shown}} of {{total}} notes",
     "sortBy": "Sort by",
     "sort": {
       "updated": "Last modified",
@@ -258,6 +259,7 @@
     "part_backups": "Backups",
     "part_other": "Settings and other",
     "walNote": "{{size}} of that is the write-ahead log, which SQLite folds back into the database as you work.",
+    "lastReclaimed": "Automatic cleanup last reclaimed {{size}} of unreachable attachments.",
     "contentsSection": "What is in the library",
     "count_courses": "Courses",
     "count_notes": "Notes",
@@ -553,6 +555,7 @@
     "loopbackHint": "Loopback only · pairing token required",
     "preferredPort": "Preferred port",
     "rotateToken": "Rotate token",
+    "allowWrites": "Allow note changes",
     "clientSetup": "Client setup",
     "clientSetupHint": "Add this local server without changing any of your other MCP entries.",
     "copied": "Copied",
@@ -790,6 +793,13 @@
     "githubRepository": "NotaBene on GitHub",
     "readAloud": "Read note aloud",
     "commandPalette": "Commands…"
+  },
+  "editorConflict": {
+    "title": "This note changed elsewhere",
+    "description": "Another NotaBene writer saved this note while you were editing it.",
+    "body": "Choose which copy should remain current. The other copy is kept in version history.",
+    "takeTheirs": "Use other copy",
+    "keepMine": "Keep my edits"
   },
   "reading": {
     "controls": "Reading controls",

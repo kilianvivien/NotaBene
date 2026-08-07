@@ -117,6 +117,26 @@ pub fn list_sections(store: &Store, course_id: &str) -> DbResult<Vec<Section>> {
     })
 }
 
+pub(crate) fn list_all_sections(store: &Store) -> DbResult<Vec<Section>> {
+    store.with(|connection| {
+        let mut statement = connection.prepare(
+            "SELECT id, course_id, name, \"order\" FROM sections
+             ORDER BY course_id, \"order\"",
+        )?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok(Section {
+                    id: row.get(0)?,
+                    course_id: row.get(1)?,
+                    name: row.get(2)?,
+                    order: row.get(3)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    })
+}
+
 pub fn upsert_section(store: &Store, section: &Section) -> DbResult<()> {
     store.with(|connection| upsert_section_in(connection, section))
 }

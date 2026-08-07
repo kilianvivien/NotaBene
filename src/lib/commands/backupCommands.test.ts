@@ -7,7 +7,14 @@
  * exercised end to end by the manual restore pass.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { dialog, exporter, library, storage, DEFAULT_SETTINGS } from '@/lib/adapters';
+import {
+  assets,
+  dialog,
+  exporter,
+  library,
+  storage,
+  DEFAULT_SETTINGS,
+} from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { createNoteCommand } from './noteCommands';
@@ -28,7 +35,10 @@ const disk = new Map<string, Blob>();
 let sabotage: 'none' | 'corrupt' | 'fail' = 'none';
 
 function docOf(text: string): NoteDoc {
-  return { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] };
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  };
 }
 
 function settings() {
@@ -49,7 +59,9 @@ beforeEach(() => {
       path,
       // A half-written zip is what a full disk or a yanked drive actually
       // leaves behind, and it is the case the old code counted as a success.
-      sabotage === 'corrupt' ? contents.slice(0, Math.floor(contents.size / 2)) : contents,
+      sabotage === 'corrupt'
+        ? contents.slice(0, Math.floor(contents.size / 2))
+        : contents,
     );
     return { ok: true, path };
   });
@@ -249,5 +261,30 @@ describe('restoring', () => {
 
     expect(result.ok).toBe(false);
     expect((await library.exportLibrary()).notes).toEqual(before);
+  });
+
+  it('restores every asset before replacing any library rows', async () => {
+    const backup = await archiveOf('the original');
+    const calls: string[] = [];
+    const realPut = assets.put.bind(assets);
+    vi.spyOn(assets, 'put').mockImplementation(async (blob, meta) => {
+      calls.push('asset');
+      return realPut(blob, meta);
+    });
+    vi.spyOn(library, 'importLibrary').mockImplementation(async () => {
+      calls.push('library');
+    });
+
+    // The fixture has no blobs, so add one whose id is known to the
+    // content-addressed memory store.
+    const blob = new Blob(['asset'], { type: 'image/png' });
+    const stored = await assets.put(blob);
+    backup.assetBlobs.set(stored.id, blob);
+    calls.length = 0;
+
+    const result = await restoreBackupCommand(backup, 'replace');
+
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual(['asset', 'library']);
   });
 });

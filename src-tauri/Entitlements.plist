@@ -5,7 +5,8 @@
   <!-- An ad-hoc signature has no Team ID. On current macOS, hardened-runtime
        library validation therefore cannot consider separately signed dylibs
        to be from the same team, even though they are sealed inside this app.
-       Keep hardened runtime enabled and relax only this one check. -->
+       Keep hardened runtime enabled and relax only this one check. Remove this
+       entitlement in the same change that adds Developer ID signing. -->
   <key>com.apple.security.cs.disable-library-validation</key>
   <true/>
 </dict>

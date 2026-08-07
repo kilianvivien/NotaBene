@@ -18,6 +18,7 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use rmcp::transport::streamable_http_server::tower::{
     StreamableHttpServerConfig, StreamableHttpService,
 };
+use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter};
 use tokio_util::sync::CancellationToken;
 
@@ -58,7 +59,15 @@ fn has_expected_bearer(headers: &axum::http::HeaderMap, expected: &str) -> bool 
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
-        .is_some_and(|token| token == expected)
+        .is_some_and(|token| {
+            let actual = Sha256::digest(token.as_bytes());
+            let expected = Sha256::digest(expected.as_bytes());
+            actual
+                .iter()
+                .zip(expected.iter())
+                .fold(0u8, |difference, (left, right)| difference | (left ^ right))
+                == 0
+        })
 }
 
 async fn require_bearer(
@@ -88,6 +97,7 @@ pub async fn start_server(
     bridge: Arc<McpBridge>,
     token: String,
     preferred_port: u16,
+    can_write: bool,
 ) -> Result<ServerHandle, String> {
     let mut bound = None;
     for port in preferred_port..=preferred_port.saturating_add(PORT_SCAN_RANGE) {
@@ -121,7 +131,7 @@ pub async fn start_server(
     let mut session_manager = LocalSessionManager::default();
     session_manager.session_config.keep_alive = Some(SESSION_KEEP_ALIVE);
     let service = StreamableHttpService::new(
-        move || Ok(NotaBeneMcpServer::new(bridge.clone())),
+        move || Ok(NotaBeneMcpServer::new(bridge.clone(), can_write)),
         Arc::new(session_manager),
         config,
     );

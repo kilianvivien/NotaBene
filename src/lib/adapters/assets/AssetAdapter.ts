@@ -17,6 +17,6 @@ export interface AssetAdapter {
    * Tauri). Callers must revoke browser URLs they no longer need. */
   urlFor(assetId: string): Promise<string | null>;
   stat(assetId: string): Promise<Asset | null>;
-  /** Drop assets no note references any more. Returns how many were removed. */
-  collectGarbage(referencedIds: Set<string>): Promise<number>;
+  /** Drop assets no durable document or attachment references any more. */
+  collectGarbage(): Promise<{ removed: number; bytes: number }>;
 }

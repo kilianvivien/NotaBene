@@ -44,11 +44,15 @@ export const tauriLibraryAdapter: LibraryAdapter = {
 
   queryNotes: (query: NoteQuery): Promise<NoteSummary[]> =>
     invoke('library_query_notes', { query }),
+  countNotes: (query: NoteQuery): Promise<number> =>
+    invoke('library_count_notes', { query }),
   searchNotes: (query: NoteQuery): Promise<NoteMatch[]> =>
     invoke('library_search_notes', { query }),
   getNote: (noteId: string): Promise<Note | null> =>
     invoke('library_get_note', { noteId }),
   upsertNote: (note: Note) => invoke('library_upsert_note', { note }),
+  upsertNoteIfUnchanged: (note: Note, baseUpdatedAt: string) =>
+    invoke<boolean>('library_upsert_note_if_unchanged', { note, baseUpdatedAt }),
   trashNote: (noteId: string) => invoke('library_trash_note', { noteId }),
   restoreNote: (noteId: string) => invoke('library_restore_note', { noteId }),
   purgeNote: (noteId: string) => invoke('library_purge_note', { noteId }),

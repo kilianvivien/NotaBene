@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { decodeBase64 } from '@/lib/archive/base64';
 import type {
   BackupFile,
   IntegrityReport,
@@ -7,23 +8,16 @@ import type {
   StorageSummary,
 } from './StorageAdapter';
 
-/** Bytes cross the IPC boundary base64-encoded, as they do for assets. */
-function fromBase64(base64: string): Blob {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return new Blob([bytes], { type: 'application/x-notabene-backup' });
-}
-
 export const tauriStorageAdapter: StorageAdapter = {
   summary: () => invoke<StorageSummary>('storage_summary'),
   integrityCheck: () => invoke<IntegrityReport>('db_integrity_check'),
   backupsDir: () => invoke<string>('backups_dir'),
+  exportsDir: () => invoke<string>('exports_dir'),
   listBackups: (folder?: string) => invoke<BackupFile[]>('backups_list', { folder }),
   readBackup: async (path: string) =>
-    fromBase64(await invoke<string>('backups_read', { path })),
+    new Blob([await decodeBase64(await invoke<string>('backups_read', { path }))], {
+      type: 'application/x-notabene-backup',
+    }),
   pruneBackups: (keep: number) => invoke<number>('backups_prune', { keep }),
   reveal: (path: string) => revealItemInDir(path),
 };
@@ -42,6 +36,9 @@ export const unavailableStorageAdapter: StorageAdapter = {
   },
   async backupsDir(): Promise<string> {
     throw new Error('managed backups require the desktop app');
+  },
+  async exportsDir(): Promise<string> {
+    throw new Error('managed exports require the desktop app');
   },
   async listBackups(): Promise<BackupFile[]> {
     return [];

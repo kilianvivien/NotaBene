@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { GlassSelect, type ContextPoint } from '@/components/glass';
@@ -14,6 +14,9 @@ import { NoteContextMenu } from './NoteContextMenu';
 import { endDrag, readDrag, startDrag } from './dnd';
 import type { NoteSummary } from '@/lib/schema';
 
+const ROW_HEIGHT = 62;
+const OVERSCAN = 5;
+
 function formatDate(iso: string, locale: string): string {
   return new Date(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
@@ -21,7 +24,9 @@ function formatDate(iso: string, locale: string): string {
 export function NoteList() {
   const { t, i18n } = useTranslation();
   const notes = useLibraryStore((state) => state.notes);
+  const totalNotes = useLibraryStore((state) => state.totalNotes);
   const refreshNotes = useLibraryStore((state) => state.refreshNotes);
+  const appendNotes = useLibraryStore((state) => state.appendNotes);
   const courses = useLibraryStore((state) => state.courses);
   const tags = useLibraryStore((state) => state.tags);
   const savedSearches = useLibraryStore((state) => state.savedSearches);
@@ -41,6 +46,48 @@ export function NoteList() {
     note: NoteSummary;
     point: ContextPoint;
   } | null>(null);
+  const scrollArea = useRef<HTMLDivElement>(null);
+  const sentinel = useRef<HTMLLIElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+
+  useEffect(() => {
+    const element = scrollArea.current;
+    if (!element) return;
+    const update = () => setViewportHeight(element.clientHeight);
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const root = scrollArea.current;
+    const target = sentinel.current;
+    if (!root || !target || notes.length >= totalNotes) return;
+    if (typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void appendNotes();
+      },
+      { root, rootMargin: '240px' },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [appendNotes, notes.length, totalNotes]);
+
+  const visibleNotes = useMemo(() => {
+    const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+    const end = Math.min(
+      notes.length,
+      Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN,
+    );
+    return notes.slice(start, end).map((note, index) => ({
+      note,
+      index: start + index,
+    }));
+  }, [notes, scrollTop, viewportHeight]);
 
   // The view *is* the query — changing views re-runs it rather than filtering
   // an in-memory list, so behaviour stays identical once FTS5 is behind it.
@@ -78,7 +125,9 @@ export function NoteList() {
           being clipped in a way "Dernière modification" does not. */}
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-[var(--nb-divider)] px-3">
         <span className="min-w-0 shrink truncate text-[12px] text-nb-text-3">
-          {t('noteList.count', { count: notes.length })}
+          {notes.length < totalNotes
+            ? t('noteList.countPaged', { shown: notes.length, total: totalNotes })
+            : t('noteList.count', { count: totalNotes })}
         </span>
         <GlassSelect
           label={t('noteList.sortBy')}
@@ -113,81 +162,97 @@ export function NoteList() {
           <p className="text-[12px] text-nb-text-3">{t('noteList.emptyHint')}</p>
         </div>
       ) : (
-        <ul className="flex-1 overflow-y-auto p-1.5">
-          {notes.map((note) => (
-            <li
-              key={note.id}
-              draggable
-              onDragStart={(event) => {
-                setDraggedNoteId(note.id);
-                startDrag(event, 'note', note.id, note.title || t('noteList.untitled'));
-              }}
-              onDragEnd={() => {
-                endDrag();
-                setDraggedNoteId(null);
-              }}
-              onDragOver={(event) => {
-                // Reordering is a course-view affordance only; everywhere else
-                // the order is the query's to decide.
-                if (view.kind === 'course') event.preventDefault();
-              }}
-              onDrop={(event) => {
-                if (view.kind !== 'course') return;
-                const moved = readDrag(event, 'note') ?? draggedNoteId;
-                if (!moved || moved === note.id) return;
-                event.preventDefault();
-                const ids = notes.map((candidate) => candidate.id);
-                const from = ids.indexOf(moved);
-                const to = ids.indexOf(note.id);
-                if (from === -1 || to === -1) return;
-                ids.splice(to, 0, ids.splice(from, 1)[0]!);
-                void updateSettings({
-                  viewSorts: { ...viewSorts, [key]: 'manual' },
-                }).then(() => reorderNotesCommand(ids));
-                endDrag();
-                setDraggedNoteId(null);
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                selectNote(note.id);
-                setContextMenu({
-                  note,
-                  point: { x: event.clientX, y: event.clientY },
-                });
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => onSelect(note.id)}
-                aria-current={selectedNoteId === note.id ? 'true' : undefined}
-                className={cn(
-                  'flex w-full flex-col gap-0.5 rounded-nb-sm px-2.5 py-2 text-left',
-                  'transition-colors duration-[var(--nb-t-fast)]',
-                  selectedNoteId === note.id
-                    ? 'bg-[var(--nb-accent-soft)]'
-                    : 'hover:bg-[var(--nb-hover)]',
-                )}
+        <div
+          ref={scrollArea}
+          className="flex-1 overflow-y-auto"
+          onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+        >
+          <ul className="relative mx-1.5" style={{ height: notes.length * ROW_HEIGHT }}>
+            {visibleNotes.map(({ note, index }) => (
+              <li
+                key={note.id}
+                className="absolute inset-x-0"
+                style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}
+                draggable
+                onDragStart={(event) => {
+                  setDraggedNoteId(note.id);
+                  startDrag(event, 'note', note.id, note.title || t('noteList.untitled'));
+                }}
+                onDragEnd={() => {
+                  endDrag();
+                  setDraggedNoteId(null);
+                }}
+                onDragOver={(event) => {
+                  // Reordering is a course-view affordance only; everywhere else
+                  // the order is the query's to decide.
+                  if (view.kind === 'course') event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  if (view.kind !== 'course') return;
+                  const moved = readDrag(event, 'note') ?? draggedNoteId;
+                  if (!moved || moved === note.id) return;
+                  event.preventDefault();
+                  const ids = notes.map((candidate) => candidate.id);
+                  const from = ids.indexOf(moved);
+                  const to = ids.indexOf(note.id);
+                  if (from === -1 || to === -1) return;
+                  ids.splice(to, 0, ids.splice(from, 1)[0]!);
+                  void updateSettings({
+                    viewSorts: { ...viewSorts, [key]: 'manual' },
+                  }).then(() => reorderNotesCommand(ids));
+                  endDrag();
+                  setDraggedNoteId(null);
+                }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  selectNote(note.id);
+                  setContextMenu({
+                    note,
+                    point: { x: event.clientX, y: event.clientY },
+                  });
+                }}
               >
-                <span className="flex items-center gap-1.5">
-                  {note.pinned && (
-                    <Pin size={11} className="shrink-0 text-[var(--nb-accent)]" />
+                <button
+                  type="button"
+                  onClick={() => onSelect(note.id)}
+                  aria-current={selectedNoteId === note.id ? 'true' : undefined}
+                  className={cn(
+                    'flex w-full flex-col gap-0.5 rounded-nb-sm px-2.5 py-2 text-left',
+                    'transition-colors duration-[var(--nb-t-fast)]',
+                    selectedNoteId === note.id
+                      ? 'bg-[var(--nb-accent-soft)]'
+                      : 'hover:bg-[var(--nb-hover)]',
                   )}
-                  <span className="truncate text-[13px] font-medium">
-                    {note.title || t('noteList.untitled')}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {note.pinned && (
+                      <Pin size={11} className="shrink-0 text-[var(--nb-accent)]" />
+                    )}
+                    <span className="truncate text-[13px] font-medium">
+                      {note.title || t('noteList.untitled')}
+                    </span>
                   </span>
-                </span>
-                <span className="flex items-baseline gap-2">
-                  <span className="shrink-0 text-[12px] text-nb-text-3">
-                    {formatDate(note.updatedAt, i18n.language)}
+                  <span className="flex items-baseline gap-2">
+                    <span className="shrink-0 text-[12px] text-nb-text-3">
+                      {formatDate(note.updatedAt, i18n.language)}
+                    </span>
+                    <span className="truncate text-[12px] text-nb-text-3">
+                      <HighlightedSnippet value={note.snippet} />
+                    </span>
                   </span>
-                  <span className="truncate text-[12px] text-nb-text-3">
-                    <HighlightedSnippet value={note.snippet} />
-                  </span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+                </button>
+              </li>
+            ))}
+            {notes.length < totalNotes && (
+              <li
+                ref={sentinel}
+                aria-hidden
+                className="absolute inset-x-0 h-px"
+                style={{ top: Math.max(0, notes.length * ROW_HEIGHT - 1) }}
+              />
+            )}
+          </ul>
+        </div>
       )}
       {contextMenu && (
         <NoteContextMenu
@@ -212,4 +277,3 @@ function viewKey(view: ReturnType<typeof useUiStore.getState>['view']): string {
       return view.kind;
   }
 }
-

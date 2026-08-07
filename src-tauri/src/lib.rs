@@ -24,7 +24,18 @@ pub fn run() {
     // Before anything can build an HTTPS client — see `tls`.
     tls::ensure_provider();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Register this first. A second process must hand off before it can open a
+    // store, start a backup scheduler, or bind its own MCP listener.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
+
+    builder
         // Menu clicks carry no behaviour here — the id goes straight to the
         // webview, which runs it through the same command router a keyboard
         // shortcut uses. See `src/lib/commands/appCommands.ts`.
@@ -98,6 +109,7 @@ pub fn run() {
             storage::storage_summary,
             storage::db_integrity_check,
             storage::backups_dir,
+            storage::exports_dir,
             storage::backups_list,
             storage::backups_read,
             storage::backups_prune,
@@ -109,9 +121,11 @@ pub fn run() {
             commands::library_upsert_section,
             commands::library_delete_section,
             commands::library_query_notes,
+            commands::library_count_notes,
             commands::library_search_notes,
             commands::library_get_note,
             commands::library_upsert_note,
+            commands::library_upsert_note_if_unchanged,
             commands::library_trash_note,
             commands::library_restore_note,
             commands::library_purge_note,

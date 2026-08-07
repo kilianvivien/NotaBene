@@ -40,6 +40,7 @@ interface McpState {
   refreshStatus(): Promise<void>;
   setEnabled(enabled: boolean): Promise<void>;
   setPreferredPort(port: number): Promise<void>;
+  setScope(scope: 'read' | 'write'): Promise<void>;
   rotateToken(): Promise<void>;
   writeClientConfig(client: McpClientId): Promise<string>;
   clearActivity(): void;
@@ -56,14 +57,16 @@ function randomToken(): string {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function pairingToken(rotate = false): Promise<string> {
+async function pairingToken(
+  rotate = false,
+): Promise<{ token: string; created: boolean }> {
   if (!rotate) {
     const existing = await secrets.get(MCP_TOKEN_KEY);
-    if (existing) return existing;
+    if (existing) return { token: existing, created: false };
   }
   const token = randomToken();
   await secrets.set(MCP_TOKEN_KEY, token);
-  return token;
+  return { token, created: true };
 }
 
 function requestTarget(request: McpBridgeRequest): {
@@ -153,9 +156,12 @@ export const useMcpStore = create<McpState>()(
       });
       try {
         if (enabled) {
-          const token = await pairingToken();
-          const preferredPort = useSettingsStore.getState().settings.mcpPort;
-          const port = await mcp.start(token, preferredPort);
+          const pairing = await pairingToken();
+          if (pairing.created) {
+            await useSettingsStore.getState().update({ mcpScope: 'read' });
+          }
+          const { mcpPort, mcpScope } = useSettingsStore.getState().settings;
+          const port = await mcp.start(pairing.token, mcpPort, mcpScope);
           set((state) => {
             state.status = { running: true, port, error: null };
           });
@@ -191,6 +197,13 @@ export const useMcpStore = create<McpState>()(
       }
     },
 
+    async setScope(scope) {
+      await useSettingsStore.getState().update({ mcpScope: scope });
+      if (useSettingsStore.getState().settings.mcpEnabled) {
+        await get().setEnabled(true);
+      }
+    },
+
     async rotateToken() {
       set((state) => {
         state.pending = true;
@@ -198,13 +211,21 @@ export const useMcpStore = create<McpState>()(
         state.setupResult = null;
       });
       try {
-        const token = await pairingToken(true);
+        const { token } = await pairingToken(true);
+        const { mcpPort, mcpScope, mcpConfiguredClients } =
+          useSettingsStore.getState().settings;
+        let configPort = mcpPort;
         if (get().status.running) {
-          const preferredPort = useSettingsStore.getState().settings.mcpPort;
-          const port = await mcp.start(token, preferredPort);
+          const port = await mcp.start(token, mcpPort, mcpScope);
+          configPort = port;
           set((state) => {
             state.status = { running: true, port, error: null };
           });
+        }
+        // Configs written by NotaBene are ours to keep coherent even while the
+        // server is disabled; the next start will use this freshly rotated token.
+        for (const client of mcpConfiguredClients) {
+          await mcp.writeClientConfig(client, configPort, token);
         }
       } catch (error) {
         set((state) => {
@@ -223,8 +244,16 @@ export const useMcpStore = create<McpState>()(
         if (!status.running || status.port === null) {
           throw new Error('start the MCP server before configuring a client');
         }
-        const token = await pairingToken();
+        const { token } = await pairingToken();
         const result = await mcp.writeClientConfig(client, status.port, token);
+        if (client !== 'custom') {
+          const current = useSettingsStore.getState().settings.mcpConfiguredClients;
+          if (!current.includes(client)) {
+            await useSettingsStore.getState().update({
+              mcpConfiguredClients: [...current, client],
+            });
+          }
+        }
         set((state) => {
           // A custom result contains the bearer token. Return it directly to
           // the clipboard caller, but never retain it in inspectable UI state.

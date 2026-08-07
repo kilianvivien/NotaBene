@@ -1,7 +1,8 @@
-import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
+import { strFromU8, strToU8 } from 'fflate';
 import { z } from 'zod';
 import { assets } from '@/lib/adapters';
 import { safeImportLibrary, type Library } from '@/lib/schema';
+import { unzipFiles, zipFiles } from '@/lib/archive/zip';
 
 const BackupManifestSchema = z.object({
   format: z.literal('notabene-backup'),
@@ -148,7 +149,7 @@ export async function createBackupArchive(library: Library): Promise<CreatedBack
   }
   files['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
   return {
-    blob: new Blob([zipSync(files, { level: 6 })], {
+    blob: new Blob([await zipFiles(files)], {
       type: 'application/x-notabene-backup',
     }),
     missingAssets: manifest.missingAssets,
@@ -158,7 +159,7 @@ export async function createBackupArchive(library: Library): Promise<CreatedBack
 export async function parseBackupArchive(blob: Blob): Promise<ParsedBackup> {
   let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(new Uint8Array(await blobBytes(blob)));
+    files = await unzipFiles(new Uint8Array(await blobBytes(blob)));
   } catch {
     throw new Error('The selected file is not a valid NotaBene backup');
   }
@@ -171,7 +172,10 @@ export async function parseBackupArchive(blob: Blob): Promise<ParsedBackup> {
   const manifest = BackupManifestSchema.parse(JSON.parse(strFromU8(manifestBytes)));
   // Only when the archive carries one: older backups predate the field, and
   // refusing them would turn a hardening change into data loss.
-  if (manifest.librarySha256 && (await digestBytes(libraryBytes)) !== manifest.librarySha256) {
+  if (
+    manifest.librarySha256 &&
+    (await digestBytes(libraryBytes)) !== manifest.librarySha256
+  ) {
     throw new Error('Backup library failed integrity validation');
   }
   const imported = safeImportLibrary(JSON.parse(strFromU8(libraryBytes)));
