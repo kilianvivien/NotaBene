@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.0"><img alt="Latest release: 0.6.0" src="https://img.shields.io/badge/release-0.6.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.1"><img alt="Latest release: 0.6.1" src="https://img.shields.io/badge/release-0.6.1-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,54 +24,52 @@
 
 ## Download
 
-Download **[NotaBene 0.6.0 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.6.0/NotaBene_0.6.0_aarch64.dmg)**.
-NotaBene requires macOS 13 Ventura or newer.
+Download **[NotaBene 0.6.1 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.6.1/NotaBene_0.6.1_aarch64.dmg)**.
+Requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
-> The 0.6.0 DMG is ad-hoc signed only — it is not Developer ID signed or
-> notarized, so macOS Gatekeeper may warn or block it. Signed builds and
-> automatic updates are intentionally deferred.
+> The DMG is ad-hoc signed only, so macOS Gatekeeper may warn or block it.
+> Signed builds and automatic updates are deferred for now.
 
 ## Why NotaBene?
 
 Most note apps make you choose between a capable editor, useful study tools,
 and control over your own data. NotaBene is being built so you do not have to.
 
-- **Local by default.** Notes, attachments, versions, and settings stay on your
-  Mac in a local SQLite library.
-- **Made for classes.** Courses, sections, typed tags, backlinks, maths,
-  drawings, and fast full-text search are first-class features.
-- **AI on your terms.** Bring your own API key, connect a local model, or use no
-  AI at all. Suggested edits always pass through a preview.
-- **No account required.** There is no NotaBene cloud, analytics pipeline, or
-  subscription standing between you and your notes.
+- **Local by default.** Your notes, attachments, and version history stay on
+  your Mac.
+- **Made for classes.** Courses, sections, tags, backlinks, maths, drawings,
+  and fast search are the point, not add-ons.
+- **AI on your terms.** Bring your own key, run a local model, or use no AI at
+  all. Nothing a model suggests reaches a note before you have seen it.
+- **No account.** There is no NotaBene cloud, no sign-up, and no subscription
+  between you and your notes.
 
 ## Highlights
 
 | Write                                 | Organize                             | Study                             | Own                           |
 | ------------------------------------- | ------------------------------------ | --------------------------------- | ----------------------------- |
-| Rich-text and Markdown shortcuts      | Courses, sections, and smart folders | AI synthesis and Q&A              | Local SQLite + FTS5           |
+| Rich-text and Markdown shortcuts      | Courses, sections, and smart folders | AI summaries and Q&A              | Everything stored on your Mac |
 | Abbreviations that expand as you type | Templates for recurring notes        | Flashcard review in the app       | API keys in the Keychain      |
-| Tables, callouts, toggles, and code   | Typed, facetable tags                | Mind maps and flashcards          | Continuous autosave           |
+| Tables, callouts, toggles, and code   | Tags you can filter and combine      | Mind maps and flashcards          | Continuous autosave           |
 | LaTeX maths and inline images         | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery  |
 | Re-editable Excalidraw drawings       | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports  |
 | Attachments with in-app preview       | Search across notes and commands     | On-device or hosted neural voices | No account, no telemetry      |
 | Import PDF, Word, and slides as notes | Convert an attachment in place       | Optional AI layout for a handout  | Documents converted on-device |
+| Select many notes and act on them all | Merge several notes into one         | Study tools read the whole set    | Nothing leaves without asking |
 
-### A serious authoring surface
+### An editor you can actually take notes in
 
-NotaBene uses TipTap and ProseMirror to provide a responsive, keyboard-friendly
-editor with headings, lists, tasks, highlights, links, code blocks, tables,
-collapsible sections, callouts, LaTeX maths, images, and drawings. A slash menu,
-formatting toolbar, find and replace, and native shortcuts keep common actions
-close at hand.
+Headings, lists, tasks, highlights, links, code, tables, collapsible sections,
+callouts, LaTeX maths, images, and drawings — with a slash menu, a formatting
+toolbar, find and replace, and the Mac shortcuts you already know. It keeps up
+with typing during a lecture.
 
 Define your own **abbreviations** in Settings and they expand while you write:
 type `tvi`, finish the word, and the note reads "théorème des valeurs
-intermédiaires". A shortcut only fires at the end of a word and never inside
-code, a lower-case one also matches its capitalised spelling, and the words it
-wrote are briefly tinted so an expansion is never mistaken for your own typo.
+intermédiaires". Expansions never fire inside code, and the words they wrote are
+briefly tinted so you can see what happened.
 
 Notes also carry attachments — slide decks, spreadsheets, handouts, lecture
 recordings, and e-books all live beside the note instead of in a folder
@@ -88,15 +86,12 @@ and no API key is involved. A file you have already attached can be converted
 in place from the Attachments pane or its preview window, and the original can
 stay attached to the note it produced.
 
-Because a converted PDF usually keeps the words and loses the shape, the import
-dialog offers an optional second pass that asks your configured model to put
-the layout back. It is off by default and kept separate on purpose: it is the
-only part of the import that leaves your machine. Its promise — that your
-wording is never changed — is enforced rather than requested. Every proposed
-edit is checked against the text it claims to lay out, and one that drops a
-word, rewrites a sentence, or adds more than a heading's worth of its own is
-discarded before it reaches the note. The dialog tells you how many edits were
-applied and how many were refused.
+A converted PDF usually keeps the words and loses the shape, so the import
+dialog offers an optional second pass that asks your model to put the layout
+back. It is off by default, because it is the only part of the import that
+leaves your machine. It can add headings and lists but it cannot change your
+wording — every edit it proposes is checked against your text first, and any
+edit that rewrites something is thrown away rather than applied.
 
 ### Organization that matches a semester
 
@@ -105,10 +100,26 @@ hierarchy with namespaced tags such as `topic:`, `prof:`, `semester:`, `exam:`,
 and `type:`. Templates make recurring note formats quick to start, while wiki
 links and backlinks connect ideas across classes.
 
+### Work on a whole stack of notes
+
+Command-click to add notes to a selection, shift-click to take a run of them.
+A bar above the list then acts on all of them at once: move them to a course,
+tag them, export them, archive them, or send them to the trash. Dragging the
+selection onto a course in the sidebar files every note in it.
+
+**Merge** folds a selection into one new note (⌥⌘M). The most recently edited
+note leads by default, you can rearrange the order before anything is written,
+and each note keeps its title as a heading so you can still tell where a
+passage came from. The originals go to the trash, get archived, or stay exactly
+where they are — your call, every time.
+
+The AI study tools read the selection too, so a revision sheet can be built
+from a whole week of lectures rather than one note at a time.
+
 ### Search that keeps up
 
-SQLite FTS5 searches titles, note bodies, tags, and course names. Search is
-diacritics-insensitive—`resume` can find `résumé`—and accepts composable filters:
+Search covers note titles, bodies, tags, and course names, and ignores accents,
+so `resume` finds `résumé`. Filters can be combined:
 
 ```text
 course:Analysis has:drawing after:2026-01-01
@@ -123,36 +134,29 @@ name, with its keyboard shortcut shown next to it.
 
 With a provider configured, NotaBene can:
 
-- rewrite or correct a selection with a before/after diff;
-- synthesize one or more notes into structured material;
-- answer questions about the open note, either strictly from the note
-  (**Note only**) or with clearly labelled outside knowledge (**Note + AI**);
-- generate a visual mind map;
-- create basic and cloze flashcards, then export them to Anki; and
-- turn a note into a spoken episode you can play in the app, export as MP3, or
-  attach to the note itself.
+- rewrite or correct a passage, showing you the before and after first;
+- turn one or several notes into a summary, revision sheet, or glossary;
+- answer questions about a note — strictly from the note (**Note only**), or
+  with outside knowledge that is clearly marked as such (**Note + AI**);
+- draw a mind map;
+- write flashcards, review them in the app, and export them to Anki; and
+- read a note aloud as a podcast episode you can play, save as MP3, or keep
+  attached to the note.
 
-Supported AI connections include Anthropic, OpenAI, Mistral, Gemini,
-OpenRouter, Ollama, LM Studio, and custom OpenAI-compatible endpoints. API keys
-are stored in the macOS Keychain, not in the note database.
+You can connect Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
+Studio, or any OpenAI-compatible endpoint. Keys are stored in the macOS
+Keychain, never in your notes.
 
-Read aloud and spoken episodes run on a selectable speech engine. **macOS
-system voices** are the offline default. Two optional **on-device neural
-models** run entirely on Apple Silicon through a native runtime bundled with
-the app — **Kokoro 82M** (153 MB, one English and one French voice) and
-**Voxtral 4B** (2.35 GB, seven preset English and French voices) — so the text
-being spoken never leaves your Mac. Each is downloaded from a pinned revision,
-verified by checksum, and installed only once you accept its licence; it can be
-tested, unloaded, or removed at any time.
-
-The hosted neural voices of **Voxtral TTS (Mistral)** and **Gemini TTS
-(Google)** remain available for anyone who prefers them. The cloud engines are
-opt-in, are never chosen as a fallback, and send only the text you ask to have
-spoken.
+Read aloud and spoken episodes use a voice you choose. **macOS system voices**
+work offline and are the default. Two better-sounding **neural voices** —
+Kokoro 82M and Voxtral 4B — can be downloaded and then run entirely on your
+Mac, so the text being spoken never leaves it. Hosted voices from Mistral and
+Google are available too, but they are opt-in, are never picked for you, and
+send only the text you asked to have read.
 
 ### Exports that leave with you
 
-Export a note, course, folder, or selection as:
+Export a note, a course, a folder, or a selection as:
 
 - Markdown
 - HTML
@@ -165,70 +169,45 @@ included in an export or backup.
 
 ### Agent-ready, without opening your library to the network
 
-NotaBene includes an authenticated local
-[Model Context Protocol](https://modelcontextprotocol.io/) server. Compatible
-clients can search, read, create, update, move, organize, and archive notes
-through the same validated command layer used by the app.
+NotaBene can let an AI assistant work with your notes through a local
+[Model Context Protocol](https://modelcontextprotocol.io/) server. A connected
+assistant can search, read, write, move, organize, and archive notes — going
+through exactly the same checks and version history as your own typing.
 
-The server binds to loopback only, requires a token, records agent activity,
-uses optimistic concurrency protection, and deliberately exposes no permanent
-delete operation.
+The server never leaves your machine, requires a token to connect, logs what
+the assistant did, and has no way to permanently delete anything.
 
 ## Privacy model
 
-NotaBene has no accounts, cloud sync, telemetry, advertising, or analytics.
-Normal note-taking does not require an internet connection. Documents you
-import are converted on your own machine; only the optional layout pass sends
-anything anywhere, and only when you ask for it.
+No accounts, no cloud sync, no telemetry, no analytics, no ads. Taking notes
+never needs an internet connection, and documents you import are converted on
+your own machine.
 
-Network access is limited to services that are visible and initiated by you:
+NotaBene reaches the network in four situations, all of which you start:
 
-1. the AI provider or local-model endpoint you configure;
-2. a hosted speech engine, if you explicitly select one instead of the offline
-   macOS voices;
-3. a one-time download from Hugging Face, if you choose to install an
-   on-device speech model — after which that engine works offline; and
-4. the application update check.
+1. an AI request, to the provider or local model you configured;
+2. reading text aloud, if you picked a hosted voice over the offline macOS ones;
+3. a one-time download, if you choose to install an on-device voice — after
+   which it works offline; and
+4. checking for a new version.
 
-AI output is treated as untrusted input: structured responses are validated,
-and edits are previewed before they enter a note. API keys live in the macOS
-Keychain and cannot be represented in the backup schema.
+Whatever a model sends back is treated as untrusted: responses are validated,
+and edits are shown to you before they enter a note. API keys live in the macOS
+Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-NotaBene 0.6.0 is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.0).
-The product foundation and phases A–H are code-complete, except for the
-explicitly deferred signing, notarization, and signed-update work:
+**NotaBene 0.6.1** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.1).
+Everything described above is built and working.
 
-- native shell and local persistence;
-- rich authoring, with attachments and in-app document preview;
-- course organization and full-text search;
-- versions, recovery, backups, and exports;
-- bring-your-own-key and local-model AI, including note-only and
-  note-plus-knowledge answer modes;
-- the authenticated MCP integration;
-- editable mind maps with image/outline export, flashcard review, and spoken
-  episodes on on-device, system, or hosted voices; and
-- first-run guidance, EN/FR coverage, keyboard accessibility, and local
-  performance instrumentation; and
-- local document import, with an optional model-assisted layout pass.
+Two things are deliberately not done yet: the app is **not** signed with an
+Apple Developer ID or notarized, and there are **no** automatic updates. Both
+are planned.
 
-0.3.x focused on making those features hold up in daily use: audio generation
-and playback, attachment handling and previews, a reworked Ask panel, working
-equations in the desktop build, and user-defined abbreviations. 0.4.0 brings
-speech back in line with the rest of the product — neural voices that run on
-your own machine, with no key and no upload. 0.5.0 turns concentration mode
-into a place to write and puts ranked retrieval behind Ask, so a question is
-answered from the notes that actually match it. It also adds scoped Ask
-queries, drag-and-drop attachments, clearer model-use cues, and a more
-survivable restore flow. 0.6.0 opens the app to the material a course actually
-hands you: a PDF, deck, or Word file becomes an editable note, converted on
-your own Mac, with an optional layout pass that is checked against your text
-rather than trusted with it.
-
-See [release notes](./RELEASE_NOTES.md), the [security policy](./SECURITY.md),
-and [third-party notices](./THIRD_PARTY_NOTICES.md).
+See the [release notes](./RELEASE_NOTES.md) for what changed in each version,
+plus the [security policy](./SECURITY.md) and
+[third-party notices](./THIRD_PARTY_NOTICES.md).
 
 ## Getting started
 
