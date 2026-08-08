@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.1"><img alt="Latest release: 0.6.1" src="https://img.shields.io/badge/release-0.6.1-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.2"><img alt="Latest release: 0.6.2" src="https://img.shields.io/badge/release-0.6.2-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,8 +24,8 @@
 
 ## Download
 
-Download **[NotaBene 0.6.1 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.6.1/NotaBene_0.6.1_aarch64.dmg)**.
+Download **[NotaBene 0.6.2 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.6.2/NotaBene_0.6.2_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
@@ -143,6 +143,13 @@ With a provider configured, NotaBene can:
 - read a note aloud as a podcast episode you can play, save as MP3, or keep
   attached to the note.
 
+Any of these can be stopped while it is running, and the request is genuinely
+called off rather than left to finish out of sight — which is what makes a
+local model on your own hardware practical to work with. Smaller local models
+are given room to be untidy, too: a structured answer is read past its thinking
+and its code fences, and a model that mangles one is shown what it wrote and
+asked again. Whatever comes back is validated before it can reach a note.
+
 You can connect Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
 Studio, or any OpenAI-compatible endpoint. Keys are stored in the macOS
 Keychain, never in your notes.
@@ -197,8 +204,8 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 0.6.1** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.1).
+**NotaBene 0.6.2** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.2).
 Everything described above is built and working.
 
 Two things are deliberately not done yet: the app is **not** signed with an

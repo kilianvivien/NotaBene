@@ -2,6 +2,24 @@
 
 ## NotaBene 0.6.2
 
+- **Cancel now stops the model, not just the waiting.** Pressing Cancel during
+  a rewrite, a summary, a set of flashcards, a mind map or a podcast script
+  used to leave the model running to the end — and a cancelled summary would
+  still create its note when it got there. The request is now genuinely called
+  off, on a local model as much as a hosted one, and the dialog comes back the
+  moment you press the button rather than when the last token lands. A cancel
+  is also no longer reported as an error, because it is not one.
+- **Small local models are much better at the features that need a structured
+  answer.** A seven-billion-parameter model on your Mac often thinks out loud
+  before answering, wraps the answer in a code fence, or writes a note with
+  real line breaks inside it — all of which used to end in "the model did not
+  return JSON". NotaBene now reads past the thinking and the fence, repairs
+  punctuation without ever touching a word of the content, and, if the answer
+  is still unreadable, shows the model what it wrote and asks once more. A
+  model that answers correctly the first time is never asked twice, and every
+  answer is still validated before it can reach a note.
+- **The export sheet closes once the file is written**, instead of staying open
+  to say it is done.
 - **The AI features work again on LM Studio.** Rewrite, synthesis, flashcards,
   mind maps and podcasts asked LM Studio for its JSON mode in the wording every
   other OpenAI-compatible server accepts, and recent LM Studio builds answer
