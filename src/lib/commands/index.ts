@@ -1,5 +1,6 @@
 export * from './types';
 export * from './noteCommands';
+export * from './bulkCommands';
 export * from './organizationCommands';
 export * from './collectionCommands';
 export * from './recoveryCommands';

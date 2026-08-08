@@ -35,7 +35,10 @@
       "manual": "Ordre manuel",
       "relevance": "Pertinence"
     },
-    "dropHint": "Déposer pour classer cette note ici"
+    "dropHint": "Déposer pour classer cette note ici",
+    "label": "Notes",
+    "selectedCount_one": "{{count}} note sélectionnée",
+    "selectedCount_other": "{{count}} notes sélectionnées"
   },
   "noteActions": {
     "open": "Ouvrir",
@@ -46,6 +49,38 @@
     "addTag": "Ajouter l’étiquette « {{tag}} »",
     "moveToTrash": "Mettre à la corbeille",
     "restore": "Restaurer"
+  },
+  "bulk": {
+    "move": "Déplacer vers…",
+    "moveHeader_one": "Déplacer {{count}} note",
+    "moveHeader_other": "Déplacer {{count}} notes",
+    "tag": "Ajouter une étiquette…",
+    "tagHeader_one": "Étiqueter {{count}} note",
+    "tagHeader_other": "Étiqueter {{count}} notes",
+    "merge": "Fusionner les notes…",
+    "clear": "Désélectionner tout",
+    "more": "Autres actions…",
+    "tagNone": "Aucune étiquette"
+  },
+  "merge": {
+    "title": "Fusionner les notes",
+    "action": "Fusionner",
+    "merging": "Fusion…",
+    "noteTitle": "Titre",
+    "sources": "Ordre",
+    "sourcesHint": "La note du haut ouvre le document. Chacune garde son titre en tête de section.",
+    "originals": "Notes d’origine",
+    "fate_trash": "Mettre à la corbeille",
+    "fate_archive": "Archiver",
+    "fate_keep": "Ne rien changer",
+    "fateHint_trash": "Récupérables dans la corbeille pendant la durée de conservation choisie.",
+    "fateHint_archive": "Retirées de la liste, conservées dans la bibliothèque.",
+    "fateHint_keep": "La note fusionnée s’ajoute à côté d’elles.",
+    "count_one": "{{count}} note sera fusionnée",
+    "count_other": "{{count}} notes seront fusionnées",
+    "needTwo": "Sélectionnez au moins deux notes à fusionner.",
+    "moveUp": "Déplacer « {{title}} » vers le haut",
+    "moveDown": "Déplacer « {{title}} » vers le bas"
   },
   "editor": {
     "titlePlaceholder": "Titre de la note",
@@ -538,7 +573,9 @@
     "detectedIdle_other": "En cours — {{count}} modèles disponibles, aucun chargé",
     "notDetected": "Injoignable — lancez l'application, puis revérifiez.",
     "redetect": "Revérifier",
-    "detectedHint": "Détecté depuis l'application en cours : {{model}}. Saisissez un identifiant pour en fixer un autre."
+    "detectedHint": "Détecté depuis l'application en cours : {{model}}. Saisissez un identifiant pour en fixer un autre.",
+    "limit_too_many_notes": "{{max}} notes au maximum — désélectionnez-en quelques-unes.",
+    "limit_over_budget": "Ces notes sont trop longues pour être envoyées ensemble. Choisissez-en moins."
   },
   "tags": {
     "facet_topic": "Thème",
@@ -826,7 +863,8 @@
     "documentation": "Aide NotaBene",
     "githubRepository": "NotaBene sur GitHub",
     "readAloud": "Lire la note à voix haute",
-    "commandPalette": "Commandes…"
+    "commandPalette": "Commandes…",
+    "mergeNotes": "Fusionner les notes…"
   },
   "import": {
     "title": "Convertir un document en note",

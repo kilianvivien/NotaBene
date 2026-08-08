@@ -35,7 +35,10 @@
       "manual": "Manual order",
       "relevance": "Relevance"
     },
-    "dropHint": "Drop to file this note here"
+    "dropHint": "Drop to file this note here",
+    "label": "Notes",
+    "selectedCount_one": "{{count}} note selected",
+    "selectedCount_other": "{{count}} notes selected"
   },
   "noteActions": {
     "open": "Open",
@@ -46,6 +49,38 @@
     "addTag": "Add tag “{{tag}}”",
     "moveToTrash": "Move to Trash",
     "restore": "Restore"
+  },
+  "bulk": {
+    "move": "Move to…",
+    "moveHeader_one": "Move {{count}} note",
+    "moveHeader_other": "Move {{count}} notes",
+    "tag": "Add a tag…",
+    "tagHeader_one": "Tag {{count}} note",
+    "tagHeader_other": "Tag {{count}} notes",
+    "merge": "Merge notes…",
+    "clear": "Clear selection",
+    "more": "More actions…",
+    "tagNone": "No tags yet"
+  },
+  "merge": {
+    "title": "Merge notes",
+    "action": "Merge",
+    "merging": "Merging…",
+    "noteTitle": "Title",
+    "sources": "Order",
+    "sourcesHint": "The note on top leads. Each one keeps its title as a heading.",
+    "originals": "Original notes",
+    "fate_trash": "Move to trash",
+    "fate_archive": "Archive",
+    "fate_keep": "Leave them alone",
+    "fateHint_trash": "Recoverable from the trash for as long as your retention setting allows.",
+    "fateHint_archive": "Out of the note list, still in the library.",
+    "fateHint_keep": "The merged note is added alongside them.",
+    "count_one": "{{count}} note will be merged",
+    "count_other": "{{count}} notes will be merged",
+    "needTwo": "Select at least two notes to merge.",
+    "moveUp": "Move “{{title}}” up",
+    "moveDown": "Move “{{title}}” down"
   },
   "editor": {
     "titlePlaceholder": "Note title",
@@ -538,7 +573,9 @@
     "detectedIdle_other": "Running — {{count}} models available, none loaded",
     "notDetected": "Not reachable — start the app, then check again.",
     "redetect": "Check again",
-    "detectedHint": "Detected from the running app: {{model}}. Type an id to pin a different one."
+    "detectedHint": "Detected from the running app: {{model}}. Type an id to pin a different one.",
+    "limit_too_many_notes": "Up to {{max}} notes at a time — deselect a few.",
+    "limit_over_budget": "Those notes are too long to send together. Choose fewer."
   },
   "tags": {
     "facet_topic": "Topic",
@@ -826,7 +863,8 @@
     "documentation": "NotaBene help",
     "githubRepository": "NotaBene on GitHub",
     "readAloud": "Read note aloud",
-    "commandPalette": "Commands…"
+    "commandPalette": "Commands…",
+    "mergeNotes": "Merge Notes…"
   },
   "import": {
     "title": "Convert document to note",

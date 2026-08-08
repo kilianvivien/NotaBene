@@ -60,6 +60,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         separator,
         command('note.save', t),
         separator,
+        command('note.merge', t),
         command('note.export', t),
         separator,
         command('backup.create', t),

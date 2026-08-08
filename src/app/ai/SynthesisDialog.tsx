@@ -9,13 +9,14 @@ import { Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, FieldNote, GlassButton } from '@/components/glass';
-import type { SynthesisStyle } from '@/lib/ai';
+import { MAX_AI_SOURCES, type SynthesisStyle } from '@/lib/ai';
 import { synthesizeNotesCommand } from '@/lib/commands';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
+import { aiErrorMessage } from './aiErrorMessage';
 import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
@@ -55,6 +56,12 @@ export function SynthesisDialog() {
       ? [selectedNoteId]
       : [];
 
+  // The count is knowable without loading a single document, so it is refused
+  // here rather than after a round trip through the command layer. The token
+  // budget is not — it needs the notes themselves — and comes back as a
+  // `details.limit` the message below translates.
+  const tooMany = noteIds.length > MAX_AI_SOURCES;
+
   async function run() {
     setError('');
     const signal = beginRun('synthesis');
@@ -65,9 +72,7 @@ export function SynthesisDialog() {
     endRun('synthesis');
 
     if (!result.ok) {
-      setError(
-        result.code === 'not_supported' ? t('ai.notConfiguredHint') : result.message,
-      );
+      setError(aiErrorMessage(result, t));
       return;
     }
     // Land the student in the note that was just made. A summary filed
@@ -110,7 +115,9 @@ export function SynthesisDialog() {
           <GlassButton
             size="sm"
             variant="accent"
-            disabled={!noteIds.length || !availability.available || !briefed || running}
+            disabled={
+              !noteIds.length || tooMany || !availability.available || !briefed || running
+            }
             onClick={() => void run()}
           >
             {running && <Loader2 size={12} className="animate-spin" />}
@@ -171,6 +178,11 @@ export function SynthesisDialog() {
           <span className="block truncate">{titles.join(' · ')}</span>
         )}
       </FieldNote>
+      {tooMany && (
+        <FieldNote tone="danger">
+          {t('ai.limit_too_many_notes', { max: MAX_AI_SOURCES })}
+        </FieldNote>
+      )}
       {error && <FieldNote tone="danger">{error}</FieldNote>}
     </Dialog>
   );

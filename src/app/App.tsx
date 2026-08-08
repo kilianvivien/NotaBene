@@ -19,6 +19,7 @@ import { useFullscreenAttribute } from './shell/useFullscreen';
 import { ReadingControls } from './shell/ReadingControls';
 import { TemplatePicker } from './organization/TemplatePicker';
 import { ExportDialog } from './export/ExportDialog';
+import { MergeNotesDialog } from './shell/MergeNotesDialog';
 import { RewriteDialog } from './ai/RewriteDialog';
 import { SynthesisDialog } from './ai/SynthesisDialog';
 import { MindMapDialog } from './ai/MindMapDialog';
@@ -161,6 +162,7 @@ export function App() {
       <RecoveryPrompt />
       <TemplatePicker />
       <ExportDialog />
+      <MergeNotesDialog />
       <ImportDocumentDialog />
       <RewriteDialog />
       <SynthesisDialog />

@@ -29,12 +29,13 @@ import {
   deleteSectionCommand,
   deleteTagCommand,
   deleteTemplateCommand,
+  archiveNotesCommand,
   emptyTrashCommand,
-  fileNoteCommand,
+  fileNotesCommand,
   reorderCoursesCommand,
   reorderSectionsCommand,
   saveNoteAsTemplateCommand,
-  trashNoteCommand,
+  trashNotesCommand,
   updateNoteCommand,
   updateSectionCommand,
 } from '@/lib/commands';
@@ -42,7 +43,7 @@ import { tagLabel } from '@/lib/notes/tagLabel';
 import type { Course, NoteTemplate, SavedSearch, Section, Tag } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
-import { useUiStore, type ViewKind } from '@/lib/state/uiStore';
+import { selectionFor, useUiStore, type ViewKind } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import {
   CourseDialog,
@@ -88,19 +89,33 @@ const dropClass =
   'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)] ring-1 ring-inset ring-[var(--nb-accent)]';
 
 /** What each smart view does with a note dropped on it. `null` means the view
- * has no sensible answer — "all notes" is not a place. */
+ * has no sensible answer — "all notes" is not a place.
+ *
+ * Every one takes the whole selection when the dragged note is part of one:
+ * dragging eleven highlighted notes onto a course and having one of them move
+ * is the failure this expansion exists to prevent. `selectionFor` decides,
+ * so the rule is the same here as in the note list's context menu. */
 function smartViewDrop(view: ViewKind): ((noteId: string) => Promise<unknown>) | null {
   switch (view.kind) {
     case 'inbox':
-      return (noteId) => fileNoteCommand(noteId, { courseId: null, sectionId: null });
+      return (noteId) =>
+        fileNotesCommand(selectionFor(noteId), { courseId: null, sectionId: null });
     case 'pinned':
-      return (noteId) => updateNoteCommand({ noteId, pinned: true });
+      return (noteId) => archiveOrPin(noteId, { pinned: true });
     case 'archived':
-      return (noteId) => updateNoteCommand({ noteId, archived: true });
+      return (noteId) => archiveNotesCommand(selectionFor(noteId), true);
     case 'trash':
-      return (noteId) => trashNoteCommand(noteId);
+      return (noteId) => trashNotesCommand(selectionFor(noteId));
     default:
       return null;
+  }
+}
+
+/** Pinning has no bulk command of its own — it is the one flag nothing else
+ * needed in a batch — so the selection is walked here. */
+async function archiveOrPin(noteId: string, patch: { pinned: boolean }): Promise<void> {
+  for (const id of selectionFor(noteId)) {
+    await updateNoteCommand({ noteId: id, ...patch });
   }
 }
 
@@ -559,7 +574,10 @@ function CourseRow({
         void reorderCoursesCommand(reordered(courses, id, course.id));
         return;
       }
-      void fileNoteCommand(id, { courseId: course.id, sectionId: null });
+      void fileNotesCommand(selectionFor(id), {
+        courseId: course.id,
+        sectionId: null,
+      });
       onNoteDropped();
     },
   });
@@ -717,7 +735,7 @@ function SectionRow({
         );
         return;
       }
-      void fileNoteCommand(id, {
+      void fileNotesCommand(selectionFor(id), {
         courseId: section.courseId,
         sectionId: section.id,
       });

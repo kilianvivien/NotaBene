@@ -1,5 +1,31 @@
 # Release notes
 
+## NotaBene 0.6.1
+
+- **Select several notes at once.** Command-click adds a note to the selection,
+  shift-click takes a run of them, Escape clears it. A bar above the list says
+  how many are selected and what can be done to them: move them to a course,
+  add a tag, merge them, and — behind the `⋯` — export, archive, or send them to
+  the trash. Right-clicking inside a selection acts on all of it, and so does
+  dragging it onto a course, a section, or the inbox. In the trash the bar
+  offers one thing, which is putting them all back.
+- **Merge notes into one.** File → Merge Notes (⌥⌘M) folds a selection into a
+  single new note. The most recently edited one leads by default and the order
+  can be rearranged before anything is written; each note keeps its title as a
+  heading, with its own headings moved down a level so the result has an
+  outline rather than a flat run of sections. The merged note inherits the
+  course when every source agreed on one, and carries all their tags. The
+  originals go to the trash, are archived, or are left alone — you choose each
+  time, and the choice is remembered as the default for the next one.
+- **The multi-note AI features work on the selection**, which is what they were
+  always written for: synthesis, flashcards, and podcasts now read the whole
+  set rather than one note. They stop at ten notes, and at a length limit
+  besides, and say so before a request is sent rather than after.
+- A selected note's highlight no longer touches the chrome above it.
+
+Nothing here is persisted differently: no schema change, no `SCHEMA_VERSION`
+bump.
+
 ## NotaBene 0.6.0
 
 - **A document becomes a note, on your Mac.** File → Convert a document to note

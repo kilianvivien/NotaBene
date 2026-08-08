@@ -52,7 +52,7 @@ import {
   normalizeSpeechText,
   normalizeVoxtralSpeechText,
 } from '@/lib/tts/normalizeSpeechText';
-import { language, providerFor } from './aiCommands';
+import { language, providerFor, sourceLimitFailure } from './aiCommands';
 import { updateNoteCommand } from './noteCommands';
 import { createNoteCommand } from './noteCommands';
 import { addAttachmentCommand } from './assetCommands';
@@ -270,6 +270,8 @@ export async function proposeFlashcardsCommand(
 ): Promise<CommandResult<FlashcardDeck>> {
   const notes = await loadNotes(input.noteIds);
   if (!notes.length) return fail('not_found', 'none of those notes exist');
+  const overLimit = sourceLimitFailure<FlashcardDeck>(notes);
+  if (overLimit) return overLimit;
 
   const lookup = await providerFor('flashcards');
   if (!lookup.ok) return fail('not_supported', lookup.reason);
@@ -397,6 +399,8 @@ export async function proposePodcastScriptCommand(
 ): Promise<CommandResult<PodcastScript>> {
   const notes = await loadNotes(input.noteIds);
   if (!notes.length) return fail('not_found', 'none of those notes exist');
+  const overLimit = sourceLimitFailure<PodcastScript>(notes);
+  if (overLimit) return overLimit;
 
   const lookup = await providerFor('podcast');
   if (!lookup.ok) return fail('not_supported', lookup.reason);

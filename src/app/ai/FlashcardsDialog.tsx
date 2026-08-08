@@ -24,7 +24,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, FieldNote, GlassButton, GlassSelect } from '@/components/glass';
-import type { FlashcardStyle } from '@/lib/ai';
+import { MAX_AI_SOURCES, type FlashcardStyle } from '@/lib/ai';
 import {
   exportFlashcardsCommand,
   proposeFlashcardsCommand,
@@ -35,6 +35,7 @@ import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { aiErrorMessage } from './aiErrorMessage';
 import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
@@ -66,6 +67,7 @@ export function FlashcardsDialog() {
     : selectedNoteId
       ? [selectedNoteId]
       : [];
+  const tooMany = noteIds.length > MAX_AI_SOURCES;
 
   useEffect(() => {
     setDeck(null);
@@ -82,9 +84,7 @@ export function FlashcardsDialog() {
     endRun('flashcards');
 
     if (!outcome.ok) {
-      setError(
-        outcome.code === 'not_supported' ? t('ai.notConfiguredHint') : outcome.message,
-      );
+      setError(aiErrorMessage(outcome, t));
       return;
     }
     setDeck(outcome.value);
@@ -195,7 +195,9 @@ export function FlashcardsDialog() {
           <GlassButton
             size="sm"
             variant={deck ? 'ghost' : 'accent'}
-            disabled={!noteIds.length || !availability.available || running}
+            disabled={
+              !noteIds.length || tooMany || !availability.available || running
+            }
             onClick={() => void generate()}
           >
             {running ? (
@@ -267,6 +269,11 @@ export function FlashcardsDialog() {
             {t(`ai.cardStyleHint_${style}`)}
           </p>
           <FieldNote>{t('ai.sourceCount', { count: noteIds.length })}</FieldNote>
+          {tooMany && (
+            <FieldNote tone="danger">
+              {t('ai.limit_too_many_notes', { max: MAX_AI_SOURCES })}
+            </FieldNote>
+          )}
         </div>
       )}
 

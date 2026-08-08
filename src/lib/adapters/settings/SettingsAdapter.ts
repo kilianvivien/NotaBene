@@ -134,6 +134,12 @@ export interface AppSettings {
     layout: 'combined' | 'separate';
     includeToc: boolean;
   };
+  /** What the merge dialog last did with the notes it consumed. Remembered
+   * because merging is a habit — a student who tidies a course's notes once a
+   * week wants the same answer every week — but never assumed: the dialog
+   * still shows the choice, since this is the field that decides whether a
+   * dozen notes go to the trash. */
+  mergeSourceFate: 'trash' | 'archive' | 'keep';
   /** Provider id per AI feature, so synthesis can use a stronger model than
    * spell-fixing without the user re-picking every time. The `default` entry is
    * what every unlisted feature resolves through. */
@@ -211,6 +217,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     layout: 'combined',
     includeToc: true,
   },
+  // Recoverable for the trash retention period, and the merged note contains
+  // everything the sources did — so the default tidies up rather than leaving
+  // every merge to be cleaned by hand.
+  mergeSourceFate: 'trash',
   aiFeatureModels: {},
   aiProviders: {},
   speech: {

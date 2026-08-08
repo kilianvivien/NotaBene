@@ -55,8 +55,17 @@ export interface FocusSession {
 interface UiState {
   view: ViewKind;
   selectedNoteId: string | null;
-  /** Multi-select for bulk export/synthesis. Always includes
-   * `selectedNoteId` when non-empty. */
+  /**
+   * The notes a bulk action applies to.
+   *
+   * Authoritative whenever it is non-empty; `selectedNoteId` then means only
+   * "the note the editor is showing", which may or may not be a member — you
+   * can command-click the open note out of a selection, and pretending
+   * otherwise would put a note into a merge the student had just removed.
+   * Empty means "there is no bulk selection", and every consumer falls back to
+   * `selectedNoteId`, which is why a selection shrinking to one collapses to
+   * empty rather than to a list of one.
+   */
   multiSelection: string[];
   sidebarVisible: boolean;
   noteListVisible: boolean;
@@ -73,6 +82,7 @@ interface UiState {
   quickSwitcherOpen: boolean;
   templatePickerOpen: boolean;
   exportOpen: boolean;
+  mergeOpen: boolean;
   documentImportSource: DocumentImportSource | null;
   aiRewriteOpen: boolean;
   aiSynthesisOpen: boolean;
@@ -94,6 +104,7 @@ interface UiState {
 
   setView(view: ViewKind): void;
   selectNote(noteId: string | null): void;
+  setMultiSelection(noteIds: string[]): void;
   toggleInMultiSelection(noteId: string): void;
   clearMultiSelection(): void;
   toggleSidebar(): void;
@@ -107,6 +118,7 @@ interface UiState {
   setQuickSwitcherOpen(open: boolean): void;
   setTemplatePickerOpen(open: boolean): void;
   setExportOpen(open: boolean): void;
+  setMergeOpen(open: boolean): void;
   setDocumentImportSource(source: DocumentImportSource | null): void;
   setAiRewriteOpen(open: boolean): void;
   setAiSynthesisOpen(open: boolean): void;
@@ -134,6 +146,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.quickSwitcherOpen ||
     state.templatePickerOpen ||
     state.exportOpen ||
+    state.mergeOpen ||
     state.documentImportSource !== null ||
     state.settingsOpen ||
     state.aiRewriteOpen ||
@@ -142,6 +155,18 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiFlashcardsOpen ||
     state.aiPodcastOpen
   );
+}
+
+/**
+ * Which notes an action aimed at one row should really touch.
+ *
+ * Right-clicking or dragging a row that is part of a selection means the
+ * selection; doing it to a row outside one means that row alone, and must not
+ * silently act on the eleven notes highlighted elsewhere in the list.
+ */
+export function selectionFor(noteId: string): string[] {
+  const { multiSelection } = useUiStore.getState();
+  return multiSelection.includes(noteId) ? multiSelection : [noteId];
 }
 
 export const useUiStore = create<UiState>()(
@@ -161,6 +186,7 @@ export const useUiStore = create<UiState>()(
     quickSwitcherOpen: false,
     templatePickerOpen: false,
     exportOpen: false,
+    mergeOpen: false,
     documentImportSource: null,
     aiRewriteOpen: false,
     aiSynthesisOpen: false,
@@ -182,17 +208,37 @@ export const useUiStore = create<UiState>()(
       });
     },
 
+    // Every caller means "put the student in front of this one note" — the
+    // palette, a wiki-link, the note a synthesis just produced. None of them
+    // means "and keep the eleven notes that were selected a moment ago", so
+    // focusing a note ends the bulk selection.
     selectNote(noteId) {
       set((state) => {
         state.selectedNoteId = noteId;
+        state.multiSelection = [];
+      });
+    },
+
+    setMultiSelection(noteIds) {
+      set((state) => {
+        state.multiSelection = noteIds.length > 1 ? [...new Set(noteIds)] : [];
       });
     },
 
     toggleInMultiSelection(noteId) {
       set((state) => {
-        const index = state.multiSelection.indexOf(noteId);
-        if (index >= 0) state.multiSelection.splice(index, 1);
-        else state.multiSelection.push(noteId);
+        // The open note is the implicit first member: command-clicking a second
+        // note means "this one as well as the one I am reading", and seeding
+        // only the clicked note would quietly drop it from the action.
+        const current = state.multiSelection.length
+          ? state.multiSelection
+          : state.selectedNoteId
+            ? [state.selectedNoteId]
+            : [];
+        const next = current.includes(noteId)
+          ? current.filter((id) => id !== noteId)
+          : [...current, noteId];
+        state.multiSelection = next.length > 1 ? next : [];
       });
     },
 
@@ -295,6 +341,12 @@ export const useUiStore = create<UiState>()(
     setExportOpen(open) {
       set((state) => {
         state.exportOpen = open;
+      });
+    },
+
+    setMergeOpen(open) {
+      set((state) => {
+        state.mergeOpen = open;
       });
     },
 

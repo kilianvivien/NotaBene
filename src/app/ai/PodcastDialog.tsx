@@ -30,7 +30,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, FieldNote, GlassButton, GlassSelect } from '@/components/glass';
 import type { TtsVoice } from '@/lib/adapters';
-import { estimateSpokenMinutes, type PodcastMode } from '@/lib/ai';
+import { estimateSpokenMinutes, MAX_AI_SOURCES, type PodcastMode } from '@/lib/ai';
 import {
   exportPodcastAudioCommand,
   attachPodcastAudioCommand,
@@ -46,6 +46,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
+import { aiErrorMessage } from './aiErrorMessage';
 import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
@@ -174,6 +175,7 @@ export function PodcastDialog() {
     : selectedNoteId
       ? [selectedNoteId]
       : [];
+  const tooMany = noteIds.length > MAX_AI_SOURCES;
   const podcast = settings.podcast;
   const speech = settings.speech;
   const voiceId = speech.voicesByEngine[speech.engineId] ?? null;
@@ -307,9 +309,7 @@ export function PodcastDialog() {
     endRun('podcast');
 
     if (!outcome.ok) {
-      setError(
-        outcome.code === 'not_supported' ? t('ai.notConfiguredHint') : outcome.message,
-      );
+      setError(aiErrorMessage(outcome, t));
       return;
     }
     setScript(outcome.value);
@@ -447,7 +447,7 @@ export function PodcastDialog() {
               <GlassButton
                 size="sm"
                 variant={script ? 'ghost' : 'accent'}
-                disabled={!noteIds.length || !availability.available}
+                disabled={!noteIds.length || tooMany || !availability.available}
                 onClick={() => void writeScript()}
               >
                 {script && <Sparkles size={12} />}
@@ -578,7 +578,9 @@ export function PodcastDialog() {
               {t('ai.podcastEmpty')}
             </p>
             <p className="text-[11px]">
-              {t('ai.sourceCount', { count: noteIds.length })}
+              {tooMany
+                ? t('ai.limit_too_many_notes', { max: MAX_AI_SOURCES })
+                : t('ai.sourceCount', { count: noteIds.length })}
             </p>
           </div>
         )}

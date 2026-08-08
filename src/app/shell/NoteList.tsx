@@ -11,6 +11,7 @@ import { viewToQuery } from './viewQuery';
 import { cn } from '@/lib/utils/cn';
 import { HighlightedSnippet } from './HighlightedSnippet';
 import { NoteContextMenu } from './NoteContextMenu';
+import { SelectionBar } from './SelectionBar';
 import { endDrag, readDrag, startDrag } from './dnd';
 import type { NoteSummary } from '@/lib/schema';
 
@@ -35,6 +36,10 @@ export function NoteList() {
   const searchCourseId = useUiStore((state) => state.searchCourseId);
   const selectedNoteId = useUiStore((state) => state.selectedNoteId);
   const selectNote = useUiStore((state) => state.selectNote);
+  const multiSelection = useUiStore((state) => state.multiSelection);
+  const setMultiSelection = useUiStore((state) => state.setMultiSelection);
+  const toggleInMultiSelection = useUiStore((state) => state.toggleInMultiSelection);
+  const clearMultiSelection = useUiStore((state) => state.clearMultiSelection);
   const openNote = useEditorStore((state) => state.openNote);
   const viewSorts = useSettingsStore((state) => state.settings.viewSorts);
   const updateSettings = useSettingsStore((state) => state.update);
@@ -46,6 +51,10 @@ export function NoteList() {
     note: NoteSummary;
     point: ContextPoint;
   } | null>(null);
+  /** Where a shift-click measures its range from — the last row clicked
+   * without shift. Held as an id rather than an index so it survives the list
+   * being re-queried, re-sorted, or paged. */
+  const rangeAnchor = useRef<string | null>(null);
   const scrollArea = useRef<HTMLDivElement>(null);
   const sentinel = useRef<HTMLLIElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -113,9 +122,46 @@ export function NoteList() {
     searchCourseId,
   ]);
 
-  function onSelect(noteId: string) {
+  /**
+   * One click handler for three gestures, following the platform:
+   *
+   * - plain click opens the note and ends any selection;
+   * - command-click adds or removes one note *without* opening it, because
+   *   loading a note into the editor is exactly what you did not ask for when
+   *   you were building a list of twelve;
+   * - shift-click takes the run between the last plainly-clicked row and this
+   *   one, which is what makes "select this lecture's notes" one gesture.
+   *
+   * Only loaded rows can be reached: the list pages, and a range cannot span
+   * notes that have not arrived.
+   */
+  function onSelect(noteId: string, event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }) {
+    if (event.shiftKey && rangeAnchor.current && rangeAnchor.current !== noteId) {
+      const ids = notes.map((note) => note.id);
+      const from = ids.indexOf(rangeAnchor.current);
+      const to = ids.indexOf(noteId);
+      if (from !== -1 && to !== -1) {
+        setMultiSelection(ids.slice(Math.min(from, to), Math.max(from, to) + 1));
+        return;
+      }
+    }
+    if (event.metaKey || event.ctrlKey) {
+      toggleInMultiSelection(noteId);
+      rangeAnchor.current = noteId;
+      return;
+    }
+    rangeAnchor.current = noteId;
     selectNote(noteId);
     void openNote(noteId);
+  }
+
+  /** A row is highlighted by the bulk selection when there is one, and by the
+   * open note otherwise — the two never both decide, or command-clicking the
+   * open note out of a selection would leave it looking as though it stayed. */
+  function isSelected(noteId: string): boolean {
+    return multiSelection.length
+      ? multiSelection.includes(noteId)
+      : selectedNoteId === noteId;
   }
 
   return (
@@ -156,6 +202,8 @@ export function NoteList() {
         </GlassSelect>
       </div>
 
+      <SelectionBar />
+
       {notes.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center">
           <p className="text-[13px] text-nb-text-2">{t('noteList.empty')}</p>
@@ -164,19 +212,45 @@ export function NoteList() {
       ) : (
         <div
           ref={scrollArea}
-          className="flex-1 overflow-y-auto"
+          // `pt-1`: a row's highlight is a filled rounded rectangle, and butted
+          // straight against the divider above it, it reads as part of the
+          // chrome rather than as a row. The gap belongs to the scroll area so
+          // it holds whether the selection bar is on screen or not.
+          className="flex-1 overflow-y-auto pt-1"
           onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+          // Scoped to the list rather than the window: Escape already belongs
+          // to whatever dialog is open and then to concentration mode, and a
+          // global handler here would take it from both.
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !multiSelection.length) return;
+            event.stopPropagation();
+            clearMultiSelection();
+          }}
         >
-          <ul className="relative mx-1.5" style={{ height: notes.length * ROW_HEIGHT }}>
+          <ul
+            role="listbox"
+            aria-multiselectable
+            aria-label={t('noteList.label')}
+            className="relative mx-1.5"
+            style={{ height: notes.length * ROW_HEIGHT }}
+          >
             {visibleNotes.map(({ note, index }) => (
               <li
                 key={note.id}
+                role="presentation"
                 className="absolute inset-x-0"
                 style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}
                 draggable
                 onDragStart={(event) => {
                   setDraggedNoteId(note.id);
-                  startDrag(event, 'note', note.id, note.title || t('noteList.untitled'));
+                  // The payload stays one id — the drop targets expand it back
+                  // to the selection through `selectionFor`, which keeps the
+                  // typed-MIME contract in `dnd.ts` unchanged.
+                  const label =
+                    multiSelection.includes(note.id) && multiSelection.length > 1
+                      ? t('noteList.selectedCount', { count: multiSelection.length })
+                      : note.title || t('noteList.untitled');
+                  startDrag(event, 'note', note.id, label);
                 }}
                 onDragEnd={() => {
                   endDrag();
@@ -205,7 +279,10 @@ export function NoteList() {
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault();
-                  selectNote(note.id);
+                  // Right-clicking inside a selection keeps it: the menu is
+                  // about to offer actions on all of it, and collapsing to the
+                  // clicked row first would throw away what was asked for.
+                  if (!multiSelection.includes(note.id)) selectNote(note.id);
                   setContextMenu({
                     note,
                     point: { x: event.clientX, y: event.clientY },
@@ -214,12 +291,14 @@ export function NoteList() {
               >
                 <button
                   type="button"
-                  onClick={() => onSelect(note.id)}
+                  role="option"
+                  onClick={(event) => onSelect(note.id, event)}
                   aria-current={selectedNoteId === note.id ? 'true' : undefined}
+                  aria-selected={isSelected(note.id)}
                   className={cn(
                     'flex w-full flex-col gap-0.5 rounded-nb-sm px-2.5 py-2 text-left',
                     'transition-colors duration-[var(--nb-t-fast)]',
-                    selectedNoteId === note.id
+                    isSelected(note.id)
                       ? 'bg-[var(--nb-accent-soft)]'
                       : 'hover:bg-[var(--nb-hover)]',
                   )}

@@ -19,6 +19,8 @@ import { markdownToDoc } from '@/editor/markdown';
 import { library } from '@/lib/adapters';
 import {
   applyProposal,
+  checkSourceLimits,
+  estimateTokens,
   loadProvider,
   requestAnswer,
   requestRewrite,
@@ -77,6 +79,27 @@ export async function providerFor(feature: AiFeature): Promise<ProviderLookup> {
 
 export function language(): string {
   return useSettingsStore.getState().settings.locale;
+}
+
+/**
+ * Refuse a selection that is too big for a multi-note AI feature, or `null`.
+ *
+ * Shared by synthesis, flashcards and podcast: all three read the same
+ * `multiSelection`, and before bulk selection existed none of them could be
+ * handed more than one note. The reason travels in `details` rather than in
+ * the message, because the dialog has to say it in the student's language and
+ * a string assembled here would arrive in whatever this file was written in.
+ */
+export function sourceLimitFailure<T>(notes: Note[]): CommandResult<T> | null {
+  const over = checkSourceLimits(notes, estimateTokens);
+  if (!over) return null;
+  return fail(
+    'invalid_input',
+    over.limit === 'too_many_notes'
+      ? `${over.notes} notes selected, over the limit`
+      : `about ${over.tokens} tokens selected, over the budget`,
+    over,
+  );
 }
 
 // -- Rewrite -----------------------------------------------------------------
@@ -186,6 +209,8 @@ export async function synthesizeNotesCommand(
     if (note) notes.push(note);
   }
   if (!notes.length) return fail('not_found', 'none of those notes exist');
+  const overLimit = sourceLimitFailure<Note>(notes);
+  if (overLimit) return overLimit;
 
   const lookup = await providerFor('synthesis');
   if (!lookup.ok) return fail('not_supported', lookup.reason);

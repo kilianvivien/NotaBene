@@ -36,6 +36,7 @@ export const APP_COMMAND_IDS = [
   'course.new',
   'note.importDocument',
   'note.save',
+  'note.merge',
   'note.export',
   'backup.create',
   'backup.restore',
@@ -68,7 +69,7 @@ export const APP_COMMAND_IDS = [
 export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
 
 /** The phase a command becomes real. `A` means it works today. */
-export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H';
+export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I';
 
 export interface AppCommand {
   id: AppCommandId;
@@ -237,6 +238,24 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     // exporting is genuinely useful.
     run: async () => {
       await useEditorStore.getState().flush();
+      return ok(undefined);
+    },
+  },
+  'note.merge': {
+    id: 'note.merge',
+    labelKey: 'menu.mergeNotes',
+    accelerator: 'CmdOrCtrl+Alt+M',
+    landsIn: 'I',
+    run: () => {
+      // Opens the dialog rather than merging. A keystroke that folds eleven
+      // notes into one and trashes the originals is not one anybody should be
+      // able to hit by accident, so the shortcut only ever raises the sheet.
+      //
+      // Unconditionally, as `note.export` does: a command that returns a
+      // failure here has nowhere to show it — the menu path voids the result —
+      // so the menu item would look broken. The dialog says what merging needs
+      // and keeps its button disabled until it has it.
+      useUiStore.getState().setMergeOpen(true);
       return ok(undefined);
     },
   },

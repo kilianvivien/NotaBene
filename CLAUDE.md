@@ -91,10 +91,10 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A–H are code-complete, apart from the explicitly deferred signing,
+Phases A–I are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
-server, and the study features. E adds the
+server, the study features, and bulk selection. E adds the
 provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
 Studio, custom), Keychain key storage, rewrite-with-diff-gate, synthesis, and
 an Ask panel for questions about a note. F adds the authenticated 11-tool MCP
@@ -126,6 +126,28 @@ Phase G notes worth knowing before touching it:
 - Tags are stored as `namespace:name` because that is what makes them
   facetable, and displayed through `tagLabel()` because `type:summary` is not a
   label. Query with `tagQuery()`, show with `tagLabel()`.
+
+Phase I notes worth knowing before touching it:
+
+- `uiStore.multiSelection` is authoritative whenever it is non-empty, and
+  `selectedNoteId` then means only "the note the editor is showing" — the two
+  can disagree, because the open note can be command-clicked out of a
+  selection. A selection of one collapses to empty, which every consumer reads
+  as "no bulk selection, fall back to `selectedNoteId`".
+- Anything acting on one row that could mean the whole selection goes through
+  `selectionFor(noteId)` — the note-list context menu and every sidebar drop
+  target do. Do not read `multiSelection` directly at those call sites.
+- Bulk writes call `applyNoteUpdate` (the refresh-free half of
+  `updateNoteCommand`) and refresh the read caches **once**, at the end.
+  Looping the public command re-runs the note list's query per note.
+- Merge honours `input.noteIds` as the running order — the dialog seeds it from
+  `mergeOrder()` and the student rearranges it, so re-sorting inside the
+  command would discard what they arranged. Merge has no MCP tool: with the
+  trash fate it is destructive, and agents archive.
+- `MAX_AI_SOURCES` caps synthesis, flashcards and podcast together. The count
+  is refused in the dialog; the token budget comes back as `details.limit` so
+  the message is translated at the surface rather than carried from the
+  command layer in English.
 
 ## House rules
 

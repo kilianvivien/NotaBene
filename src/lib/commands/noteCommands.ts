@@ -125,6 +125,23 @@ export async function updateNoteCommand(
   input: UpdateNoteInput,
   context: CommandContext = USER,
 ): Promise<CommandResult<Note>> {
+  const result = await applyNoteUpdate(input, context);
+  await refreshCurrentView();
+  return result;
+}
+
+/**
+ * `updateNoteCommand` without the read-cache refresh.
+ *
+ * Exported for `bulkCommands`, which writes a whole selection and then
+ * refreshes once. Looping the public command instead would re-run the note
+ * list's query — and every course, tag and count behind it — for each of
+ * twelve notes, and the intermediate states are ones nobody ever sees.
+ */
+export async function applyNoteUpdate(
+  input: UpdateNoteInput,
+  context: CommandContext = USER,
+): Promise<CommandResult<Note>> {
   const parsed = UpdateNoteInput.safeParse(input);
   if (!parsed.success) {
     return fail('invalid_input', 'invalid note input', parsed.error.issues);
@@ -202,7 +219,6 @@ export async function updateNoteCommand(
     await editor.openNote(updated.id);
   }
 
-  await refreshCurrentView();
   return ok(updated);
 }
 
