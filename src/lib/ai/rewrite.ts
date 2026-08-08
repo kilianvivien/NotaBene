@@ -18,8 +18,8 @@ import {
   type NoteDoc,
   type RewriteProposal,
 } from '@/lib/schema';
-import { runAi, type AiRunOptions } from './client';
-import { parseModelJson } from './json';
+import type { AiRunOptions } from './client';
+import { runStructured } from './structured';
 import { rewritePrompt, type RewriteMode } from './prompts';
 import type { ResolvedProvider } from './protocols';
 
@@ -111,7 +111,7 @@ export async function requestRewrite(
     throw new Error('there is nothing in this note to rewrite');
   }
 
-  const text = await runAi(
+  const response = await runStructured(
     {
       provider: request.provider,
       messages: rewritePrompt({
@@ -122,13 +122,10 @@ export async function requestRewrite(
       }),
       maxTokens: 8_000,
       temperature: request.mode === 'light' ? 0 : 0.3,
-      json: true,
-      stream: false,
     },
+    AiRewriteResponseSchema,
     options,
   );
-
-  const response = parseModelJson(AiRewriteResponseSchema, text);
 
   return {
     proposal: proposalFromResponse(response, before.length),

@@ -17,8 +17,8 @@ import {
   type FlashcardDeck,
   type Note,
 } from '@/lib/schema';
-import { runAi, type AiRunOptions } from './client';
-import { parseModelJson } from './json';
+import type { AiRunOptions } from './client';
+import { runStructured } from './structured';
 import { flashcardsPrompt, type FlashcardStyle } from './prompts';
 import type { ResolvedProvider } from './protocols';
 
@@ -57,7 +57,7 @@ export async function requestFlashcards(
 ): Promise<FlashcardDeck> {
   if (!request.sources.length) throw new Error('select at least one note');
 
-  const text = await runAi(
+  const response = await runStructured(
     {
       provider: request.provider,
       messages: flashcardsPrompt({
@@ -71,13 +71,10 @@ export async function requestFlashcards(
       }),
       maxTokens: 8_000,
       temperature: 0.3,
-      json: true,
-      stream: false,
     },
+    AiFlashcardsResponseSchema,
     options,
   );
-
-  const response = parseModelJson(AiFlashcardsResponseSchema, text);
 
   // A card with neither a deletion on the front nor anything on the back has no
   // answer in it, and would import into Anki as a blank. Dropping it costs the

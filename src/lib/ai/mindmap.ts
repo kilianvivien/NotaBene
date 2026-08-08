@@ -12,8 +12,8 @@
 import { docToMarkdown } from '@/editor/markdown';
 import { mindMapToSvg } from '@/lib/mindmap/layout';
 import { AiMindMapResponseSchema, type MindMap, type Note } from '@/lib/schema';
-import { runAi, type AiRunOptions } from './client';
-import { parseModelJson } from './json';
+import type { AiRunOptions } from './client';
+import { runStructured } from './structured';
 import { mindMapPrompt } from './prompts';
 import type { ResolvedProvider } from './protocols';
 
@@ -32,7 +32,7 @@ export async function requestMindMap(
   request: MindMapRequest,
   options: AiRunOptions = {},
 ): Promise<MindMapResult> {
-  const text = await runAi(
+  const map = await runStructured(
     {
       provider: request.provider,
       messages: mindMapPrompt({
@@ -45,12 +45,9 @@ export async function requestMindMap(
       // which branches exist is a model inventing material the lecture did not
       // contain.
       temperature: 0.2,
-      json: true,
-      stream: false,
     },
+    AiMindMapResponseSchema,
     options,
   );
-
-  const map = parseModelJson(AiMindMapResponseSchema, text);
   return { map, svg: mindMapToSvg(map) };
 }

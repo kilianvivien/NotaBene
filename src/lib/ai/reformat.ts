@@ -20,8 +20,8 @@ import {
   type DocNode,
   type RewriteProposal,
 } from '@/lib/schema';
-import { runAi, type AiRunOptions } from './client';
-import { parseModelJson } from './json';
+import type { AiRunOptions } from './client';
+import { runStructured } from './structured';
 import { reformatPrompt } from './prompts';
 import type { ResolvedProvider } from './protocols';
 import {
@@ -140,7 +140,7 @@ export async function requestReformat(
     throw new Error('there is nothing in this document to format');
   }
 
-  const text = await runAi(
+  const response = await runStructured(
     {
       provider: request.provider,
       messages: reformatPrompt({ blocks: before }),
@@ -151,13 +151,10 @@ export async function requestReformat(
       // Layout is not a creative act, and a model improvising here is a model
       // whose edits this file is about to throw away.
       temperature: 0,
-      json: true,
-      stream: false,
     },
+    AiRewriteResponseSchema,
     options,
   );
-
-  const response = parseModelJson(AiRewriteResponseSchema, text);
   const proposal = proposalFromResponse(response, before.length);
 
   const accepted = new Set<number>();

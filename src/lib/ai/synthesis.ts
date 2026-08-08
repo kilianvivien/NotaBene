@@ -8,8 +8,8 @@
  */
 import { docToMarkdown, markdownToDoc } from '@/editor/markdown';
 import { AiSynthesisResponseSchema, type Note, type NoteDoc } from '@/lib/schema';
-import { runAi, type AiRunOptions } from './client';
-import { parseModelJson } from './json';
+import type { AiRunOptions } from './client';
+import { runStructured } from './structured';
 import { synthesisPrompt, type SynthesisStyle } from './prompts';
 import type { ResolvedProvider } from './protocols';
 
@@ -90,7 +90,7 @@ export async function requestSynthesis(
     throw new Error('write what this note should be');
   }
 
-  const text = await runAi(
+  const response = await runStructured(
     {
       provider: request.provider,
       messages: synthesisPrompt({
@@ -104,13 +104,10 @@ export async function requestSynthesis(
       }),
       maxTokens: 8_000,
       temperature: 0.3,
-      json: true,
-      stream: false,
     },
+    AiSynthesisResponseSchema,
     options,
   );
-
-  const response = parseModelJson(AiSynthesisResponseSchema, text);
   const doc = markdownToDoc(response.markdown);
 
   return {

@@ -38,6 +38,41 @@ function languageRule(language: string): string {
 const JSON_ONLY =
   'Reply with a single JSON object and nothing else. No prose before it, no prose after it, no Markdown code fence around it.';
 
+/** How much of a failed answer to quote back. Enough for a model to see what
+ * it wrote and where it went wrong; short enough that a runaway response
+ * cannot double the size of the second request. */
+const RAW_ECHO_LIMIT = 6_000;
+
+/**
+ * Ask again, having failed to parse the first answer.
+ *
+ * Shown the model's own output and the specific complaint, rather than the
+ * original instruction repeated louder: a small model that produced a trailing
+ * comma or thought out loud in front of its answer usually fixes it in one
+ * turn when it can see what it did. The conversation is continued rather than
+ * restarted so the source material does not have to be sent twice.
+ *
+ * This costs a second call only when the first response was unusable, which is
+ * why a model that answers correctly never pays for it.
+ */
+export function jsonRepairPrompt(
+  previous: AiMessage[],
+  raw: string,
+  problem: string,
+): AiMessage[] {
+  const echoed = raw.slice(0, RAW_ECHO_LIMIT);
+  return [
+    ...previous,
+    { role: 'assistant', content: echoed },
+    {
+      role: 'user',
+      content: `That could not be read: ${problem}.
+
+Send the same answer again as valid JSON. ${JSON_ONLY} Do not think out loud, do not explain the correction, and do not wrap it in <think> tags. Escape every newline inside a string as \\n, use straight double quotes, and put no comma before a closing brace or bracket.`,
+    },
+  ];
+}
+
 // -- Rewrite -----------------------------------------------------------------
 
 const REWRITE_INTENT: Record<RewriteMode, string> = {

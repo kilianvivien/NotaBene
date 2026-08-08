@@ -10,8 +10,8 @@
  */
 import { docToMarkdown } from '@/editor/markdown';
 import { AiPodcastResponseSchema, type Note, type PodcastScript } from '@/lib/schema';
-import { runAi, type AiRunOptions } from './client';
-import { parseModelJson } from './json';
+import type { AiRunOptions } from './client';
+import { runStructured } from './structured';
 import { podcastPrompt, type PodcastMode } from './prompts';
 import type { ResolvedProvider } from './protocols';
 
@@ -46,7 +46,7 @@ export async function requestPodcastScript(
 ): Promise<PodcastScript> {
   if (!request.sources.length) throw new Error('select at least one note');
 
-  const text = await runAi(
+  const script = await runStructured(
     {
       provider: request.provider,
       messages: podcastPrompt({
@@ -63,12 +63,9 @@ export async function requestPodcastScript(
       // be listened to for ten minutes, and a script written at 0.2 is a script
       // that sounds like a wikipedia summary read aloud.
       temperature: 0.6,
-      json: true,
-      stream: false,
     },
+    AiPodcastResponseSchema,
     options,
   );
-
-  const script = parseModelJson(AiPodcastResponseSchema, text);
   return { ...script, mode: request.mode };
 }

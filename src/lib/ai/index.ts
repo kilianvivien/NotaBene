@@ -4,6 +4,7 @@ export * from './localModels';
 export * from './resolve';
 export * from './client';
 export * from './json';
+export * from './structured';
 export * from './prompts';
 export * from './rewrite';
 export * from './reformat';
