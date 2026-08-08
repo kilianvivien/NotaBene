@@ -110,16 +110,29 @@ export function beginRun(activity: AiActivity): AbortSignal {
   return controller.signal;
 }
 
-export function endRun(activity: AiActivity): void {
+/**
+ * A run has finished. Pass the signal `beginRun` returned: a cancelled run
+ * unwinds *after* the student has started another one, and without something
+ * to identify itself by it would clear the spinner belonging to that second
+ * run.
+ */
+export function endRun(activity: AiActivity, signal?: AbortSignal): void {
+  const current = controllers.get(activity);
+  if (signal && current && current.signal !== signal) return;
   controllers.delete(activity);
   if (useAiStore.getState().running === activity) {
     useAiStore.getState().setRunning(null);
   }
 }
 
+/** Stop a run. The spinner goes out here rather than when the call finally
+ * unwinds — the whole point of the button is that the wait is over. */
 export function cancelRun(activity: AiActivity): void {
   controllers.get(activity)?.abort(new DOMException('cancelled', 'AbortError'));
   controllers.delete(activity);
+  if (useAiStore.getState().running === activity) {
+    useAiStore.getState().setRunning(null);
+  }
 }
 
 export const useAiStore = create<AiState>()(

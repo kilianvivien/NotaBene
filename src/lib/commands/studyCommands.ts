@@ -52,7 +52,7 @@ import {
   normalizeSpeechText,
   normalizeVoxtralSpeechText,
 } from '@/lib/tts/normalizeSpeechText';
-import { language, providerFor, sourceLimitFailure } from './aiCommands';
+import { aiFailure, language, providerFor, sourceLimitFailure } from './aiCommands';
 import { updateNoteCommand } from './noteCommands';
 import { createNoteCommand } from './noteCommands';
 import { addAttachmentCommand } from './assetCommands';
@@ -113,7 +113,7 @@ export async function proposeMindMapCommand(
       ),
     );
   } catch (error) {
-    return fail('invalid_input', message(error));
+    return aiFailure(error, options.signal);
   }
 }
 
@@ -290,7 +290,7 @@ export async function proposeFlashcardsCommand(
       ),
     );
   } catch (error) {
-    return fail('invalid_input', message(error));
+    return aiFailure(error, options.signal);
   }
 }
 
@@ -419,7 +419,7 @@ export async function proposePodcastScriptCommand(
       ),
     );
   } catch (error) {
-    return fail('invalid_input', message(error));
+    return aiFailure(error, options.signal);
   }
 }
 
@@ -539,7 +539,7 @@ export async function synthesizePodcastCommand(
     );
     let completedChunks = 0;
     for (const { chunks } of chunkedSegments) {
-      if (options.signal?.aborted) return fail('not_supported', 'cancelled');
+      if (options.signal?.aborted) return fail('cancelled', 'cancelled');
       const parts: Uint8Array[] = [];
       let durationMs = 0;
       for (const text of chunks) {
@@ -585,7 +585,7 @@ export async function synthesizePodcastCommand(
     return ok(spoken);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      return fail('not_supported', 'cancelled');
+      return fail('cancelled', 'cancelled');
     }
     return fail('storage_failed', message(error));
   }

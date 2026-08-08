@@ -32,7 +32,10 @@ export type CommandErrorCode =
   | 'invalid_input'
   | 'conflict'
   | 'storage_failed'
-  | 'not_supported';
+  | 'not_supported'
+  /** The user stopped it. Not a failure: nothing went wrong and there is
+   * nothing to tell them, so every surface reads this as "say nothing". */
+  | 'cancelled';
 
 export function ok<T>(value: T): CommandResult<T> {
   return { ok: true, value };

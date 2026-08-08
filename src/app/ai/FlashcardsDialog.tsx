@@ -81,10 +81,12 @@ export function FlashcardsDialog() {
     setStatus('');
     const signal = beginRun('flashcards');
     const outcome = await proposeFlashcardsCommand({ noteIds, style, count }, { signal });
-    endRun('flashcards');
+    endRun('flashcards', signal);
 
     if (!outcome.ok) {
-      setError(aiErrorMessage(outcome, t));
+      // A cancel is not a failure: the student pressed the button and knows
+      // what happened.
+      if (outcome.code !== 'cancelled') setError(aiErrorMessage(outcome, t));
       return;
     }
     setDeck(outcome.value);

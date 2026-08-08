@@ -128,7 +128,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
         onToken: (token) => useAiStore.getState().appendToken(noteId, requestKey, token),
       },
     );
-    endRun('ask');
+    endRun('ask', signal);
 
     if (result.ok) {
       store.commitTurn(noteId, requestKey, {
@@ -151,6 +151,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
     } else {
       store.discardStreaming(noteId, requestKey);
     }
+    if (result.code === 'cancelled') return;
     setError(
       result.code === 'not_supported' ? t('ai.notConfiguredHint') : result.message,
     );

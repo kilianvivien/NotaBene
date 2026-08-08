@@ -102,6 +102,25 @@ export function sourceLimitFailure<T>(notes: Note[]): CommandResult<T> | null {
   );
 }
 
+/**
+ * Read a failed provider call.
+ *
+ * A cancel gets its own code because it is not a failure: the student pressed
+ * the button, they know what happened, and a red line under the dialog saying
+ * "cancelled" reads as though something broke. The signal is authoritative
+ * rather than the message — an abort surfaces as several different sentences
+ * depending on which layer noticed first.
+ *
+ * Exported for `studyCommands.ts`, whose three features cancel the same way.
+ */
+export function aiFailure<T>(error: unknown, signal?: AbortSignal): CommandResult<T> {
+  const message = error instanceof Error ? error.message : String(error);
+  if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+    return fail('cancelled', 'cancelled');
+  }
+  return fail('invalid_input', message);
+}
+
 // -- Rewrite -----------------------------------------------------------------
 
 export interface ProposeRewriteInput {
@@ -142,7 +161,7 @@ export async function proposeRewriteCommand(
     );
     return ok(result);
   } catch (error) {
-    return fail('invalid_input', error instanceof Error ? error.message : String(error));
+    return aiFailure(error, options.signal);
   }
 }
 
@@ -228,7 +247,7 @@ export async function synthesizeNotesCommand(
       options,
     );
   } catch (error) {
-    return fail('invalid_input', error instanceof Error ? error.message : String(error));
+    return aiFailure(error, options.signal);
   }
 
   const courseIds = new Set(notes.map((note) => note.courseId ?? null));
@@ -369,7 +388,7 @@ export async function askAboutNotesCommand(
       droppedCount,
     });
   } catch (error) {
-    return fail('invalid_input', error instanceof Error ? error.message : String(error));
+    return aiFailure(error, options.signal);
   }
 }
 

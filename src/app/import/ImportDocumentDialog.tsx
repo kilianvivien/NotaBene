@@ -105,7 +105,7 @@ export function ImportDocumentDialog() {
     setError('');
     const signal = beginRun('importFormat');
     const result = await reformatDocumentCommand(document, { signal });
-    endRun('importFormat');
+    endRun('importFormat', signal);
 
     // Switching the toggle back off, or closing the dialog, aborts the call and
     // the command reports that as a failure. It is not one, and saying "the

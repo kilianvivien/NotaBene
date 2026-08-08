@@ -46,12 +46,16 @@ export function MindMapDialog() {
     setError('');
     const signal = beginRun('mindMap');
     const outcome = await proposeMindMapCommand(noteId, { signal });
-    endRun('mindMap');
+    endRun('mindMap', signal);
 
     if (!outcome.ok) {
-      setError(
-        outcome.code === 'not_supported' ? t('ai.notConfiguredHint') : outcome.message,
-      );
+      // A cancel is not a failure: the student pressed the button and knows
+      // what happened.
+      if (outcome.code !== 'cancelled') {
+        setError(
+          outcome.code === 'not_supported' ? t('ai.notConfiguredHint') : outcome.message,
+        );
+      }
       return;
     }
     setResult(outcome.value);

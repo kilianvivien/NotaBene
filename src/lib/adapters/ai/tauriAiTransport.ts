@@ -34,7 +34,24 @@ function wire(request: AiRequest) {
 
 export const tauriAiTransport: AiTransport = {
   async request(request: AiRequest): Promise<AiResponse> {
-    return invoke<AiResponse>('ai_request', { request: wire(request) });
+    // A whole-response call is the one every structured feature makes, and on a
+    // local model it is also the one that takes minutes. Without an id to name
+    // it by there is nothing for Cancel to reach: the promise would resolve
+    // when the model finished either way, and the GPU would run to the end.
+    const requestId = crypto.randomUUID();
+    const onAbort = () => {
+      void invoke('ai_cancel', { id: requestId });
+    };
+    request.signal?.addEventListener('abort', onAbort, { once: true });
+
+    try {
+      return await invoke<AiResponse>('ai_request', {
+        requestId,
+        request: wire(request),
+      });
+    } finally {
+      request.signal?.removeEventListener('abort', onAbort);
+    }
   },
 
   async *stream(request: AiRequest): AsyncIterable<string> {
@@ -70,7 +87,7 @@ export const tauriAiTransport: AiTransport = {
     });
 
     const onAbort = () => {
-      void invoke('ai_cancel', { streamId });
+      void invoke('ai_cancel', { id: streamId });
     };
     request.signal?.addEventListener('abort', onAbort, { once: true });
 
@@ -99,7 +116,7 @@ export const tauriAiTransport: AiTransport = {
       request.signal?.removeEventListener('abort', onAbort);
       // A consumer that stops early — the user closed the panel — must not
       // leave the model billing away on the other side of the bridge.
-      if (!finished) void invoke('ai_cancel', { streamId });
+      if (!finished) void invoke('ai_cancel', { id: streamId });
       unlisten();
       void call;
     }

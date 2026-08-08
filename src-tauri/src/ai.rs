@@ -63,10 +63,32 @@ struct AiStreamFrame {
 
 #[derive(Default)]
 pub struct AiShared {
-    /// Cancellation handles for streams still running, keyed by the id the
-    /// webview minted. A cancel that arrives after the stream ended is a
-    /// no-op, which is the behaviour a cancel button wants.
-    streams: Mutex<HashMap<String, CancellationToken>>,
+    /// Cancellation handles for calls still running, keyed by the id the
+    /// webview minted. Streamed and whole-response calls share the map: both
+    /// are a request somebody may want to stop, and a local model spends the
+    /// same minute of GPU on either. A cancel that arrives after the call
+    /// ended is a no-op, which is the behaviour a cancel button wants.
+    calls: Mutex<HashMap<String, CancellationToken>>,
+}
+
+/// What a cancelled call returns. The TypeScript side has already rejected by
+/// the time this arrives — the value of the trip is that the provider stops.
+const CANCELLED: &str = "cancelled";
+
+fn register(state: &State<'_, AiShared>, id: &str) -> Result<CancellationToken, String> {
+    let token = CancellationToken::new();
+    state
+        .calls
+        .lock()
+        .map_err(|_| "ai state poisoned")?
+        .insert(id.to_string(), token.clone());
+    Ok(token)
+}
+
+fn unregister(state: &State<'_, AiShared>, id: &str) {
+    if let Ok(mut calls) = state.calls.lock() {
+        calls.remove(id);
+    }
 }
 
 /// Register shared AI state; called once from the Tauri setup hook.
@@ -134,16 +156,41 @@ fn header_map(response: &reqwest::Response) -> HashMap<String, String> {
 /// A non-2xx status is *not* an error here: providers put their most useful
 /// diagnostics in the body of a 400, and the TypeScript side needs to read it
 /// to tell "your key is wrong" apart from "that model does not exist".
+///
+/// Cancellable for the same reason a stream is. Every structured feature —
+/// rewrite, synthesis, flashcards, mind maps, podcast scripts — asks for one
+/// JSON document and so takes this path, and those are exactly the calls a
+/// student sitting in front of a local model waits minutes for.
 #[tauri::command]
-pub async fn ai_request(request: AiHttpRequest) -> Result<AiHttpResponse, String> {
-    let response = build(&request)?
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+pub async fn ai_request(
+    state: State<'_, AiShared>,
+    request_id: String,
+    request: AiHttpRequest,
+) -> Result<AiHttpResponse, String> {
+    let token = register(&state, &request_id)?;
+    let result = run_request(request, &token).await;
+    unregister(&state, &request_id);
+    result
+}
+
+async fn run_request(
+    request: AiHttpRequest,
+    token: &CancellationToken,
+) -> Result<AiHttpResponse, String> {
+    let response = tokio::select! {
+        _ = token.cancelled() => return Err(CANCELLED.into()),
+        sent = build(&request)?.send() => sent.map_err(|error| error.to_string())?,
+    };
 
     let status = response.status().as_u16();
     let headers = header_map(&response);
-    let body = response.text().await.map_err(|error| error.to_string())?;
+    // Selected over as well as `send`. Nearly all of the wait is upstream, but
+    // a provider that has begun answering slowly is still a provider the user
+    // asked us to stop talking to.
+    let body = tokio::select! {
+        _ = token.cancelled() => return Err(CANCELLED.into()),
+        text = response.text() => text.map_err(|error| error.to_string())?,
+    };
     Ok(AiHttpResponse {
         status,
         headers,
@@ -163,17 +210,9 @@ pub async fn ai_stream(
     stream_id: String,
     request: AiHttpRequest,
 ) -> Result<(), String> {
-    let token = CancellationToken::new();
-    {
-        let mut streams = state.streams.lock().map_err(|_| "ai state poisoned")?;
-        streams.insert(stream_id.clone(), token.clone());
-    }
-
+    let token = register(&state, &stream_id)?;
     let result = run_stream(&app, &stream_id, request, &token).await;
-
-    if let Ok(mut streams) = state.streams.lock() {
-        streams.remove(&stream_id);
-    }
+    unregister(&state, &stream_id);
 
     match result {
         Ok(()) => emit(&app, &stream_id, "done", None),
@@ -189,7 +228,7 @@ async fn run_stream(
     token: &CancellationToken,
 ) -> Result<(), String> {
     let response = tokio::select! {
-        _ = token.cancelled() => return Err("cancelled".into()),
+        _ = token.cancelled() => return Err(CANCELLED.into()),
         sent = build(&request)?.send() => sent.map_err(|error| error.to_string())?,
     };
 
@@ -204,7 +243,7 @@ async fn run_stream(
     let mut chunks = response.bytes_stream();
     loop {
         let next = tokio::select! {
-            _ = token.cancelled() => return Err("cancelled".into()),
+            _ = token.cancelled() => return Err(CANCELLED.into()),
             chunk = chunks.next() => chunk,
         };
         match next {
@@ -234,12 +273,13 @@ async fn run_stream(
     }
 }
 
-/// Cancel an in-flight stream. Unknown ids are ignored on purpose: the user
-/// pressing Cancel as the last token lands should not see an error.
+/// Cancel an in-flight call, streamed or not. Unknown ids are ignored on
+/// purpose: the user pressing Cancel as the last token lands should not see an
+/// error.
 #[tauri::command]
-pub fn ai_cancel(state: State<'_, AiShared>, stream_id: String) -> Result<(), String> {
-    let mut streams = state.streams.lock().map_err(|_| "ai state poisoned")?;
-    if let Some(token) = streams.remove(&stream_id) {
+pub fn ai_cancel(state: State<'_, AiShared>, id: String) -> Result<(), String> {
+    let mut calls = state.calls.lock().map_err(|_| "ai state poisoned")?;
+    if let Some(token) = calls.remove(&id) {
         token.cancel();
     }
     Ok(())

@@ -306,10 +306,11 @@ export function PodcastDialog() {
       { noteIds, mode: podcast.mode, minutes: podcast.minutes },
       { signal },
     );
-    endRun('podcast');
+    endRun('podcast', signal);
 
     if (!outcome.ok) {
-      setError(aiErrorMessage(outcome, t));
+      // A cancel is the user's own doing and needs no error line.
+      if (outcome.code !== 'cancelled') setError(aiErrorMessage(outcome, t));
       return;
     }
     setScript(outcome.value);
@@ -335,11 +336,11 @@ export function PodcastDialog() {
       onProgress: (done, total) => setProgress(done / total),
       onSegment: (segment) => setSegments((completed) => [...completed, segment]),
     });
-    endRun('speech');
+    endRun('speech', signal);
 
     if (!outcome.ok) {
       // A cancel is the user's own doing and needs no error line.
-      if (outcome.message !== 'cancelled') setError(outcome.message);
+      if (outcome.code !== 'cancelled') setError(outcome.message);
       return;
     }
     setSegments(outcome.value);

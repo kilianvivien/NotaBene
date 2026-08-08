@@ -69,10 +69,12 @@ export function SynthesisDialog() {
       { noteIds, style, instructions: custom ? instructions.trim() : undefined },
       { signal },
     );
-    endRun('synthesis');
+    endRun('synthesis', signal);
 
     if (!result.ok) {
-      setError(aiErrorMessage(result, t));
+      // A cancel is not a failure. The student pressed the button; telling
+      // them so in red under the dialog reads as though something broke.
+      if (result.code !== 'cancelled') setError(aiErrorMessage(result, t));
       return;
     }
     // Land the student in the note that was just made. A summary filed

@@ -119,7 +119,7 @@ async function attemptCall(call: AiCall, options: AiRunOptions): Promise<string>
     const signed = { ...request, signal: controller.signal };
     return streaming
       ? await readStream(call, signed, options)
-      : await readWhole(call, signed);
+      : await readWhole(call, signed, controller.signal);
   } catch (error) {
     throw asAiError(error);
   } finally {
@@ -128,11 +128,34 @@ async function attemptCall(call: AiCall, options: AiRunOptions): Promise<string>
   }
 }
 
+/**
+ * Give up on a promise the moment the signal says so.
+ *
+ * A `fetch` rejects on abort by itself; a call handed across the Tauri bridge
+ * does not — it settles when Rust settles it, and Rust is busy waiting for the
+ * model. Cancellation still reaches the provider (the transport invokes
+ * `ai_cancel`), but the student pressed a button and is owed the interface
+ * back now, not whenever the last token lands.
+ *
+ * `work` keeps its handlers either way, so the losing branch is never an
+ * unhandled rejection.
+ */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const stop = () =>
+      reject(signal.reason ?? new DOMException('aborted', 'AbortError'));
+    if (signal.aborted) stop();
+    else signal.addEventListener('abort', stop, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener('abort', stop));
+  });
+}
+
 async function readWhole(
   call: AiCall,
   request: Parameters<typeof aiTransport.request>[0],
+  signal: AbortSignal,
 ): Promise<string> {
-  const response = await aiTransport.request(request);
+  const response = await untilAborted(aiTransport.request(request), signal);
   if (response.status >= 400) {
     throw new AiError(
       describeStatus(response.status, response.body),

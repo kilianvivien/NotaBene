@@ -474,6 +474,20 @@ describe('the request engine', () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
+  it('lets go of a call the transport cannot take back', async () => {
+    const transport = await import('@/lib/adapters');
+    // What the desktop transport does: the request is handed to Rust, and the
+    // promise settles when the model finishes — cancel or no cancel. The
+    // provider is told to stop separately; this is about the student getting
+    // the dialog back rather than watching a spinner for another two minutes.
+    vi.spyOn(transport.aiTransport, 'request').mockReturnValue(new Promise(() => {}));
+
+    const controller = new AbortController();
+    const pending = runAi(call, { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toThrow(/cancelled/);
+  });
+
   it('stops on cancellation without retrying', async () => {
     const transport = await import('@/lib/adapters');
     const request = vi

@@ -58,12 +58,18 @@ export function RewriteDialog() {
       { noteId: note.id, mode, instruction },
       { signal },
     );
-    endRun('rewrite');
+    endRun('rewrite', signal);
 
     if (!response.ok) {
-      setError(
-        response.code === 'not_supported' ? t('ai.notConfiguredHint') : response.message,
-      );
+      // A cancel is not a failure: the student pressed the button and knows
+      // what happened.
+      if (response.code !== 'cancelled') {
+        setError(
+          response.code === 'not_supported'
+            ? t('ai.notConfiguredHint')
+            : response.message,
+        );
+      }
       return;
     }
     setResult(response.value);

@@ -6,7 +6,42 @@
  * Scope needs the same separation for the same reason, and these assert it.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { threadKey, useAiStore } from './aiStore';
+import { beginRun, cancelRun, endRun, threadKey, useAiStore } from './aiStore';
+
+describe('the run a dialog is showing', () => {
+  beforeEach(() => {
+    useAiStore.setState({ running: null, error: null });
+  });
+
+  it('puts the spinner out when the run is cancelled, not when it unwinds', () => {
+    beginRun('synthesis');
+    expect(useAiStore.getState().running).toBe('synthesis');
+    // The call itself may take another minute to notice; the button is the
+    // student's, and it is done the moment they press it.
+    cancelRun('synthesis');
+    expect(useAiStore.getState().running).toBeNull();
+  });
+
+  it('does not let a cancelled run switch off the one that replaced it', () => {
+    const first = beginRun('synthesis');
+    cancelRun('synthesis');
+    const second = beginRun('synthesis');
+
+    // The first call finally unwinds, long after the student started again.
+    endRun('synthesis', first);
+    expect(useAiStore.getState().running).toBe('synthesis');
+
+    endRun('synthesis', second);
+    expect(useAiStore.getState().running).toBeNull();
+  });
+
+  it('leaves the run of another feature alone', () => {
+    beginRun('ask');
+    // Closing a dialog cancels its own activity whether or not it was running.
+    cancelRun('synthesis');
+    expect(useAiStore.getState().running).toBe('ask');
+  });
+});
 
 describe('ask threads', () => {
   beforeEach(() => {
