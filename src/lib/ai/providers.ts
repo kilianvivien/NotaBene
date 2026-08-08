@@ -39,7 +39,9 @@ export interface ProviderQuirks {
    * may answer a request that sets a temperature with a 400. */
   sendTemperature?: boolean;
   /** Not every OpenAI-compatible server implements `response_format`; asking
-   * an Ollama build that does not for one is a hard error, not a downgrade. */
+   * an Ollama build that does not for one is a hard error, not a downgrade.
+   * LM Studio is the sharper case: it implements the field but accepts only
+   * `json_schema` and `text`, and answers `json_object` with a 400. */
   jsonMode?: boolean;
 }
 
@@ -144,6 +146,14 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     editableBaseUrl: true,
     models: [],
     defaultModel: '',
+    // LM Studio validates `response_format.type` against `json_schema` and
+    // `text`, so the `json_object` every other OpenAI-compatible server takes
+    // is a 400 here — and it took down rewrite, synthesis, flashcards, mind
+    // maps and podcasts while Ask, which asks for prose, kept working. Its own
+    // structured mode wants a JSON Schema per call, which we do not have; the
+    // prompts already say "a single JSON object and nothing else", and the
+    // answer is parsed and validated either way.
+    quirks: { jsonMode: false },
   },
   {
     id: 'custom',

@@ -1,5 +1,19 @@
 # Release notes
 
+## NotaBene 0.6.2
+
+- **The AI features work again on LM Studio.** Rewrite, synthesis, flashcards,
+  mind maps and podcasts asked LM Studio for its JSON mode in the wording every
+  other OpenAI-compatible server accepts, and recent LM Studio builds answer
+  that with `'response_format.type' must be 'json_schema' or 'text'`. NotaBene
+  no longer sends the field to LM Studio: the prompt already asks for a single
+  JSON object, and the answer is validated before it can reach a note either
+  way. Asking questions about a note was never affected, because it asks for
+  prose.
+
+Nothing here is persisted differently: no schema change, no `SCHEMA_VERSION`
+bump.
+
 ## NotaBene 0.6.1
 
 - **Select several notes at once.** Command-click adds a note to the selection,
