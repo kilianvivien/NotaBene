@@ -15,6 +15,7 @@
  * turns that into an episode.
  */
 import {
+  Circle,
   Download,
   FileText,
   Loader2,
@@ -61,6 +62,80 @@ function Labelled({ label, children }: { label: string; children: ReactNode }) {
       <span className="text-[11px] text-nb-text-3">{label}</span>
       {children}
     </label>
+  );
+}
+
+/**
+ * What the dialog is doing, in the one place that cannot scroll away.
+ *
+ * Progress used to be a button label inside the scrolling body, and the label
+ * it borrowed said "Speaking… 67%" — which in French is "Lecture", the word for
+ * playback. So the one moment nothing was playing was the moment the dialog
+ * claimed it was. The stage now has its own line in the footer: it names the
+ * work, counts it, and fills a bar, and the word for playback is spent only on
+ * playback.
+ */
+function FooterStatus({
+  label,
+  detail,
+  percent,
+  busy = false,
+}: {
+  label: string;
+  detail?: string;
+  percent?: number;
+  busy?: boolean;
+}) {
+  return (
+    <div
+      className="mr-auto flex min-w-0 max-w-[300px] flex-1 items-center gap-2"
+      role="status"
+    >
+      {busy && (
+        <Loader2
+          size={12}
+          className="shrink-0 animate-spin text-nb-text-3 motion-reduce:animate-none"
+          aria-hidden
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span
+            className={cn(
+              'min-w-0 flex-1 truncate text-[11px]',
+              !busy && 'text-nb-text-3',
+            )}
+          >
+            {label}
+          </span>
+          {/* The count changes every second or two; announcing each one would
+              bury the stage name it sits beside. */}
+          {detail && (
+            <span
+              className="shrink-0 text-[11px] tabular-nums text-nb-text-3"
+              aria-hidden
+            >
+              {detail}
+            </span>
+          )}
+        </div>
+        {percent !== undefined && (
+          <div
+            className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--nb-divider)]"
+            role="progressbar"
+            aria-label={label}
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="h-full rounded-full bg-[var(--nb-accent)] transition-[width] duration-[var(--nb-t-fast)]"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -302,6 +377,35 @@ export function PodcastDialog() {
   }
 
   const totalMs = segments.reduce((sum, segment) => sum + segment.durationMs, 0);
+  const percent = Math.round(progress * 100);
+  /** Stopping a synthesis, or a failure part way down the script, leaves the
+   * passages that were already spoken behind. They are worth keeping — but a
+   * two-thirds episode calling itself ready is the same lie in a new place. */
+  const total = script?.segments.length ?? 0;
+  const complete = !!script && segments.length === total;
+  /** One line, always in the same spot, saying which of the two stages the
+   * dialog is in — writing, speaking, done, or holding a script with no audio
+   * behind it. Its absence used to be why a half-made episode looked ready. */
+  const statusLine = writing ? (
+    <FooterStatus busy label={t('ai.writingScript')} />
+  ) : speaking ? (
+    <FooterStatus
+      busy
+      label={t('ai.creatingAudio')}
+      detail={t('ai.creatingAudioCount', { done: segments.length, total, percent })}
+      percent={percent}
+    />
+  ) : complete ? (
+    <FooterStatus
+      label={t('ai.audioReady', {
+        minutes: Math.max(1, Math.round(totalMs / 60000)),
+      })}
+    />
+  ) : segments.length ? (
+    <FooterStatus label={t('ai.audioPartial', { done: segments.length, total })} />
+  ) : script ? (
+    <FooterStatus label={t('ai.audioMissing')} />
+  ) : null;
 
   /** One close for Escape, for Cancel, and for the status pill on its way to
    * Settings — a dialog left open behind that window is a window you cannot
@@ -323,66 +427,54 @@ export function PodcastDialog() {
       headerAction={<AiDialogStatus feature="podcast" onLeave={close} />}
       footer={
         <>
+          {statusLine}
+          {/* While something is running the footer holds one button, and it
+              stops that thing. A row of disabled controls beside a progress
+              bar — one of them an accent "Resume playback" — was the other half
+              of why a generating episode read as a playing one. */}
           {writing || speaking ? (
             <GlassButton
               size="sm"
               onClick={() => cancelRun(writing ? 'podcast' : 'speech')}
             >
-              {t('ai.cancel')}
+              {t('ai.stopRun')}
             </GlassButton>
           ) : (
-            <GlassButton size="sm" onClick={() => setOpen(false)}>
-              {t('common.close')}
-            </GlassButton>
-          )}
-          <GlassButton
-            size="sm"
-            variant={script ? 'ghost' : 'accent'}
-            disabled={!noteIds.length || !availability.available || writing || speaking}
-            onClick={() => void writeScript()}
-          >
-            {writing ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              script && <Sparkles size={12} />
-            )}
-            {writing
-              ? t('ai.running')
-              : script
-                ? t('ai.regenerateScript')
-                : t('ai.writeScript')}
-          </GlassButton>
-          {script && !segments.length && (
-            <GlassButton
-              size="sm"
-              variant="accent"
-              disabled={speaking || !voiceId || !voices.length}
-              onClick={() => void speak()}
-            >
-              {speaking ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <Volume2 size={12} />
+            <>
+              <GlassButton size="sm" onClick={() => setOpen(false)}>
+                {t('common.close')}
+              </GlassButton>
+              <GlassButton
+                size="sm"
+                variant={script ? 'ghost' : 'accent'}
+                disabled={!noteIds.length || !availability.available}
+                onClick={() => void writeScript()}
+              >
+                {script && <Sparkles size={12} />}
+                {script ? t('ai.regenerateScript') : t('ai.writeScript')}
+              </GlassButton>
+              {script && !segments.length && (
+                <GlassButton
+                  size="sm"
+                  variant="accent"
+                  disabled={!voiceId || !voices.length}
+                  onClick={() => void speak()}
+                >
+                  <Volume2 size={12} />
+                  {t('ai.createAudio')}
+                </GlassButton>
               )}
-              {speaking
-                ? t('ai.speakingProgress', { percent: Math.round(progress * 100) })
-                : t('ai.createAudio')}
-            </GlassButton>
-          )}
-          {!!segments.length && (
-            <GlassButton
-              size="sm"
-              variant="accent"
-              disabled={speaking}
-              onClick={toggleEpisodePlayback}
-            >
-              {playing !== null && !paused ? <Pause size={12} /> : <Play size={12} />}
-              {playing !== null && !paused
-                ? t('ai.pauseEpisode')
-                : paused
-                  ? t('ai.resumeEpisode')
-                  : t('ai.playEpisode')}
-            </GlassButton>
+              {!!segments.length && (
+                <GlassButton size="sm" variant="accent" onClick={toggleEpisodePlayback}>
+                  {playing !== null && !paused ? <Pause size={12} /> : <Play size={12} />}
+                  {playing !== null && !paused
+                    ? t('ai.pauseEpisode')
+                    : paused
+                      ? t('ai.resumeEpisode')
+                      : t('ai.playEpisode')}
+                </GlassButton>
+              )}
+            </>
           )}
         </>
       }
@@ -497,8 +589,12 @@ export function PodcastDialog() {
               <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium">
                 {script.title}
               </h3>
+              {/* A measured length only once there is a whole episode to
+                  measure. Part way through, `totalMs` is however much has been
+                  spoken so far, and printing that as the length made a
+                  six-minute episode announce itself as two. */}
               <span className="shrink-0 text-[11px] text-nb-text-3">
-                {segments.length
+                {complete
                   ? t('ai.episodeLength', {
                       minutes: Math.max(1, Math.round(totalMs / 60000)),
                     })
@@ -509,11 +605,21 @@ export function PodcastDialog() {
             <ol className="flex flex-col gap-1">
               {script.segments.map((segment, index) => {
                 const spoken = segments[index];
+                // The synthesiser works down the list in order, so the one it
+                // is on is the first without audio.
+                const busy = speaking && index === segments.length;
                 return (
                   <li key={index}>
                     <button
                       type="button"
                       disabled={!spoken}
+                      title={
+                        spoken
+                          ? undefined
+                          : busy
+                            ? t('ai.segmentBusy')
+                            : t('ai.segmentPending')
+                      }
                       onClick={() => {
                         if (playing === index && !paused) {
                           audioRef.current?.pause();
@@ -536,17 +642,42 @@ export function PodcastDialog() {
                         playing === index && 'bg-[var(--nb-accent-soft)]',
                       )}
                     >
-                      <span className="mt-0.5 shrink-0 text-nb-text-3">
-                        {playing === index && !paused ? (
-                          <Pause size={12} aria-hidden />
+                      {/* A play triangle on a passage that has no audio behind
+                          it is a promise the dialog cannot keep. Ready is the
+                          accent triangle; the passage being spoken spins; the
+                          rest are hollow. */}
+                      <span
+                        className={cn(
+                          'mt-0.5 shrink-0',
+                          spoken
+                            ? 'text-[var(--nb-accent)]'
+                            : 'text-nb-text-3 opacity-60',
+                        )}
+                      >
+                        {spoken ? (
+                          playing === index && !paused ? (
+                            <Pause size={12} aria-hidden />
+                          ) : (
+                            <Play size={12} aria-hidden />
+                          )
+                        ) : busy ? (
+                          <Loader2
+                            size={12}
+                            className="animate-spin motion-reduce:animate-none"
+                            aria-hidden
+                          />
                         ) : (
-                          <Play size={12} aria-hidden />
+                          <Circle size={12} aria-hidden />
                         )}
                       </span>
                       <span className="sr-only">
-                        {playing === index && !paused
-                          ? t('ai.pauseSegment', { number: index + 1 })
-                          : t('ai.playSegment', { number: index + 1 })}
+                        {spoken
+                          ? playing === index && !paused
+                            ? t('ai.pauseSegment', { number: index + 1 })
+                            : t('ai.playSegment', { number: index + 1 })
+                          : busy
+                            ? t('ai.segmentBusy')
+                            : t('ai.segmentPending')}
                       </span>
                       <span className="min-w-0 flex-1">
                         {script.mode === 'dialogue' && (
@@ -562,11 +693,18 @@ export function PodcastDialog() {
               })}
             </ol>
 
-            {!!segments.length && (
+            {/* Not while the episode is still being made — `segments` fills in
+                as it goes, and an MP3 saved at 67% is two thirds of an episode
+                with nothing on it to say so. After a stop the offer stands,
+                because that audio is real and the student may want it; the
+                section says how much of it there is. */}
+            {!!segments.length && !speaking && (
               <section className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
                 <h4 className="text-[12px] font-semibold">{t('ai.keepAudio')}</h4>
                 <p className="mt-0.5 text-[11px] leading-snug text-nb-text-3">
-                  {t('ai.keepAudioHint')}
+                  {complete
+                    ? t('ai.keepAudioHint')
+                    : t('ai.keepAudioPartial', { done: segments.length, total })}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <GlassButton size="sm" onClick={() => void saveAudio()}>
@@ -595,21 +733,15 @@ export function PodcastDialog() {
                 <FileText size={12} aria-hidden />
                 {t('ai.saveScriptToNote')}
               </GlassButton>
-              {!!segments.length && (
+              {!!segments.length && !speaking && (
                 <GlassButton
                   size="sm"
                   variant="ghost"
-                  disabled={speaking || !voiceId || !voices.length}
+                  disabled={!voiceId || !voices.length}
                   onClick={() => void speak()}
                 >
-                  {speaking ? (
-                    <Loader2 size={12} className="animate-spin" aria-hidden />
-                  ) : (
-                    <RefreshCw size={12} aria-hidden />
-                  )}
-                  {speaking
-                    ? t('ai.speakingProgress', { percent: Math.round(progress * 100) })
-                    : t('ai.recreateAudio')}
+                  <RefreshCw size={12} aria-hidden />
+                  {t('ai.recreateAudio')}
                 </GlassButton>
               )}
             </div>
