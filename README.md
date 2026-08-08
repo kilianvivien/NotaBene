@@ -20,7 +20,7 @@
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
-![NotaBene 0.5 showing concentration mode, the rich editor, and the Ask panel answering a question about the open note](./assets/screenshots/notabene-0.5.png)
+![NotaBene 0.6.1 in French, showing the course sidebar, the note list, a note open in the editor, and the Ask panel answering a question about it with key points drawn from the note](./assets/screenshots/notabene-0.6.1.png)
 
 ## Download
 
