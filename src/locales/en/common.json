@@ -222,7 +222,6 @@
     "noteCount_other": "{{count}} notes will be exported",
     "action": "Export",
     "exporting": "Exporting…",
-    "complete": "Export complete",
     "layoutPdfHint": "PDF always prints as one document."
   },
   "backups": {

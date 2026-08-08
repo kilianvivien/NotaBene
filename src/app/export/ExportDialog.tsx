@@ -52,8 +52,13 @@ export function ExportDialog() {
     });
     setWorking(false);
     if (result.ok) {
-      setMessage(t('export.complete'));
-    } else if (result.code !== 'not_supported') {
+      // The file is written and the sheet has already told the student where it
+      // went. A dialog that stays open saying "done" is one more thing to
+      // dismiss, and it invites a second export of the same notes.
+      setOpen(false);
+      return;
+    }
+    if (result.code !== 'not_supported') {
       setMessage(result.message);
       setFailed(true);
     }
