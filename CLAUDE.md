@@ -10,12 +10,24 @@ bring-your-own-key AI. macOS desktop (Tauri), with a web-ready core.
 
 Everything stays on the user's machine. No accounts, no cloud, no telemetry.
 
+**Scope test, decided 2026-08-09: students first, researchers second.** The
+undergraduate in a lecture is still the primary user and keeps a veto — nothing
+for the researcher may make the class-notes path slower or harder to learn —
+but "a grad student would use this and an undergraduate would not" is no longer
+a reason to reject a feature. macOS only: no mobile, no web as a product. See
+`docs/plan.md` §1, which also lists what that direction explicitly rules out.
+
 Source of truth (these live in `docs/`, which is gitignored — they are working
 documents, not shipped artifacts):
 
-- `docs/PRD-notabene-v0.1.md` — product spec.
-- `docs/notabene-implementation-plan.md` — phased plan; keep status banners current.
+- `docs/PRD-notabene-v0.1.md` — product spec. Written for the student-only
+  scope; §1 of the plan is what supersedes it on direction.
+- `docs/plan.md` — the current plan: what is done, what is open, and what is
+  settled. Keep it current; edit an item rather than starting a new document.
 - `docs/GeoCarto-design.md` — the Liquid Glass design system.
+- `docs/archive/` — superseded planning documents, with a README explaining what
+  each one was and which parts of it survived into `plan.md`. The phased
+  implementation plan lives there now; phases A–I are all complete.
 
 ## Commands
 
@@ -102,8 +114,8 @@ surface, client setup, agent activity, versioned writes, and optimistic
 concurrency protection. G adds mind maps (a real editor block that survives
 every export), flashcards with Anki export, and note-to-podcast over macOS
 system voices, onboarding, editable study artefacts, accessibility, performance
-instrumentation, and release documentation. Section 3 of the implementation plan tracks the remaining gaps
-honestly — read it before assuming something works.
+instrumentation, and release documentation. `docs/plan.md` tracks what is still
+open honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
 
