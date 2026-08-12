@@ -16,16 +16,16 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.2"><img alt="Latest release: 0.6.2" src="https://img.shields.io/badge/release-0.6.2-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.7.0"><img alt="Latest release: 0.7.0" src="https://img.shields.io/badge/release-0.7.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
-![NotaBene 0.6.1 in French, showing the course sidebar, the note list, a note open in the editor, and the Ask panel answering a question about it with key points drawn from the note](./assets/screenshots/notabene-0.6.1.png)
+![NotaBene 0.7.0 in French, showing the note library, a structured note open in the editor, and the Agent panel ready to work on the current note](./assets/screenshots/notabene-0.7.0.png)
 
 ## Download
 
-Download **[NotaBene 0.6.2 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.6.2/NotaBene_0.6.2_aarch64.dmg)**.
+Download **[NotaBene 0.7.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.7.0/NotaBene_0.7.0_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
@@ -204,8 +204,8 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 0.6.2** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.6.2).
+**NotaBene 0.7.0** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.7.0).
 Everything described above is built and working.
 
 Two things are deliberately not done yet: the app is **not** signed with an
