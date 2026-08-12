@@ -129,6 +129,8 @@ export function buildMenuBar(t: Translate): MenuNode[] {
       kind: 'submenu',
       label: t('menu.ai'),
       items: [
+        command('ai.agent', t),
+        separator,
         command('ai.rewrite', t),
         command('ai.synthesize', t),
         command('ai.ask', t),

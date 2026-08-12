@@ -62,6 +62,7 @@ export const APP_COMMAND_IDS = [
   'ai.mindMap',
   'ai.flashcards',
   'ai.podcast',
+  'ai.agent',
   'help.documentation',
   'help.github',
 ] as const;
@@ -492,6 +493,16 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     run: requireNote(() => {
       useUiStore.getState().setAiPodcastOpen(true);
     }),
+  },
+  'ai.agent': {
+    id: 'ai.agent',
+    labelKey: 'agent.title',
+    accelerator: 'CmdOrCtrl+Alt+A',
+    landsIn: 'I',
+    run: () => {
+      useUiStore.getState().setAgentOpen(true);
+      return ok(undefined);
+    },
   },
 
   'help.documentation': {

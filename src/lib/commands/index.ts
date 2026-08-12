@@ -15,3 +15,4 @@ export * from './readCommands';
 export * from './retrievalCommands';
 export * from './onboardingCommands';
 export * from './importCommands';
+export * from './agentCommands';

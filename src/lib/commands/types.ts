@@ -19,6 +19,10 @@ export interface CommandContext {
   agentName?: string;
   /** Internal override for writes such as history restore. */
   snapshotCause?: 'auto' | 'session' | 'restore' | 'ai' | 'agent';
+  /** Groups every pre-edit snapshot created by one in-app agent run. */
+  agentRunId?: string;
+  /** Cooperative cancellation for multi-step agent tool handlers. */
+  signal?: AbortSignal;
 }
 
 export const USER: CommandContext = { source: 'user' };
@@ -64,4 +68,10 @@ export function fail<T>(
                   ? i18n.t('error.notAvailable')
                   : message;
   return { ok: false, code, message: translated, details };
+}
+
+export function cancelledIfRequested<T>(
+  context: CommandContext,
+): CommandResult<T> | null {
+  return context.signal?.aborted ? fail('cancelled', 'cancelled') : null;
 }

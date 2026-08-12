@@ -687,7 +687,7 @@ pub fn purge(store: &Store, note_id: &str) -> DbResult<()> {
 pub fn list_snapshots(store: &Store, note_id: &str) -> DbResult<Vec<SnapshotMeta>> {
     store.with(|connection| {
         let mut statement = connection.prepare(
-            "SELECT id, note_id, title, cause, created_at FROM snapshots \
+            "SELECT id, note_id, title, cause, run_id, created_at FROM snapshots \
              WHERE note_id = ? ORDER BY created_at DESC",
         )?;
         let rows = statement
@@ -697,7 +697,8 @@ pub fn list_snapshots(store: &Store, note_id: &str) -> DbResult<Vec<SnapshotMeta
                     note_id: row.get(1)?,
                     title: row.get(2)?,
                     cause: row.get(3)?,
-                    created_at: row.get(4)?,
+                    run_id: row.get(4)?,
+                    created_at: row.get(5)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -708,7 +709,7 @@ pub fn list_snapshots(store: &Store, note_id: &str) -> DbResult<Vec<SnapshotMeta
 pub fn get_snapshot(store: &Store, snapshot_id: &str) -> DbResult<Option<Snapshot>> {
     store.with(|connection| {
         let mut statement = connection.prepare(
-            "SELECT id, note_id, doc_json, title, cause, created_at FROM snapshots WHERE id = ?",
+            "SELECT id, note_id, doc_json, title, cause, run_id, created_at FROM snapshots WHERE id = ?",
         )?;
         let mut rows = statement.query([snapshot_id])?;
         let Some(row) = rows.next()? else {
@@ -721,14 +722,15 @@ pub fn get_snapshot(store: &Store, snapshot_id: &str) -> DbResult<Option<Snapsho
             doc: serde_json::from_str(&doc_json)?,
             title: row.get(3)?,
             cause: row.get(4)?,
-            created_at: row.get(5)?,
+            run_id: row.get(5)?,
+            created_at: row.get(6)?,
         }))
     })
 }
 
 pub(crate) fn list_all_snapshots_in(connection: &Connection) -> DbResult<Vec<Snapshot>> {
     let mut statement = connection.prepare(
-        "SELECT id, note_id, doc_json, title, cause, created_at
+        "SELECT id, note_id, doc_json, title, cause, run_id, created_at
          FROM snapshots ORDER BY created_at",
     )?;
     let rows = statement
@@ -746,7 +748,8 @@ pub(crate) fn list_all_snapshots_in(connection: &Connection) -> DbResult<Vec<Sna
                 })?,
                 title: row.get(3)?,
                 cause: row.get(4)?,
-                created_at: row.get(5)?,
+                run_id: row.get(5)?,
+                created_at: row.get(6)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -758,6 +761,7 @@ pub fn create_snapshot(
     id: &str,
     note_id: &str,
     cause: &str,
+    run_id: Option<&str>,
     created_at: &str,
 ) -> DbResult<Snapshot> {
     let note = get(store, note_id)?
@@ -766,9 +770,9 @@ pub fn create_snapshot(
 
     store.with(|connection| {
         connection.execute(
-            "INSERT INTO snapshots (id, note_id, doc_json, title, cause, created_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params![id, note_id, doc_json, note.title, cause, created_at],
+            "INSERT INTO snapshots (id, note_id, doc_json, title, cause, run_id, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![id, note_id, doc_json, note.title, cause, run_id, created_at],
         )?;
         Ok(())
     })?;
@@ -779,6 +783,7 @@ pub fn create_snapshot(
         doc: note.doc,
         title: note.title,
         cause: cause.to_string(),
+        run_id: run_id.map(str::to_string),
         created_at: created_at.to_string(),
     })
 }
@@ -789,13 +794,14 @@ pub fn create_snapshot(
 pub(crate) fn upsert_snapshot_in(connection: &Connection, snapshot: &Snapshot) -> DbResult<()> {
     let doc_json = serde_json::to_string(&snapshot.doc)?;
     connection.execute(
-        "INSERT INTO snapshots (id, note_id, doc_json, title, cause, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        "INSERT INTO snapshots (id, note_id, doc_json, title, cause, run_id, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT(id) DO UPDATE SET
            note_id = excluded.note_id,
            doc_json = excluded.doc_json,
            title = excluded.title,
            cause = excluded.cause,
+           run_id = excluded.run_id,
            created_at = excluded.created_at",
         rusqlite::params![
             snapshot.id,
@@ -803,6 +809,7 @@ pub(crate) fn upsert_snapshot_in(connection: &Connection, snapshot: &Snapshot) -
             doc_json,
             snapshot.title,
             snapshot.cause,
+            snapshot.run_id,
             snapshot.created_at
         ],
     )?;
@@ -1508,6 +1515,7 @@ mod tests {
             "hour-new",
             &note.id,
             "auto",
+            None,
             &same_hour_new.to_rfc3339(),
         )
         .unwrap();
@@ -1516,6 +1524,7 @@ mod tests {
             "hour-old",
             &note.id,
             "auto",
+            None,
             &same_hour_old.to_rfc3339(),
         )
         .unwrap();

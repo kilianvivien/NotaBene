@@ -73,8 +73,11 @@ export const tauriLibraryAdapter: LibraryAdapter = {
     invoke('library_list_snapshots', { noteId }),
   getSnapshot: (snapshotId: string): Promise<Snapshot | null> =>
     invoke('library_get_snapshot', { snapshotId }),
-  createSnapshot: (noteId: string, cause: SnapshotCause): Promise<Snapshot> =>
-    invoke('library_create_snapshot', { noteId, cause }),
+  createSnapshot: (
+    noteId: string,
+    cause: SnapshotCause,
+    runId?: string,
+  ): Promise<Snapshot> => invoke('library_create_snapshot', { noteId, cause, runId }),
   pruneSnapshots: (noteId: string, policy: SnapshotRetentionPolicy) =>
     invoke('library_prune_snapshots', { noteId, policy }),
   purgeTrash: (trashedBefore: string) =>

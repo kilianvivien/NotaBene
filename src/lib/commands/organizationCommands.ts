@@ -18,7 +18,14 @@ import {
   type Note,
 } from '@/lib/schema';
 import { useLibraryStore } from '@/lib/state/libraryStore';
-import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
+import {
+  cancelledIfRequested,
+  fail,
+  ok,
+  USER,
+  type CommandContext,
+  type CommandResult,
+} from './types';
 import { updateNoteCommand } from './noteCommands';
 
 const CreateCourseInput = z.object({
@@ -37,14 +44,18 @@ export type CreateCourseInput = z.infer<typeof CreateCourseInput>;
 
 export async function createCourseCommand(
   input: CreateCourseInput,
-  _context: CommandContext = USER,
+  context: CommandContext = USER,
 ): Promise<CommandResult<Course>> {
+  const cancelled = cancelledIfRequested<Course>(context);
+  if (cancelled) return cancelled;
   const parsed = CreateCourseInput.safeParse(input);
   if (!parsed.success) {
     return fail('invalid_input', 'invalid course input', parsed.error.issues);
   }
 
   const existing = await library.listCourses();
+  const stopped = cancelledIfRequested<Course>(context);
+  if (stopped) return stopped;
   const course = createCourse({
     ...parsed.data,
     // Cycle the palette so a new course never lands on the same colour as the
@@ -104,11 +115,15 @@ export async function reorderCoursesCommand(
 
 export async function createSectionCommand(
   input: { courseId: string; name: string },
-  _context: CommandContext = USER,
+  context: CommandContext = USER,
 ): Promise<CommandResult<Section>> {
+  const cancelled = cancelledIfRequested<Section>(context);
+  if (cancelled) return cancelled;
   if (!input.name.trim()) return fail('invalid_input', 'section name is required');
 
   const siblings = await library.listSections(input.courseId);
+  const stopped = cancelledIfRequested<Section>(context);
+  if (stopped) return stopped;
   const section = createSection({ ...input, order: siblings.length });
   await library.upsertSection(section);
   await useLibraryStore.getState().refreshSections(input.courseId);
@@ -169,8 +184,10 @@ const TagInput = z.object({
  */
 export async function ensureTagCommand(
   input: z.input<typeof TagInput>,
-  _context: CommandContext = USER,
+  context: CommandContext = USER,
 ): Promise<CommandResult<Tag>> {
+  const cancelled = cancelledIfRequested<Tag>(context);
+  if (cancelled) return cancelled;
   const parsed = TagInput.safeParse(input);
   if (!parsed.success) {
     return fail('invalid_input', 'invalid tag input', parsed.error.issues);
@@ -178,6 +195,8 @@ export async function ensureTagCommand(
 
   const namespace = parsed.data.namespace ?? null;
   const existing = await library.listTags();
+  const stopped = cancelledIfRequested<Tag>(context);
+  if (stopped) return stopped;
   const match = existing.find(
     (tag) =>
       tag.namespace === namespace &&
@@ -274,6 +293,11 @@ export async function organizeNotesCommand(
   input: OrganizeNotesInput,
   context: CommandContext = USER,
 ): Promise<CommandResult<{ createdSection: Section | null; movedNotes: Note[] }>> {
+  const cancelled = cancelledIfRequested<{
+    createdSection: Section | null;
+    movedNotes: Note[];
+  }>(context);
+  if (cancelled) return cancelled;
   const parsed = OrganizeNotesInput.safeParse(input);
   if (!parsed.success) {
     return fail('invalid_input', 'invalid organization input', parsed.error.issues);
@@ -291,6 +315,11 @@ export async function organizeNotesCommand(
     courseId: string | null;
   }[] = [];
   for (const move of parsed.data.moves) {
+    const stopped = cancelledIfRequested<{
+      createdSection: Section | null;
+      movedNotes: Note[];
+    }>(context);
+    if (stopped) return stopped;
     const note = await library.getNote(move.noteId);
     if (!note) return fail('not_found', `no note ${move.noteId}`);
     if (move.baseUpdatedAt !== note.updatedAt) {
@@ -328,6 +357,11 @@ export async function organizeNotesCommand(
 
   const movedNotes: Note[] = [];
   for (const { note, move, courseId } of prepared) {
+    const stopped = cancelledIfRequested<{
+      createdSection: Section | null;
+      movedNotes: Note[];
+    }>(context);
+    if (stopped) return stopped;
     const result = await updateNoteCommand(
       {
         noteId: note.id,

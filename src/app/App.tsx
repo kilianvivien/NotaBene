@@ -25,6 +25,7 @@ import { SynthesisDialog } from './ai/SynthesisDialog';
 import { MindMapDialog } from './ai/MindMapDialog';
 import { FlashcardsDialog } from './ai/FlashcardsDialog';
 import { PodcastDialog } from './ai/PodcastDialog';
+import { AgentDialog } from './ai/AgentDialog';
 import {
   collectAssetGarbageCommand,
   purgeExpiredTrashCommand,
@@ -169,6 +170,7 @@ export function App() {
       <MindMapDialog />
       <FlashcardsDialog />
       <PodcastDialog />
+      <AgentDialog />
       <EditorConflictDialog />
     </div>
   );

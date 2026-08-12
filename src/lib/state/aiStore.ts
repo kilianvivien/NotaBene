@@ -45,6 +45,7 @@ export type AiActivity =
   | 'flashcards'
   | 'podcast'
   | 'importFormat'
+  | 'agent'
   | 'speech';
 
 export interface AskThread {

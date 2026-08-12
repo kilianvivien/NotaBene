@@ -102,6 +102,7 @@ pub struct Snapshot {
     pub doc: Value,
     pub title: String,
     pub cause: String,
+    pub run_id: Option<String>,
     pub created_at: String,
 }
 
@@ -112,6 +113,7 @@ pub struct SnapshotMeta {
     pub note_id: String,
     pub title: String,
     pub cause: String,
+    pub run_id: Option<String>,
     pub created_at: String,
 }
 

@@ -118,7 +118,7 @@ export interface LibraryAdapter {
 
   listSnapshots(noteId: string): Promise<Omit<Snapshot, 'doc'>[]>;
   getSnapshot(snapshotId: string): Promise<Snapshot | null>;
-  createSnapshot(noteId: string, cause: SnapshotCause): Promise<Snapshot>;
+  createSnapshot(noteId: string, cause: SnapshotCause, runId?: string): Promise<Snapshot>;
   /** Applies the retention policy (hourly → daily → weekly thinning). */
   pruneSnapshots(noteId: string, policy: SnapshotRetentionPolicy): Promise<void>;
 

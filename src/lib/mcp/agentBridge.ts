@@ -12,7 +12,7 @@
  */
 import { mcp, type McpBridgeRequest } from '@/lib/adapters';
 import { useMcpStore } from '@/lib/state/mcpStore';
-import { TOOL_HANDLERS, type ToolMethod } from './toolHandlers';
+import { executeToolHandler, TOOL_HANDLERS, type ToolMethod } from './toolHandlers';
 
 /** Structured error agents can branch on, rather than a bare string. */
 export interface McpErrorPayload {
@@ -54,7 +54,7 @@ async function handleRequest(request: McpBridgeRequest): Promise<void> {
       return;
     }
 
-    const result = await TOOL_HANDLERS[request.method](request.args, {
+    const result = await executeToolHandler(request.method, request.args, {
       source: 'agent',
       agentName: request.client?.name,
     });

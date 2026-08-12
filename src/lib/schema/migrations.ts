@@ -29,6 +29,18 @@ const MIGRATIONS: Record<number, Migration> = {
         )
       : input.tags,
   }),
+  // v4 ties agent-written versions into one undoable run. Older versions are
+  // ordinary history entries and therefore belong to no run.
+  3: (input) => ({
+    ...input,
+    snapshots: Array.isArray(input.snapshots)
+      ? input.snapshots.map((snapshot) =>
+          typeof snapshot === 'object' && snapshot !== null
+            ? { runId: null, ...(snapshot as Record<string, unknown>) }
+            : snapshot,
+        )
+      : input.snapshots,
+  }),
 };
 
 export type ImportResult =

@@ -96,9 +96,10 @@ function VersionsPanel({ noteId }: { noteId: string }) {
     void library.listSnapshots(noteId).then((entries) => {
       if (active) {
         setSnapshots(entries);
-        const first = entries[0];
-        if (first) {
-          void library.getSnapshot(first.id).then((snapshot) => {
+        const requested = useUiStore.getState().requestedSnapshotId;
+        const initial = entries.find((entry) => entry.id === requested) ?? entries[0];
+        if (initial) {
+          void library.getSnapshot(initial.id).then((snapshot) => {
             if (active) setSelected(snapshot);
           });
         } else {
@@ -112,6 +113,7 @@ function VersionsPanel({ noteId }: { noteId: string }) {
   }, [noteId]);
 
   async function choose(id: string) {
+    useUiStore.getState().requestVersionSnapshot(null);
     setSelected(await library.getSnapshot(id));
   }
 
@@ -521,7 +523,7 @@ function TagsPanel() {
             >
               <X size={10} />
             </button>
-          </span>
+            </span>
           );
         })}
       </div>
