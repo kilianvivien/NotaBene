@@ -44,7 +44,13 @@ import { cn } from '@/lib/utils/cn';
 import { AiDisclosureButton } from './AiDisclosure';
 import { AiModeSwitch } from './AiModeSwitch';
 import { AiStatusPill } from './AiStatusPill';
-import { callOutcome, limitsSentence, toolLabel } from './agentLanguage';
+import {
+  callOutcome,
+  limitsSentence,
+  planStepTitles,
+  planText,
+  toolLabel,
+} from './agentLanguage';
 import { SCOPE_ICONS } from './scopeIcons';
 import { useAiAvailability } from './useAiAvailability';
 
@@ -70,6 +76,7 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
   const [instruction, setInstruction] = useState('');
   const [undoing, setUndoing] = useState(false);
   const [error, setError] = useState('');
+  const [requiredScope, setRequiredScope] = useState<'library' | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
   // Derived rather than held: a run survives this component, so local `planning`
@@ -106,6 +113,7 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
     const asked = instruction.trim();
     if (!asked) return;
     setError('');
+    setRequiredScope(null);
     const signal = beginRun('agent');
     const response = await planAgentCommand(
       {
@@ -117,6 +125,11 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
     );
     endRun('agent', signal);
     if (!response.ok && response.code !== 'cancelled') {
+      if (response.code === 'scope_denied' && requiresLibrary(response.details)) {
+        setRequiredScope('library');
+        setError(t('agent.scopeRequiredLibrary'));
+        return;
+      }
       setError(
         response.code === 'not_supported' ? t('ai.notConfiguredHint') : response.message,
       );
@@ -148,6 +161,7 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
     useAgentStore.getState().setActiveRun(null);
     setInstruction(keep && run ? run.instruction : '');
     setError('');
+    setRequiredScope(null);
     window.setTimeout(() => composerRef.current?.focus(), 0);
   }
 
@@ -165,7 +179,13 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
         <GlassPopupButton<AskScope>
           label={t('agent.scope')}
           value={effective}
-          onChange={setScope}
+          onChange={(next) => {
+            setScope(next);
+            if (next === 'library') {
+              setRequiredScope(null);
+              setError('');
+            }
+          }}
           disabled={running || planning}
           icon={SCOPE_ICONS[effective]}
           className="shrink"
@@ -231,12 +251,26 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
           />
         )}
         {error && (
-          <p
+          <div
             role="alert"
             className="rounded-nb-xs bg-[color-mix(in_srgb,var(--nb-danger)_10%,transparent)] px-2.5 py-2 text-[11.5px] leading-relaxed text-[var(--nb-danger)]"
           >
-            {error}
-          </p>
+            <p>{error}</p>
+            {requiredScope === 'library' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setScope('library');
+                  setRequiredScope(null);
+                  setError('');
+                  window.setTimeout(() => composerRef.current?.focus(), 0);
+                }}
+                className="mt-1.5 rounded-nb-xs bg-[var(--nb-paper)] px-2 py-1 font-medium text-[var(--nb-accent)] transition-colors duration-[var(--nb-t-fast)] hover:bg-[var(--nb-hover)]"
+              >
+                {t('agent.useLibraryScope')}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -302,6 +336,15 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
         </div>
       )}
     </div>
+  );
+}
+
+function requiresLibrary(details: unknown): boolean {
+  return (
+    typeof details === 'object' &&
+    details !== null &&
+    'requiredScope' in details &&
+    details.requiredScope === 'library'
   );
 }
 
@@ -387,24 +430,32 @@ function RunView({
         </p>
 
         <p className="mt-2.5 text-[12.5px] font-semibold leading-snug">
-          {run.plan.summary}
+          {planText(run.plan, run.plan.summary)}
         </p>
         <ol className="mt-2 space-y-1.5">
-          {run.plan.steps.map((step, index) => (
-            <li key={index} className="flex gap-1.5 text-[11.5px] leading-relaxed">
-              <span className="mt-[3px] grid size-[15px] shrink-0 place-items-center rounded-full bg-[var(--nb-hover)] text-[9px] text-nb-text-3">
-                {index + 1}
-              </span>
-              <span className="min-w-0 text-nb-text-2">
-                {step.description}
-                {step.expectedTools.length > 0 && (
-                  <span className="ml-1 text-[10.5px] text-nb-text-3">
-                    {step.expectedTools.map((tool) => toolLabel(tool, t)).join(' · ')}
-                  </span>
-                )}
-              </span>
-            </li>
-          ))}
+          {run.plan.steps.map((step, index) => {
+            const titles = planStepTitles(run.plan, step);
+            return (
+              <li key={index} className="flex gap-1.5 text-[11.5px] leading-relaxed">
+                <span className="mt-[3px] grid size-[15px] shrink-0 place-items-center rounded-full bg-[var(--nb-hover)] text-[9px] text-nb-text-3">
+                  {index + 1}
+                </span>
+                <span className="min-w-0 text-nb-text-2">
+                  {planText(run.plan, step.description)}
+                  {titles.length > 0 && (
+                    <span className="ml-1 text-[10.5px] text-nb-text-3">
+                      {titles.map((title) => `“${title}”`).join(' · ')}
+                    </span>
+                  )}
+                  {step.expectedTools.length > 0 && (
+                    <span className="ml-1 text-[10.5px] text-nb-text-3">
+                      {step.expectedTools.map((tool) => toolLabel(tool, t)).join(' · ')}
+                    </span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
         </ol>
 
         {/* The ceilings, as a sentence. They were a four-column grid of numbers

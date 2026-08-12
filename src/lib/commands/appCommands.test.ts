@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { externalLinks, library } from '@/lib/adapters';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useAiStore } from '@/lib/state/aiStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import {
   APP_COMMANDS,
@@ -131,6 +132,18 @@ describe('the menu bar', () => {
       ]),
     });
   });
+
+  it('groups Interroger and Agent together in the AI menu', () => {
+    const ai = buildMenuBar((key) => key).find(
+      (node) => node.kind === 'submenu' && node.label === 'menu.ai',
+    );
+    if (!ai || ai.kind !== 'submenu') throw new Error('AI menu missing');
+    expect(ai.items.slice(0, 3)).toMatchObject([
+      { kind: 'item', id: 'ai.ask' },
+      { kind: 'item', id: 'ai.agent' },
+      { kind: 'separator' },
+    ]);
+  });
 });
 
 describe('runAppCommand', () => {
@@ -145,6 +158,20 @@ describe('runAppCommand', () => {
     const before = useUiStore.getState().inspectorVisible;
     await runAppCommand('view.toggleInspector');
     expect(useUiStore.getState().inspectorVisible).toBe(!before);
+  });
+
+  it('opens Interroger in Ask mode even when the AI tab last showed Agent', async () => {
+    await runAppCommand('note.new');
+    useAiStore.getState().setAgentMode(true);
+
+    const result = await runAppCommand('ai.ask');
+
+    expect(result.ok).toBe(true);
+    expect(useAiStore.getState().agentMode).toBe(false);
+    expect(useUiStore.getState()).toMatchObject({
+      inspectorTab: 'ai',
+      inspectorVisible: true,
+    });
   });
 
   it('opens the NotaBene GitHub repository', async () => {

@@ -9,6 +9,7 @@
 import { library } from '@/lib/adapters';
 import {
   AgentBudgetError,
+  AgentScopeError,
   DEFAULT_AGENT_BUDGET,
   requestAgentPlan,
   runAgentLoop,
@@ -20,6 +21,8 @@ import {
   AgentScopeSchema,
   newId,
   type AgentBudget,
+  type AgentPlan,
+  type AgentPlanDraft,
   type AgentRunRecord,
   type AgentScope,
   type AgentToolCallRecord,
@@ -29,6 +32,7 @@ import {
   type Section,
   type Tag,
 } from '@/lib/schema';
+import i18n from '@/lib/i18n';
 import { useAgentStore } from '@/lib/state/agentStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -47,6 +51,82 @@ export interface PlanAgentInput {
   instruction: string;
   scope?: AgentScope;
   budget?: AgentBudget;
+}
+
+class AgentCompletionError extends Error {
+  constructor(readonly missingTools: AgentToolName[]) {
+    super('the approved plan did not complete');
+    this.name = 'AgentCompletionError';
+  }
+}
+
+/** A course is a library container, so no selected-note or course-scoped plan
+ * may promise to create one. The refusal happens before a run is reviewable. */
+export function requiredScopeForPlan(plan: AgentPlan): 'library' | null {
+  return plan.steps.some((step) => step.expectedTools.includes('create_course'))
+    ? 'library'
+    : null;
+}
+
+/** Resolve generated ids through library-owned titles and remove them from all
+ * prose before the plan reaches the review UI or the durable run journal. */
+export function finalizeAgentPlan(
+  draft: AgentPlanDraft,
+  availableReferences: AgentPlan['noteReferences'],
+): AgentPlan {
+  const known = new Map(
+    availableReferences.map((reference) => [reference.noteId, reference.title]),
+  );
+  const used = new Set<string>();
+  const clean = (value: string): string => {
+    let visible = value;
+    for (const [noteId, title] of known) {
+      if (!visible.includes(noteId)) continue;
+      used.add(noteId);
+      visible = visible.split(noteId).join(title);
+    }
+    return visible;
+  };
+
+  const summary = clean(draft.summary);
+  const steps = draft.steps.map((step) => {
+    const idsWrittenInDescription = availableReferences
+      .filter((reference) => step.description.includes(reference.noteId))
+      .map((reference) => reference.noteId);
+    const noteIds = [...new Set([...step.noteIds, ...idsWrittenInDescription])].filter(
+      (noteId) => known.has(noteId),
+    );
+    noteIds.forEach((noteId) => used.add(noteId));
+    return { ...step, description: clean(step.description), noteIds };
+  });
+
+  return {
+    summary,
+    steps,
+    noteReferences: availableReferences.filter((reference) => used.has(reference.noteId)),
+  };
+}
+
+/** A model may say `done`; completion still requires every capability the
+ * approved plan promised to have succeeded at least as many times as planned. */
+export function missingSuccessfulPlanTools(
+  plan: AgentPlan,
+  calls: AgentToolCallRecord[],
+): AgentToolName[] {
+  const remaining = new Map<AgentToolName, number>();
+  for (const step of plan.steps) {
+    for (const tool of step.expectedTools) {
+      remaining.set(tool, (remaining.get(tool) ?? 0) + 1);
+    }
+  }
+  for (const call of calls) {
+    if (call.status !== 'succeeded') continue;
+    const count = remaining.get(call.tool) ?? 0;
+    if (count > 0) remaining.set(call.tool, count - 1);
+  }
+  return [...remaining.entries()].flatMap(([tool, count]) =>
+    Array.from({ length: count }, () => tool),
+  );
 }
 
 export async function defaultAgentScope(): Promise<AgentScope> {
@@ -79,19 +159,26 @@ export async function planAgentCommand(
   await useEditorStore.getState().flush();
   const lookup = await providerFor('agent');
   if (!lookup.ok) return fail('not_supported', lookup.reason);
-  const scopeContext = await describeScope(parsedScope.data);
+  const scopeDescription = await describeScope(parsedScope.data);
 
   try {
-    const plan = await requestAgentPlan(
+    const draft = await requestAgentPlan(
       {
         provider: lookup.provider,
         instruction,
         scope: parsedScope.data,
-        scopeContext,
+        scopeContext: scopeDescription.context,
         language: language(),
       },
       options,
     );
+    const plan = finalizeAgentPlan(draft, scopeDescription.noteReferences);
+    if (parsedScope.data.kind !== 'library' && requiredScopeForPlan(plan) === 'library') {
+      return fail('scope_denied', i18n.t('agent.scopeRequiredLibrary'), {
+        kind: 'scope_required',
+        requiredScope: 'library',
+      });
+    }
     const run: AgentRunRecord = {
       id: `agent_${newId()}`,
       instruction,
@@ -147,7 +234,7 @@ export async function runAgentCommand(
   record.completedAt = null;
   record.error = undefined;
   put(record);
-  const scopeContext = await describeScope(record.scope);
+  const scopeDescription = await describeScope(record.scope);
 
   try {
     const result = await runAgentLoop(
@@ -155,7 +242,7 @@ export async function runAgentCommand(
         provider: lookup.provider,
         instruction: record.instruction,
         scope: record.scope,
-        scopeContext,
+        scopeContext: scopeDescription.context,
         plan: record.plan,
         budget: record.budget,
         language: language(),
@@ -192,6 +279,11 @@ export async function runAgentCommand(
       },
       options,
     );
+    const missingTools = missingSuccessfulPlanTools(record.plan, record.calls);
+    if (!result.outcomeAchieved) record.summary = result.summary;
+    if (!result.outcomeAchieved || missingTools.length > 0) {
+      throw new AgentCompletionError(missingTools);
+    }
     record.status = 'completed';
     record.summary = result.summary;
     record.tokensUsed = result.tokensUsed;
@@ -200,13 +292,16 @@ export async function runAgentCommand(
     return ok(record);
   } catch (error) {
     const cancelled = options.signal?.aborted;
+    const scopeDenied = error instanceof AgentScopeError;
     record.status = cancelled ? 'cancelled' : 'failed';
     record.error =
       error instanceof AgentBudgetError
         ? budgetError(error.limit)
-        : error instanceof Error
-          ? error.message
-          : String(error);
+        : error instanceof AgentCompletionError
+          ? i18n.t('agent.incompletePlan')
+          : error instanceof Error
+            ? error.message
+            : String(error);
     record.completedAt = new Date().toISOString();
     for (const call of record.calls) {
       if (call.status === 'running') {
@@ -218,7 +313,15 @@ export async function runAgentCommand(
     put(record);
     return cancelled
       ? fail('cancelled', 'cancelled')
-      : fail('invalid_input', record.error);
+      : scopeDenied
+        ? fail('scope_denied', record.error, error.details)
+        : fail(
+            'invalid_input',
+            record.error,
+            error instanceof AgentCompletionError
+              ? { kind: 'incomplete_plan', missingTools: error.missingTools }
+              : undefined,
+          );
   }
 }
 
@@ -470,10 +573,10 @@ async function enforceScope(
     scoped.courseId = record.scope.courseId;
   }
   if (record.scope.kind === 'course' && tool === 'create_course') {
-    return fail('invalid_input', 'creating another course is outside this run scope');
+    return scopeDenied();
   }
   if (record.scope.kind === 'selection' && tool === 'create_course') {
-    return fail('invalid_input', 'creating a course requires whole-library scope');
+    return scopeDenied();
   }
   if (
     record.scope.kind !== 'library' &&
@@ -481,29 +584,26 @@ async function enforceScope(
     Array.isArray(scoped.rename) &&
     scoped.rename.length > 0
   ) {
-    return fail('invalid_input', 'renaming a global tag requires whole-library scope');
+    return scopeDenied();
   }
 
   const ids = referencedNoteIds(tool, scoped);
   for (const noteId of ids) {
     if (!(await noteAllowed(record, noteId))) {
-      return fail('invalid_input', `note ${noteId} is outside this run scope`);
+      return scopeDenied();
     }
   }
   if (record.scope.kind === 'course' && tool === 'update_note') {
     const target = scoped.courseId;
     if (target !== undefined && target !== record.scope.courseId) {
-      return fail('invalid_input', 'moving a note outside this course is outside scope');
+      return scopeDenied();
     }
   }
   if (record.scope.kind === 'course' && tool === 'organize') {
     const scopeCourseId = record.scope.courseId;
     const section = isObject(scoped.createSection) ? scoped.createSection : null;
     if (section && section.courseId !== scopeCourseId) {
-      return fail(
-        'invalid_input',
-        'creating a section outside this course is outside scope',
-      );
+      return scopeDenied();
     }
     const moves = Array.isArray(scoped.moves) ? scoped.moves : [];
     if (
@@ -514,10 +614,17 @@ async function enforceScope(
           move.courseId !== scopeCourseId,
       )
     ) {
-      return fail('invalid_input', 'moving a note outside this course is outside scope');
+      return scopeDenied();
     }
   }
   return ok(scoped);
+}
+
+function scopeDenied(): CommandResult<Record<string, unknown>> {
+  return fail('scope_denied', i18n.t('agent.scopeDeniedLibrary'), {
+    kind: 'scope_denied',
+    requiredScope: 'library',
+  });
 }
 
 async function filterReadResult(
@@ -574,15 +681,24 @@ function writeNoteIds(tool: AgentToolName, args: Record<string, unknown>): strin
     : [];
 }
 
-async function describeScope(scope: AgentScope): Promise<string> {
+interface ScopeDescription {
+  context: string;
+  noteReferences: AgentPlan['noteReferences'];
+}
+
+async function describeScope(scope: AgentScope): Promise<ScopeDescription> {
   if (scope.kind === 'selection') {
     const notes = await Promise.all(scope.noteIds.map((id) => library.getNote(id)));
-    return notes
-      .filter((note): note is Note => note !== null)
-      .map(
-        (note) => `${note.id} — ${note.title || 'Untitled'} — updated ${note.updatedAt}`,
-      )
-      .join('\n');
+    const present = notes.filter((note): note is Note => note !== null);
+    return {
+      context: present
+        .map(
+          (note) =>
+            `${note.id} — ${note.title || 'Untitled'} — updated ${note.updatedAt}`,
+        )
+        .join('\n'),
+      noteReferences: present.map(noteReference),
+    };
   }
   const query =
     scope.kind === 'course'
@@ -593,9 +709,20 @@ async function describeScope(scope: AgentScope): Promise<string> {
     library.queryNotes({ ...query, limit: 30 }),
   ]);
   const label = scope.kind === 'course' ? `Course ${scope.courseId}` : 'Whole library';
-  return `${label}: ${count} live notes. Recent notes:\n${recent
-    .map((note) => `${note.id} — ${note.title || 'Untitled'} — updated ${note.updatedAt}`)
-    .join('\n')}`;
+  return {
+    context: `${label}: ${count} live notes. Recent notes:\n${recent
+      .map(
+        (note) => `${note.id} — ${note.title || 'Untitled'} — updated ${note.updatedAt}`,
+      )
+      .join('\n')}`,
+    noteReferences: recent.map(noteReference),
+  };
+}
+
+function noteReference(
+  note: Pick<Note, 'id' | 'title'>,
+): AgentPlan['noteReferences'][number] {
+  return { noteId: note.id, title: note.title || 'Untitled' };
 }
 
 function upsertTouched(

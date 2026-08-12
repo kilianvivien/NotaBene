@@ -1,5 +1,6 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as commands from '@/lib/commands';
 import type { AgentRunRecord } from '@/lib/schema';
 import { useAgentStore } from '@/lib/state/agentStore';
 import { useAiStore } from '@/lib/state/aiStore';
@@ -22,10 +23,12 @@ function plannedRun(): AgentRunRecord {
     scope: { kind: 'course', courseId: 'course-1' },
     plan: {
       summary: 'Review and organize the current course',
+      noteReferences: [],
       steps: [
         {
           description: 'Read the course notes before making changes.',
           expectedTools: ['list_notes', 'read_note'],
+          noteIds: [],
         },
       ],
     },
@@ -57,7 +60,7 @@ afterEach(() => {
   cleanup();
   useAgentStore.setState({ runs: [], activeRunId: null });
   useAiStore.setState({ agentMode: false, running: null });
-  vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('AgentPanel review gate', () => {
@@ -83,6 +86,52 @@ describe('AgentPanel review gate', () => {
       'disabled',
       true,
     );
+  });
+
+  it('offers explicit widening when the plan requires the whole library', async () => {
+    useAgentStore.setState({ runs: [], activeRunId: null });
+    useAiStore.setState({ askScope: 'note', agentMode: true, running: null });
+    vi.spyOn(commands, 'planAgentCommand').mockResolvedValue({
+      ok: false,
+      code: 'scope_denied',
+      message: 'This task requires “All notes”.',
+      details: { kind: 'scope_required', requiredScope: 'library' },
+    });
+
+    render(<AgentPanel noteId="note-1" />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Agent' }), {
+      target: { value: 'Create an Environment course' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Plan it' }));
+
+    const widen = await screen.findByRole('button', { name: 'Use All notes' });
+    expect(screen.getByRole('alert').textContent).toContain(
+      'This task requires “All notes”.',
+    );
+    fireEvent.click(widen);
+    expect(useAiStore.getState().askScope).toBe('library');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('shows trusted titles and never internal note ids in a plan', () => {
+    const active = plannedRun();
+    active.plan = {
+      summary: 'Read note-1',
+      noteReferences: [{ noteId: 'note-1', title: 'Limits' }],
+      steps: [
+        {
+          description: 'Read note-1 before filing it.',
+          expectedTools: ['read_note'],
+          noteIds: ['note-1'],
+        },
+      ],
+    };
+    useAgentStore.setState({ runs: [active], activeRunId: active.id });
+
+    render(<AgentPanel noteId="note-1" />);
+
+    expect(screen.getAllByText(/Limits/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/note-1/)).toBeNull();
   });
 
   it('describes finished calls in plain language and keeps the JSON in details', () => {

@@ -8,10 +8,11 @@
  */
 import {
   AgentDecisionSchema,
-  AgentPlanSchema,
+  AgentPlanDraftSchema,
   type AgentBudget,
   type AgentDecision,
   type AgentPlan,
+  type AgentPlanDraft,
   type AgentScope,
   type AgentToolName,
 } from '@/lib/schema';
@@ -38,9 +39,9 @@ export const AGENT_TOOL_GUIDE = `
 - create_note { title?, courseId?, sectionId?, markdown?|doc?, tags? } — create a note
 - update_note { noteId, baseUpdatedAt, title?, markdown?|doc?, courseId?, sectionId?, archived? } — versioned update; archive, never delete
 - manage_tags { noteId, baseUpdatedAt, add?, remove?, rename? } — versioned tag update
-- create_course { name, professor?, semester? } — create a course
+- create_course { name, professor?, semester? } — create a course; whole-library scope only
 - export_notes { noteIds, format, fileName, layout?, includeToc? } — export into NotaBene's exports folder
-- organize { createSection?, moves? } — create a section and/or move notes, with baseUpdatedAt per move
+- organize { createSection?: { courseId, name }, moves?: [{ noteId, baseUpdatedAt, courseId: string|null, sectionId: string|null }] } — create a section and/or move notes. Every move must include both courseId and sectionId; use null explicitly for no course or no section
 `.trim();
 
 export interface AgentPlanRequest {
@@ -54,24 +55,24 @@ export interface AgentPlanRequest {
 export async function requestAgentPlan(
   request: AgentPlanRequest,
   options: AiRunOptions = {},
-): Promise<AgentPlan> {
+): Promise<AgentPlanDraft> {
   return runStructured(
     {
       provider: request.provider,
       messages: [
         {
           role: 'system',
-          content: `You plan safe, reviewable work inside NotaBene. Return JSON only. Do not execute anything. Use only the tools listed below and never invent a delete operation. Every update must first obtain the current updatedAt by reading, listing, or searching. Keep the plan concise and observable. Write the plan in ${request.language}.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
+          content: `You plan safe, reviewable work inside NotaBene. Return JSON only. Do not execute anything. Use only the tools listed below and never invent a delete operation. Every update must first obtain the current updatedAt by reading, listing, or searching. Keep the plan concise and observable. Write the plan in ${request.language}. Plan summaries and step descriptions are shown directly to the student: refer to notes by title and never put an internal note id in those strings. Put every note id needed by a step only in that step's noteIds array. If the instruction needs a wider scope, describe the honest required tools anyway; never substitute a different destination or weaker outcome. The app will ask the student to widen explicitly.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
         },
         {
           role: 'user',
-          content: `Instruction:\n${request.instruction}\n\nApproved scope:\n${JSON.stringify(request.scope)}\n\nScope contents:\n${request.scopeContext}\n\nReturn {"summary":"...","steps":[{"description":"...","expectedTools":["..."]}]}.`,
+          content: `Instruction:\n${request.instruction}\n\nApproved scope:\n${JSON.stringify(request.scope)}\n\nScope contents:\n${request.scopeContext}\n\nReturn {"summary":"...","steps":[{"description":"...","expectedTools":["..."],"noteIds":["..."]}]}.`,
         },
       ],
       maxTokens: PLAN_MAX_TOKENS,
       temperature: 0.2,
     },
-    AgentPlanSchema,
+    AgentPlanDraftSchema,
     options,
   );
 }
@@ -108,6 +109,7 @@ export interface AgentLoopRequest {
 
 export interface AgentLoopResult {
   summary: string;
+  outcomeAchieved: boolean;
   toolCalls: number;
   tokensUsed: number;
 }
@@ -116,6 +118,18 @@ export class AgentBudgetError extends Error {
   constructor(readonly limit: 'tokens' | 'tools' | 'time') {
     super(`agent ${limit} budget exhausted`);
     this.name = 'AgentBudgetError';
+  }
+}
+
+/** A scope refusal is a policy boundary, not feedback the model may work
+ * around by choosing a different destination. */
+export class AgentScopeError extends Error {
+  constructor(
+    message: string,
+    readonly details?: unknown,
+  ) {
+    super(message);
+    this.name = 'AgentScopeError';
   }
 }
 
@@ -170,7 +184,12 @@ export async function runAgentLoop(
       request.onUsage?.({ tokensUsed, toolCalls });
 
       if (decision.action === 'done') {
-        return { summary: decision.summary, toolCalls, tokensUsed };
+        return {
+          summary: decision.summary,
+          outcomeAchieved: decision.outcomeAchieved,
+          toolCalls,
+          tokensUsed,
+        };
       }
       if (toolCalls >= request.budget.toolCallCeiling) {
         throw new AgentBudgetError('tools');
@@ -196,6 +215,9 @@ export async function runAgentLoop(
       if (!outcome.ok && outcome.code === 'cancelled') {
         throw abortReason(controller.signal);
       }
+      if (!outcome.ok && outcome.code === 'scope_denied') {
+        throw new AgentScopeError(outcome.message, outcome.details);
+      }
     }
   } finally {
     clearTimeout(wallTimer);
@@ -214,11 +236,11 @@ async function requestDecision(
       messages: [
         {
           role: 'system',
-          content: `You are the in-app NotaBene agent. Work through the approved plan one tool call at a time. Use only the exact MCP tools below. Respect the approved scope; the executor will reject anything outside it. Never delete. Before every update, tag change, or move, obtain the note's current updatedAt. After a conflict, read again before retrying. When the instruction is satisfied, return done with a concise summary in ${request.language}. Return one JSON object only.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
+          content: `You are the in-app NotaBene agent. Work through the approved plan one tool call at a time. Use only the exact MCP tools below. Respect the approved scope; the executor will reject anything outside it. Never delete. Before every update, tag change, or move, obtain the note's current updatedAt. After a conflict, read again before retrying. Before returning done, compare the actual successful tool outcomes with the original instruction and approved plan. Set outcomeAchieved true only when the requested outcome—not a fallback or weaker substitute—was achieved; otherwise set it false and explain what remains. Return a concise summary in ${request.language} and one JSON object only.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
         },
         {
           role: 'user',
-          content: `Instruction:\n${request.instruction}\n\nApproved plan:\n${JSON.stringify(request.plan)}\n\nApproved scope:\n${JSON.stringify(request.scope)}\n\nScope contents:\n${request.scopeContext}\n\nCalls so far:\n${JSON.stringify(transcript)}\n\nReturn either {"action":"tool","tool":"...","arguments":{},"rationale":"..."} or {"action":"done","summary":"..."}.`,
+          content: `Instruction:\n${request.instruction}\n\nApproved plan:\n${JSON.stringify(request.plan)}\n\nApproved scope:\n${JSON.stringify(request.scope)}\n\nScope contents:\n${request.scopeContext}\n\nCalls so far:\n${JSON.stringify(transcript)}\n\nReturn either {"action":"tool","tool":"...","arguments":{},"rationale":"..."} or {"action":"done","outcomeAchieved":true|false,"summary":"..."}.`,
         },
       ],
       maxTokens: DECISION_MAX_TOKENS,

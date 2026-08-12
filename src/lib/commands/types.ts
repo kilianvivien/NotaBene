@@ -34,6 +34,9 @@ export type CommandResult<T> =
 export type CommandErrorCode =
   | 'not_found'
   | 'invalid_input'
+  /** The requested operation needs a wider agent scope. The UI may offer that
+   * scope, but must never widen the run without another user action. */
+  | 'scope_denied'
   | 'conflict'
   | 'storage_failed'
   | 'not_supported'

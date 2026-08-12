@@ -465,6 +465,8 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     run: requireNote(() => {
       // The Ask panel is a tab, not a modal: the question is usually about the
       // paragraph you are looking at, and a dialog over the note would hide it.
+      // Enter Ask explicitly because the shared tab remembers Agent mode.
+      useAiStore.getState().setAgentMode(false);
       useUiStore.getState().setInspectorTab('ai');
     }),
   },

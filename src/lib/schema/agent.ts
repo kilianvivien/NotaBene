@@ -19,17 +19,38 @@ export const AGENT_TOOL_NAMES = [
 export const AgentToolNameSchema = z.enum(AGENT_TOOL_NAMES);
 export type AgentToolName = z.infer<typeof AgentToolNameSchema>;
 
-export const AgentPlanSchema = z.object({
+const AgentPlanStepSchema = z.object({
+  description: z.string().trim().min(1).max(500),
+  expectedTools: z.array(AgentToolNameSchema).max(AGENT_TOOL_NAMES.length),
+  /** Machine references stay separate from the sentence shown to the student. */
+  noteIds: z.array(z.string().min(1)).max(500).default([]),
+});
+
+/** Shape requested from the model. Titles are resolved from the library after
+ * parsing rather than trusted to a generated plan. */
+const AgentPlanDraftBaseSchema = z.object({
   summary: z.string().trim().min(1).max(1_000),
-  steps: z
+  steps: z.array(AgentPlanStepSchema).min(1).max(16),
+});
+const executablePlan = (plan: z.infer<typeof AgentPlanDraftBaseSchema>) =>
+  plan.steps.some((step) => step.expectedTools.length > 0);
+export const AgentPlanDraftSchema = AgentPlanDraftBaseSchema.refine(executablePlan, {
+  message: 'an executable plan must name at least one expected tool',
+});
+export type AgentPlanDraft = z.infer<typeof AgentPlanDraftSchema>;
+
+export const AgentPlanSchema = AgentPlanDraftBaseSchema.extend({
+  /** Trusted id/title pairs captured when the plan was made. The UI resolves
+   * `noteIds` through this table and never prints an internal id. */
+  noteReferences: z
     .array(
       z.object({
-        description: z.string().trim().min(1).max(500),
-        expectedTools: z.array(AgentToolNameSchema).max(AGENT_TOOL_NAMES.length),
+        noteId: z.string().min(1),
+        title: z.string(),
       }),
     )
-    .min(1)
-    .max(16),
+    .max(500)
+    .default([]),
 });
 export type AgentPlan = z.infer<typeof AgentPlanSchema>;
 
@@ -42,6 +63,9 @@ export const AgentDecisionSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('done'),
+    /** Explicit self-check against the original instruction. The command layer
+     * also verifies that every operation promised by the plan succeeded. */
+    outcomeAchieved: z.boolean(),
     summary: z.string().trim().min(1).max(2_000),
   }),
 ]);

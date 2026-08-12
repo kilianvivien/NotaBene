@@ -1,10 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { library } from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
-import { emptyDoc, type AgentRunRecord, type AgentScope } from '@/lib/schema';
+import {
+  AgentRunRecordSchema,
+  emptyDoc,
+  type AgentRunRecord,
+  type AgentScope,
+} from '@/lib/schema';
 import { useAgentStore } from '@/lib/state/agentStore';
 import { createNoteCommand, updateNoteCommand } from './noteCommands';
-import { executeAgentTool, undoAgentRunCommand } from './agentCommands';
+import {
+  executeAgentTool,
+  finalizeAgentPlan,
+  missingSuccessfulPlanTools,
+  requiredScopeForPlan,
+  undoAgentRunCommand,
+} from './agentCommands';
 
 function run(scope: AgentScope): AgentRunRecord {
   return {
@@ -13,7 +24,10 @@ function run(scope: AgentScope): AgentRunRecord {
     scope,
     plan: {
       summary: 'Test plan',
-      steps: [{ description: 'Use a public tool', expectedTools: ['read_note'] }],
+      noteReferences: [],
+      steps: [
+        { description: 'Use a public tool', expectedTools: ['read_note'], noteIds: [] },
+      ],
     },
     budget: { tokenCeiling: 10_000, toolCallCeiling: 4, wallClockMs: 10_000 },
     status: 'running',
@@ -40,6 +54,93 @@ beforeEach(() => {
 });
 
 describe('agent command boundary', () => {
+  it('loads run journals written before structured note references existed', () => {
+    const legacy = run({ kind: 'library' });
+    const parsed = AgentRunRecordSchema.parse({
+      ...legacy,
+      plan: {
+        summary: 'Legacy plan',
+        steps: [{ description: 'Inspect', expectedTools: ['list_notes'] }],
+      },
+    });
+    expect(parsed.plan).toMatchObject({
+      noteReferences: [],
+      steps: [{ noteIds: [] }],
+    });
+  });
+
+  it('keeps note ids structured and replaces them with trusted titles in prose', () => {
+    const noteId = 'MjBv0HBQ0PLp';
+    const plan = finalizeAgentPlan(
+      {
+        summary: `Move ${noteId}`,
+        steps: [
+          {
+            description: `Read note ${noteId}`,
+            expectedTools: ['read_note'],
+            noteIds: [noteId],
+          },
+        ],
+      },
+      [{ noteId, title: 'Synthèse : Canicule' }],
+    );
+
+    expect(JSON.stringify([plan.summary, plan.steps[0]?.description])).not.toContain(
+      noteId,
+    );
+    expect(plan).toMatchObject({
+      summary: 'Move Synthèse : Canicule',
+      noteReferences: [{ noteId, title: 'Synthèse : Canicule' }],
+      steps: [{ noteIds: [noteId] }],
+    });
+  });
+
+  it('requires library scope before reviewing a plan that creates a course', () => {
+    const record = run({ kind: 'selection', noteIds: ['note-1'] });
+    record.plan.steps[0] = {
+      description: 'Create Environment',
+      expectedTools: ['create_course'],
+      noteIds: [],
+    };
+    expect(requiredScopeForPlan(record.plan)).toBe('library');
+  });
+
+  it('does not consider a plan complete until every promised tool succeeded', () => {
+    const record = run({ kind: 'library' });
+    record.plan.steps = [
+      {
+        description: 'Create and file',
+        expectedTools: ['create_course', 'organize'],
+        noteIds: [],
+      },
+    ];
+    record.calls = [
+      {
+        id: 'failed-course',
+        tool: 'create_course',
+        arguments: { name: 'Environment' },
+        rationale: 'Create it.',
+        status: 'failed',
+        error: 'denied',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 'filed',
+        tool: 'organize',
+        arguments: {},
+        rationale: 'File it.',
+        status: 'succeeded',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      },
+    ];
+
+    expect(missingSuccessfulPlanTools(record.plan, record.calls)).toEqual([
+      'create_course',
+    ]);
+  });
+
   it('rejects notes and global structures outside a selected-note scope', async () => {
     const first = await createNoteCommand({ title: 'In scope' });
     const second = await createNoteCommand({ title: 'Outside' });
@@ -49,10 +150,10 @@ describe('agent command boundary', () => {
 
     await expect(
       executeAgentTool(record, 'read_note', { noteId: second.value.id }, signal),
-    ).resolves.toMatchObject({ ok: false, message: expect.stringContaining('outside') });
+    ).resolves.toMatchObject({ ok: false, code: 'scope_denied' });
     await expect(
       executeAgentTool(record, 'create_course', { name: 'Not allowed' }, signal),
-    ).resolves.toMatchObject({ ok: false, message: expect.stringContaining('scope') });
+    ).resolves.toMatchObject({ ok: false, code: 'scope_denied' });
   });
 
   it('links the first pre-edit snapshot to the run and restores it as one undo', async () => {

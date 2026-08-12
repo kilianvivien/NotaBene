@@ -4,7 +4,9 @@ import { TOOL_HANDLERS } from '@/lib/mcp/toolHandlers';
 import { providerById } from './providers';
 import type { ResolvedProvider } from './protocols';
 import {
+  AGENT_TOOL_GUIDE,
   AgentBudgetError,
+  AgentScopeError,
   runAgentLoop,
   type AgentLoopRequest,
   type AgentLoopRuntime,
@@ -25,7 +27,14 @@ function request(overrides: Partial<AgentLoopRequest> = {}): AgentLoopRequest {
     scopeContext: 'Empty library',
     plan: {
       summary: 'Inspect safely',
-      steps: [{ description: 'Read app state', expectedTools: ['get_app_state'] }],
+      noteReferences: [],
+      steps: [
+        {
+          description: 'Read app state',
+          expectedTools: ['get_app_state'],
+          noteIds: [],
+        },
+      ],
     },
     budget: {
       tokenCeiling: 1_000_000,
@@ -48,6 +57,15 @@ function runtime(decisions: AgentDecision[]): AgentLoopRuntime {
 }
 
 describe('in-app agent loop', () => {
+  it('documents the exact nullable location contract for every organize move', () => {
+    expect(AGENT_TOOL_GUIDE).toContain(
+      'moves?: [{ noteId, baseUpdatedAt, courseId: string|null, sectionId: string|null }]',
+    );
+    expect(AGENT_TOOL_GUIDE).toContain(
+      'Every move must include both courseId and sectionId',
+    );
+  });
+
   it('uses exactly the public MCP tool surface', () => {
     expect([...AGENT_TOOL_NAMES].sort()).toEqual(Object.keys(TOOL_HANDLERS).sort());
   });
@@ -68,7 +86,11 @@ describe('in-app agent loop', () => {
           arguments: {},
           rationale: 'See the current context.',
         },
-        { action: 'done', summary: 'The library was inspected.' },
+        {
+          action: 'done',
+          outcomeAchieved: true,
+          summary: 'The library was inspected.',
+        },
       ]),
     );
 
@@ -77,12 +99,27 @@ describe('in-app agent loop', () => {
     expect(result).toMatchObject({ summary: 'The library was inspected.', toolCalls: 1 });
   });
 
+  it('carries a negative outcome check back to the command layer', async () => {
+    const result = await runAgentLoop(
+      request(),
+      {},
+      runtime([
+        {
+          action: 'done',
+          outcomeAchieved: false,
+          summary: 'The requested destination was not created.',
+        },
+      ]),
+    );
+    expect(result).toMatchObject({ outcomeAchieved: false, toolCalls: 0 });
+  });
+
   it('enforces token and tool-call ceilings', async () => {
     await expect(
       runAgentLoop(
         request({ budget: { tokenCeiling: 1, toolCallCeiling: 1, wallClockMs: 10_000 } }),
         {},
-        runtime([{ action: 'done', summary: 'Impossible' }]),
+        runtime([{ action: 'done', outcomeAchieved: false, summary: 'Impossible' }]),
       ),
     ).rejects.toEqual(expect.objectContaining({ limit: 'tokens' }));
 
@@ -125,6 +162,35 @@ describe('in-app agent loop', () => {
     await started;
     controller.abort(new DOMException('cancelled', 'AbortError'));
     await expect(running).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('stops immediately on a scope denial instead of asking for a fallback', async () => {
+    const executeTool = vi.fn(async () => ({
+      ok: false as const,
+      code: 'scope_denied',
+      message: 'Use All notes.',
+      details: { requiredScope: 'library' },
+    }));
+    const decisions = runtime([
+      {
+        action: 'tool',
+        tool: 'create_course',
+        arguments: { name: 'Environment' },
+        rationale: 'Create the requested course.',
+      },
+      {
+        action: 'tool',
+        tool: 'organize',
+        arguments: {},
+        rationale: 'Fallback to another course.',
+      },
+    ]);
+
+    await expect(
+      runAgentLoop(request({ executeTool }), {}, decisions),
+    ).rejects.toBeInstanceOf(AgentScopeError);
+    expect(executeTool).toHaveBeenCalledTimes(1);
+    expect(decisions.decide).toHaveBeenCalledTimes(1);
   });
 
   it('stops once wall-clock time is exhausted', async () => {

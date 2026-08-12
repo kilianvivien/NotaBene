@@ -17,13 +17,40 @@
  *    be described returns `null` and the row falls back to the model's own
  *    rationale, which is already on the line above.
  */
-import type { AgentRunRecord, AgentToolCallRecord, AgentToolName } from '@/lib/schema';
+import type {
+  AgentPlan,
+  AgentRunRecord,
+  AgentToolCallRecord,
+  AgentToolName,
+} from '@/lib/schema';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /** The tool's own name, as the MCP activity list in Settings already says it. */
 export function toolLabel(tool: AgentToolName, t: Translate): string {
   return t(`mcp.tool_${tool}`);
+}
+
+/** Plan prose is model-authored. Resolve any known id again at display time so
+ * old journals and a missed normalization path still cannot expose one. */
+export function planText(plan: AgentPlan, value: string): string {
+  return plan.noteReferences.reduce(
+    (visible, reference) => visible.split(reference.noteId).join(reference.title),
+    value,
+  );
+}
+
+/** If the model kept a note reference properly structured but wrote a generic
+ * sentence, show the trusted library title beside it. */
+export function planStepTitles(
+  plan: AgentPlan,
+  step: AgentPlan['steps'][number],
+): string[] {
+  const description = planText(plan, step.description).toLocaleLowerCase();
+  return step.noteIds.flatMap((noteId) => {
+    const title = plan.noteReferences.find((entry) => entry.noteId === noteId)?.title;
+    return title && !description.includes(title.toLocaleLowerCase()) ? [title] : [];
+  });
 }
 
 /**
