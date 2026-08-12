@@ -243,7 +243,11 @@ mod tests {
             .expect("clock before epoch")
             .as_nanos();
         let directory = std::env::temp_dir().join(format!("notabene-assets-{unique}"));
-        let store = Store::open(&directory.join("notabene.sqlite3")).expect("open store");
+        let store = Store::open(
+            &directory.join("notabene.sqlite3"),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .expect("open store");
         TempStore { store, directory }
     }
 

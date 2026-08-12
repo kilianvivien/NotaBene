@@ -4,12 +4,16 @@ import { decodeBase64 } from '@/lib/archive/base64';
 import type {
   BackupFile,
   IntegrityReport,
+  LibraryAccessStatus,
   StorageAdapter,
   StorageSummary,
 } from './StorageAdapter';
 
 export const tauriStorageAdapter: StorageAdapter = {
   summary: () => invoke<StorageSummary>('storage_summary'),
+  accessStatus: () => invoke<LibraryAccessStatus>('library_access_status'),
+  relocateLibrary: (destination: string) =>
+    invoke<string>('library_relocate', { destination }),
   integrityCheck: () => invoke<IntegrityReport>('db_integrity_check'),
   backupsDir: () => invoke<string>('backups_dir'),
   exportsDir: () => invoke<string>('exports_dir'),
@@ -30,6 +34,12 @@ export const tauriStorageAdapter: StorageAdapter = {
 export const unavailableStorageAdapter: StorageAdapter = {
   async summary(): Promise<StorageSummary | null> {
     return null;
+  },
+  async accessStatus(): Promise<LibraryAccessStatus | null> {
+    return null;
+  },
+  async relocateLibrary(): Promise<string> {
+    throw new Error('moving the library requires the desktop app');
   },
   async integrityCheck(): Promise<IntegrityReport> {
     throw new Error('checking the database requires the desktop app');

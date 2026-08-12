@@ -1,4 +1,4 @@
-import { Bot, Settings } from 'lucide-react';
+import { Bot, Lock, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { runAppCommand } from '@/lib/commands';
@@ -6,6 +6,7 @@ import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docStats } from '@/lib/notes/docText';
+import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 
 /** Save state, note stats, and the agent-activity indicator. The save state is
  * load-bearing UI: it is what replaces a Save button.
@@ -27,6 +28,7 @@ export function StatusBar() {
   const agentBusy = mcpBusy || inAppAgentBusy;
   const focusMode = useUiStore((state) => state.focusMode);
   const session = useUiStore((state) => state.focusSession);
+  const access = useLibraryAccessStore((state) => state.status);
 
   const stats = note ? docStats(note.doc) : null;
   const elapsed = useElapsed(focusMode ? (session?.startedAt ?? null) : null);
@@ -60,6 +62,18 @@ export function StatusBar() {
       )}
 
       <span className="ml-auto" aria-hidden />
+
+      {access?.readOnly && (
+        <span
+          className="flex items-center gap-1.5 text-[var(--nb-danger)]"
+          title={t('storage.readOnlyOwner', {
+            host: access.lockOwner?.host ?? t('storage.anotherMac'),
+          })}
+        >
+          <Lock size={12} aria-hidden />
+          {t('storage.readOnlyStatus')}
+        </span>
+      )}
 
       {agentBusy && (
         <span className="flex items-center gap-1.5 text-[var(--nb-accent)]">

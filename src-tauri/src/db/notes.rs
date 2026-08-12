@@ -913,7 +913,11 @@ mod tests {
             .as_nanos();
         let directory = std::env::temp_dir().join(format!("notabene-test-{unique}"));
         let path = directory.join("notabene.sqlite3");
-        let store = Store::open(&path).expect("failed to open the test store");
+        let store = Store::open(
+            &path,
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .expect("failed to open the test store");
         TempStore { store, directory }
     }
 

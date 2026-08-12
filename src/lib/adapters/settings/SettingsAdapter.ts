@@ -90,6 +90,10 @@ export interface AppSettings {
   /** Set only after the starter course has been written successfully. Keeping
    * this in settings means deleting that course later does not resurrect it. */
   onboardingCompleted: boolean;
+  /** Folder containing the SQLite library and content-addressed attachments.
+   * `null` keeps the original app-data location. Settings, secrets, models and
+   * managed backups remain app-local. */
+  libraryLocation: string | null;
   locale: 'en' | 'fr';
   theme: 'light' | 'dark' | 'system';
   accentColor: AccentColor;
@@ -183,6 +187,7 @@ export interface SecretsAdapter {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   onboardingCompleted: false,
+  libraryLocation: null,
   locale: 'en',
   theme: 'system',
   accentColor: 'orange',

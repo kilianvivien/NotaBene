@@ -4,20 +4,29 @@
  * The pane that makes "everything stays on your machine" checkable rather than
  * merely stated. It answers three questions and refuses to answer a fourth:
  * where the data is, how much of it there is, and whether the database is
- * sound. It does not offer to change or repair anything — a pane a student
- * opens to reassure themselves should not have a button on it that can make
- * things worse.
+ * sound. Location changes are copy-and-verify operations; integrity remains
+ * report-only.
  *
  * Backups live one tab over. This is what is on the disk right now; that is
  * what NotaBene does about it.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, FolderOpen, HardDrive, Loader2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  FolderCog,
+  FolderOpen,
+  HardDrive,
+  Loader2,
+  Lock,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FieldNote, FieldSection, GlassButton } from '@/components/glass';
 import { storage, type IntegrityReport, type StorageSummary } from '@/lib/adapters';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { formatBytes } from '@/lib/utils/formatBytes';
+import { relocateLibraryCommand } from '@/lib/commands';
+import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 
 /**
  * The bar's parts, in order. Opacity rather than distinct hues: four unrelated
@@ -56,8 +65,11 @@ export function DataStorageSettings() {
   const [summary, setSummary] = useState<StorageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [report, setReport] = useState<IntegrityReport | null>(null);
   const [error, setError] = useState('');
+  const [moveError, setMoveError] = useState('');
+  const access = useLibraryAccessStore((state) => state.status);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -87,6 +99,14 @@ export function DataStorageSettings() {
     }
   }
 
+  async function changeLocation() {
+    setMoving(true);
+    setMoveError('');
+    const result = await relocateLibraryCommand();
+    if (!result.ok) setMoveError(result.message);
+    setMoving(false);
+  }
+
   if (loading && !summary) {
     return (
       <p className="flex items-center gap-2 text-[13px] text-nb-text-3">
@@ -108,6 +128,24 @@ export function DataStorageSettings() {
 
   return (
     <div className="space-y-5">
+      {access?.readOnly && (
+        <div className="flex gap-2.5 rounded-nb-sm border border-[var(--nb-danger)] p-3">
+          <Lock
+            size={15}
+            className="mt-px shrink-0 text-[var(--nb-danger)]"
+            aria-hidden
+          />
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium">{t('storage.readOnlyTitle')}</p>
+            <p className="mt-1 text-[12px] leading-snug text-nb-text-2">
+              {t('storage.readOnlyBody', {
+                host: access.lockOwner?.host ?? t('storage.anotherMac'),
+              })}
+            </p>
+          </div>
+        </div>
+      )}
+
       {summary.startupProblems.length > 0 && (
         <div className="flex gap-2.5 rounded-nb-sm border border-[var(--nb-danger)] p-3">
           <AlertTriangle
@@ -133,18 +171,38 @@ export function DataStorageSettings() {
             <div className="min-w-0 flex-1">
               <p className="text-[13px] leading-snug">{t('storage.locationBody')}</p>
               <p className="mt-1.5 break-all font-mono text-[11px] leading-snug text-nb-text-3">
-                {summary.dataDir}
+                {summary.libraryDir}
               </p>
+              {summary.appDataDir !== summary.libraryDir && (
+                <p className="mt-1 text-[11px] leading-snug text-nb-text-3">
+                  {t('storage.appDataBody', { path: summary.appDataDir })}
+                </p>
+              )}
             </div>
-            <GlassButton
-              size="sm"
-              onClick={() => void storage.reveal(summary.dataDir)}
-              className="shrink-0"
-            >
-              <FolderOpen size={13} aria-hidden />
-              {t('storage.reveal')}
-            </GlassButton>
+            <div className="flex shrink-0 flex-col gap-1.5">
+              <GlassButton
+                size="sm"
+                onClick={() => void storage.reveal(summary.libraryDir)}
+              >
+                <FolderOpen size={13} aria-hidden />
+                {t('storage.reveal')}
+              </GlassButton>
+              <GlassButton
+                size="sm"
+                disabled={moving || access?.readOnly}
+                onClick={() => void changeLocation()}
+              >
+                {moving ? (
+                  <Loader2 size={13} className="animate-spin" aria-hidden />
+                ) : (
+                  <FolderCog size={13} aria-hidden />
+                )}
+                {moving ? t('storage.moving') : t('storage.changeLocation')}
+              </GlassButton>
+            </div>
           </div>
+          <FieldNote tone="notice">{t('storage.syncWarning')}</FieldNote>
+          {moveError && <FieldNote tone="danger">{moveError}</FieldNote>}
         </div>
       </FieldSection>
 

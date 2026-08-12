@@ -104,9 +104,25 @@ pub fn run(store: &Store) -> DbResult<()> {
     })
 }
 
+/// A library opened because another Mac owns its lock cannot be migrated: that
+/// would make "read-only" a label rather than a boundary. It still has to be
+/// the schema this build understands, or reads could be subtly wrong.
+pub fn validate_current(store: &Store) -> DbResult<()> {
+    let current: i64 = store.with(|connection| {
+        Ok(connection.query_row("PRAGMA user_version", [], |row| row.get(0))?)
+    })?;
+    if current == SCHEMA_VERSION {
+        Ok(())
+    } else {
+        Err(super::DbError::Other(format!(
+            "library schema v{current} requires writable migration to v{SCHEMA_VERSION}"
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
     use rusqlite::Connection;
 
@@ -146,7 +162,8 @@ mod tests {
             .pragma_update(None, "user_version", 2)
             .expect("failed to set schema version");
         let store = Store {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
         };
 
         run(&store).expect("failed to migrate");
@@ -173,7 +190,8 @@ mod tests {
             .pragma_update(None, "user_version", 3)
             .expect("failed to set schema version");
         let store = Store {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
         };
 
         run(&store).expect("failed to migrate");

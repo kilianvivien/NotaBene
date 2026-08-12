@@ -16,7 +16,8 @@ use base64::Engine;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
-use crate::db::{self, DbError, DbResult, Store};
+use crate::db::location::{LibraryAccess, LibraryAccessStatus};
+use crate::db::{self, transfer, DbError, DbResult, Store};
 
 /// Filename suffix shared by every archive NotaBene writes.
 pub const BACKUP_EXTENSION: &str = ".notabene-backup";
@@ -67,7 +68,8 @@ pub struct StorageSizes {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageSummary {
-    pub data_dir: String,
+    pub library_dir: String,
+    pub app_data_dir: String,
     pub backups_dir: String,
     #[serde(flatten)]
     pub sizes: StorageSizes,
@@ -109,14 +111,15 @@ fn counts(store: &Store) -> DbResult<StorageCounts> {
     })
 }
 
-fn directory_bytes(path: &Path) -> u64 {
+fn directory_bytes(path: &Path, excluded: Option<&Path>) -> u64 {
     let Ok(entries) = fs::read_dir(path) else {
         return 0;
     };
     entries
         .flatten()
+        .filter(|entry| !excluded.is_some_and(|excluded| entry.path() == excluded))
         .map(|entry| match entry.file_type() {
-            Ok(kind) if kind.is_dir() => directory_bytes(&entry.path()),
+            Ok(kind) if kind.is_dir() => directory_bytes(&entry.path(), excluded),
             // Symlinks are counted as the link, not the target: following them
             // would double-count anything inside the data directory and could
             // walk out of it entirely.
@@ -126,16 +129,19 @@ fn directory_bytes(path: &Path) -> u64 {
         .sum()
 }
 
-fn measure(data_dir: &Path) -> StorageSizes {
+fn measure(data_dir: &Path, excluded: Option<&Path>) -> StorageSizes {
     let mut sizes = StorageSizes::default();
     let Ok(entries) = fs::read_dir(data_dir) else {
         return sizes;
     };
     for entry in entries.flatten() {
+        if excluded.is_some_and(|excluded| entry.path() == excluded) {
+            continue;
+        }
         let name = entry.file_name().to_string_lossy().into_owned();
         let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
         let bytes = if is_dir {
-            directory_bytes(&entry.path())
+            directory_bytes(&entry.path(), excluded)
         } else {
             entry.metadata().map(|meta| meta.len()).unwrap_or(0)
         };
@@ -153,6 +159,35 @@ fn measure(data_dir: &Path) -> StorageSizes {
         sizes.total_bytes += bytes;
     }
     sizes
+}
+
+fn add_sizes(left: &mut StorageSizes, right: StorageSizes) {
+    left.database_bytes += right.database_bytes;
+    left.wal_bytes += right.wal_bytes;
+    left.assets_bytes += right.assets_bytes;
+    left.backups_bytes += right.backups_bytes;
+    left.models_bytes += right.models_bytes;
+    left.settings_bytes += right.settings_bytes;
+    left.other_bytes += right.other_bytes;
+    left.total_bytes += right.total_bytes;
+}
+
+#[tauri::command]
+pub fn library_access_status(access: State<'_, LibraryAccess>) -> LibraryAccessStatus {
+    access.status()
+}
+
+#[tauri::command]
+pub async fn library_relocate(app: AppHandle, destination: String) -> DbResult<String> {
+    let destination = PathBuf::from(destination);
+    tauri::async_runtime::spawn_blocking(move || {
+        let access = app.state::<LibraryAccess>();
+        let source = access.directory().to_path_buf();
+        let relocated = transfer::relocate_library(&app.state::<Store>(), &source, &destination)?;
+        Ok(relocated.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|error| DbError::Other(error.to_string()))?
 }
 
 fn read_backups(dir: &Path) -> Vec<BackupFile> {
@@ -304,24 +339,47 @@ pub async fn db_integrity_check(app: AppHandle) -> DbResult<IntegrityReport> {
 pub async fn storage_summary(
     app: AppHandle,
     integrity: State<'_, StartupIntegrity>,
+    access: State<'_, LibraryAccess>,
 ) -> DbResult<StorageSummary> {
     let startup_problems = integrity.0.clone();
-    let data_dir = db::data_dir(&app)?;
+    let app_data_dir = db::data_dir(&app)?;
+    let library_dir = access.directory().to_path_buf();
     let backups_dir = db::backups_path(&app)?;
 
     let handle = app.clone();
-    let walk = data_dir.clone();
+    let walk_app = app_data_dir.clone();
+    let walk_library = library_dir.clone();
     let (sizes, counts) = tauri::async_runtime::spawn_blocking(move || {
         // Counts are `SELECT count(*)` over indexed tables — microseconds, and
         // deliberately not `library_export`, which would pull every note body
         // and every snapshot into memory to answer "how many notes?".
-        (measure(&walk), counts(&handle.state::<Store>()))
+        let mut sizes = if walk_app == walk_library {
+            measure(&walk_library, None)
+        } else {
+            let excluded = walk_library
+                .parent()
+                .is_some_and(|_| walk_library.starts_with(&walk_app))
+                .then_some(walk_library.as_path());
+            let mut sizes = measure(&walk_app, excluded);
+            add_sizes(&mut sizes, measure(&walk_library, None));
+            sizes
+        };
+        // The lock file is coordination metadata, not library content. It is
+        // intentionally excluded from the user-facing size total just as it
+        // is excluded from every backup archive.
+        let lock_bytes = fs::metadata(walk_library.join(crate::db::location::LOCK_FILE))
+            .map(|metadata| metadata.len())
+            .unwrap_or(0);
+        sizes.other_bytes = sizes.other_bytes.saturating_sub(lock_bytes);
+        sizes.total_bytes = sizes.total_bytes.saturating_sub(lock_bytes);
+        (sizes, counts(&handle.state::<Store>()))
     })
     .await
     .map_err(|error| DbError::Other(error.to_string()))?;
 
     Ok(StorageSummary {
-        data_dir: data_dir.to_string_lossy().into_owned(),
+        library_dir: library_dir.to_string_lossy().into_owned(),
+        app_data_dir: app_data_dir.to_string_lossy().into_owned(),
         backups_dir: backups_dir.to_string_lossy().into_owned(),
         sizes,
         counts: counts?,
@@ -368,7 +426,7 @@ mod tests {
         fs::create_dir_all(root.join("models/kokoro-82m/v1")).unwrap();
         fs::write(root.join("models/kokoro-82m/v1/model.onnx"), vec![0u8; 40]).unwrap();
 
-        let sizes = measure(root);
+        let sizes = measure(root, None);
 
         assert_eq!(sizes.database_bytes, 100);
         assert_eq!(sizes.wal_bytes, 10);

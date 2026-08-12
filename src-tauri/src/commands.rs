@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, State};
 
 use crate::db::journal::{JournalEntry, PendingRecovery};
+use crate::db::location::LibraryAccess;
 use crate::db::model::{
     Asset, Attachment, Backlink, Course, Library, Note, NoteMatch, NoteQuery, NoteSummary,
     NoteTemplate, SavedSearch, Section, Snapshot, SnapshotMeta, Tag,
@@ -253,7 +254,7 @@ pub struct AssetPayload {
     mime: String,
 }
 
-fn asset_file_path(app: &AppHandle, asset_id: &str) -> DbResult<std::path::PathBuf> {
+fn asset_file_path(access: &LibraryAccess, asset_id: &str) -> DbResult<std::path::PathBuf> {
     if asset_id.len() < 2
         || !asset_id
             .chars()
@@ -261,18 +262,17 @@ fn asset_file_path(app: &AppHandle, asset_id: &str) -> DbResult<std::path::PathB
     {
         return Err(DbError::Other("invalid asset id".into()));
     }
-    Ok(crate::db::assets_path(app)?
-        .join(&asset_id[..2])
-        .join(asset_id))
+    Ok(access.assets_path().join(&asset_id[..2]).join(asset_id))
 }
 
 #[tauri::command]
 pub fn assets_put(
-    app: AppHandle,
     store: State<'_, Store>,
+    access: State<'_, LibraryAccess>,
     data: String,
     mime: String,
 ) -> DbResult<Asset> {
+    store.ensure_writable()?;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(data)
         .map_err(|error| DbError::Other(format!("invalid asset data: {error}")))?;
@@ -291,7 +291,7 @@ pub fn assets_put(
         created_at: now(),
     };
 
-    let path = asset_file_path(&app, &id)?;
+    let path = asset_file_path(&access, &id)?;
     if !path.exists() {
         let parent = path
             .parent()
@@ -307,14 +307,14 @@ pub fn assets_put(
 
 #[tauri::command]
 pub fn assets_get(
-    app: AppHandle,
     store: State<'_, Store>,
+    access: State<'_, LibraryAccess>,
     asset_id: String,
 ) -> DbResult<Option<AssetPayload>> {
     let Some(asset) = assets::stat(&store, &asset_id)? else {
         return Ok(None);
     };
-    let bytes = std::fs::read(asset_file_path(&app, &asset_id)?)
+    let bytes = std::fs::read(asset_file_path(&access, &asset_id)?)
         .map_err(|error| DbError::Other(error.to_string()))?;
     Ok(Some(AssetPayload {
         data: base64::engine::general_purpose::STANDARD.encode(bytes),
@@ -336,12 +336,13 @@ pub struct AssetGarbageResult {
 
 #[tauri::command]
 pub fn assets_collect_garbage(
-    app: AppHandle,
     store: State<'_, Store>,
+    access: State<'_, LibraryAccess>,
 ) -> DbResult<AssetGarbageResult> {
+    store.ensure_writable()?;
     let removed = assets::collect_garbage(&store)?;
     for (id, _) in &removed {
-        let path = asset_file_path(&app, id)?;
+        let path = asset_file_path(&access, id)?;
         match std::fs::remove_file(path) {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}

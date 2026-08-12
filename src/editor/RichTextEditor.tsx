@@ -26,6 +26,7 @@ import './editor.css';
 
 interface RichTextEditorProps {
   doc: NoteDoc;
+  editable?: boolean;
   onChange(doc: NoteDoc): void;
 }
 
@@ -33,7 +34,7 @@ function looksLikeMarkdown(text: string): boolean {
   return /(^|\n)(#{1,6}\s|[-*+]\s|>\s|```|\$\$\s*$|\d+[.)]\s|\|.+\|)/m.test(text);
 }
 
-export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
+export function RichTextEditor({ doc, editable = true, onChange }: RichTextEditorProps) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -123,6 +124,7 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
   const editor = useEditor({
     extensions,
     content: doc,
+    editable,
     editorProps: {
       attributes: {
         class: 'nb-prosemirror',
@@ -169,6 +171,7 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
         void (async () => {
           let targetId = noteId;
           if (!targetId) {
+            if (!view.editable) return;
             const created = await createNoteCommand({ title });
             if (!created.ok) return;
             targetId = created.value.id;
@@ -195,6 +198,10 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
       refresh((value) => value + 1);
     },
   });
+
+  useEffect(() => {
+    editor?.setEditable(editable);
+  }, [editor, editable]);
   editorRef.current = editor;
 
   useEffect(() => {
@@ -368,16 +375,18 @@ export function RichTextEditor({ doc, onChange }: RichTextEditorProps) {
           own sticky element above the toolbar, which put a floating panel
           between the note title and the formatting controls and pushed the
           body down whenever it opened. */}
-      <div className="nb-editor-bar">
-        <Toolbar editor={editor} run={(command) => void run(command)} />
-        <FindReplaceBar
-          editor={editor}
-          open={findOpen}
-          onClose={() => setFindOpen(false)}
-        />
-      </div>
+      {editable && (
+        <div className="nb-editor-bar">
+          <Toolbar editor={editor} run={(command) => void run(command)} />
+          <FindReplaceBar
+            editor={editor}
+            open={findOpen}
+            onClose={() => setFindOpen(false)}
+          />
+        </div>
+      )}
       <EditorContent editor={editor} />
-      <TableControls editor={editor} />
+      {editable && <TableControls editor={editor} />}
       <input
         ref={inputRef}
         type="file"

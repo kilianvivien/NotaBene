@@ -44,6 +44,10 @@ import {
 import { tauriDocumentImportAdapter } from './documentImport/tauriDocumentImportAdapter';
 import { memoryDocumentImportAdapter } from './documentImport/memoryDocumentImportAdapter';
 import { isTauri } from '@/lib/platform/runtime';
+import {
+  browserAppLifecycleAdapter,
+  tauriAppLifecycleAdapter,
+} from './lifecycle/tauriAppLifecycleAdapter';
 
 import type { LibraryAdapter } from './library/LibraryAdapter';
 import type { AssetAdapter } from './assets/AssetAdapter';
@@ -57,6 +61,7 @@ import type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 import type { WindowAdapter } from './window/WindowAdapter';
 import type { StorageAdapter } from './storage/StorageAdapter';
 import type { DocumentImportAdapter } from './documentImport/DocumentImportAdapter';
+import type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -86,6 +91,9 @@ export const storage: StorageAdapter = isTauri
 export const documentImporter: DocumentImportAdapter = isTauri
   ? tauriDocumentImportAdapter
   : memoryDocumentImportAdapter;
+export const appLifecycle: AppLifecycleAdapter = isTauri
+  ? tauriAppLifecycleAdapter
+  : browserAppLifecycleAdapter;
 // Desktop AI leaves through Rust so that a self-hosted or otherwise unusual
 // base URL does not require widening `connect-src` for the whole webview; the
 // browser build has no such escape hatch and uses `fetch` (plan §E risk 2).
@@ -150,11 +158,14 @@ export type { WindowAdapter } from './window/WindowAdapter';
 export type {
   BackupFile,
   IntegrityReport,
+  LibraryAccessStatus,
+  LibraryLockOwner,
   StorageAdapter,
   StorageCounts,
   StorageSizes,
   StorageSummary,
 } from './storage/StorageAdapter';
+export type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
 export type {
   TtsAudioEncoding,
   TtsEngine,

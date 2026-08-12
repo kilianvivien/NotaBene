@@ -10,6 +10,15 @@
 //! goes through a `*_in` helper that takes the transaction's connection rather
 //! than re-locking the store.
 
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::{atomic::AtomicBool, Arc};
+use std::time::Duration;
+
+use rusqlite::backup::Backup;
+use sha2::{Digest, Sha256};
+
+use super::location::{ASSETS_DIR, DATABASE_FILE, LOCK_FILE};
 use super::migrations::SCHEMA_VERSION;
 use super::model::Library;
 use super::{assets, collections, notes, organization, DbError, DbResult, Store};
@@ -111,6 +120,180 @@ pub fn import_library(store: &Store, library: &Library, mode: &str) -> DbResult<
     })
 }
 
+/// Copy the live library into an otherwise unused destination and prove the
+/// copy before exposing it under the final filenames. The source is never
+/// moved or deleted: changing the setting and relaunching are separate, later
+/// steps, so any failure here leaves the current library authoritative.
+pub fn relocate_library(store: &Store, source_dir: &Path, destination: &Path) -> DbResult<PathBuf> {
+    store.ensure_writable()?;
+    if !destination.is_absolute() {
+        return Err(DbError::Other(
+            "LIBRARY_LOCATION_INVALID: choose an absolute folder".into(),
+        ));
+    }
+    fs::create_dir_all(destination).map_err(io_error)?;
+    let destination = fs::canonicalize(destination).map_err(io_error)?;
+    let source_dir = fs::canonicalize(source_dir).map_err(io_error)?;
+    if destination == source_dir {
+        return Ok(destination);
+    }
+    if destination.starts_with(&source_dir) {
+        return Err(DbError::Other(
+            "LIBRARY_LOCATION_INVALID: the destination cannot be inside the current library".into(),
+        ));
+    }
+
+    if destination.join(DATABASE_FILE).exists() {
+        verify_existing_library(&destination)?;
+        return Ok(destination);
+    }
+
+    for reserved in [ASSETS_DIR, LOCK_FILE] {
+        if destination.join(reserved).exists() {
+            return Err(DbError::Other(format!(
+                "LIBRARY_DESTINATION_IN_USE: {reserved} already exists in that folder"
+            )));
+        }
+    }
+
+    let staging = destination.join(format!(
+        ".notabene-relocation-{}-{}",
+        std::process::id(),
+        chrono::Utc::now().timestamp_millis()
+    ));
+    fs::create_dir(&staging).map_err(io_error)?;
+    let result = relocate_into_staging(store, &source_dir, &destination, &staging);
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+    }
+    result.map(|()| destination)
+}
+
+fn verify_existing_library(destination: &Path) -> DbResult<()> {
+    let target = Store::open(
+        &destination.join(DATABASE_FILE),
+        Arc::new(AtomicBool::new(true)),
+    )
+    .map_err(|error| DbError::Other(format!("LIBRARY_COPY_INVALID: {error}")))?;
+    let problems = target.integrity_problems(false)?;
+    if !problems.is_empty() {
+        return Err(DbError::Other(format!(
+            "LIBRARY_COPY_INVALID: {}",
+            problems.join("; ")
+        )));
+    }
+    let library = export_library(&target)?;
+    verify_assets(&destination.join(ASSETS_DIR), &library)
+}
+
+fn relocate_into_staging(
+    store: &Store,
+    source_dir: &Path,
+    destination: &Path,
+    staging: &Path,
+) -> DbResult<()> {
+    let staged_database = staging.join(DATABASE_FILE);
+    let staged_assets = staging.join(ASSETS_DIR);
+    copy_database(store, &staged_database)?;
+    copy_directory(&source_dir.join(ASSETS_DIR), &staged_assets)?;
+
+    let target = Store::open(&staged_database, Arc::new(AtomicBool::new(false)))?;
+    let problems = target.integrity_problems(false)?;
+    if !problems.is_empty() {
+        return Err(DbError::Other(format!(
+            "LIBRARY_COPY_INVALID: {}",
+            problems.join("; ")
+        )));
+    }
+    let library = export_library(&target)?;
+    verify_assets(&staged_assets, &library)?;
+    target.with(|connection| {
+        connection.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)")?;
+        Ok(())
+    })?;
+    drop(target);
+    for suffix in ["-wal", "-shm"] {
+        let _ = fs::remove_file(staging.join(format!("{DATABASE_FILE}{suffix}")));
+    }
+
+    fs::rename(&staged_database, destination.join(DATABASE_FILE)).map_err(io_error)?;
+    fs::rename(&staged_assets, destination.join(ASSETS_DIR)).map_err(io_error)?;
+    fs::remove_dir(staging).map_err(io_error)?;
+    Ok(())
+}
+
+fn copy_database(store: &Store, destination: &Path) -> DbResult<()> {
+    let mut target = rusqlite::Connection::open(destination)?;
+    store.with(|source| {
+        let backup = Backup::new(source, &mut target)?;
+        backup.run_to_completion(128, Duration::from_millis(5), None)?;
+        Ok(())
+    })?;
+    target.pragma_update(None, "foreign_keys", "ON")?;
+    Ok(())
+}
+
+fn copy_directory(source: &Path, destination: &Path) -> DbResult<()> {
+    fs::create_dir(destination).map_err(io_error)?;
+    if !source.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(source).map_err(io_error)? {
+        let entry = entry.map_err(io_error)?;
+        let kind = entry.file_type().map_err(io_error)?;
+        let target = destination.join(entry.file_name());
+        if kind.is_symlink() {
+            return Err(DbError::Other(
+                "LIBRARY_COPY_INVALID: attachment storage contains a symbolic link".into(),
+            ));
+        }
+        if kind.is_dir() {
+            copy_directory(&entry.path(), &target)?;
+        } else if kind.is_file() {
+            fs::copy(entry.path(), target).map_err(io_error)?;
+        }
+    }
+    Ok(())
+}
+
+fn verify_assets(directory: &Path, library: &Library) -> DbResult<()> {
+    for asset in &library.assets {
+        if asset.id.len() < 2
+            || !asset
+                .id
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+        {
+            return Err(DbError::Other(format!(
+                "LIBRARY_COPY_INVALID: invalid attachment id {}",
+                asset.id
+            )));
+        }
+        let path = directory.join(&asset.id[..2]).join(&asset.id);
+        let bytes = fs::read(&path).map_err(|error| {
+            DbError::Other(format!(
+                "LIBRARY_COPY_INVALID: could not verify attachment {}: {error}",
+                asset.id
+            ))
+        })?;
+        let digest = Sha256::digest(&bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        if digest != asset.id || i64::try_from(bytes.len()).ok() != Some(asset.bytes) {
+            return Err(DbError::Other(format!(
+                "LIBRARY_COPY_INVALID: attachment {} did not match its index",
+                asset.id
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn io_error(error: std::io::Error) -> DbError {
+    DbError::Other(error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,9 +316,22 @@ mod tests {
             .expect("clock before the epoch")
             .as_nanos();
         let directory = std::env::temp_dir().join(format!("notabene-{label}-{unique}"));
-        let store = Store::open(&directory.join("notabene.sqlite3"))
-            .expect("failed to open the test store");
+        let store = Store::open(
+            &directory.join("notabene.sqlite3"),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .expect("failed to open the test store");
         TempStore { store, directory }
+    }
+
+    fn empty_temp_dir(label: &str) -> std::path::PathBuf {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock before the epoch")
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("notabene-{label}-{unique}"));
+        std::fs::create_dir_all(&directory).expect("failed to create temp directory");
+        directory
     }
 
     fn note(id: &str, course_id: Option<&str>) -> Note {
@@ -288,5 +484,70 @@ mod tests {
 
         assert!(error.to_string().contains("was not migrated"));
         assert_eq!(counts(store), (0, 0));
+    }
+
+    #[test]
+    fn relocation_copies_a_verified_database_and_keeps_the_source() {
+        let source = temp_store("relocate-source");
+        notes::upsert(&source.store, &note("kept", None)).expect("failed to seed source");
+        let destination = empty_temp_dir("relocate-destination");
+
+        let relocated = relocate_library(&source.store, &source.directory, &destination)
+            .expect("failed to relocate");
+
+        assert_eq!(relocated, std::fs::canonicalize(&destination).unwrap());
+        assert!(source.directory.join(DATABASE_FILE).exists());
+        let copied = Store::open(
+            &destination.join(DATABASE_FILE),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .expect("failed to open copied store");
+        assert_eq!(notes::get(&copied, "kept").unwrap().unwrap().title, "kept");
+        drop(copied);
+        std::fs::remove_dir_all(destination).unwrap();
+    }
+
+    #[test]
+    fn relocation_never_accepts_an_invalid_existing_library() {
+        let source = temp_store("relocate-collision-source");
+        let destination = empty_temp_dir("relocate-collision-destination");
+        std::fs::write(destination.join(DATABASE_FILE), b"not ours").unwrap();
+
+        let error = relocate_library(&source.store, &source.directory, &destination)
+            .expect_err("an invalid existing library must be refused");
+
+        assert!(error.to_string().contains("LIBRARY_COPY_INVALID"));
+        assert_eq!(
+            std::fs::read(destination.join(DATABASE_FILE)).unwrap(),
+            b"not ours"
+        );
+        std::fs::remove_dir_all(destination).unwrap();
+    }
+
+    #[test]
+    fn relocation_can_attach_to_a_verified_existing_library() {
+        let source = temp_store("relocate-attach-source");
+        notes::upsert(&source.store, &note("source", None)).unwrap();
+        let destination_store = temp_store("relocate-attach-destination");
+        notes::upsert(&destination_store.store, &note("destination", None)).unwrap();
+
+        let relocated = relocate_library(
+            &source.store,
+            &source.directory,
+            &destination_store.directory,
+        )
+        .expect("a valid existing library should be selectable");
+
+        assert_eq!(
+            relocated,
+            std::fs::canonicalize(&destination_store.directory).unwrap()
+        );
+        assert!(notes::get(&source.store, "source").unwrap().is_some());
+        assert!(notes::get(&destination_store.store, "destination")
+            .unwrap()
+            .is_some());
+        assert!(notes::get(&destination_store.store, "source")
+            .unwrap()
+            .is_none());
     }
 }
