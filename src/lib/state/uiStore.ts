@@ -89,6 +89,8 @@ interface UiState {
   aiMindMapOpen: boolean;
   aiFlashcardsOpen: boolean;
   aiPodcastOpen: boolean;
+  /** A deep link from an agent run to the exact before-version it created. */
+  requestedSnapshotId: string | null;
   settingsOpen: boolean;
   settingsTab: SettingsTab;
   /** True when About was opened by the "i" beside a model name rather than by
@@ -125,6 +127,7 @@ interface UiState {
   setAiMindMapOpen(open: boolean): void;
   setAiFlashcardsOpen(open: boolean): void;
   setAiPodcastOpen(open: boolean): void;
+  requestVersionSnapshot(snapshotId: string | null): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
   requestAiNotice(): void;
@@ -193,6 +196,7 @@ export const useUiStore = create<UiState>()(
     aiMindMapOpen: false,
     aiFlashcardsOpen: false,
     aiPodcastOpen: false,
+    requestedSnapshotId: null,
     settingsOpen: false,
     settingsTab: 'general',
     aiNoticeRequested: false,
@@ -383,6 +387,12 @@ export const useUiStore = create<UiState>()(
     setAiPodcastOpen(open) {
       set((state) => {
         state.aiPodcastOpen = open;
+      });
+    },
+
+    requestVersionSnapshot(snapshotId) {
+      set((state) => {
+        state.requestedSnapshotId = snapshotId;
       });
     },
 

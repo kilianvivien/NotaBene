@@ -52,6 +52,26 @@ describe('library import', () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.library.tags[0]?.color).toBe('#9b5c2f');
   });
+
+  it('marks pre-agent snapshots as belonging to no run when importing v3', () => {
+    const library = {
+      ...emptyLibrary(),
+      schemaVersion: 3,
+      snapshots: [
+        {
+          id: 'snapshot-1',
+          noteId: 'note-1',
+          doc: { type: 'doc', content: [] },
+          title: 'Before',
+          cause: 'session',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    };
+    const result = safeImportLibrary(library);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.library.snapshots[0]?.runId).toBeNull();
+  });
 });
 
 describe('note schema', () => {

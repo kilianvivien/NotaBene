@@ -390,7 +390,11 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     return snapshot ? clone(snapshot) : null;
   }
 
-  async createSnapshot(noteId: string, cause: SnapshotCause): Promise<Snapshot> {
+  async createSnapshot(
+    noteId: string,
+    cause: SnapshotCause,
+    runId?: string,
+  ): Promise<Snapshot> {
     const note = this.library.notes.find((entry) => entry.id === noteId);
     if (!note) throw new Error(`cannot snapshot unknown note ${noteId}`);
     const snapshot: Snapshot = {
@@ -399,6 +403,7 @@ class MemoryLibraryAdapter implements LibraryAdapter {
       doc: clone(note.doc),
       title: note.title,
       cause,
+      runId: runId ?? null,
       createdAt: new Date().toISOString(),
     };
     this.library.snapshots.push(snapshot);

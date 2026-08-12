@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -187,6 +187,8 @@ export const SnapshotSchema = z.object({
   doc: NoteDocSchema,
   title: z.string().default(''),
   cause: SnapshotCauseSchema,
+  /** Groups every pre-edit version written by one in-app agent run. */
+  runId: id.nullable().default(null),
   createdAt: isoDate,
 });
 export type Snapshot = z.infer<typeof SnapshotSchema>;

@@ -49,20 +49,37 @@ export async function gatherAskSourcesCommand(
   const anchor = anchorResult.value;
 
   if (input.scope === 'note') {
+    const sources = [
+      {
+        noteId: anchor.id,
+        title: anchor.title,
+        courseId: anchor.courseId,
+        doc: anchor.doc,
+        reason: 'anchor',
+        truncated: false,
+        score: 1,
+        trace: {
+          matchedKeywords: [],
+          rawTextScore: 0,
+          normalizedTextScore: 0,
+          linked: false,
+          recencyScore: 0,
+          fusedScore: 1,
+          section: null,
+        },
+      } satisfies RetrievedSource,
+    ];
     return ok({
-      sources: [
-        {
-          noteId: anchor.id,
-          title: anchor.title,
-          courseId: anchor.courseId,
-          doc: anchor.doc,
-          reason: 'anchor',
-          truncated: false,
-          score: 1,
-        } satisfies RetrievedSource,
-      ],
+      sources,
       keywords: [],
       droppedCount: 0,
+      trace: {
+        scope: input.scope,
+        keywords: [],
+        sourceBudgetTokens: 0,
+        candidatesConsidered: 0,
+        sourcesSelected: sources.length,
+      },
     });
   }
 
@@ -84,10 +101,20 @@ export async function gatherAskSourcesCommand(
   // Only fetch documents for notes that could plausibly survive packing —
   // `getNote` is the expensive call in this path.
   const fused = fuseCandidates(merged, anchor.id).slice(0, MAX_SOURCES + 4);
-  const withDocs: { candidate: FusedCandidate; doc: NoteDoc }[] = [];
+  const withDocs: {
+    candidate: FusedCandidate;
+    doc: NoteDoc;
+    reason?: RetrievedSource['reason'];
+  }[] = [];
   for (const candidate of fused) {
     const note = await library.getNote(candidate.noteId);
-    if (note) withDocs.push({ candidate, doc: note.doc });
+    if (note) {
+      withDocs.push({
+        candidate,
+        doc: note.doc,
+        ...(keywords.length ? {} : { reason: 'recent' as const }),
+      });
+    }
   }
 
   const packed = packSources(
@@ -102,7 +129,17 @@ export async function gatherAskSourcesCommand(
     budget,
   );
 
-  return ok({ ...packed, keywords });
+  return ok({
+    ...packed,
+    keywords,
+    trace: {
+      scope: input.scope,
+      keywords,
+      sourceBudgetTokens: budget,
+      candidatesConsidered: merged.length,
+      sourcesSelected: packed.sources.length,
+    },
+  });
 }
 
 async function searchCandidates(

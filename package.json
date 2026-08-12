@@ -1,7 +1,7 @@
 {
   "name": "notabene",
   "private": true,
-  "version": "0.6.2",
+  "version": "0.7.0",
   "type": "module",
   "description": "A simple, privacy-first note-taking app for students",
   "license": "Apache-2.0",
@@ -21,6 +21,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:retrieval": "vitest run src/lib/ai/retrievalEvaluation.test.ts src/lib/ai/retrieval.test.ts src/lib/commands/retrievalCommands.test.ts",
     "test:watch": "vitest",
     "e2e": "playwright test"
   },

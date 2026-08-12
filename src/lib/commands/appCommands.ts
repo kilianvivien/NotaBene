@@ -15,6 +15,7 @@
  *
  * *Calqo's `APP_COMMAND_IDS` is the pattern; the phase column is ours.*
  */
+import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useSpeechStore } from '@/lib/state/speechStore';
@@ -62,6 +63,7 @@ export const APP_COMMAND_IDS = [
   'ai.mindMap',
   'ai.flashcards',
   'ai.podcast',
+  'ai.agent',
   'help.documentation',
   'help.github',
 ] as const;
@@ -463,6 +465,8 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     run: requireNote(() => {
       // The Ask panel is a tab, not a modal: the question is usually about the
       // paragraph you are looking at, and a dialog over the note would hide it.
+      // Enter Ask explicitly because the shared tab remembers Agent mode.
+      useAiStore.getState().setAgentMode(false);
       useUiStore.getState().setInspectorTab('ai');
     }),
   },
@@ -492,6 +496,22 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     run: requireNote(() => {
       useUiStore.getState().setAiPodcastOpen(true);
     }),
+  },
+  'ai.agent': {
+    id: 'ai.agent',
+    labelKey: 'agent.title',
+    accelerator: 'CmdOrCtrl+Alt+A',
+    landsIn: 'I',
+    // The agent lives in the inspector's AI tab rather than in a modal, so the
+    // shortcut reveals that tab and switches it over. It deliberately does not
+    // require an open note: a library-wide run is the common case.
+    run: () => {
+      // `setInspectorTab` reveals the inspector as well, so this is the whole
+      // journey from a keystroke to a composer.
+      useUiStore.getState().setInspectorTab('ai');
+      useAiStore.getState().setAgentMode(true);
+      return ok(undefined);
+    },
   },
 
   'help.documentation': {

@@ -8,6 +8,7 @@
  */
 import { z } from 'zod';
 import {
+  cancelledIfRequested,
   createNoteCommand,
   createCourseCommand,
   ensureTagCommand,
@@ -27,7 +28,7 @@ import {
 } from '@/lib/commands';
 import { storage } from '@/lib/adapters';
 import { joinPath } from '@/lib/commands/backupCommands';
-import { NoteDocSchema, TAG_NAMESPACES } from '@/lib/schema';
+import { NoteDocSchema, TAG_NAMESPACES, type AgentToolName } from '@/lib/schema';
 import { parseQuery, resolveQuery } from '@/lib/search/query';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
@@ -146,12 +147,16 @@ function invalid(issues: unknown): CommandResult<never> {
   return fail('invalid_input', 'invalid arguments', issues);
 }
 
-export const TOOL_HANDLERS = {
-  async list_courses() {
+export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
+  async list_courses(_args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const courses = await listCoursesCommand();
     if (!courses.ok) return courses;
     const withSections = [];
     for (const course of courses.value) {
+      const stopped = cancelledIfRequested<unknown>(context);
+      if (stopped) return stopped;
       const sections = await listSectionsCommand(course.id);
       if (!sections.ok) return sections;
       withSections.push({ ...course, sections: sections.value });
@@ -159,7 +164,9 @@ export const TOOL_HANDLERS = {
     return ok(withSections);
   },
 
-  async list_notes(args: unknown) {
+  async list_notes(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = ListNotesArgs.safeParse(args ?? {});
     if (!parsed.success) return invalid(parsed.error.issues);
     return queryNotesCommand({
@@ -171,7 +178,9 @@ export const TOOL_HANDLERS = {
     });
   },
 
-  async search_notes(args: unknown) {
+  async search_notes(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = SearchArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
@@ -196,7 +205,9 @@ export const TOOL_HANDLERS = {
     return queryNotesCommand({ ...query, limit: parsed.data.limit });
   },
 
-  async read_note(args: unknown) {
+  async read_note(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = ReadNoteArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
@@ -224,11 +235,15 @@ export const TOOL_HANDLERS = {
   },
 
   async create_note(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = CreateNoteArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
     const tagIds: string[] = [];
     for (const raw of parsed.data.tags) {
+      const stopped = cancelledIfRequested<unknown>(context);
+      if (stopped) return stopped;
       const [maybeNamespace, ...rest] = raw.split(':');
       const tag = await ensureTagCommand(
         rest.length > 0
@@ -257,6 +272,8 @@ export const TOOL_HANDLERS = {
   },
 
   async update_note(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = UpdateNoteArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
@@ -279,6 +296,8 @@ export const TOOL_HANDLERS = {
   },
 
   async manage_tags(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = ManageTagsArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
@@ -293,6 +312,8 @@ export const TOOL_HANDLERS = {
 
     const tagIds = new Set(note.value.tagIds);
     for (const raw of parsed.data.add) {
+      const stopped = cancelledIfRequested<unknown>(context);
+      if (stopped) return stopped;
       const [maybeNamespace, ...rest] = raw.split(':');
       const tag = await ensureTagCommand(
         rest.length > 0
@@ -308,6 +329,8 @@ export const TOOL_HANDLERS = {
     const tags = await listTagsCommand();
     if (!tags.ok) return tags;
     for (const rename of parsed.data.rename) {
+      const stopped = cancelledIfRequested<unknown>(context);
+      if (stopped) return stopped;
       const tag = tags.value.find((entry) => entry.id === rename.tagId);
       if (!tag) return fail('not_found', `no tag ${rename.tagId}`);
       const renamed = await updateTagCommand(
@@ -332,12 +355,16 @@ export const TOOL_HANDLERS = {
   },
 
   async create_course(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = CreateCourseArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
     return createCourseCommand(parsed.data, context);
   },
 
-  async export_notes(args: unknown) {
+  async export_notes(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = ExportNotesArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
     if (parsed.data.destination !== undefined) {
@@ -357,17 +384,22 @@ export const TOOL_HANDLERS = {
       destination,
       layout: parsed.data.layout,
       includeToc: parsed.data.includeToc,
+      signal: context.signal,
     });
   },
 
   async organize(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const parsed = OrganizeArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
     return organizeNotesCommand(parsed.data, context);
   },
 
   /** Lets an agent act on "the note I'm looking at". */
-  async get_app_state() {
+  async get_app_state(_args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
     const editor = useEditorStore.getState();
     const ui = useUiStore.getState();
     return ok({
@@ -379,6 +411,15 @@ export const TOOL_HANDLERS = {
       selection: ui.multiSelection,
     });
   },
-} satisfies Record<string, Handler>;
+};
 
-export type ToolMethod = keyof typeof TOOL_HANDLERS;
+/** One invocation door for the MCP bridge and the in-app loop. */
+export function executeToolHandler(
+  method: AgentToolName,
+  args: unknown,
+  context: CommandContext,
+): Promise<CommandResult<unknown>> {
+  return TOOL_HANDLERS[method](args, context);
+}
+
+export type ToolMethod = AgentToolName;

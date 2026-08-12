@@ -191,5 +191,6 @@ export const AI_FEATURES = [
   'flashcards',
   'podcast',
   'importFormat',
+  'agent',
 ] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];

@@ -45,6 +45,7 @@ export type AiActivity =
   | 'flashcards'
   | 'podcast'
   | 'importFormat'
+  | 'agent'
   | 'speech';
 
 export interface AskThread {
@@ -62,6 +63,10 @@ interface AiState {
   error: string | null;
   askMode: AskMode;
   askScope: AskScope;
+  /** Which half of the inspector's AI tab is showing: the conversation, or the
+   * agent. Not a third `AskMode`, because it is orthogonal to grounding — an
+   * agent run has no thread and no notes-versus-knowledge choice. */
+  agentMode: boolean;
   /** Keyed by note, then by `threadKey(mode, scope)`. */
   threads: Record<string, Record<string, AskThread>>;
 
@@ -73,6 +78,7 @@ interface AiState {
   setError(message: string | null): void;
   setAskMode(mode: AskMode): void;
   setAskScope(scope: AskScope): void;
+  setAgentMode(on: boolean): void;
   appendToken(noteId: string, key: string, token: string): void;
   commitTurn(noteId: string, key: string, turn: AskTurn): void;
   /** Drop a partial answer without turning it into a turn — a failure that
@@ -143,6 +149,7 @@ export const useAiStore = create<AiState>()(
     error: null,
     askMode: 'knowledge',
     askScope: 'note',
+    agentMode: false,
     threads: {},
 
     async refreshProviders() {
@@ -216,6 +223,16 @@ export const useAiStore = create<AiState>()(
     setAskScope(scope) {
       set((state) => {
         state.askScope = scope;
+      });
+    },
+
+    // Deliberately does not touch `running`: a run outlives the panel that
+    // started it, so leaving agent mode — like closing the inspector or opening
+    // another note — watches the run go on rather than killing it. Only the
+    // Stop button cancels.
+    setAgentMode(on) {
+      set((state) => {
+        state.agentMode = on;
       });
     },
 

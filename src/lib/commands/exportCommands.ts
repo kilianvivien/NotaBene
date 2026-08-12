@@ -15,6 +15,12 @@ export interface NoteExportOptions {
   /** Explicit output path for non-interactive callers such as MCP. When
    * omitted, the UI owns destination selection through the save panel. */
   destination?: string;
+  /** In-app agent cancellation. Checked before any external file is written. */
+  signal?: AbortSignal;
+}
+
+function exportCancelled<T>(options: NoteExportOptions): CommandResult<T> | null {
+  return options.signal?.aborted ? fail('cancelled', 'cancelled') : null;
 }
 
 function slug(value: string, fallback: string): string {
@@ -136,6 +142,8 @@ export async function exportNotesCommand(
   noteIds: string[],
   options: NoteExportOptions,
 ): Promise<CommandResult<string | undefined>> {
+  const cancelled = exportCancelled<string | undefined>(options);
+  if (cancelled) return cancelled;
   const notes = (
     await Promise.all([...new Set(noteIds)].map((id) => library.getNote(id)))
   ).filter((note): note is Note => note !== null);
@@ -146,6 +154,8 @@ export async function exportNotesCommand(
     const courses = exportedLibrary.courses;
     const tags = exportedLibrary.tags;
     const assetBlobs = await loadAssets(notes);
+    const cancelledAfterAssets = exportCancelled<string | undefined>(options);
+    if (cancelledAfterAssets) return cancelledAfterAssets;
     const baseName =
       notes.length === 1 ? slug(notes[0]?.title ?? '', notes[0]?.id ?? 'note') : 'notes';
 
@@ -174,6 +184,8 @@ export async function exportNotesCommand(
           filters: [{ name: 'PDF', extensions: ['pdf'] }],
         }));
       if (!destination) return fail('not_supported', 'Export cancelled');
+      const cancelledBeforeWrite = exportCancelled<string | undefined>(options);
+      if (cancelledBeforeWrite) return cancelledBeforeWrite;
       const result = await exporter.write({
         format: 'pdf',
         destination,
@@ -298,6 +310,8 @@ export async function exportNotesCommand(
         ],
       }));
     if (!destination) return fail('not_supported', 'Export cancelled');
+    const cancelledBeforeWrite = exportCancelled<string | undefined>(options);
+    if (cancelledBeforeWrite) return cancelledBeforeWrite;
     const result = await exporter.write({
       format: options.format,
       destination,

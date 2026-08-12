@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlassButton, GlassSegmentedControl, GlassSelect } from '@/components/glass';
+import { AgentPanel } from '@/app/ai/AgentPanel';
 import { AskPanel } from '@/app/ai/AskPanel';
 import { AttachmentPanel } from '@/editor/attachments/AttachmentPanel';
 import { library } from '@/lib/adapters';
@@ -26,6 +27,7 @@ import { compareDocuments } from '@/lib/history/comparison';
 import { docStats } from '@/lib/notes/docText';
 import { tagLabel, tagQuery } from '@/lib/notes/tagLabel';
 import type { Backlink, Snapshot, Tag as NoteTag } from '@/lib/schema';
+import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
@@ -37,6 +39,7 @@ export function Inspector() {
   const note = useEditorStore((state) => state.note);
   const tab = useUiStore((state) => state.inspectorTab);
   const setTab = useUiStore((state) => state.setInspectorTab);
+  const agentMode = useAiStore((state) => state.agentMode);
   const visibleTab: VisibleTab = (
     ['info', 'versions', 'backlinks', 'attachments', 'ai'] as const
   ).includes(tab as VisibleTab)
@@ -67,7 +70,12 @@ export function Inspector() {
         fill
       />
 
-      {!note ? (
+      {/* The agent is the one panel that works without an open note: its scope
+          can be the whole library, and the shortcut that opens this tab is
+          reachable from an empty editor. */}
+      {visibleTab === 'ai' && agentMode ? (
+        <AgentPanel noteId={note?.id ?? null} />
+      ) : !note ? (
         <p className="text-[12px] text-nb-text-3">{t('editor.noSelection')}</p>
       ) : visibleTab === 'ai' ? (
         <AskPanel noteId={note.id} />
@@ -96,9 +104,10 @@ function VersionsPanel({ noteId }: { noteId: string }) {
     void library.listSnapshots(noteId).then((entries) => {
       if (active) {
         setSnapshots(entries);
-        const first = entries[0];
-        if (first) {
-          void library.getSnapshot(first.id).then((snapshot) => {
+        const requested = useUiStore.getState().requestedSnapshotId;
+        const initial = entries.find((entry) => entry.id === requested) ?? entries[0];
+        if (initial) {
+          void library.getSnapshot(initial.id).then((snapshot) => {
             if (active) setSelected(snapshot);
           });
         } else {
@@ -112,6 +121,7 @@ function VersionsPanel({ noteId }: { noteId: string }) {
   }, [noteId]);
 
   async function choose(id: string) {
+    useUiStore.getState().requestVersionSnapshot(null);
     setSelected(await library.getSnapshot(id));
   }
 
@@ -497,31 +507,31 @@ function TagsPanel() {
         {selected.map((tag) => {
           const label = tagLabel(tag, t);
           return (
-          <span
-            key={tag.id}
-            title={label.full}
-            className="inline-flex items-center gap-1.5 rounded-full border bg-[var(--nb-inset-surface)] px-2 py-1 text-[12px] text-nb-text-2"
-            style={{ borderColor: tag.color }}
-          >
             <span
-              aria-hidden
-              className="size-2 rounded-full"
-              style={{ backgroundColor: tag.color }}
-            />
-            {label.facet && (
-              <span className="text-[10.5px] uppercase tracking-wide text-nb-text-3">
-                {label.facet}
-              </span>
-            )}
-            {label.name}
-            <button
-              type="button"
-              aria-label={t('common.delete')}
-              onClick={() => void apply(note.tagIds.filter((id) => id !== tag.id))}
+              key={tag.id}
+              title={label.full}
+              className="inline-flex items-center gap-1.5 rounded-full border bg-[var(--nb-inset-surface)] px-2 py-1 text-[12px] text-nb-text-2"
+              style={{ borderColor: tag.color }}
             >
-              <X size={10} />
-            </button>
-          </span>
+              <span
+                aria-hidden
+                className="size-2 rounded-full"
+                style={{ backgroundColor: tag.color }}
+              />
+              {label.facet && (
+                <span className="text-[10.5px] uppercase tracking-wide text-nb-text-3">
+                  {label.facet}
+                </span>
+              )}
+              {label.name}
+              <button
+                type="button"
+                aria-label={t('common.delete')}
+                onClick={() => void apply(note.tagIds.filter((id) => id !== tag.id))}
+              >
+                <X size={10} />
+              </button>
+            </span>
           );
         })}
       </div>

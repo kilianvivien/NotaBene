@@ -101,10 +101,12 @@ CREATE TABLE IF NOT EXISTS snapshots (
     doc_json    TEXT NOT NULL,
     title       TEXT NOT NULL DEFAULT '',
     cause       TEXT NOT NULL,
+    run_id      TEXT,
     created_at  TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_note ON snapshots(note_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_snapshots_run ON snapshots(run_id);
 
 CREATE TABLE IF NOT EXISTS saved_searches (
     id          TEXT PRIMARY KEY,

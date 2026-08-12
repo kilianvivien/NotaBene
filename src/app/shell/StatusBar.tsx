@@ -2,6 +2,7 @@ import { Bot, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { runAppCommand } from '@/lib/commands';
+import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docStats } from '@/lib/notes/docText';
@@ -16,7 +17,14 @@ export function StatusBar() {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
   const saveState = useEditorStore((state) => state.saveState);
-  const agentBusy = useUiStore((state) => state.agentBusy);
+  // An MCP client working through the bridge, or the in-app agent working in
+  // the inspector. The indicator used to mean only the first, because the
+  // second happened behind a modal that made it obvious; in a side panel a run
+  // can be a scrolled-away tab, and this bar is where the app says something is
+  // touching the notes.
+  const mcpBusy = useUiStore((state) => state.agentBusy);
+  const inAppAgentBusy = useAiStore((state) => state.running) === 'agent';
+  const agentBusy = mcpBusy || inAppAgentBusy;
   const focusMode = useUiStore((state) => state.focusMode);
   const session = useUiStore((state) => state.focusSession);
 

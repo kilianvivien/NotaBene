@@ -175,9 +175,10 @@ pub fn library_create_snapshot(
     store: State<'_, Store>,
     note_id: String,
     cause: String,
+    run_id: Option<String>,
 ) -> DbResult<Snapshot> {
     let id = format!("snap_{}", uuid_like());
-    notes::create_snapshot(&store, &id, &note_id, &cause, &now())
+    notes::create_snapshot(&store, &id, &note_id, &cause, run_id.as_deref(), &now())
 }
 
 #[tauri::command]

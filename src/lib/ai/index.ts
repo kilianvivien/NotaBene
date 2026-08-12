@@ -14,3 +14,4 @@ export * from './mindmap';
 export * from './flashcards';
 export * from './podcast';
 export * from './retrieval';
+export * from './agent';

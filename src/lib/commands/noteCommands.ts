@@ -23,7 +23,14 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { SNAPSHOT_RETENTION_POLICIES } from '@/lib/history/retention';
-import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
+import {
+  cancelledIfRequested,
+  fail,
+  ok,
+  USER,
+  type CommandContext,
+  type CommandResult,
+} from './types';
 
 const CreateNoteInput = z.object({
   title: z.string().max(500).optional(),
@@ -93,8 +100,10 @@ export async function searchNotesCommand(
 
 export async function createNoteCommand(
   input: CreateNoteInput,
-  _context: CommandContext = USER,
+  context: CommandContext = USER,
 ): Promise<CommandResult<Note>> {
+  const cancelled = cancelledIfRequested<Note>(context);
+  if (cancelled) return cancelled;
   const parsed = CreateNoteInput.safeParse(input);
   if (!parsed.success) {
     return fail('invalid_input', 'invalid note input', parsed.error.issues);
@@ -112,12 +121,17 @@ export async function createNoteCommand(
   });
 
   try {
+    const stopped = cancelledIfRequested<Note>(context);
+    if (stopped) return stopped;
     await library.upsertNote(note);
   } catch (error) {
     return fail('storage_failed', String(error));
   }
 
-  await refreshCurrentView();
+  // The note is already durable. A stale read cache can repair itself on the
+  // next query; reporting the creation as failed would invite a retry and a
+  // duplicate note, and would hide the created id from whole-run undo.
+  await refreshCurrentView().catch(() => {});
   return ok(note);
 }
 
@@ -142,6 +156,8 @@ export async function applyNoteUpdate(
   input: UpdateNoteInput,
   context: CommandContext = USER,
 ): Promise<CommandResult<Note>> {
+  const cancelled = cancelledIfRequested<Note>(context);
+  if (cancelled) return cancelled;
   const parsed = UpdateNoteInput.safeParse(input);
   if (!parsed.success) {
     return fail('invalid_input', 'invalid note input', parsed.error.issues);
@@ -158,12 +174,14 @@ export async function applyNoteUpdate(
     context.source === 'agent';
   if (contentChanged) {
     try {
-      await library.createSnapshot(existing.id, causeFor(context));
+      await library.createSnapshot(existing.id, causeFor(context), context.agentRunId);
     } catch {
       // A failed snapshot must not block the edit — losing an undo point is
       // recoverable, refusing to save the student's typing is not.
     }
   }
+  const cancelledAfterSnapshot = cancelledIfRequested<Note>(context);
+  if (cancelledAfterSnapshot) return cancelledAfterSnapshot;
 
   // `noteId` addresses the note; it is not a field on it.
   // Optional fields passed explicitly as `undefined` must not overwrite the
