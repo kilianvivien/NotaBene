@@ -2,9 +2,9 @@
  * MCP tool implementations.
  *
  * Each handler validates its own arguments and then delegates to a command —
- * it never reaches for an adapter directly. Note what is *not* here: no delete.
- * v1 exposes archiving instead, so no agent can destroy a student's notes
- * (PRD §5.7).
+ * it never reaches for an adapter directly. Note what is *not* here: no purge,
+ * empty-Trash, or permanent delete. Recoverable Trash is the hard boundary, so
+ * no agent can destroy a student's notes (PRD §5.7).
  */
 import { z } from 'zod';
 import {
@@ -26,9 +26,19 @@ import {
   type CommandContext,
   type CommandResult,
 } from '@/lib/commands';
+import {
+  mergeNotesCommand,
+  restoreNotesCommand,
+  trashNotesCommand,
+} from '@/lib/commands/bulkCommands';
 import { storage } from '@/lib/adapters';
 import { joinPath } from '@/lib/commands/backupCommands';
-import { NoteDocSchema, TAG_NAMESPACES, type AgentToolName } from '@/lib/schema';
+import {
+  NoteDocSchema,
+  TAG_NAMESPACES,
+  type AgentToolName,
+  type Note,
+} from '@/lib/schema';
 import { parseQuery, resolveQuery } from '@/lib/search/query';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
@@ -41,8 +51,26 @@ type Handler = (
 
 const ListNotesArgs = z.object({
   courseId: z.string().optional(),
+  scope: z.enum(['live', 'archived', 'trashed']).default('live'),
   limit: z.number().int().positive().max(500).default(100),
   offset: z.number().int().nonnegative().default(0),
+});
+
+const VersionedNoteArgs = z.object({
+  noteId: z.string().min(1),
+  baseUpdatedAt: z.string().datetime(),
+});
+
+const VersionedNotesArgs = z.object({
+  notes: z.array(VersionedNoteArgs).min(1).max(500),
+});
+
+const MergeNotesArgs = VersionedNotesArgs.extend({
+  title: z.string().max(500).optional(),
+  sourceFate: z.enum(['keep', 'archive', 'trash']).default('keep'),
+}).refine((value) => value.notes.length >= 2, {
+  message: 'choose at least two notes to merge',
+  path: ['notes'],
 });
 
 const SearchArgs = z.object({
@@ -164,13 +192,19 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     return ok(withSections);
   },
 
+  async list_tags(_args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    return listTagsCommand();
+  },
+
   async list_notes(args: unknown, context: CommandContext) {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ListNotesArgs.safeParse(args ?? {});
     if (!parsed.success) return invalid(parsed.error.issues);
     return queryNotesCommand({
-      scope: 'live',
+      scope: parsed.data.scope,
       sort: 'updated',
       courseId: parsed.data.courseId,
       limit: parsed.data.limit,
@@ -295,6 +329,61 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     );
   },
 
+  async merge_notes(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = MergeNotesArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const checked = await validateVersionedNotes(parsed.data.notes, context, 'live');
+    if (!checked.ok) return checked;
+
+    return mergeNotesCommand(
+      {
+        noteIds: parsed.data.notes.map((note) => note.noteId),
+        baseUpdatedAtByNoteId: Object.fromEntries(
+          parsed.data.notes.map((note) => [note.noteId, note.baseUpdatedAt]),
+        ),
+        title: parsed.data.title,
+        sourceFate: parsed.data.sourceFate,
+      },
+      context,
+    );
+  },
+
+  async trash_notes(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = VersionedNotesArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const checked = await validateVersionedNotes(parsed.data.notes, context, 'live');
+    if (!checked.ok) return checked;
+    const versions = Object.fromEntries(
+      parsed.data.notes.map((note) => [note.noteId, note.baseUpdatedAt]),
+    );
+    return trashNotesCommand(
+      parsed.data.notes.map((note) => note.noteId),
+      context,
+      versions,
+    );
+  },
+
+  async restore_notes(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = VersionedNotesArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const checked = await validateVersionedNotes(parsed.data.notes, context, 'trashed');
+    if (!checked.ok) return checked;
+    const versions = Object.fromEntries(
+      parsed.data.notes.map((note) => [note.noteId, note.baseUpdatedAt]),
+    );
+    return restoreNotesCommand(
+      parsed.data.notes.map((note) => note.noteId),
+      context,
+      versions,
+    );
+  },
+
   async manage_tags(args: unknown, context: CommandContext) {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
@@ -412,6 +501,42 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     });
   },
 };
+
+async function validateVersionedNotes(
+  requested: { noteId: string; baseUpdatedAt: string }[],
+  context: CommandContext,
+  expectedState: 'live' | 'trashed',
+): Promise<CommandResult<Note[]>> {
+  if (new Set(requested.map((note) => note.noteId)).size !== requested.length) {
+    return fail('invalid_input', 'each note may appear only once');
+  }
+  const notes: Note[] = [];
+  for (const request of requested) {
+    const cancelled = cancelledIfRequested<Note[]>(context);
+    if (cancelled) return cancelled;
+    const result = await readNoteCommand(request.noteId);
+    if (!result.ok) return result;
+    if (result.value.updatedAt !== request.baseUpdatedAt) {
+      return fail('conflict', 'the note changed after it was read', {
+        noteId: result.value.id,
+        expectedUpdatedAt: request.baseUpdatedAt,
+        actualUpdatedAt: result.value.updatedAt,
+      });
+    }
+    const isTrashed = result.value.trashedAt !== null;
+    if (expectedState === 'live' ? isTrashed : !isTrashed) {
+      return fail(
+        'invalid_input',
+        expectedState === 'live'
+          ? 'a note is already in Trash'
+          : 'a note is not in Trash',
+        { noteId: result.value.id },
+      );
+    }
+    notes.push(result.value);
+  }
+  return ok(notes);
+}
 
 /** One invocation door for the MCP bridge and the in-app loop. */
 export function executeToolHandler(

@@ -45,8 +45,7 @@ export function planText(plan: AgentPlan, value: string): string {
  * instead of letting storage fields leak back into the student-facing pane. */
 export function userFacingAgentText(value: string): string | null {
   const technicalTerm = /\b(?:json|mcp|schemas?|tokens?|tool calls?)\b/iu;
-  const internalSyntax =
-    /\b[a-z]+(?:[A-Z][A-Za-z0-9]*)+\b|\b[a-z]+_[a-z_]+\b|[{}[\]]/u;
+  const internalSyntax = /\b[a-z]+(?:[A-Z][A-Za-z0-9]*)+\b|\b[a-z]+_[a-z_]+\b|[{}[\]]/u;
   return technicalTerm.test(value) || internalSyntax.test(value) ? null : value;
 }
 
@@ -85,6 +84,11 @@ export function callOutcome(
         ? t('agent.did_list_courses', { count: parsed.length })
         : null;
 
+    case 'list_tags':
+      return Array.isArray(parsed)
+        ? t('agent.did_list_tags', { count: parsed.length })
+        : null;
+
     case 'list_notes':
     case 'search_notes': {
       if (Array.isArray(parsed)) return t('agent.did_notes', { count: parsed.length });
@@ -112,6 +116,19 @@ export function callOutcome(
         : t('agent.did_update_note_generic');
     }
 
+    case 'merge_notes': {
+      const title = previewTitle(parsed) ?? touchedTitle(run, parsedId(parsed));
+      return title
+        ? t('agent.did_merge_notes', { title })
+        : t('agent.did_merge_notes_generic');
+    }
+
+    case 'trash_notes':
+      return t('agent.did_trash_notes', { count: versionedNoteCount(args) });
+
+    case 'restore_notes':
+      return t('agent.did_restore_notes', { count: versionedNoteCount(args) });
+
     case 'manage_tags':
       return t('agent.did_manage_tags');
     case 'create_course':
@@ -121,6 +138,15 @@ export function callOutcome(
     case 'organize':
       return t('agent.did_organize');
   }
+}
+
+function parsedId(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null) return undefined;
+  return (value as { id?: unknown }).id;
+}
+
+function versionedNoteCount(args: Record<string, unknown>): number {
+  return Array.isArray(args.notes) ? args.notes.length : 0;
 }
 
 /** The plain sentence that replaces a grid of ceilings: where it may work, and

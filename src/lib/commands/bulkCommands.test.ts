@@ -14,7 +14,10 @@ import { createNoteCommand } from './noteCommands';
 import type { Note, NoteDoc } from '@/lib/schema';
 
 function docOf(text: string): NoteDoc {
-  return { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] };
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  };
 }
 
 async function makeNote(title: string, body = title): Promise<Note> {
@@ -93,6 +96,23 @@ describe('trashNotesCommand', () => {
     expect(result.value.changed).toBe(2);
     expect((await library.getNote(a.id))?.trashedAt).toBeTruthy();
     expect(useUiStore.getState().multiSelection).toEqual([]);
+  });
+
+  it('checks every revision before moving the first note', async () => {
+    const a = await makeNote('A');
+    const b = await makeNote('B');
+    const result = await trashNotesCommand(
+      [a.id, b.id],
+      { source: 'agent' },
+      {
+        [a.id]: a.updatedAt,
+        [b.id]: '2020-01-01T00:00:00.000Z',
+      },
+    );
+
+    expect(result).toMatchObject({ ok: false, code: 'conflict' });
+    expect((await library.getNote(a.id))?.trashedAt).toBeNull();
+    expect((await library.getNote(b.id))?.trashedAt).toBeNull();
   });
 });
 
@@ -215,6 +235,22 @@ describe('mergeNotesCommand', () => {
     const result = await mergeNotesCommand({ noteIds: [a.id], sourceFate: 'keep' });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe('invalid_input');
+  });
+
+  it('checks every source revision before creating the merged note', async () => {
+    const a = await makeNote('Alpha');
+    const b = await makeNote('Beta');
+    const result = await mergeNotesCommand({
+      noteIds: [a.id, b.id],
+      sourceFate: 'keep',
+      baseUpdatedAtByNoteId: {
+        [a.id]: a.updatedAt,
+        [b.id]: '2020-01-01T00:00:00.000Z',
+      },
+    });
+
+    expect(result).toMatchObject({ ok: false, code: 'conflict' });
+    expect(await library.queryNotes({ scope: 'all' })).toHaveLength(2);
   });
 });
 

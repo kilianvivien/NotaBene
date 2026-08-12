@@ -78,6 +78,15 @@ describe('Phase F MCP tool contracts', () => {
     }
   });
 
+  it('lists the existing tag taxonomy without changing it', async () => {
+    await createFixture();
+    const result = await call('list_tags');
+    expect(result).toEqual({
+      ok: true,
+      value: [expect.objectContaining({ name: 'calculus', namespace: 'topic' })],
+    });
+  });
+
   it('validates list paging', async () => {
     const result = await call('list_notes', { limit: 0 });
     expect(result).toMatchObject({ ok: false, code: 'invalid_input' });
@@ -140,6 +149,79 @@ describe('Phase F MCP tool contracts', () => {
     });
     expect(stale).toMatchObject({ ok: false, code: 'conflict' });
     expect((await library.getNote(note.id))?.title).toBe('Lecture one');
+  });
+
+  it('moves notes to recoverable Trash, lists them there, and restores them', async () => {
+    const { note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+
+    const trashed = await call('trash_notes', {
+      notes: [{ noteId: note.id, baseUpdatedAt: note.updatedAt }],
+    });
+    expect(trashed).toMatchObject({ ok: true, value: { changed: 1, failed: [] } });
+    expect((await library.getNote(note.id))?.trashedAt).toBeTruthy();
+
+    const listed = await call('list_notes', { scope: 'trashed' });
+    expect(listed).toMatchObject({
+      ok: true,
+      value: [expect.objectContaining({ id: note.id, title: 'Lecture one' })],
+    });
+
+    const restored = await call('restore_notes', {
+      notes: [{ noteId: note.id, baseUpdatedAt: note.updatedAt }],
+    });
+    expect(restored).toMatchObject({ ok: true, value: { changed: 1, failed: [] } });
+    expect((await library.getNote(note.id))?.trashedAt).toBeNull();
+  });
+
+  it('merges in the requested order and only trashes sources after creating the result', async () => {
+    const { course, note: first } = await createFixture();
+    if (!first) throw new Error('fixture note missing');
+    const secondResult = await call('create_note', {
+      title: 'Lecture two',
+      courseId: course.id,
+      markdown: 'Continuity follows.',
+    });
+    if (!secondResult.ok) throw new Error(secondResult.message);
+    const second = secondResult.value as NonNullable<
+      Awaited<ReturnType<typeof library.getNote>>
+    >;
+
+    const merged = await call('merge_notes', {
+      notes: [
+        { noteId: second.id, baseUpdatedAt: second.updatedAt },
+        { noteId: first.id, baseUpdatedAt: first.updatedAt },
+      ],
+      title: 'Combined lectures',
+      sourceFate: 'trash',
+    });
+    expect(merged).toMatchObject({
+      ok: true,
+      value: expect.objectContaining({ title: 'Combined lectures', courseId: course.id }),
+    });
+    if (!merged.ok) return;
+    const result = merged.value as NonNullable<
+      Awaited<ReturnType<typeof library.getNote>>
+    >;
+    expect(result.plainText.indexOf('Lecture two')).toBeLessThan(
+      result.plainText.indexOf('Lecture one'),
+    );
+    expect((await library.getNote(first.id))?.trashedAt).toBeTruthy();
+    expect((await library.getNote(second.id))?.trashedAt).toBeTruthy();
+  });
+
+  it('refuses stale and permanently destructive note lifecycle requests', async () => {
+    const { note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+    await expect(
+      call('trash_notes', {
+        notes: [{ noteId: note.id, baseUpdatedAt: '2020-01-01T00:00:00.000Z' }],
+      }),
+    ).resolves.toMatchObject({ ok: false, code: 'conflict' });
+    expect((await library.getNote(note.id))?.trashedAt).toBeNull();
+    expect(Object.keys(TOOL_HANDLERS)).not.toEqual(
+      expect.arrayContaining(['empty_trash', 'purge_notes', 'delete_notes']),
+    );
   });
 
   it('adds and renames tags through a versioned note update', async () => {

@@ -222,6 +222,66 @@ describe('agent command boundary', () => {
     expect(await library.listTags()).toEqual([]);
   });
 
+  it('undoes a merge by restoring trashed sources and archiving the merged note', async () => {
+    const first = await createNoteCommand({ title: 'First', doc: emptyDoc() });
+    const second = await createNoteCommand({ title: 'Second', doc: emptyDoc() });
+    if (!first.ok || !second.ok) throw new Error('fixture failed');
+    const record = run({
+      kind: 'selection',
+      noteIds: [first.value.id, second.value.id],
+    });
+
+    const merged = await executeAgentTool(
+      record,
+      'merge_notes',
+      {
+        notes: [
+          { noteId: first.value.id, baseUpdatedAt: first.value.updatedAt },
+          { noteId: second.value.id, baseUpdatedAt: second.value.updatedAt },
+        ],
+        title: 'Combined',
+        sourceFate: 'trash',
+      },
+      new AbortController().signal,
+    );
+    expect(merged.ok).toBe(true);
+    if (!merged.ok || typeof merged.value !== 'object' || merged.value === null) return;
+    const mergedId = (merged.value as { id: string }).id;
+    expect((await library.getNote(first.value.id))?.trashedAt).toBeTruthy();
+    expect((await library.getNote(second.value.id))?.trashedAt).toBeTruthy();
+
+    record.status = 'completed';
+    useAgentStore.getState().putRun(record);
+    await expect(undoAgentRunCommand(record.id)).resolves.toMatchObject({ ok: true });
+    expect((await library.getNote(first.value.id))?.trashedAt).toBeNull();
+    expect((await library.getNote(second.value.id))?.trashedAt).toBeNull();
+    expect(await library.getNote(mergedId)).toMatchObject({ archived: true });
+  });
+
+  it('returns an originally trashed note to Trash when a restore run is undone', async () => {
+    const created = await createNoteCommand({ title: 'In Trash', doc: emptyDoc() });
+    if (!created.ok) throw new Error(created.message);
+    await library.trashNote(created.value.id);
+    const trashed = await library.getNote(created.value.id);
+    if (!trashed) throw new Error('fixture failed');
+    const record = run({ kind: 'selection', noteIds: [trashed.id] });
+
+    await expect(
+      executeAgentTool(
+        record,
+        'restore_notes',
+        { notes: [{ noteId: trashed.id, baseUpdatedAt: trashed.updatedAt }] },
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({ ok: true });
+    expect((await library.getNote(trashed.id))?.trashedAt).toBeNull();
+
+    record.status = 'completed';
+    useAgentStore.getState().putRun(record);
+    await expect(undoAgentRunCommand(record.id)).resolves.toMatchObject({ ok: true });
+    expect((await library.getNote(trashed.id))?.trashedAt).toBeTruthy();
+  });
+
   it('preserves a run-created tag that another note started using', async () => {
     const record = run({ kind: 'library' });
     const created = await executeAgentTool(

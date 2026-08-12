@@ -91,7 +91,9 @@ Four rules carry most of the weight:
   too, with their `landsIn` phase — they render disabled.
 - Backups and exports must never contain secrets. `LibrarySchema` has no field
   a key could occupy — keep it that way. Keys go through `SecretsAdapter`.
-- MCP exposes no destructive tool. Agents archive; they do not delete.
+- MCP exposes no permanent deletion. Agents may archive or use recoverable
+  Trash, but they cannot empty or purge it, delete library containers, or
+  bypass optimistic concurrency checks.
 - AI provider traffic goes through `src-tauri/src/ai.rs`, not the webview's
   `fetch`, so no provider host appears in `connect-src`. Prompts, parsing and
   provider definitions stay in `src/lib/ai/`; the transport only carries bytes.
@@ -106,10 +108,12 @@ Four rules carry most of the weight:
 Phases A–I are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
-server, the study features, and bulk selection. E adds the
+server, the study features, and bulk selection. The MCP and in-app Agent share
+15 tools: the original surface plus tag discovery, native merging, and
+recoverable Trash/restore operations. E adds the
 provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
 Studio, custom), Keychain key storage, rewrite-with-diff-gate, synthesis, and
-an Ask panel for questions about a note. F adds the authenticated 11-tool MCP
+an Ask panel for questions about a note. F adds the authenticated MCP
 surface, client setup, agent activity, versioned writes, and optimistic
 concurrency protection. G adds mind maps (a real editor block that survives
 every export), flashcards with Anki export, and note-to-podcast over macOS
@@ -128,7 +132,7 @@ Phase G notes worth knowing before touching it:
 - Decks are not library entities and must not become them. They live in a note
   or in Anki, which is why G needed no `SCHEMA_VERSION` bump.
 - A flashcard's `back` may be empty, and only for a cloze card — it is Anki's
-  *Extra* field, not the answer. `answerable()` in `src/lib/schema/` is the
+  _Extra_ field, not the answer. `answerable()` in `src/lib/schema/` is the
   check that matters; requiring `back` rejected whole decks.
 - TTS is `say(1)` behind `src-tauri/src/tts.rs`, writing 16-bit PCM at 22.05 kHz
   so `src/lib/podcast/wav.ts` can join segments by concatenating samples. Change
@@ -154,8 +158,9 @@ Phase I notes worth knowing before touching it:
   Looping the public command re-runs the note list's query per note.
 - Merge honours `input.noteIds` as the running order — the dialog seeds it from
   `mergeOrder()` and the student rearranges it, so re-sorting inside the
-  command would discard what they arranged. Merge has no MCP tool: with the
-  trash fate it is destructive, and agents archive.
+  command would discard what they arranged. Merge is shared with MCP and the
+  in-app Agent; sources may be kept, archived, or moved to recoverable Trash,
+  but never permanently deleted.
 - `MAX_AI_SOURCES` caps synthesis, flashcards and podcast together. The count
   is refused in the dialog; the token budget comes back as `details.limit` so
   the message is translated at the surface rather than carried from the

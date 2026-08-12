@@ -39,6 +39,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { aiFailure, language, providerFor } from './aiCommands';
+import { restoreNotesCommand, trashNotesCommand } from './bulkCommands';
 import {
   deleteCourseCommand,
   deleteSectionCommand,
@@ -376,30 +377,47 @@ export async function undoAgentRunCommand(
       }
       continue;
     }
-    if (!touched.snapshotId) continue;
-    const [snapshot, current] = await Promise.all([
-      library.getSnapshot(touched.snapshotId),
-      library.getNote(touched.noteId),
-    ]);
-    if (!snapshot || !current) continue;
     const metadata = record.undoJournal.notesBefore.find(
       (entry) => entry.noteId === touched.noteId,
     );
-    const restored = await updateNoteCommand(
-      {
-        noteId: current.id,
-        baseUpdatedAt: current.updatedAt,
-        title: snapshot.title,
-        doc: snapshot.doc,
-        courseId: metadata?.courseId,
-        sectionId: metadata?.sectionId,
-        tagIds: metadata?.tagIds,
-        pinned: metadata?.pinned,
-        archived: metadata?.archived,
-      },
-      { source: 'user', snapshotCause: 'restore' },
-    );
-    if (!restored.ok) return restored;
+    let current = await library.getNote(touched.noteId);
+    if (!current) continue;
+
+    // Trash is recoverable but is not part of a content snapshot. Restore a
+    // live pre-run note before applying its snapshot, and put an originally
+    // trashed note back only after all metadata/content restoration is done.
+    if (metadata?.trashedAt === null && current.trashedAt !== null) {
+      const restoredFromTrash = await restoreNotesCommand([current.id]);
+      if (!restoredFromTrash.ok) return restoredFromTrash;
+      current = (await library.getNote(current.id)) ?? current;
+    }
+
+    if (touched.snapshotId) {
+      const snapshot = await library.getSnapshot(touched.snapshotId);
+      if (snapshot) {
+        const restored = await updateNoteCommand(
+          {
+            noteId: current.id,
+            baseUpdatedAt: current.updatedAt,
+            title: snapshot.title,
+            doc: snapshot.doc,
+            courseId: metadata?.courseId,
+            sectionId: metadata?.sectionId,
+            tagIds: metadata?.tagIds,
+            pinned: metadata?.pinned,
+            archived: metadata?.archived,
+          },
+          { source: 'user', snapshotCause: 'restore' },
+        );
+        if (!restored.ok) return restored;
+        current = restored.value;
+      }
+    }
+
+    if (metadata?.trashedAt && current.trashedAt === null) {
+      const returnedToTrash = await trashNotesCommand([current.id]);
+      if (!returnedToTrash.ok) return returnedToTrash;
+    }
   }
 
   for (const tag of record.undoJournal.tagsBeforeRename) {
@@ -507,6 +525,7 @@ async function captureBefore(
         tagIds: [...note.tagIds],
         pinned: note.pinned,
         archived: note.archived,
+        trashedAt: note.trashedAt,
       });
     }
   }
@@ -531,7 +550,7 @@ async function journalAfter(
   value: unknown,
   before: BeforeTool,
 ): Promise<void> {
-  if (tool === 'create_note' && isNote(value)) {
+  if ((tool === 'create_note' || tool === 'merge_notes') && isNote(value)) {
     addUnique(record.undoJournal.createdNoteIds, value.id);
     upsertTouched(record, value.id, value.title, null, true);
   }
@@ -699,11 +718,31 @@ function referencedNoteIds(tool: AgentToolName, args: Record<string, unknown>): 
           .filter((id): id is string => typeof id === 'string')
       : [];
   }
+  if (tool === 'merge_notes' || tool === 'trash_notes' || tool === 'restore_notes') {
+    return Array.isArray(args.notes)
+      ? args.notes
+          .map((note) => (isObject(note) ? note.noteId : undefined))
+          .filter((id): id is string => typeof id === 'string')
+      : [];
+  }
   return [];
 }
 
 function writeNoteIds(tool: AgentToolName, args: Record<string, unknown>): string[] {
-  return ['update_note', 'manage_tags', 'organize'].includes(tool)
+  if (
+    tool === 'merge_notes' &&
+    (args.sourceFate === undefined || args.sourceFate === 'keep')
+  ) {
+    return [];
+  }
+  return [
+    'update_note',
+    'manage_tags',
+    'organize',
+    'merge_notes',
+    'trash_notes',
+    'restore_notes',
+  ].includes(tool)
     ? referencedNoteIds(tool, args)
     : [];
 }

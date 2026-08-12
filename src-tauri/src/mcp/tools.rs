@@ -5,9 +5,9 @@
 //! guarantees an agent write is validated, versioned, and autosaved exactly
 //! like a keystroke.
 //!
-//! Note what is missing: there is no delete tool. v1 lets an agent archive, and
-//! nothing more, so no amount of model confusion can cost a student their notes
-//! (PRD §5.7).
+//! Note what is missing: there is no permanent-delete or empty-Trash tool.
+//! Agents may use recoverable Trash, but no amount of model confusion can purge
+//! a student's notes (PRD §5.7).
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -31,6 +31,9 @@ pub struct ListNotesParams {
     /// Restrict to one course; omit for the whole library.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub course_id: Option<String>,
+    /// `live`, `archived`, or `trashed`. Defaults to `live`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
     /// Page size, 1–500. Defaults to 100.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
@@ -97,9 +100,36 @@ pub struct UpdateNoteParams {
     pub course_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section_id: Option<String>,
-    /// Archive instead of deleting — v1 exposes no destructive operation.
+    /// Archive without putting the note in Trash.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub archived: Option<bool>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionedNoteParams {
+    pub note_id: String,
+    /// `updatedAt` returned by read/list/search.
+    pub base_updated_at: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionedNotesParams {
+    /// Notes to move, each with its concurrency token. Maximum 500.
+    pub notes: Vec<VersionedNoteParams>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeNotesParams {
+    /// Notes in the exact order they should appear in the merged document.
+    pub notes: Vec<VersionedNoteParams>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// `keep`, `archive`, or recoverable `trash`. Defaults to `keep`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_fate: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
@@ -282,8 +312,23 @@ impl NotaBeneMcpServer {
     }
 
     #[tool(
+        name = "notabene_list_tags",
+        description = "List the library's existing tags with ids, names, namespaces, and colours. Use this before organizing or composing tag-filtered searches so you reuse the student's taxonomy."
+    )]
+    pub async fn list_tags(
+        &self,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        to_tool_result(
+            self.bridge
+                .call("list_tags", Value::Null, client_of(&ctx), READ_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
         name = "notabene_list_notes",
-        description = "Browse notes, newest first, optionally within one course. Returns summaries with a text snippet — call notabene_read_note for the full document."
+        description = "Browse live, archived, or trashed notes, newest first, optionally within one course. Returns summaries with a text snippet and revision token — call notabene_read_note for the full document."
     )]
     pub async fn list_notes(
         &self,
@@ -354,7 +399,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_update_note",
-        description = "Update a note's title, body, course, section, or archived flag. Pass the note's current updatedAt as baseUpdatedAt; a concurrent user edit returns a recoverable conflict. The previous state is kept as a restorable agent version. There is no delete tool — archive instead."
+        description = "Update a note's title, body, course, section, or archived flag. Pass the note's current updatedAt as baseUpdatedAt; a concurrent user edit returns a recoverable conflict. The previous state is kept as a restorable agent version."
     )]
     pub async fn update_note(
         &self,
@@ -368,6 +413,66 @@ impl NotaBeneMcpServer {
         to_tool_result(
             self.bridge
                 .call("update_note", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_merge_notes",
+        description = "Merge two or more notes into one in the exact supplied order. Source notes may be kept, archived, or moved to recoverable Trash. Every source needs its current updatedAt; permanent deletion is unavailable."
+    )]
+    pub async fn merge_notes(
+        &self,
+        Parameters(params): Parameters<MergeNotesParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("merge_notes", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_trash_notes",
+        description = "Move one or more notes to recoverable Trash after checking each current updatedAt. This never permanently deletes anything; emptying or purging Trash is not exposed."
+    )]
+    pub async fn trash_notes(
+        &self,
+        Parameters(params): Parameters<VersionedNotesParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("trash_notes", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_restore_notes",
+        description = "Restore one or more notes from Trash after checking each current updatedAt. Browse with notabene_list_notes scope=trashed first."
+    )]
+    pub async fn restore_notes(
+        &self,
+        Parameters(params): Parameters<VersionedNotesParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("restore_notes", args, client_of(&ctx), WRITE_TIMEOUT)
                 .await,
         )
     }
@@ -467,10 +572,10 @@ impl ServerHandler for NotaBeneMcpServer {
              syntax matches the app's own search box. When you create study material \
              (a summary, a revision sheet), file it in the right course and tag it \
              `type:summary` so it is findable later. Every write is versioned and \
-             reversible by the user. Before updating, tagging, or moving a note, pass \
+             reversible by the user. Before any note-changing operation, pass \
              its current `updatedAt` as `baseUpdatedAt`; if a conflict is returned, \
-             read it again before retrying. There is no delete tool, so archive rather \
-             than remove. Never rewrite a note wholesale unless the user asked for \
+             read it again before retrying. Trash is recoverable, and there is no \
+             permanent-delete or empty-Trash tool. Never rewrite a note wholesale unless the user asked for \
              exactly that."
                 .into(),
         );

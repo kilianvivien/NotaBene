@@ -50,6 +50,9 @@ export interface MergeNotesInput {
    * Trimmed; an empty string falls back to that default. */
   title?: string;
   sourceFate: MergeSourceFate;
+  /** Optional optimistic-concurrency tokens for agent/MCP callers. The merge
+   * dialog omits these because it owns the live selection it just previewed. */
+  baseUpdatedAtByNoteId?: Record<string, string>;
 }
 
 /**
@@ -92,6 +95,7 @@ async function patchEach(
   context: CommandContext,
 ): Promise<CommandResult<BulkResult>> {
   if (!noteIds.length) return fail('invalid_input', 'nothing selected');
+  if (context.signal?.aborted) return fail('cancelled', 'cancelled');
   await useEditorStore.getState().flush();
 
   const notes = await loadNotes(noteIds);
@@ -131,7 +135,8 @@ export async function fileNotesCommand(
           : location.courseId === note.courseId
             ? note.sectionId
             : null;
-      if (note.courseId === location.courseId && note.sectionId === sectionId) return null;
+      if (note.courseId === location.courseId && note.sectionId === sectionId)
+        return null;
       return { noteId: note.id, courseId: location.courseId, sectionId };
     },
     context,
@@ -151,9 +156,10 @@ export async function tagNotesCommand(
       if (mode === 'add' ? has : !has) return null;
       return {
         noteId: note.id,
-        tagIds: mode === 'add'
-          ? [...note.tagIds, tagId]
-          : note.tagIds.filter((id) => id !== tagId),
+        tagIds:
+          mode === 'add'
+            ? [...note.tagIds, tagId]
+            : note.tagIds.filter((id) => id !== tagId),
       };
     },
     context,
@@ -176,10 +182,15 @@ export async function archiveNotesCommand(
 
 export async function trashNotesCommand(
   noteIds: string[],
-  _context: CommandContext = USER,
+  context: CommandContext = USER,
+  baseUpdatedAtByNoteId?: Record<string, string>,
 ): Promise<CommandResult<BulkResult>> {
   if (!noteIds.length) return fail('invalid_input', 'nothing selected');
+  if (context.signal?.aborted) return fail('cancelled', 'cancelled');
   await useEditorStore.getState().flush();
+
+  const conflict = await staleBulkNote(noteIds, baseUpdatedAtByNoteId);
+  if (conflict) return conflict;
 
   const failed: BulkResult['failed'] = [];
   let changed = 0;
@@ -199,9 +210,14 @@ export async function trashNotesCommand(
 
 export async function restoreNotesCommand(
   noteIds: string[],
-  _context: CommandContext = USER,
+  context: CommandContext = USER,
+  baseUpdatedAtByNoteId?: Record<string, string>,
 ): Promise<CommandResult<BulkResult>> {
   if (!noteIds.length) return fail('invalid_input', 'nothing selected');
+  if (context.signal?.aborted) return fail('cancelled', 'cancelled');
+
+  const conflict = await staleBulkNote(noteIds, baseUpdatedAtByNoteId);
+  if (conflict) return conflict;
 
   const failed: BulkResult['failed'] = [];
   let changed = 0;
@@ -217,6 +233,29 @@ export async function restoreNotesCommand(
   useUiStore.getState().clearMultiSelection();
   await refreshCurrentView();
   return ok({ changed, failed });
+}
+
+async function staleBulkNote(
+  noteIds: string[],
+  baseUpdatedAtByNoteId?: Record<string, string>,
+): Promise<CommandResult<BulkResult> | null> {
+  if (!baseUpdatedAtByNoteId) return null;
+  for (const noteId of noteIds) {
+    const note = await library.getNote(noteId);
+    if (!note) return fail('not_found', `no note ${noteId}`);
+    const expected = baseUpdatedAtByNoteId[noteId];
+    if (expected === undefined) {
+      return fail('invalid_input', `no revision token for note ${noteId}`);
+    }
+    if (expected !== note.updatedAt) {
+      return fail('conflict', 'a note changed after it was read', {
+        noteId,
+        expectedUpdatedAt: expected,
+        actualUpdatedAt: note.updatedAt,
+      });
+    }
+  }
+  return null;
 }
 
 /**
@@ -251,6 +290,16 @@ export async function mergeNotesCommand(
   const ordered = input.noteIds
     .map((noteId) => byId.get(noteId))
     .filter((note): note is Note => note !== undefined);
+  for (const note of ordered) {
+    const expected = input.baseUpdatedAtByNoteId?.[note.id];
+    if (expected !== undefined && expected !== note.updatedAt) {
+      return fail('conflict', 'a note changed after it was read', {
+        noteId: note.id,
+        expectedUpdatedAt: expected,
+        actualUpdatedAt: note.updatedAt,
+      });
+    }
+  }
   const untitledLabel = i18n.t('noteList.untitled');
   const doc = mergeNoteDocs(
     ordered.map((note) => ({ title: note.title, doc: note.doc })),

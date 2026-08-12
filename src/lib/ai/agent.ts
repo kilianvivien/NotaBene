@@ -33,11 +33,15 @@ const MAX_TOOL_RESULT_CHARS = 16_000;
 export const AGENT_TOOL_GUIDE = `
 - get_app_state {} — current note, view and selection
 - list_courses {} — courses and sections
-- list_notes { courseId?, limit?, offset? } — note summaries
+- list_tags {} — the library's existing tag taxonomy
+- list_notes { courseId?, scope?: "live"|"archived"|"trashed", limit?, offset? } — note summaries; use the trashed scope before restoring
 - search_notes { query, limit? } — app search syntax
 - read_note { noteId, format?: "json"|"markdown"|"both" } — full note and updatedAt
 - create_note { title?, courseId?, sectionId?, markdown?|doc?, tags? } — create a note
-- update_note { noteId, baseUpdatedAt, title?, markdown?|doc?, courseId?, sectionId?, archived? } — versioned update; archive, never delete
+- update_note { noteId, baseUpdatedAt, title?, markdown?|doc?, courseId?, sectionId?, archived? } — versioned update; use trash_notes for recoverable removal
+- merge_notes { notes: [{ noteId, baseUpdatedAt }], title?, sourceFate?: "keep"|"archive"|"trash" } — merge notes in the supplied order; Trash is recoverable and permanent deletion is unavailable
+- trash_notes { notes: [{ noteId, baseUpdatedAt }] } — move notes to recoverable Trash; never permanently delete
+- restore_notes { notes: [{ noteId, baseUpdatedAt }] } — restore notes from Trash
 - manage_tags { noteId, baseUpdatedAt, add?, remove?, rename? } — versioned tag update
 - create_course { name, professor?, semester? } — create a course; whole-library scope only
 - export_notes { noteIds, format, fileName, layout?, includeToc? } — export into NotaBene's exports folder
@@ -70,7 +74,7 @@ export async function requestAgentPlan(
       messages: [
         {
           role: 'system',
-          content: `You plan safe, reviewable work inside NotaBene. Return JSON only. Do not execute anything. Use only the tools listed below and never invent a delete operation. Every update must first obtain the current updatedAt by reading, listing, or searching. Keep the plan concise and observable. Write the plan in ${request.language}. Plan summaries and step descriptions are shown directly to the student: use ordinary language only. Never mention internal field names (such as updatedAt, baseUpdatedAt, noteId, courseId or sectionId), JSON, schemas, tokens, tool calls, or MCP. Describe a safety read as checking the latest saved note before changing it. Refer to notes by title and never put an internal note id in visible strings. Put every note id needed by a step only in that step's noteIds array. If the instruction needs a wider scope, describe the honest required tools anyway; never substitute a different destination or weaker outcome. The app will ask the student to widen explicitly.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
+          content: `You plan safe, reviewable work inside NotaBene. Return JSON only. Do not execute anything. Use only the tools listed below and never invent a permanent-delete or empty-Trash operation. Every note-changing operation must first obtain the current updatedAt by reading, listing, or searching. Keep the plan concise and observable. Write the plan in ${request.language}. Plan summaries and step descriptions are shown directly to the student: use ordinary language only. Never mention internal field names (such as updatedAt, baseUpdatedAt, noteId, courseId or sectionId), JSON, schemas, tokens, tool calls, or MCP. Describe a safety read as checking the latest saved note before changing it. Refer to notes by title and never put an internal note id in visible strings. Put every note id needed by a step only in that step's noteIds array. If the instruction needs a wider scope, describe the honest required tools anyway; never substitute a different destination or weaker outcome. The app will ask the student to widen explicitly.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
         },
         {
           role: 'user',
@@ -245,7 +249,7 @@ async function requestDecision(
       messages: [
         {
           role: 'system',
-          content: `You are the in-app NotaBene agent. Work through the approved plan one tool call at a time. Use only the exact MCP tools below. Respect the approved scope; the executor will reject anything outside it. Never delete. Before every update, tag change, or move, obtain the note's current updatedAt. After a conflict, read again before retrying. Rationale and summary strings are shown directly to the student: use ordinary language only and never mention internal field names (such as updatedAt, baseUpdatedAt, noteId, courseId or sectionId), JSON, schemas, tokens, tool calls, or MCP. Describe a safety read as checking the latest saved note before changing it. Before returning done, compare the actual successful tool outcomes with the original instruction and approved plan. Set outcomeAchieved true only when the requested outcome—not a fallback or weaker substitute—was achieved; otherwise set it false and explain what remains. Return a concise summary in ${request.language} and one JSON object only.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
+          content: `You are the in-app NotaBene agent. Work through the approved plan one tool call at a time. Use only the exact MCP tools below. Respect the approved scope; the executor will reject anything outside it. Never permanently delete or empty Trash. Before every note-changing operation, obtain the note's current updatedAt. After a conflict, read again before retrying. Rationale and summary strings are shown directly to the student: use ordinary language only and never mention internal field names (such as updatedAt, baseUpdatedAt, noteId, courseId or sectionId), JSON, schemas, tokens, tool calls, or MCP. Describe a safety read as checking the latest saved note before changing it. Before returning done, compare the actual successful tool outcomes with the original instruction and approved plan. Set outcomeAchieved true only when the requested outcome—not a fallback or weaker substitute—was achieved; otherwise set it false and explain what remains. Return a concise summary in ${request.language} and one JSON object only.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
         },
         {
           role: 'user',
