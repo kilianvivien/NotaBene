@@ -9,6 +9,7 @@ import { retainedSnapshotIds } from '@/lib/history/retention';
 import { createNote, emptyLibrary, type NoteDoc } from '@/lib/schema';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { saveEditorNoteCommand } from '@/lib/commands/editorCommands';
+import { docToMarkdown } from '@/editor/markdown';
 
 const fullVocabulary: NoteDoc = {
   type: 'doc',
@@ -83,6 +84,30 @@ const fullVocabulary: NoteDoc = {
         title: 'Diagram',
         svg: '<svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>',
       },
+    },
+    {
+      type: 'blockquote',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Extracted passage' }],
+        },
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Source: research.pdf, p. 7',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: { href: 'notabene-pdf:attachment-1?page=7' },
+                },
+              ],
+            },
+          ],
+        },
+      ],
     },
   ],
 };
@@ -171,6 +196,10 @@ describe('Phase D versions, backups, and exports', () => {
     expect(html).toContain('<pre><code');
     expect(html).toContain('<svg');
     expect(html).toContain('katex');
+    expect(html).toContain('notabene-pdf:attachment-1?page=7');
+    expect(docToMarkdown(fullVocabulary)).toContain(
+      '[Source: research.pdf, p. 7](notabene-pdf:attachment-1?page=7)',
+    );
   });
 
   it('builds a DOCX containing tables, math, drawings, and rich text', async () => {
@@ -186,6 +215,7 @@ describe('Phase D versions, backups, and exports', () => {
     expect(document).toContain('<w:drawing>');
     expect(document).toContain('Heading');
     expect(document).toContain('IMPORTANT');
+    expect(document).toContain('Source: research.pdf, p. 7');
     expect(document).toContain('FAEFF3');
     expect(styles).toContain('Arial');
     expect(relationships).toContain('https://example.com');

@@ -7,6 +7,16 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { selectionFor, useUiStore } from './uiStore';
+import type { Attachment } from '@/lib/schema';
+
+const pdf: Attachment = {
+  id: 'pdf-1',
+  noteId: 'note-1',
+  assetId: 'asset-1',
+  name: 'paper.pdf',
+  createdAt: '2026-08-12T08:00:00.000Z',
+  annotations: [],
+};
 
 beforeEach(() => {
   useUiStore.getState().selectNote(null);
@@ -18,6 +28,20 @@ describe('selectNote', () => {
     useUiStore.getState().selectNote('d');
     expect(useUiStore.getState().multiSelection).toEqual([]);
     expect(useUiStore.getState().selectedNoteId).toBe('d');
+  });
+
+  it('keeps a PDF beside its note and closes it when another note opens', () => {
+    useUiStore.setState({ inspectorVisible: true });
+    useUiStore.getState().openPdfReader(pdf, 4, 'highlight-1');
+    expect(useUiStore.getState()).toMatchObject({
+      inspectorVisible: false,
+      pdfReading: { attachment: pdf, page: 4, annotationId: 'highlight-1' },
+    });
+
+    useUiStore.getState().selectNote('note-1');
+    expect(useUiStore.getState().pdfReading).not.toBeNull();
+    useUiStore.getState().selectNote('note-2');
+    expect(useUiStore.getState().pdfReading).toBeNull();
   });
 });
 

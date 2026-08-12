@@ -5,6 +5,13 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { DocumentImportSource } from '@/lib/import/documentImport';
+import type { Attachment } from '@/lib/schema';
+
+export interface PdfReadingRequest {
+  attachment: Attachment;
+  page: number;
+  annotationId?: string;
+}
 
 /** What the note list is currently showing. */
 export type ViewKind =
@@ -103,6 +110,7 @@ interface UiState {
   searchCourseId: string | null;
   /** Set while an MCP agent is acting on the library, so the UI can show it. */
   agentBusy: boolean;
+  pdfReading: PdfReadingRequest | null;
 
   setView(view: ViewKind): void;
   selectNote(noteId: string | null): void;
@@ -134,6 +142,8 @@ interface UiState {
   setSearchQuery(query: string): void;
   setSearchScope(scope: 'all' | 'course'): void;
   setAgentBusy(busy: boolean): void;
+  openPdfReader(attachment: Attachment, page?: number, annotationId?: string): void;
+  closePdfReader(): void;
 }
 
 /**
@@ -204,6 +214,7 @@ export const useUiStore = create<UiState>()(
     searchScope: 'all',
     searchCourseId: null,
     agentBusy: false,
+    pdfReading: null,
 
     setView(view) {
       set((state) => {
@@ -218,8 +229,29 @@ export const useUiStore = create<UiState>()(
     // focusing a note ends the bulk selection.
     selectNote(noteId) {
       set((state) => {
+        if (state.pdfReading?.attachment.noteId !== noteId) state.pdfReading = null;
         state.selectedNoteId = noteId;
         state.multiSelection = [];
+      });
+    },
+
+    openPdfReader(attachment, page = 1, annotationId) {
+      set((state) => {
+        // The attachment is opened from the inspector; collapsing that narrow
+        // source pane gives the reader and note enough room to remain useful
+        // side by side on a laptop display.
+        state.inspectorVisible = false;
+        state.pdfReading = {
+          attachment,
+          page: Math.max(1, Math.floor(page)),
+          annotationId,
+        };
+      });
+    },
+
+    closePdfReader() {
+      set((state) => {
+        state.pdfReading = null;
       });
     },
 

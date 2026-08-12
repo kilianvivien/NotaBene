@@ -162,6 +162,34 @@
     "tableControls": "Tableau",
     "deleteTable": "Supprimer le tableau"
   },
+  "pdf": {
+    "reader": "Lecteur PDF",
+    "loading": "Chargement du PDF…",
+    "missingFile": "Le fichier PDF est absent de la bibliothèque.",
+    "search": "Rechercher dans ce PDF",
+    "searching": "Recherche…",
+    "matchCount": "{{current}} sur {{count}}",
+    "previousMatch": "Occurrence PDF précédente",
+    "nextMatch": "Occurrence PDF suivante",
+    "annotations": "Surlignages et notes",
+    "noAnnotations": "Aucun surlignage.",
+    "addHighlight": "Surligner la sélection",
+    "selectionHint": "Sélectionnez du texte sur la page pour le surligner.",
+    "highlightColor": "Couleur du surlignage",
+    "openAnnotation": "Ouvrir le surlignage : {{text}}",
+    "comment": "Commentaire",
+    "commentPlaceholder": "Ajoutez une note sur ce passage…",
+    "extractToNote": "Extraire",
+    "deleteHighlight": "Supprimer le surlignage",
+    "pageShort": "p. {{page}}",
+    "sourceAttribution": "Source : {{name}}, p. {{page}}",
+    "color": {
+      "yellow": "Surlignage jaune",
+      "green": "Surlignage vert",
+      "blue": "Surlignage bleu",
+      "pink": "Surlignage rose"
+    }
+  },
   "inspector": {
     "details": "Détails",
     "info": "Infos",

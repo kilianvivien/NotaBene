@@ -19,7 +19,19 @@ export type EditorCommand =
 
 type Runner = (command: EditorCommand) => boolean | Promise<boolean>;
 
+export interface PdfExcerptInput {
+  attachmentId: string;
+  annotationId: string;
+  sourceName: string;
+  page: number;
+  text: string;
+  comment?: string;
+}
+
+type PdfExcerptInserter = (input: PdfExcerptInput) => boolean;
+
 let runner: Runner | null = null;
+let pdfExcerptInserter: PdfExcerptInserter | null = null;
 
 export function registerEditorCommandRunner(next: Runner): () => void {
   runner = next;
@@ -30,4 +42,15 @@ export function registerEditorCommandRunner(next: Runner): () => void {
 
 export async function runEditorCommand(command: EditorCommand): Promise<boolean> {
   return (await runner?.(command)) ?? false;
+}
+
+export function registerPdfExcerptInserter(next: PdfExcerptInserter): () => void {
+  pdfExcerptInserter = next;
+  return () => {
+    if (pdfExcerptInserter === next) pdfExcerptInserter = null;
+  };
+}
+
+export function insertPdfExcerpt(input: PdfExcerptInput): boolean {
+  return pdfExcerptInserter?.(input) ?? false;
 }

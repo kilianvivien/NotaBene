@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import type { NoteDoc } from '@/lib/schema';
 import { storeAssetCommand } from '@/lib/commands';
 import { createNoteCommand } from '@/lib/commands';
+import { library } from '@/lib/adapters';
+import { buildPdfSourceHref, parsePdfSourceHref } from '@/lib/pdf/sourceLinks';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
@@ -13,7 +15,11 @@ import {
   concentrationPluginKey,
   type ConcentrationState,
 } from './extensions/Concentration';
-import { registerEditorCommandRunner, type EditorCommand } from './commandBridge';
+import {
+  registerEditorCommandRunner,
+  registerPdfExcerptInserter,
+  type EditorCommand,
+} from './commandBridge';
 import { registerEditorPrompt, type EditorPromptRequest } from './editorPrompt';
 import { EditorPromptDialog } from './EditorPromptDialog';
 import { TableControls } from './TableControls';
@@ -160,6 +166,29 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
         return true;
       },
       handleClick(view, position, event) {
+        const sourceLink =
+          event.target instanceof Element
+            ? event.target.closest<HTMLAnchorElement>('a[href^="notabene-pdf:"]')
+            : null;
+        if (sourceLink) {
+          const source = parsePdfSourceHref(sourceLink.getAttribute('href') ?? '');
+          if (!source) return false;
+          event.preventDefault();
+          void library
+            .listAttachments(useUiStore.getState().selectedNoteId ?? '')
+            .then((attachments) => {
+              const attachment = attachments.find(
+                (candidate) => candidate.id === source.attachmentId,
+              );
+              if (attachment) {
+                useUiStore
+                  .getState()
+                  .openPdfReader(attachment, source.page, source.annotationId);
+              }
+            })
+            .catch(() => undefined);
+          return true;
+        }
         const element =
           event.target instanceof Element
             ? event.target.closest<HTMLAnchorElement>('a[data-wiki-link]')
@@ -318,6 +347,58 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   );
 
   useEffect(() => registerEditorCommandRunner(run), [run]);
+
+  useEffect(() => {
+    if (!editor) return;
+    return registerPdfExcerptInserter((input) => {
+      const source = t('pdf.sourceAttribution', {
+        name: input.sourceName,
+        page: input.page,
+      });
+      const content = [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: input.text }],
+        },
+        ...(input.comment
+          ? [
+              {
+                type: 'paragraph',
+                content: [
+                  {
+                    type: 'text',
+                    marks: [{ type: 'italic' }],
+                    text: input.comment,
+                  },
+                ],
+              },
+            ]
+          : []),
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: buildPdfSourceHref({
+                      attachmentId: input.attachmentId,
+                      annotationId: input.annotationId,
+                      page: input.page,
+                    }),
+                  },
+                },
+              ],
+              text: source,
+            },
+          ],
+        },
+      ];
+      return editor.chain().focus().insertContent({ type: 'blockquote', content }).run();
+    });
+  }, [editor, t]);
 
   useEffect(() => {
     if (!editor) return;

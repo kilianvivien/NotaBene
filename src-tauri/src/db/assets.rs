@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use rusqlite::{params, Connection};
 use serde_json::Value;
 
-use super::model::{Asset, Attachment};
+use super::model::{Asset, Attachment, PdfAnnotation};
 use super::{notes, DbResult, Store};
 
 fn asset_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Asset> {
@@ -17,6 +17,25 @@ fn asset_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Asset> {
         width: row.get(3)?,
         height: row.get(4)?,
         created_at: row.get(5)?,
+    })
+}
+
+fn attachment_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Attachment> {
+    let raw: String = row.get(5)?;
+    let annotations: Vec<PdfAnnotation> = serde_json::from_str(&raw).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(
+            raw.len(),
+            rusqlite::types::Type::Text,
+            Box::new(error),
+        )
+    })?;
+    Ok(Attachment {
+        id: row.get(0)?,
+        note_id: row.get(1)?,
+        asset_id: row.get(2)?,
+        name: row.get(3)?,
+        created_at: row.get(4)?,
+        annotations,
     })
 }
 
@@ -73,19 +92,11 @@ pub(crate) fn list_assets_in(connection: &Connection) -> DbResult<Vec<Asset>> {
 
 pub(crate) fn list_all_attachments_in(connection: &Connection) -> DbResult<Vec<Attachment>> {
     let mut statement = connection.prepare(
-        "SELECT id, note_id, asset_id, name, created_at
+        "SELECT id, note_id, asset_id, name, created_at, annotations_json
          FROM attachments ORDER BY created_at",
     )?;
     let rows = statement
-        .query_map([], |row| {
-            Ok(Attachment {
-                id: row.get(0)?,
-                note_id: row.get(1)?,
-                asset_id: row.get(2)?,
-                name: row.get(3)?,
-                created_at: row.get(4)?,
-            })
-        })?
+        .query_map([], attachment_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
@@ -93,19 +104,11 @@ pub(crate) fn list_all_attachments_in(connection: &Connection) -> DbResult<Vec<A
 pub fn list_attachments(store: &Store, note_id: &str) -> DbResult<Vec<Attachment>> {
     store.with(|connection| {
         let mut statement = connection.prepare(
-            "SELECT id, note_id, asset_id, name, created_at
+            "SELECT id, note_id, asset_id, name, created_at, annotations_json
              FROM attachments WHERE note_id = ?1 ORDER BY created_at",
         )?;
         let rows = statement
-            .query_map([note_id], |row| {
-                Ok(Attachment {
-                    id: row.get(0)?,
-                    note_id: row.get(1)?,
-                    asset_id: row.get(2)?,
-                    name: row.get(3)?,
-                    created_at: row.get(4)?,
-                })
-            })?
+            .query_map([note_id], attachment_from_row)?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
     })
@@ -126,19 +129,22 @@ pub(crate) fn upsert_attachment_in(
             |row| row.get::<_, String>(0),
         )
         .ok();
+    let annotations = serde_json::to_string(&attachment.annotations)?;
     connection.execute(
-        "INSERT INTO attachments (id, note_id, asset_id, name, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)
+        "INSERT INTO attachments (id, note_id, asset_id, name, created_at, annotations_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(id) DO UPDATE SET
            note_id = excluded.note_id,
            asset_id = excluded.asset_id,
-           name = excluded.name",
+           name = excluded.name,
+           annotations_json = excluded.annotations_json",
         params![
             attachment.id,
             attachment.note_id,
             attachment.asset_id,
             attachment.name,
-            attachment.created_at
+            attachment.created_at,
+            annotations
         ],
     )?;
     notes::reindex_note(connection, &attachment.note_id)?;
@@ -225,6 +231,7 @@ pub fn collect_garbage(store: &Store) -> DbResult<Vec<(String, i64)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::model::{PdfAnnotation, PdfAnnotationRect};
 
     struct TempStore {
         store: Store,
@@ -292,5 +299,57 @@ mod tests {
 
         assert_eq!(removed, vec![("orphan".into(), 10)]);
         assert_eq!(list_assets(store).expect("list assets").len(), 4);
+    }
+
+    #[test]
+    fn pdf_annotations_round_trip_with_their_attachment() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        store
+            .transact(|connection| {
+                connection.execute(
+                    "INSERT INTO notes
+                     (id, doc_json, plain_text, created_at, updated_at)
+                     VALUES ('note', '{\"type\":\"doc\",\"content\":[]}', '', ?1, ?1)",
+                    ["2026-08-12T08:00:00Z"],
+                )?;
+                connection.execute(
+                    "INSERT INTO assets (id, mime, bytes, created_at)
+                     VALUES ('asset', 'application/pdf', 10, ?1)",
+                    ["2026-08-12T08:00:00Z"],
+                )?;
+                Ok(())
+            })
+            .expect("seed attachment parents");
+        let attachment = Attachment {
+            id: "attachment".into(),
+            note_id: "note".into(),
+            asset_id: "asset".into(),
+            name: "paper.pdf".into(),
+            created_at: "2026-08-12T08:00:00Z".into(),
+            annotations: vec![PdfAnnotation {
+                id: "highlight".into(),
+                page: 2,
+                rects: vec![PdfAnnotationRect {
+                    x1: 10.0,
+                    y1: 20.0,
+                    x2: 90.0,
+                    y2: 32.0,
+                }],
+                text: "A cited passage".into(),
+                comment: "Use in the introduction".into(),
+                color: "yellow".into(),
+                created_at: "2026-08-12T08:00:00Z".into(),
+                updated_at: "2026-08-12T08:00:00Z".into(),
+            }],
+        };
+
+        upsert_attachment(store, &attachment).expect("save attachment");
+        let rows = list_attachments(store, "note").expect("load attachment");
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].annotations.len(), 1);
+        assert_eq!(rows[0].annotations[0].text, "A cited passage");
+        assert_eq!(rows[0].annotations[0].rects[0].x2, 90.0);
     }
 }
