@@ -1,7 +1,7 @@
 {
   "name": "notabene",
   "private": true,
-  "version": "0.6.2",
+  "version": "0.7.0",
   "type": "module",
   "description": "A simple, privacy-first note-taking app for students",
   "license": "Apache-2.0",
