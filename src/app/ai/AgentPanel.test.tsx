@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as commands from '@/lib/commands';
 import type { AgentRunRecord } from '@/lib/schema';
@@ -134,11 +134,13 @@ describe('AgentPanel review gate', () => {
     expect(screen.queryByText(/note-1/)).toBeNull();
   });
 
-  it('describes finished calls in plain language and keeps the JSON in details', () => {
+  it('describes finished calls without exposing internal fields or raw details', () => {
     const active = plannedRun();
     active.status = 'completed';
     active.summary = 'The course is organized.';
     active.tokensUsed = 4_200;
+    active.plan.steps[0]!.description =
+      'Read the note and get its updatedAt before changing it.';
     active.calls = [
       {
         id: 'call-1',
@@ -156,7 +158,7 @@ describe('AgentPanel review gate', () => {
         id: 'call-2',
         tool: 'update_note',
         arguments: { noteId: 'note-1' },
-        rationale: 'Move the note into its matching section.',
+        rationale: 'Read its updatedAt before changing it.',
         status: 'succeeded',
         resultPreview: '{"title":"Limits"}',
         startedAt: new Date().toISOString(),
@@ -170,15 +172,43 @@ describe('AgentPanel review gate', () => {
 
     render(<AgentPanel noteId="note-1" />);
 
-    expect(screen.getByText('Move the note into its matching section.')).not.toBeNull();
     expect(screen.getByText('Searched for “canicule”')).not.toBeNull();
     expect(screen.getByText('Rewrote “Limits”')).not.toBeNull();
+    expect(screen.queryByText(/updatedAt/)).toBeNull();
     expect(screen.queryByText(/71dnBlhpiffq/)).toBeNull();
+    expect(screen.queryByText('Technical details')).toBeNull();
     expect(screen.getByText('The course is organized.')).not.toBeNull();
     expect(screen.getByTitle('Open the version from before this run')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Undo the changes' })).not.toHaveProperty(
       'disabled',
       true,
+    );
+  });
+
+  it('plans a follow-up with the finished run as context', async () => {
+    const active = plannedRun();
+    active.status = 'completed';
+    active.summary = 'The course is organized.';
+    active.completedAt = new Date().toISOString();
+    useAgentStore.setState({ runs: [active], activeRunId: active.id });
+    const plan = vi.spyOn(commands, 'planAgentCommand').mockResolvedValue({
+      ok: true,
+      value: { ...plannedRun(), id: 'follow-up', parentRunId: active.id },
+    });
+
+    render(<AgentPanel noteId="note-1" />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Follow-up' }), {
+      target: { value: 'Make the recap shorter.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Plan the follow-up' }));
+
+    await waitFor(() => expect(plan).toHaveBeenCalledOnce());
+    expect(plan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instruction: 'Make the recap shorter.',
+        followUpTo: active.id,
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 

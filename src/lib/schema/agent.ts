@@ -127,6 +127,9 @@ export type AgentUndoJournal = z.infer<typeof AgentUndoJournalSchema>;
 
 export const AgentRunRecordSchema = z.object({
   id: z.string().min(1),
+  /** Follow-ups are separate undo units, but remain linked to the run whose
+   * result the student is refining. Optional keeps existing v1 journals valid. */
+  parentRunId: z.string().min(1).optional(),
   instruction: z.string().min(1),
   scope: AgentScopeSchema,
   plan: AgentPlanSchema,

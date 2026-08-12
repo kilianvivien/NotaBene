@@ -13,6 +13,7 @@ import {
   DEFAULT_AGENT_BUDGET,
   requestAgentPlan,
   runAgentLoop,
+  type AgentFollowUpContext,
   type AiRunOptions,
   type AgentToolOutcome,
 } from '@/lib/ai';
@@ -51,6 +52,7 @@ export interface PlanAgentInput {
   instruction: string;
   scope?: AgentScope;
   budget?: AgentBudget;
+  followUpTo?: string;
 }
 
 class AgentCompletionError extends Error {
@@ -155,6 +157,16 @@ export async function planAgentCommand(
   if (!parsedScope.success) {
     return fail('invalid_input', 'invalid agent scope', parsedScope.error.issues);
   }
+  const parent = input.followUpTo
+    ? useAgentStore.getState().runs.find((run) => run.id === input.followUpTo)
+    : undefined;
+  if (input.followUpTo && !parent) {
+    return fail('not_found', `no agent run ${input.followUpTo}`);
+  }
+  if (parent?.status === 'planned' || parent?.status === 'running') {
+    return fail('conflict', 'finish the current agent run before following up');
+  }
+  const followUpContext = parent ? contextForFollowUp(parent) : undefined;
 
   await useEditorStore.getState().flush();
   const lookup = await providerFor('agent');
@@ -168,6 +180,7 @@ export async function planAgentCommand(
         instruction,
         scope: parsedScope.data,
         scopeContext: scopeDescription.context,
+        followUpContext,
         language: language(),
       },
       options,
@@ -181,6 +194,7 @@ export async function planAgentCommand(
     }
     const run: AgentRunRecord = {
       id: `agent_${newId()}`,
+      parentRunId: parent?.id,
       instruction,
       scope: parsedScope.data,
       plan,
@@ -235,6 +249,9 @@ export async function runAgentCommand(
   record.error = undefined;
   put(record);
   const scopeDescription = await describeScope(record.scope);
+  const parent = record.parentRunId
+    ? useAgentStore.getState().runs.find((run) => run.id === record.parentRunId)
+    : undefined;
 
   try {
     const result = await runAgentLoop(
@@ -243,6 +260,7 @@ export async function runAgentCommand(
         instruction: record.instruction,
         scope: record.scope,
         scopeContext: scopeDescription.context,
+        followUpContext: parent ? contextForFollowUp(parent) : undefined,
         plan: record.plan,
         budget: record.budget,
         language: language(),
@@ -323,6 +341,15 @@ export async function runAgentCommand(
               : undefined,
           );
   }
+}
+
+function contextForFollowUp(run: AgentRunRecord): AgentFollowUpContext {
+  return {
+    instruction: run.instruction,
+    planSummary: run.plan.summary,
+    resultSummary: run.summary,
+    touchedNoteTitles: run.touchedNotes.map((note) => note.title).filter(Boolean),
+  };
 }
 
 export async function undoAgentRunCommand(

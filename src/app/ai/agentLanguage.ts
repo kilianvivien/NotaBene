@@ -40,6 +40,16 @@ export function planText(plan: AgentPlan, value: string): string {
   );
 }
 
+/** Model-authored prose is never a trustworthy presentation boundary. Older
+ * journals predate the prompt rule, so suppress technical contract language
+ * instead of letting storage fields leak back into the student-facing pane. */
+export function userFacingAgentText(value: string): string | null {
+  const technicalTerm = /\b(?:json|mcp|schemas?|tokens?|tool calls?)\b/iu;
+  const internalSyntax =
+    /\b[a-z]+(?:[A-Z][A-Za-z0-9]*)+\b|\b[a-z]+_[a-z_]+\b|[{}[\]]/u;
+  return technicalTerm.test(value) || internalSyntax.test(value) ? null : value;
+}
+
 /** If the model kept a note reference properly structured but wrote a generic
  * sentence, show the trusted library title beside it. */
 export function planStepTitles(

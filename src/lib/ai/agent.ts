@@ -49,7 +49,15 @@ export interface AgentPlanRequest {
   instruction: string;
   scope: AgentScope;
   scopeContext: string;
+  followUpContext?: AgentFollowUpContext;
   language: string;
+}
+
+export interface AgentFollowUpContext {
+  instruction: string;
+  planSummary: string;
+  resultSummary?: string;
+  touchedNoteTitles: string[];
 }
 
 export async function requestAgentPlan(
@@ -62,11 +70,11 @@ export async function requestAgentPlan(
       messages: [
         {
           role: 'system',
-          content: `You plan safe, reviewable work inside NotaBene. Return JSON only. Do not execute anything. Use only the tools listed below and never invent a delete operation. Every update must first obtain the current updatedAt by reading, listing, or searching. Keep the plan concise and observable. Write the plan in ${request.language}. Plan summaries and step descriptions are shown directly to the student: refer to notes by title and never put an internal note id in those strings. Put every note id needed by a step only in that step's noteIds array. If the instruction needs a wider scope, describe the honest required tools anyway; never substitute a different destination or weaker outcome. The app will ask the student to widen explicitly.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
+          content: `You plan safe, reviewable work inside NotaBene. Return JSON only. Do not execute anything. Use only the tools listed below and never invent a delete operation. Every update must first obtain the current updatedAt by reading, listing, or searching. Keep the plan concise and observable. Write the plan in ${request.language}. Plan summaries and step descriptions are shown directly to the student: use ordinary language only. Never mention internal field names (such as updatedAt, baseUpdatedAt, noteId, courseId or sectionId), JSON, schemas, tokens, tool calls, or MCP. Describe a safety read as checking the latest saved note before changing it. Refer to notes by title and never put an internal note id in visible strings. Put every note id needed by a step only in that step's noteIds array. If the instruction needs a wider scope, describe the honest required tools anyway; never substitute a different destination or weaker outcome. The app will ask the student to widen explicitly.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
         },
         {
           role: 'user',
-          content: `Instruction:\n${request.instruction}\n\nApproved scope:\n${JSON.stringify(request.scope)}\n\nScope contents:\n${request.scopeContext}\n\nReturn {"summary":"...","steps":[{"description":"...","expectedTools":["..."],"noteIds":["..."]}]}.`,
+          content: `${followUpPrompt(request.followUpContext)}Instruction:\n${request.instruction}\n\nApproved scope:\n${JSON.stringify(request.scope)}\n\nScope contents:\n${request.scopeContext}\n\nReturn {"summary":"...","steps":[{"description":"...","expectedTools":["..."],"noteIds":["..."]}]}.`,
         },
       ],
       maxTokens: PLAN_MAX_TOKENS,
@@ -98,6 +106,7 @@ export interface AgentLoopRequest {
   instruction: string;
   scope: AgentScope;
   scopeContext: string;
+  followUpContext?: AgentFollowUpContext;
   plan: AgentPlan;
   budget: AgentBudget;
   language: string;
@@ -236,11 +245,11 @@ async function requestDecision(
       messages: [
         {
           role: 'system',
-          content: `You are the in-app NotaBene agent. Work through the approved plan one tool call at a time. Use only the exact MCP tools below. Respect the approved scope; the executor will reject anything outside it. Never delete. Before every update, tag change, or move, obtain the note's current updatedAt. After a conflict, read again before retrying. Before returning done, compare the actual successful tool outcomes with the original instruction and approved plan. Set outcomeAchieved true only when the requested outcome—not a fallback or weaker substitute—was achieved; otherwise set it false and explain what remains. Return a concise summary in ${request.language} and one JSON object only.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
+          content: `You are the in-app NotaBene agent. Work through the approved plan one tool call at a time. Use only the exact MCP tools below. Respect the approved scope; the executor will reject anything outside it. Never delete. Before every update, tag change, or move, obtain the note's current updatedAt. After a conflict, read again before retrying. Rationale and summary strings are shown directly to the student: use ordinary language only and never mention internal field names (such as updatedAt, baseUpdatedAt, noteId, courseId or sectionId), JSON, schemas, tokens, tool calls, or MCP. Describe a safety read as checking the latest saved note before changing it. Before returning done, compare the actual successful tool outcomes with the original instruction and approved plan. Set outcomeAchieved true only when the requested outcome—not a fallback or weaker substitute—was achieved; otherwise set it false and explain what remains. Return a concise summary in ${request.language} and one JSON object only.\n\nTools:\n${AGENT_TOOL_GUIDE}`,
         },
         {
           role: 'user',
-          content: `Instruction:\n${request.instruction}\n\nApproved plan:\n${JSON.stringify(request.plan)}\n\nApproved scope:\n${JSON.stringify(request.scope)}\n\nScope contents:\n${request.scopeContext}\n\nCalls so far:\n${JSON.stringify(transcript)}\n\nReturn either {"action":"tool","tool":"...","arguments":{},"rationale":"..."} or {"action":"done","outcomeAchieved":true|false,"summary":"..."}.`,
+          content: `${followUpPrompt(request.followUpContext)}Instruction:\n${request.instruction}\n\nApproved plan:\n${JSON.stringify(request.plan)}\n\nApproved scope:\n${JSON.stringify(request.scope)}\n\nScope contents:\n${request.scopeContext}\n\nCalls so far:\n${JSON.stringify(transcript)}\n\nReturn either {"action":"tool","tool":"...","arguments":{},"rationale":"..."} or {"action":"done","outcomeAchieved":true|false,"summary":"..."}.`,
         },
       ],
       maxTokens: DECISION_MAX_TOKENS,
@@ -256,8 +265,13 @@ function decisionInputTokens(
   transcript: readonly unknown[],
 ): number {
   return estimateTokens(
-    `${request.instruction}\n${request.scopeContext}\n${JSON.stringify(request.plan)}\n${JSON.stringify(transcript)}\n${AGENT_TOOL_GUIDE}`,
+    `${JSON.stringify(request.followUpContext)}\n${request.instruction}\n${request.scopeContext}\n${JSON.stringify(request.plan)}\n${JSON.stringify(transcript)}\n${AGENT_TOOL_GUIDE}`,
   );
+}
+
+function followUpPrompt(context: AgentFollowUpContext | undefined): string {
+  if (!context) return '';
+  return `This is a follow-up to the previous task. Treat the new instruction as a refinement or continuation unless it clearly asks for something unrelated.\nPrevious task:\n${JSON.stringify(context)}\n\n`;
 }
 
 function compactOutcome(outcome: AgentToolOutcome): unknown {

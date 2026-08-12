@@ -18,7 +18,6 @@ import {
   AlertCircle,
   Bot,
   Check,
-  ChevronRight,
   FileClock,
   Loader2,
   Plus,
@@ -28,7 +27,7 @@ import {
   Square,
   X,
 } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlassButton, GlassPopupButton } from '@/components/glass';
 import { DEFAULT_AGENT_BUDGET } from '@/lib/ai';
@@ -50,6 +49,7 @@ import {
   planStepTitles,
   planText,
   toolLabel,
+  userFacingAgentText,
 } from './agentLanguage';
 import { SCOPE_ICONS } from './scopeIcons';
 import { useAiAvailability } from './useAiAvailability';
@@ -109,21 +109,28 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
       ? 'library'
       : scope;
 
-  async function plan() {
+  async function plan(followUpTo?: string) {
     const asked = instruction.trim();
     if (!asked) return;
     setError('');
     setRequiredScope(null);
+    if (followUpTo) useAgentStore.getState().setActiveRun(null);
     const signal = beginRun('agent');
     const response = await planAgentCommand(
       {
         instruction: asked,
         scope: agentScope(effective, noteId, selected, courseId),
         budget: DEFAULT_AGENT_BUDGET,
+        followUpTo,
       },
       { signal },
     );
     endRun('agent', signal);
+    if (response.ok) {
+      setInstruction('');
+      return;
+    }
+    if (followUpTo) useAgentStore.getState().setActiveRun(followUpTo);
     if (!response.ok && response.code !== 'cancelled') {
       if (response.code === 'scope_denied' && requiresLibrary(response.details)) {
         setRequiredScope('library');
@@ -131,7 +138,9 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
         return;
       }
       setError(
-        response.code === 'not_supported' ? t('ai.notConfiguredHint') : response.message,
+        response.code === 'not_supported'
+          ? t('ai.notConfiguredHint')
+          : (userFacingAgentText(response.message) ?? t('agent.errorFallback')),
       );
     }
   }
@@ -142,7 +151,9 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
     const signal = beginRun('agent');
     const response = await runAgentCommand(run.id, { signal });
     endRun('agent', signal);
-    if (!response.ok && response.code !== 'cancelled') setError(response.message);
+    if (!response.ok && response.code !== 'cancelled') {
+      setError(userFacingAgentText(response.message) ?? t('agent.errorFallback'));
+    }
   }
 
   async function undo() {
@@ -151,7 +162,9 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
     setError('');
     const response = await undoAgentRunCommand(run.id);
     setUndoing(false);
-    if (!response.ok) setError(response.message);
+    if (!response.ok) {
+      setError(userFacingAgentText(response.message) ?? t('agent.errorFallback'));
+    }
     else await useLibraryStore.getState().refreshCurrentView();
   }
 
@@ -275,66 +288,115 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
       </div>
 
       {run ? (
-        <RunActions
-          run={run}
-          running={running}
-          undoing={undoing}
-          canRun={availability.available}
-          onRun={() => void execute()}
-          onStop={() => cancelRun('agent')}
-          onUndo={() => void undo()}
-          onEdit={() => reset(true)}
-        />
-      ) : (
-        <div
-          className={cn(
-            'rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] p-1.5',
-            'transition-colors duration-[var(--nb-t-fast)]',
-            'focus-within:border-[var(--nb-accent)]',
-            !availability.available && 'opacity-60',
-          )}
-        >
-          <textarea
-            ref={composerRef}
-            rows={2}
-            value={instruction}
-            disabled={!availability.available || planning}
-            placeholder={t('agent.placeholder')}
-            aria-label={t('agent.title')}
-            title={t('ai.composerHint')}
-            onChange={(event) => setInstruction(event.target.value)}
-            onKeyDown={(event) => {
-              // Enter plans. It never executes — the plan is the gate, and a
-              // key that skipped it would be the one thing this surface must
-              // not have.
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                void plan();
-              }
-            }}
-            className="block w-full resize-none bg-transparent px-1 py-0.5 text-[12.5px] leading-relaxed outline-none placeholder:text-nb-text-3"
+        <>
+          <RunActions
+            run={run}
+            running={running}
+            undoing={undoing}
+            canRun={availability.available}
+            onRun={() => void execute()}
+            onStop={() => cancelRun('agent')}
+            onUndo={() => void undo()}
+            onEdit={() => reset(true)}
           />
-          <div className="mt-1 flex items-center justify-end gap-1.5">
-            <AiStatusPill feature="agent" modelOnly className="min-w-0" />
-            <AiDisclosureButton />
-            <GlassButton
-              size="sm"
-              variant={planning ? 'default' : 'accent'}
-              aria-label={planning ? t('agent.stop') : t('agent.makePlan')}
-              title={planning ? t('agent.stop') : t('agent.makePlan')}
-              disabled={!planning && (!instruction.trim() || !availability.available)}
-              onClick={() => (planning ? cancelRun('agent') : void plan())}
-              className="size-7 shrink-0 rounded-full px-0"
-            >
-              {planning ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <Send size={12} />
-              )}
-            </GlassButton>
-          </div>
-        </div>
+          {run.status !== 'planned' && run.status !== 'running' && (
+            <AgentComposer
+              inputRef={composerRef}
+              value={instruction}
+              disabled={!availability.available}
+              placeholder={t('agent.followUpPlaceholder')}
+              label={t('agent.followUp')}
+              submitLabel={t('agent.planFollowUp')}
+              onChange={setInstruction}
+              onSubmit={() => void plan(run.id)}
+            />
+          )}
+        </>
+      ) : (
+        <AgentComposer
+          inputRef={composerRef}
+          value={instruction}
+          disabled={!availability.available || planning}
+          planning={planning}
+          placeholder={t('agent.placeholder')}
+          label={t('agent.title')}
+          submitLabel={t('agent.makePlan')}
+          onChange={setInstruction}
+          onSubmit={() => void plan()}
+        />
       )}
+    </div>
+  );
+}
+
+function AgentComposer({
+  inputRef,
+  value,
+  disabled,
+  planning = false,
+  placeholder,
+  label,
+  submitLabel,
+  onChange,
+  onSubmit,
+}: {
+  inputRef: RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  disabled: boolean;
+  planning?: boolean;
+  placeholder: string;
+  label: string;
+  submitLabel: string;
+  onChange(value: string): void;
+  onSubmit(): void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className={cn(
+        'rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] p-1.5',
+        'transition-colors duration-[var(--nb-t-fast)]',
+        'focus-within:border-[var(--nb-accent)]',
+        disabled && 'opacity-60',
+      )}
+    >
+      <textarea
+        ref={inputRef}
+        rows={2}
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder}
+        aria-label={label}
+        title={t('ai.composerHint')}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          // Enter still plans rather than executes, including for follow-ups.
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            onSubmit();
+          }
+        }}
+        className="block w-full resize-none bg-transparent px-1 py-0.5 text-[12.5px] leading-relaxed outline-none placeholder:text-nb-text-3"
+      />
+      <div className="mt-1 flex items-center justify-end gap-1.5">
+        <AiStatusPill feature="agent" modelOnly className="min-w-0" />
+        <AiDisclosureButton />
+        <GlassButton
+          size="sm"
+          variant={planning ? 'default' : 'accent'}
+          aria-label={planning ? t('agent.stop') : submitLabel}
+          title={planning ? t('agent.stop') : submitLabel}
+          disabled={!planning && (!value.trim() || disabled)}
+          onClick={() => (planning ? cancelRun('agent') : onSubmit())}
+          className="size-7 shrink-0 rounded-full px-0"
+        >
+          {planning ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Send size={12} />
+          )}
+        </GlassButton>
+      </div>
     </div>
   );
 }
@@ -419,29 +481,32 @@ function RunView({
   onOpenNote(touched: AgentRunRecord['touchedNotes'][number]): void;
 }) {
   const { t } = useTranslation();
-  const finished = run.status !== 'planned' && run.status !== 'running';
+  const planSummary = userFacingAgentText(planText(run.plan, run.plan.summary));
 
   return (
     <>
       <section className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-paper)] px-3 py-2.5">
-        <Eyebrow>{t('agent.asked')}</Eyebrow>
+        <Eyebrow>{t(run.parentRunId ? 'agent.followUp' : 'agent.asked')}</Eyebrow>
         <p className="mt-0.5 text-[11.5px] leading-relaxed text-nb-text-3">
           {run.instruction}
         </p>
 
         <p className="mt-2.5 text-[12.5px] font-semibold leading-snug">
-          {planText(run.plan, run.plan.summary)}
+          {planSummary ?? t('agent.planFallback')}
         </p>
         <ol className="mt-2 space-y-1.5">
           {run.plan.steps.map((step, index) => {
             const titles = planStepTitles(run.plan, step);
+            const description = userFacingAgentText(
+              planText(run.plan, step.description),
+            );
             return (
               <li key={index} className="flex gap-1.5 text-[11.5px] leading-relaxed">
                 <span className="mt-[3px] grid size-[15px] shrink-0 place-items-center rounded-full bg-[var(--nb-hover)] text-[9px] text-nb-text-3">
                   {index + 1}
                 </span>
                 <span className="min-w-0 text-nb-text-2">
-                  {planText(run.plan, step.description)}
+                  {description}
                   {titles.length > 0 && (
                     <span className="ml-1 text-[10.5px] text-nb-text-3">
                       {titles.map((title) => `“${title}”`).join(' · ')}
@@ -476,6 +541,10 @@ function RunView({
             <ul className="mt-1.5 space-y-1">
               {run.calls.map((call) => {
                 const outcome = callOutcome(call, run, t);
+                const rationale = userFacingAgentText(call.rationale);
+                const callError = call.error
+                  ? (userFacingAgentText(call.error) ?? t('agent.stepErrorFallback'))
+                  : null;
                 return (
                   <li
                     key={call.id}
@@ -489,17 +558,19 @@ function RunView({
                         <p className="text-[11.5px] font-medium leading-snug text-nb-text-2">
                           {toolLabel(call.tool, t)}
                         </p>
-                        <p className="mt-0.5 text-[11px] leading-relaxed text-nb-text-3">
-                          {call.rationale}
-                        </p>
-                        {(outcome || call.error) && (
+                        {rationale && (
+                          <p className="mt-0.5 text-[11px] leading-relaxed text-nb-text-3">
+                            {rationale}
+                          </p>
+                        )}
+                        {(outcome || callError) && (
                           <p
                             className={cn(
                               'mt-0.5 text-[10.5px] leading-relaxed',
-                              call.error ? 'text-[var(--nb-danger)]' : 'text-nb-text-3',
+                              callError ? 'text-[var(--nb-danger)]' : 'text-nb-text-3',
                             )}
                           >
-                            {call.error ?? outcome}
+                            {callError ?? outcome}
                           </p>
                         )}
                       </div>
@@ -521,13 +592,13 @@ function RunView({
           <Eyebrow>{t('agent.result')}</Eyebrow>
           {run.summary && (
             <p className="mt-0.5 text-[11.5px] leading-relaxed text-nb-text-2">
-              {run.summary}
+              {userFacingAgentText(run.summary) ?? t('agent.resultFallback')}
             </p>
           )}
           {run.error && (
             <p className="mt-1 flex items-start gap-1.5 text-[11px] leading-relaxed text-[var(--nb-danger)]">
               <AlertCircle size={11} className="mt-0.5 shrink-0" aria-hidden />
-              {run.error}
+              {userFacingAgentText(run.error) ?? t('agent.errorFallback')}
             </p>
           )}
           {run.touchedNotes.length > 0 && (
@@ -561,68 +632,9 @@ function RunView({
               ))}
             </ul>
           )}
-          {finished && <TechnicalDetails run={run} />}
         </section>
       )}
     </>
-  );
-}
-
-/**
- * Where the audit record still lives.
- *
- * Closed by default and last on the page, because "which JSON came back from
- * call four" is a question you ask about one run in fifty — but it is a real
- * question, and the run journal is the only thing that can answer it.
- */
-function TechnicalDetails({ run }: { run: AgentRunRecord }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const bodyId = useId();
-
-  return (
-    <div className="mt-2 border-t border-[var(--nb-divider)] pt-1.5">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={bodyId}
-        onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-6 items-center gap-1 rounded-nb-xs pr-1.5 text-[10.5px] text-nb-text-3 transition-colors duration-[var(--nb-t-fast)] hover:text-nb-text-2"
-      >
-        <ChevronRight
-          size={11}
-          aria-hidden
-          className={cn(
-            'shrink-0 transition-transform duration-[var(--nb-t-fast)]',
-            open && 'rotate-90',
-          )}
-        />
-        {t('agent.details')}
-      </button>
-      {open && (
-        <div id={bodyId} className="mt-0.5 space-y-1 text-[10px] text-nb-text-3">
-          <p>
-            {t('agent.usage', {
-              tokens: run.tokensUsed.toLocaleString(),
-              calls: run.calls.length,
-            })}
-          </p>
-          <p>
-            {t('agent.ceilings', {
-              tokens: run.budget.tokenCeiling.toLocaleString(),
-              calls: run.budget.toolCallCeiling,
-              seconds: Math.round(run.budget.wallClockMs / 1_000),
-            })}
-          </p>
-          {run.calls.map((call) => (
-            <p key={call.id} className="break-all font-mono leading-relaxed">
-              <span className="text-nb-text-2">{call.tool}</span>{' '}
-              {call.error ?? call.resultPreview ?? ''}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

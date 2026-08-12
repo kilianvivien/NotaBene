@@ -54,6 +54,18 @@ beforeEach(() => {
 });
 
 describe('agent command boundary', () => {
+  it('keeps follow-up linkage compatible with the persisted run schema', () => {
+    const parent = run({ kind: 'library' });
+    const parsed = AgentRunRecordSchema.parse({
+      ...parent,
+      id: 'follow-up-run',
+      parentRunId: parent.id,
+      instruction: 'Make it shorter.',
+    });
+
+    expect(parsed.parentRunId).toBe(parent.id);
+  });
+
   it('loads run journals written before structured note references existed', () => {
     const legacy = run({ kind: 'library' });
     const parsed = AgentRunRecordSchema.parse({
