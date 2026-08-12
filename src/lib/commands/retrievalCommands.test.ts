@@ -37,7 +37,9 @@ describe('gatherAskSourcesCommand', () => {
   });
 
   it('does not search at all when the scope is the open note', async () => {
-    await library.upsertNote(seed('anchor', 'Cours 4', 'un vecteur propre ne tourne pas'));
+    await library.upsertNote(
+      seed('anchor', 'Cours 4', 'un vecteur propre ne tourne pas'),
+    );
     await library.upsertNote(seed('other', 'Cours 5', 'un vecteur propre encore'));
     const spy = vi.spyOn(library, 'searchNotes');
 
@@ -49,6 +51,11 @@ describe('gatherAskSourcesCommand', () => {
 
     expect(result.ok && result.value.sources).toHaveLength(1);
     expect(result.ok && result.value.sources[0]!.noteId).toBe('anchor');
+    expect(result.ok && result.value.trace).toMatchObject({
+      scope: 'note',
+      candidatesConsidered: 0,
+      sourcesSelected: 1,
+    });
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
@@ -71,12 +78,21 @@ describe('gatherAskSourcesCommand', () => {
     expect(result.value.sources[0]!.noteId).toBe('anchor');
     expect(result.value.sources.map((source) => source.noteId)).toContain('lecture');
     expect(result.value.sources.map((source) => source.noteId)).not.toContain('noise');
+    const trace = result.value.sources.find(
+      (source) => source.noteId === 'lecture',
+    )?.trace;
+    expect(trace?.matchedKeywords).toContain('vecteur');
+    expect(trace?.rawTextScore).toBeGreaterThan(0);
+    expect(trace?.fusedScore).toBeGreaterThan(0);
+    expect(result.value.trace).toMatchObject({
+      scope: 'library',
+      keywords: ['vecteur', 'garde', 'direction'],
+      sourcesSelected: result.value.sources.length,
+    });
   });
 
   it('stays inside the course when asked to', async () => {
-    await library.upsertNote(
-      seed('anchor', 'Sommaire', 'plan', { courseId: 'algebra' }),
-    );
+    await library.upsertNote(seed('anchor', 'Sommaire', 'plan', { courseId: 'algebra' }));
     await library.upsertNote(
       seed('inside', 'Vecteurs', 'vecteur propre', { courseId: 'algebra' }),
     );
@@ -100,9 +116,7 @@ describe('gatherAskSourcesCommand', () => {
     const anchor = seed('anchor', 'Cours', 'voir aussi');
     anchor.doc.content.push({
       type: 'paragraph',
-      content: [
-        { type: 'wikiLink', attrs: { noteId: 'related', title: 'Annexe' } },
-      ],
+      content: [{ type: 'wikiLink', attrs: { noteId: 'related', title: 'Annexe' } }],
     });
     await library.upsertNote(anchor);
 
@@ -155,7 +169,8 @@ describe('gatherAskSourcesCommand', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.keywords).toEqual([]);
-    expect(result.value.sources.map((source) => source.noteId)).toContain('recent');
+    const recent = result.value.sources.find((source) => source.noteId === 'recent');
+    expect(recent?.reason).toBe('recent');
   });
 
   it('reports a missing anchor rather than answering from nothing', async () => {

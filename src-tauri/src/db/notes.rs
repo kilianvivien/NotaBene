@@ -1316,6 +1316,130 @@ mod tests {
         }
     }
 
+    /// Retrieval's fixed judgments against the database path the desktop app
+    /// actually ships. The TypeScript harness reads this same corpus and adds
+    /// fusion/packing; here the question is narrower: does FTS5 still surface
+    /// every known-good note once realistic library size changes its BM25
+    /// statistics?
+    #[test]
+    fn retrieval_quality_holds_at_three_thousand_notes() {
+        const CORPUS: &str = include_str!("../../../src/lib/ai/fixtures/retrieval-evaluation.json");
+        const NOTE_COUNT: usize = 3_000;
+        const CUTOFF: usize = 5;
+        let corpus: serde_json::Value =
+            serde_json::from_str(CORPUS).expect("retrieval corpus is not valid JSON");
+        let notes = corpus["notes"].as_array().expect("notes must be an array");
+
+        let temporary = temp_store();
+        let store = &temporary.store;
+        store
+            .transact(|transaction| {
+                for note in notes {
+                    let id = note["id"].as_str().unwrap();
+                    let title = note["title"].as_str().unwrap();
+                    let body = note["markdown"].as_str().unwrap();
+                    transaction.execute(
+                        "INSERT INTO notes (
+                            id, title, doc_json, plain_text, pinned, archived,
+                            created_at, updated_at, \"order\"
+                         ) VALUES (?1, ?2, '{\"type\":\"doc\",\"content\":[]}', ?3, 0, 0,
+                                   '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z', 0)",
+                        rusqlite::params![id, title, body],
+                    )?;
+                    let rowid = transaction.last_insert_rowid();
+                    transaction.execute(
+                        "INSERT INTO notes_fts(
+                            rowid, title, plain_text, tags, course, attachments
+                         ) VALUES (?1, ?2, ?3, '', '', '')",
+                        rusqlite::params![rowid, title, body],
+                    )?;
+                }
+
+                let vocabulary = [
+                    "matrix vector transformation lecture example",
+                    "acid base laboratory concentration notes",
+                    "carbon cycle biology enzyme overview",
+                    "court law petition contract outline",
+                    "price demand economics calculation example",
+                    "integrales theoreme analyse cours",
+                ];
+                for index in notes.len()..NOTE_COUNT {
+                    let id = format!("distractor-{index}");
+                    let title = format!("Lecture {index}");
+                    let body = vocabulary[index % vocabulary.len()];
+                    transaction.execute(
+                        "INSERT INTO notes (
+                            id, title, doc_json, plain_text, pinned, archived,
+                            created_at, updated_at, \"order\"
+                         ) VALUES (?1, ?2, '{\"type\":\"doc\",\"content\":[]}', ?3, 0, 0,
+                                   '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z', ?4)",
+                        rusqlite::params![id, title, body, index as i64],
+                    )?;
+                    let rowid = transaction.last_insert_rowid();
+                    transaction.execute(
+                        "INSERT INTO notes_fts(
+                            rowid, title, plain_text, tags, course, attachments
+                         ) VALUES (?1, ?2, ?3, '', '', '')",
+                        rusqlite::params![rowid, title, body],
+                    )?;
+                }
+                Ok(())
+            })
+            .unwrap();
+
+        let started = std::time::Instant::now();
+        let mut hits = 0;
+        for judgment in corpus["questions"]
+            .as_array()
+            .expect("questions must be an array")
+        {
+            let terms = judgment["terms"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|term| term.as_str().unwrap())
+                .collect::<Vec<_>>()
+                .join(" ");
+            let found = search(
+                store,
+                &NoteQuery {
+                    text: Some(terms.clone()),
+                    text_match: Some("any".into()),
+                    sort: Some("relevance".into()),
+                    limit: Some(40),
+                    ..NoteQuery::default()
+                },
+            )
+            .expect("ranked retrieval search failed");
+            let first_five: Vec<&str> = found
+                .iter()
+                .take(CUTOFF)
+                .map(|hit| hit.note.id.as_str())
+                .collect();
+            let relevant = judgment["relevantNoteIds"].as_array().unwrap();
+            if relevant
+                .iter()
+                .any(|id| first_five.contains(&id.as_str().unwrap()))
+            {
+                hits += 1;
+            }
+        }
+        let elapsed = started.elapsed();
+        eprintln!(
+            "Retrieval 3k quality: {hits}/{} top-{CUTOFF} hits in {elapsed:?}",
+            corpus["questions"].as_array().unwrap().len()
+        );
+        assert_eq!(
+            hits,
+            corpus["questions"].as_array().unwrap().len(),
+            "retrieval lost a known-good source at 3,000 notes"
+        );
+        assert!(
+            elapsed < std::time::Duration::from_millis(500),
+            "eight 3,000-note retrievals took {elapsed:?}"
+        );
+    }
+
     #[test]
     fn ranked_search_refuses_a_query_with_nothing_to_rank() {
         let temporary = temp_store();

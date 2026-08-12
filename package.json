@@ -21,6 +21,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:retrieval": "vitest run src/lib/ai/retrievalEvaluation.test.ts src/lib/ai/retrieval.test.ts src/lib/commands/retrievalCommands.test.ts",
     "test:watch": "vitest",
     "e2e": "playwright test"
   },

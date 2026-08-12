@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { NoteDoc } from '@/lib/schema';
 import { estimateTokens, MAX_INPUT_TOKENS } from './client';
 import {
-  blockWindow,
   fuseCandidates,
+  headingSectionWindow,
   packSources,
   sourceBudget,
   MAX_SOURCES,
@@ -18,6 +18,20 @@ function paragraphs(...texts: string[]): NoteDoc {
       type: 'paragraph',
       content: [{ type: 'text', text }],
     })),
+  };
+}
+
+function sectioned(...sections: [heading: string, body: string][]): NoteDoc {
+  return {
+    type: 'doc',
+    content: sections.flatMap(([heading, body]) => [
+      {
+        type: 'heading',
+        attrs: { level: 2 },
+        content: [{ type: 'text', text: heading }],
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: body }] },
+    ]),
   };
 }
 
@@ -42,7 +56,10 @@ const anchor: AnchorNote = {
 describe('fuseCandidates', () => {
   it('never ranks the anchor — it is not competing', () => {
     const fused = fuseCandidates(
-      [candidate({ noteId: 'anchor', score: 99 }), candidate({ noteId: 'other', score: 1 })],
+      [
+        candidate({ noteId: 'anchor', score: 99 }),
+        candidate({ noteId: 'other', score: 1 }),
+      ],
       'anchor',
     );
     expect(fused.map((entry) => entry.noteId)).toEqual(['other']);
@@ -50,7 +67,10 @@ describe('fuseCandidates', () => {
 
   it('puts the stronger text match first', () => {
     const fused = fuseCandidates(
-      [candidate({ noteId: 'weak', score: 1 }), candidate({ noteId: 'strong', score: 9 })],
+      [
+        candidate({ noteId: 'weak', score: 1 }),
+        candidate({ noteId: 'strong', score: 9 }),
+      ],
       'anchor',
     );
     expect(fused[0]!.noteId).toBe('strong');
@@ -65,13 +85,19 @@ describe('fuseCandidates', () => {
       'anchor',
     );
     expect(fused[0]!.noteId).toBe('linked');
+    expect(fused[0]!.normalizedTextScore).toBe(1);
+    expect(fused[0]!.recencyScore).toBeGreaterThan(0);
   });
 
   it('does not let recency overturn a clearly better text match', () => {
     const fused = fuseCandidates(
       [
         candidate({ noteId: 'fresh', score: 0, updatedAt: '2026-08-01T00:00:00.000Z' }),
-        candidate({ noteId: 'relevant', score: 100, updatedAt: '2020-01-01T00:00:00.000Z' }),
+        candidate({
+          noteId: 'relevant',
+          score: 100,
+          updatedAt: '2020-01-01T00:00:00.000Z',
+        }),
       ],
       'anchor',
       new Date('2026-08-02T00:00:00.000Z'),
@@ -122,11 +148,11 @@ describe('packSources', () => {
     expect(droppedCount).toBeGreaterThan(0);
   });
 
-  it('marks a note it had to window, and keeps the matching passage', () => {
-    const doc = paragraphs(
-      'x'.repeat(4_000),
-      'the eigenvector does not rotate',
-      'y'.repeat(4_000),
+  it('marks a note it had to window, and keeps the matching heading section', () => {
+    const doc = sectioned(
+      ['Introduction', 'x'.repeat(12_000)],
+      ['Eigenvectors', 'the eigenvector does not rotate'],
+      ['Appendix', 'y'.repeat(12_000)],
     );
     const { sources } = packSources(
       anchor,
@@ -137,6 +163,8 @@ describe('packSources', () => {
     const windowed = sources.find((source) => source.noteId === 'long');
     expect(windowed?.truncated).toBe(true);
     expect(JSON.stringify(windowed?.doc)).toContain('eigenvector');
+    expect(windowed?.trace.section?.heading).toBe('Eigenvectors');
+    expect(windowed?.trace.matchedKeywords).toEqual(['eigenvector']);
   });
 
   it('reports a link-sourced note as such', () => {
@@ -155,22 +183,52 @@ describe('packSources', () => {
   });
 });
 
-describe('blockWindow', () => {
-  it('centres on the best-matching block rather than the start of the note', () => {
-    const doc = paragraphs('intro', 'filler', 'the eigenvector paragraph', 'tail');
-    const window = blockWindow(doc, ['eigenvector'], estimateTokens('the eigenvector paragraph'));
-    expect(JSON.stringify(window)).toContain('eigenvector');
-    expect(JSON.stringify(window)).not.toContain('intro');
+describe('headingSectionWindow', () => {
+  it('centres on the best-matching heading section rather than the start', () => {
+    const doc = sectioned(
+      ['Introduction', 'filler'],
+      ['Eigenvectors', 'the eigenvector paragraph'],
+      ['Appendix', 'tail'],
+    );
+    const budget = estimateTokens('## Eigenvectors\n\nthe eigenvector paragraph');
+    const window = headingSectionWindow(doc, ['eigenvector'], budget);
+    expect(JSON.stringify(window?.doc)).toContain('eigenvector');
+    expect(JSON.stringify(window?.doc)).not.toContain('Introduction');
+    expect(window?.heading).toBe('Eigenvectors');
+    expect(window?.startBlock).toBe(2);
+    expect(window?.endBlock).toBe(3);
   });
 
-  it('grows outwards for context when the budget allows', () => {
-    const doc = paragraphs('intro', 'the eigenvector paragraph', 'tail');
-    const window = blockWindow(doc, ['eigenvector'], 10_000);
-    expect(window?.content).toHaveLength(3);
+  it('grows outwards by complete sections when the budget allows', () => {
+    const doc = sectioned(
+      ['Introduction', 'intro'],
+      ['Eigenvectors', 'the eigenvector paragraph'],
+      ['Appendix', 'tail'],
+    );
+    const window = headingSectionWindow(doc, ['eigenvector'], 10_000);
+    expect(window?.doc.content).toHaveLength(6);
   });
 
-  it('gives up rather than return a fragment too big to send', () => {
-    expect(blockWindow(paragraphs('x'.repeat(10_000)), [], 10)).toBeNull();
+  it('does not split an oversized unheaded note into arbitrary blocks', () => {
+    expect(headingSectionWindow(paragraphs('x'.repeat(10_000)), [], 10)).toBeNull();
+  });
+
+  it('keeps a preamble as its own section', () => {
+    const doc: NoteDoc = {
+      type: 'doc',
+      content: [
+        ...paragraphs('short preamble').content,
+        ...sectioned(['Details', 'longer material']).content,
+      ],
+    };
+    const window = headingSectionWindow(
+      doc,
+      ['preamble'],
+      estimateTokens('short preamble'),
+    );
+    expect(window?.heading).toBeNull();
+    expect(window?.startBlock).toBe(0);
+    expect(window?.endBlock).toBe(0);
   });
 });
 

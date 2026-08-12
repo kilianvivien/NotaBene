@@ -1,0 +1,127 @@
+{
+  "_comment": "Fixed retrieval-quality corpus. Questions name the source notes a good retrieval must surface; retrievalEvaluation.test.ts scores the same judgments at small-library and 3,000-note scale.",
+  "notes": [
+    {
+      "id": "anchor",
+      "courseId": null,
+      "title": "Study index",
+      "markdown": "# Study index\n\nQuestions collected across this library."
+    },
+    {
+      "id": "spectral",
+      "courseId": "algebra",
+      "title": "Spectral theorem",
+      "markdown": "# Spectral theorem\n\nA real symmetric matrix has an orthonormal basis of eigenvectors.\n\n## Consequence\n\nOrthogonal diagonalization preserves lengths and angles."
+    },
+    {
+      "id": "eigenvectors",
+      "courseId": "algebra",
+      "title": "Eigenvectors and eigenvalues",
+      "markdown": "# Eigenvectors\n\nAn eigenvector keeps its direction when a linear transformation is applied. The eigenvalue is its scale factor."
+    },
+    {
+      "id": "acid-base",
+      "courseId": "chemistry",
+      "title": "Acid-base titration",
+      "markdown": "# Equivalence point\n\nA titration determines an unknown concentration. At equivalence the acid and base are present in stoichiometric proportions."
+    },
+    {
+      "id": "photosynthesis",
+      "courseId": "biology",
+      "title": "Photosynthesis",
+      "markdown": "# Light reactions\n\nChlorophyll captures photons and the thylakoid membrane builds a proton gradient.\n\n# Calvin cycle\n\nRubisco fixes carbon dioxide into organic molecules."
+    },
+    {
+      "id": "mitosis",
+      "courseId": "biology",
+      "title": "Mitosis",
+      "markdown": "# Metaphase\n\nChromosomes align at the metaphase plate before sister chromatids separate during anaphase."
+    },
+    {
+      "id": "habeas-corpus",
+      "courseId": "law",
+      "title": "Habeas corpus",
+      "markdown": "# Judicial review of detention\n\nA habeas corpus petition asks a court to examine whether a person's detention is lawful."
+    },
+    {
+      "id": "consideration",
+      "courseId": "law",
+      "title": "Consideration in contract law",
+      "markdown": "# Bargained exchange\n\nConsideration is the value exchanged between parties and is generally required for an enforceable common-law contract."
+    },
+    {
+      "id": "elasticity",
+      "courseId": "economics",
+      "title": "Price elasticity of demand",
+      "markdown": "# Elasticity\n\nPrice elasticity measures the percentage change in quantity demanded divided by the percentage change in price."
+    },
+    {
+      "id": "french-revolution",
+      "courseId": "history",
+      "title": "French Revolution",
+      "markdown": "# Estates-General\n\nThe fiscal crisis led Louis XVI to summon the Estates-General in 1789. The Third Estate then declared a National Assembly."
+    },
+    {
+      "id": "fubini",
+      "courseId": "analysis",
+      "title": "Théorème de Fubini",
+      "markdown": "# Intégrales itérées\n\nLe théorème de Fubini permet d'échanger l'ordre des intégrales lorsque les hypothèses d'intégrabilité sont satisfaites."
+    },
+    {
+      "id": "redox",
+      "courseId": "chemistry",
+      "title": "Oxidation and reduction",
+      "markdown": "# Electron transfer\n\nOxidation loses electrons while reduction gains electrons. The oxidizing agent is itself reduced."
+    }
+  ],
+  "questions": [
+    {
+      "id": "eigenvector-direction",
+      "question": "Which vector keeps its direction under a linear transformation?",
+      "terms": ["vector", "keeps", "direction", "linear", "transformation"],
+      "relevantNoteIds": ["eigenvectors"]
+    },
+    {
+      "id": "symmetric-diagonalization",
+      "question": "Why can a real symmetric matrix be orthogonally diagonalized?",
+      "terms": ["real", "symmetric", "matrix", "orthogonally", "diagonalized"],
+      "relevantNoteIds": ["spectral"]
+    },
+    {
+      "id": "titration-equivalence",
+      "question": "What happens at the equivalence point in an acid-base titration?",
+      "terms": ["happens", "equivalence", "point", "acid", "base", "titration"],
+      "relevantNoteIds": ["acid-base"]
+    },
+    {
+      "id": "carbon-fixation",
+      "question": "Which enzyme fixes carbon dioxide in the Calvin cycle?",
+      "terms": ["enzyme", "fixes", "carbon", "dioxide", "calvin", "cycle"],
+      "relevantNoteIds": ["photosynthesis"]
+    },
+    {
+      "id": "chromosome-alignment",
+      "question": "During which stage do chromosomes align at the metaphase plate?",
+      "terms": ["stage", "chromosomes", "align", "metaphase", "plate"],
+      "relevantNoteIds": ["mitosis"]
+    },
+    {
+      "id": "detention-review",
+      "question": "Which petition lets a court review whether detention is lawful?",
+      "terms": ["petition", "lets", "court", "review", "whether", "detention", "lawful"],
+      "relevantNoteIds": ["habeas-corpus"]
+    },
+    {
+      "id": "demand-response",
+      "question": "How is price elasticity of demand calculated?",
+      "terms": ["price", "elasticity", "demand", "calculated"],
+      "relevantNoteIds": ["elasticity"]
+    },
+    {
+      "id": "fubini-order",
+      "question": "Quand peut-on échanger l'ordre des intégrales avec Fubini ?",
+      "terms": ["echanger", "ordre", "integrales", "fubini"],
+      "relevantNoteIds": ["fubini"]
+    }
+  ]
+}
