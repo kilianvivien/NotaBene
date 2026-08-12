@@ -15,6 +15,7 @@
  *
  * *Calqo's `APP_COMMAND_IDS` is the pattern; the phase column is ours.*
  */
+import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useSpeechStore } from '@/lib/state/speechStore';
@@ -499,8 +500,14 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     labelKey: 'agent.title',
     accelerator: 'CmdOrCtrl+Alt+A',
     landsIn: 'I',
+    // The agent lives in the inspector's AI tab rather than in a modal, so the
+    // shortcut reveals that tab and switches it over. It deliberately does not
+    // require an open note: a library-wide run is the common case.
     run: () => {
-      useUiStore.getState().setAgentOpen(true);
+      // `setInspectorTab` reveals the inspector as well, so this is the whole
+      // journey from a keystroke to a composer.
+      useUiStore.getState().setInspectorTab('ai');
+      useAiStore.getState().setAgentMode(true);
       return ok(undefined);
     },
   },

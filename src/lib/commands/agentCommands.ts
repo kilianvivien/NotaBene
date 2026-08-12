@@ -134,6 +134,11 @@ export async function runAgentCommand(
   if (stored.status !== 'planned')
     return fail('conflict', 'the agent run already finished');
 
+  // Planning flushed the editor, but the agent no longer runs behind a modal:
+  // a student can keep typing between reviewing the plan and starting it, and
+  // an unflushed keystroke would reach the database *after* the agent read the
+  // note it belongs to.
+  await useEditorStore.getState().flush();
   const lookup = await providerFor('agent');
   if (!lookup.ok) return fail('not_supported', lookup.reason);
   const record = structuredClone(stored);

@@ -17,13 +17,10 @@ import {
   Copy,
   Eraser,
   FileText,
-  Files,
-  GraduationCap,
   Loader2,
   Send,
   Sparkles,
   StickyNote,
-  type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -42,19 +39,13 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import { AiDisclosureButton } from './AiDisclosure';
+import { AiModeSwitch } from './AiModeSwitch';
 import { AiStatusPill } from './AiStatusPill';
 import { AiRichText } from './AiRichText';
+import { SCOPE_ICONS } from './scopeIcons';
 import { useAiAvailability } from './useAiAvailability';
 
 const SUGGESTIONS = ['summary', 'explain', 'quiz'] as const;
-
-/** The scope button wears its own value. `Files` is the sidebar's glyph for
- * "All notes", so widening the search points at the row it widens to. */
-const SCOPE_ICONS: Record<AskScope, LucideIcon> = {
-  note: FileText,
-  course: GraduationCap,
-  library: Files,
-};
 
 /** Enough for four or five lines; past that the thread matters more. */
 const COMPOSER_MAX_HEIGHT = 108;
@@ -66,12 +57,14 @@ export function AskPanel({ noteId }: { noteId: string }) {
   const scope = useAiStore((state) => state.askScope);
   const key = threadKey(mode, scope);
   const thread =
-    useAiStore((state) => state.threads[noteId]?.[threadKey(state.askMode, state.askScope)]) ??
-    EMPTY_THREAD;
+    useAiStore(
+      (state) => state.threads[noteId]?.[threadKey(state.askMode, state.askScope)],
+    ) ?? EMPTY_THREAD;
   const running = useAiStore((state) => state.running) === 'ask';
   const clearThread = useAiStore((state) => state.clearThread);
   const setAskMode = useAiStore((state) => state.setAskMode);
   const setAskScope = useAiStore((state) => state.setAskScope);
+  const setAgentMode = useAiStore((state) => state.setAgentMode);
   const selectNote = useUiStore((state) => state.selectNote);
   const availability = useAiAvailability('ask');
 
@@ -198,49 +191,17 @@ export function AskPanel({ noteId }: { noteId: string }) {
             { value: 'library', label: t('ai.askScopeLibrary') },
           ]}
         />
-        {/* A switch, because the choice is one thing being on or off: may the
-            model add what it knows, or is it held to the notes? It was a bare
-            sparkle button, in a panel that already spent a sparkle on the empty
-            state and another on the provider — three of the same mark for three
-            different things, and the one carrying a decision was the one nobody
-            could read. A two-segment control said it in words but ate the
-            scope's label beside it; a switch says the same thing in the width
-            the glyph had, and says it *as a state* rather than a picture. The
-            sentence it stands for is in the tooltip and in the empty state. */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={knowledge}
-          aria-label={`${t('ai.askMode')}: ${t(`ai.askMode${knowledge ? 'Knowledge' : 'Note'}`)}`}
-          title={t(`ai.askIntro_${mode}`)}
+        {/* Which half of the tab this is. It leads because it decides what
+            everything below means — a question, or a job — and it is the only
+            way back out of the agent, which has no room for a second switch. */}
+        <AiModeSwitch
+          label={t('ai.agentSwitch')}
+          title={t('ai.agentSwitchHint')}
+          checked={false}
           disabled={running}
-          onClick={() => setAskMode(knowledge ? 'note' : 'knowledge')}
-          className={cn(
-            'ml-auto flex h-7 shrink-0 items-center gap-1.5 rounded-nb-xs px-1.5',
-            'text-[11px] font-medium transition-colors duration-[var(--nb-t-fast)]',
-            'disabled:pointer-events-none disabled:opacity-50',
-            knowledge
-              ? 'text-[var(--nb-accent)]'
-              : 'text-nb-text-3 hover:bg-[var(--nb-hover)] hover:text-nb-text-2',
-          )}
-        >
-          {t('ai.askModeSwitch')}
-          <span
-            aria-hidden
-            className={cn(
-              'relative h-[14px] w-6 rounded-full transition-colors duration-[var(--nb-t-fast)]',
-              knowledge ? 'bg-[var(--nb-accent)]' : 'bg-[var(--nb-active)]',
-            )}
-          >
-            <span
-              className={cn(
-                'absolute top-[2px] size-[10px] rounded-full bg-white shadow-sm',
-                'transition-[left] duration-[var(--nb-t-fast)]',
-                knowledge ? 'left-3' : 'left-[2px]',
-              )}
-            />
-          </span>
-        </button>
+          className="ml-auto"
+          onChange={() => setAgentMode(true)}
+        />
         {!empty && (
           <button
             type="button"
@@ -252,6 +213,26 @@ export function AskPanel({ noteId }: { noteId: string }) {
             <Eraser size={13} aria-hidden />
           </button>
         )}
+      </div>
+
+      {/* A switch, because the choice is one thing being on or off: may the
+          model add what it knows, or is it held to the notes? It was a bare
+          sparkle button, in a panel that already spent a sparkle on the empty
+          state and another on the provider — three of the same mark for three
+          different things, and the one carrying a decision was the one nobody
+          could read. It sits on its own line since the label became words: at
+          280px "AI knowledge" and the scope cannot share a row without one of
+          them turning into an ellipsis. The sentence it stands for is in the
+          tooltip and in the empty state. */}
+      <div className="-mt-1 flex justify-end">
+        <AiModeSwitch
+          label={t('ai.askModeSwitch')}
+          ariaLabel={`${t('ai.askMode')}: ${t(`ai.askMode${knowledge ? 'Knowledge' : 'Note'}`)}`}
+          title={t(`ai.askIntro_${mode}`)}
+          checked={knowledge}
+          disabled={running}
+          onChange={(next) => setAskMode(next ? 'knowledge' : 'note')}
+        />
       </div>
 
       <div className="-mx-0.5 min-h-0 flex-1 space-y-2.5 overflow-y-auto px-0.5">

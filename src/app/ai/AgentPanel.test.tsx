@@ -1,0 +1,163 @@
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AgentRunRecord } from '@/lib/schema';
+import { useAgentStore } from '@/lib/state/agentStore';
+import { useAiStore } from '@/lib/state/aiStore';
+import { AgentPanel } from './AgentPanel';
+
+vi.mock('./useAiAvailability', () => ({
+  useAiAvailability: () => ({
+    available: true,
+    definition: { id: 'test', label: 'Test provider' },
+    baseUrl: 'https://example.test',
+    model: 'test-model',
+  }),
+  isLocalAvailability: () => false,
+}));
+
+function plannedRun(): AgentRunRecord {
+  return {
+    id: 'agent-panel-run',
+    instruction: 'Organize the course.',
+    scope: { kind: 'course', courseId: 'course-1' },
+    plan: {
+      summary: 'Review and organize the current course',
+      steps: [
+        {
+          description: 'Read the course notes before making changes.',
+          expectedTools: ['list_notes', 'read_note'],
+        },
+      ],
+    },
+    budget: { tokenCeiling: 50_000, toolCallCeiling: 24, wallClockMs: 120_000 },
+    status: 'planned',
+    calls: [],
+    touchedNotes: [],
+    undoJournal: {
+      notesBefore: [],
+      createdNoteIds: [],
+      createdCourses: [],
+      createdSections: [],
+      createdTagIds: [],
+      tagsBeforeRename: [],
+    },
+    tokensUsed: 0,
+    startedAt: null,
+    completedAt: null,
+  };
+}
+
+beforeEach(() => {
+  const run = plannedRun();
+  useAgentStore.setState({ runs: [run], activeRunId: run.id });
+  useAiStore.setState({ agentMode: true, askScope: 'note', running: null });
+});
+
+afterEach(() => {
+  cleanup();
+  useAgentStore.setState({ runs: [], activeRunId: null });
+  useAiStore.setState({ agentMode: false, running: null });
+  vi.clearAllMocks();
+});
+
+describe('AgentPanel review gate', () => {
+  it('shows the plan, its steps in words, and the limits before execution', () => {
+    render(<AgentPanel noteId="note-1" />);
+
+    expect(screen.getByText('Review and organize the current course')).not.toBeNull();
+    expect(
+      screen.getByText(/Read the course notes before making changes\./),
+    ).not.toBeNull();
+    // Tool names appear as the labels Settings already uses, never as
+    // `list_notes`.
+    expect(screen.getByText('List notes · Read note')).not.toBeNull();
+    expect(screen.queryByText(/list_notes/)).toBeNull();
+    // The ceilings are still on screen before the button that starts the run —
+    // as a sentence, and without the word "token".
+    expect(
+      screen.getByText(
+        'Works only on this course. Stops by itself after 24 steps or 2 min.',
+      ),
+    ).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Run it' })).not.toHaveProperty(
+      'disabled',
+      true,
+    );
+  });
+
+  it('describes finished calls in plain language and keeps the JSON in details', () => {
+    const active = plannedRun();
+    active.status = 'completed';
+    active.summary = 'The course is organized.';
+    active.tokensUsed = 4_200;
+    active.calls = [
+      {
+        id: 'call-1',
+        tool: 'search_notes',
+        arguments: { query: 'canicule' },
+        rationale: 'Find the notes worth merging.',
+        status: 'succeeded',
+        // Truncated exactly as the run journal stores it: unparseable, which is
+        // why the arguments are what the line is built from.
+        resultPreview: '[{"id":"71dnBlhpiffq","courseId":null,"title":"Canic…',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 'call-2',
+        tool: 'update_note',
+        arguments: { noteId: 'note-1' },
+        rationale: 'Move the note into its matching section.',
+        status: 'succeeded',
+        resultPreview: '{"title":"Limits"}',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      },
+    ];
+    active.touchedNotes = [
+      { noteId: 'note-1', title: 'Limits', snapshotId: 'snapshot-1', created: false },
+    ];
+    useAgentStore.setState({ runs: [active], activeRunId: active.id });
+
+    render(<AgentPanel noteId="note-1" />);
+
+    expect(screen.getByText('Move the note into its matching section.')).not.toBeNull();
+    expect(screen.getByText('Searched for “canicule”')).not.toBeNull();
+    expect(screen.getByText('Rewrote “Limits”')).not.toBeNull();
+    expect(screen.queryByText(/71dnBlhpiffq/)).toBeNull();
+    expect(screen.getByText('The course is organized.')).not.toBeNull();
+    expect(screen.getByTitle('Open the version from before this run')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Undo the changes' })).not.toHaveProperty(
+      'disabled',
+      true,
+    );
+  });
+
+  it('does not claim note scope when there is no note to scope to', () => {
+    // The scope control is shared with Ask, which cannot open without a note.
+    // The agent can: ⌘⌥A works from an empty editor, and the executor would
+    // widen "this note" to the whole library without saying so.
+    useAgentStore.setState({ runs: [], activeRunId: null });
+    useAiStore.setState({ askScope: 'note' });
+
+    render(<AgentPanel noteId={null} />);
+
+    expect(screen.getByTitle('Scope · All notes')).not.toBeNull();
+    expect(screen.queryByTitle('Scope · This note')).toBeNull();
+  });
+
+  it('leaves a running agent running when the panel goes away', () => {
+    const active = plannedRun();
+    active.status = 'running';
+    useAgentStore.setState({ runs: [active], activeRunId: active.id });
+    useAiStore.setState({ running: 'agent' });
+
+    const view = render(<AgentPanel noteId="note-1" />);
+    expect(screen.getByRole('button', { name: /Stop/ })).not.toBeNull();
+
+    // Closing the inspector, opening another note, or switching the Agent
+    // switch off must not cancel the run — only the Stop button does.
+    view.unmount();
+    expect(useAiStore.getState().running).toBe('agent');
+  });
+});
