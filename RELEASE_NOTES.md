@@ -1,5 +1,28 @@
 # Release notes
 
+## NotaBene 0.7.5
+
+- **Read and annotate PDFs without leaving NotaBene.** PDF attachments now open
+  in a full-window reader with page navigation, zoom, text search, persistent
+  highlights, and notes. A highlighted passage can be brought into the open
+  note with its source and page number intact.
+- **Find text inside document attachments.** DOCX, ODT, RTF, Markdown, and
+  plain-text previews have an in-document search bar with match counts and
+  next/previous navigation. Search highlights clear correctly in the macOS
+  WebKit view when the query is erased or the search is closed.
+- **Move the library safely.** Settings can show the current library location,
+  verify a destination, and move the library without risking a partial copy.
+  The storage layer also exposes read-only health information before a move is
+  attempted.
+- **The Agent can manage a larger part of the library.** It can discover tags,
+  merge notes in an explicit order, move notes to recoverable Trash, and
+  restore them. Permanent deletion remains unavailable.
+- **Gemini's model catalogue is current**, including the latest Flash models.
+
+This release updates the library schema from version 4 to 5 to store PDF
+annotations on attachments. Existing libraries are migrated automatically when
+they are opened.
+
 ## NotaBene 0.6.2
 
 - **Cancel now stops the model, not just the waiting.** Pressing Cancel during
