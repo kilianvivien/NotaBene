@@ -163,7 +163,6 @@
     "deleteTable": "Supprimer le tableau"
   },
   "pdf": {
-    "reader": "Lecteur PDF",
     "loading": "Chargement du PDF…",
     "missingFile": "Le fichier PDF est absent de la bibliothèque.",
     "search": "Rechercher dans ce PDF",
@@ -173,9 +172,7 @@
     "nextMatch": "Occurrence PDF suivante",
     "annotations": "Surlignages et notes",
     "noAnnotations": "Aucun surlignage.",
-    "addHighlight": "Surligner la sélection",
     "selectionHint": "Sélectionnez du texte sur la page pour le surligner.",
-    "highlightColor": "Couleur du surlignage",
     "openAnnotation": "Ouvrir le surlignage : {{text}}",
     "comment": "Commentaire",
     "commentPlaceholder": "Ajoutez une note sur ce passage…",
@@ -183,6 +180,9 @@
     "deleteHighlight": "Supprimer le surlignage",
     "pageShort": "p. {{page}}",
     "sourceAttribution": "Source : {{name}}, p. {{page}}",
+    "noTextLayer": "Cette page ne contient pas de texte sélectionnable : impossible de la surligner.",
+    "extracted": "Surlignage ajouté à la note.",
+    "extractFailed": "Ouvrez une note avant d’extraire un surlignage.",
     "color": {
       "yellow": "Surlignage jaune",
       "green": "Surlignage vert",

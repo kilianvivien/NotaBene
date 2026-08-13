@@ -30,11 +30,12 @@ describe('selectNote', () => {
     expect(useUiStore.getState().selectedNoteId).toBe('d');
   });
 
-  it('keeps a PDF beside its note and closes it when another note opens', () => {
+  it('keeps a PDF with its note and closes it when another note opens', () => {
     useUiStore.setState({ inspectorVisible: true });
     useUiStore.getState().openPdfReader(pdf, 4, 'highlight-1');
     expect(useUiStore.getState()).toMatchObject({
-      inspectorVisible: false,
+      // The reader is a full-window overlay: it leaves the panes alone.
+      inspectorVisible: true,
       pdfReading: { attachment: pdf, page: 4, annotationId: 'highlight-1' },
     });
 

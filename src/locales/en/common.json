@@ -163,7 +163,6 @@
     "deleteTable": "Delete table"
   },
   "pdf": {
-    "reader": "PDF reader",
     "loading": "Loading PDF…",
     "missingFile": "The PDF file is missing from the library.",
     "search": "Search this PDF",
@@ -173,9 +172,7 @@
     "nextMatch": "Next PDF match",
     "annotations": "Highlights & notes",
     "noAnnotations": "No highlights yet.",
-    "addHighlight": "Highlight selection",
-    "selectionHint": "Select text on the page to create a highlight.",
-    "highlightColor": "Highlight color",
+    "selectionHint": "Select text on the page to highlight it.",
     "openAnnotation": "Open highlight: {{text}}",
     "comment": "Comment",
     "commentPlaceholder": "Add a note about this passage…",
@@ -183,6 +180,9 @@
     "deleteHighlight": "Delete highlight",
     "pageShort": "p. {{page}}",
     "sourceAttribution": "Source: {{name}}, p. {{page}}",
+    "noTextLayer": "This page has no selectable text, so it cannot be highlighted.",
+    "extracted": "Highlight added to the note.",
+    "extractFailed": "Open a note before extracting a highlight.",
     "color": {
       "yellow": "Yellow highlight",
       "green": "Green highlight",

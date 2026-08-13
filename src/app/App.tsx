@@ -36,7 +36,7 @@ import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 import { EditorConflictDialog } from './editor/EditorConflictDialog';
 import { ImportDocumentDialog } from './import/ImportDocumentDialog';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
-import { PdfReadingPane } from '@/editor/attachments/PdfReadingPane';
+import { PdfReader } from '@/editor/attachments/PdfReader';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -155,7 +155,6 @@ export function App() {
         <CollapsiblePane open={noteListVisible} width={NOTE_LIST_WIDTH}>
           <NoteList />
         </CollapsiblePane>
-        {pdfReading && <PdfReadingPane request={pdfReading} />}
         {/* The typewriter look is scoped to this column, not to `html`: warm
             stock and softened ink belong to the page being written, and must
             not follow a peeked inspector or an open dialog around. */}
@@ -183,6 +182,7 @@ export function App() {
       <FlashcardsDialog />
       <PodcastDialog />
       <EditorConflictDialog />
+      {pdfReading && <PdfReader request={pdfReading} />}
     </div>
   );
 }

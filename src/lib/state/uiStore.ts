@@ -237,10 +237,8 @@ export const useUiStore = create<UiState>()(
 
     openPdfReader(attachment, page = 1, annotationId) {
       set((state) => {
-        // The attachment is opened from the inspector; collapsing that narrow
-        // source pane gives the reader and note enough room to remain useful
-        // side by side on a laptop display.
-        state.inspectorVisible = false;
+        // The reader covers the window, the way every other attachment preview
+        // does, so it leaves the panes behind it exactly as it found them.
         state.pdfReading = {
           attachment,
           page: Math.max(1, Math.floor(page)),

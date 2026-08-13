@@ -1697,99 +1697,31 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
   max-height: calc(100vh - 142px);
 }
 
-/* Side-by-side PDF reading and annotation pane. */
-.nb-pdf-reader {
-  display: flex;
-  width: clamp(31rem, 46vw, 48rem);
-  min-width: 26rem;
-  flex: 0 1 46vw;
-  flex-direction: column;
-  overflow: hidden;
-  border-right: 1px solid var(--nb-divider);
-  background: var(--nb-sidebar);
-  color: var(--nb-text);
+/* ---------------------------------------------------------------------------
+   Full-window PDF reader
+   --------------------------------------------------------------------------- */
+
+.nb-pdf-reader .nb-map-viewer-bar {
+  gap: 8px;
 }
 
-.nb-pdf-reader-header,
-.nb-pdf-reader-toolbar,
-.nb-pdf-reader-search {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 5px;
-  border-bottom: 1px solid var(--nb-divider);
-  padding: 5px 9px;
-}
-
-.nb-pdf-reader-header {
-  min-height: 52px;
-  justify-content: space-between;
-}
-
-.nb-pdf-reader-header > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.nb-pdf-reader-header strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
-.nb-pdf-reader-header span,
-.nb-pdf-reader-toolbar > span:not(.nb-pdf-reader-divider),
-.nb-pdf-reader-search > span {
-  color: var(--nb-muted);
-  font-size: 11px;
-}
-
-.nb-pdf-reader button {
-  border-radius: 5px;
-}
-.nb-pdf-reader button:not(:disabled):hover {
-  background: var(--nb-hover);
-}
-.nb-pdf-reader button:disabled {
-  cursor: default;
-  opacity: 0.4;
-}
-
-.nb-pdf-reader-header > button,
-.nb-pdf-reader-toolbar button,
-.nb-pdf-reader-search button {
-  display: inline-grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  color: var(--nb-muted);
-}
-
-.nb-pdf-reader-toolbar > span:not(.nb-pdf-reader-divider) {
-  min-width: 56px;
+/* Highlight count, carried on the drawer toggle so the header does not need a
+   second place to say how many there are. */
+.nb-pdf-count {
+  min-width: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--nb-accent-soft);
+  color: var(--nb-accent);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 15px;
   text-align: center;
 }
 
-.nb-pdf-reader-divider {
-  width: 1px;
-  height: 18px;
-  margin: 0 3px;
-  background: var(--nb-divider);
-}
-
-.nb-pdf-reader-search input {
-  min-width: 0;
-  flex: 1;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  font-size: 12px;
-}
-
-.nb-pdf-reader-search > span {
-  font-variant-numeric: tabular-nums;
+.nb-map-viewer-controls button[aria-pressed='true'] {
+  color: var(--nb-text);
+  background: var(--nb-active);
 }
 
 .nb-pdf-reader-body {
@@ -1798,51 +1730,85 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
   flex: 1;
 }
 
-.nb-pdf-reader-stage {
+/* Wraps the scrolling stage so the find bar can float over the page without
+   drifting across the highlights drawer. */
+.nb-pdf-stage-frame {
   position: relative;
+  display: flex;
   min-width: 0;
   flex: 1;
+}
+
+/* The page scrolls here, so the reader keeps one scroll surface and the header
+   stays put. */
+.nb-pdf-stage {
+  min-width: 0;
+  padding: 28px 0 44px;
   overflow: auto;
-  padding: 28px;
-  background: color-mix(in srgb, var(--nb-sidebar) 82%, #777 18%);
+  background: var(--nb-inset-surface);
+  flex: 1;
+  overscroll-behavior: contain;
 }
 
-.nb-pdf-reader-state {
-  display: grid;
-  min-height: 128px;
-  place-items: center;
-  color: var(--nb-muted);
+/* A reading desk a shade below the app's own inset, so the white page has an
+   edge in the light theme instead of dissolving into the surface behind it. */
+html[data-theme='light'] .nb-pdf-stage {
+  background: color-mix(in srgb, var(--nb-inset-surface) 82%, #2a2724 18%);
+}
+
+.nb-pdf-state {
+  margin: 0 auto 20px;
+  color: var(--nb-text-3);
   font-size: 12px;
+  text-align: center;
 }
 
-.nb-pdf-reader-state[data-tone='danger'] {
+.nb-pdf-state[data-tone='danger'] {
   color: var(--nb-danger);
 }
 
-.nb-pdf-reader-page {
+.nb-pdf-page {
   position: relative;
   margin: 0 auto;
-  background: white;
-  box-shadow: 0 10px 30px rgb(34 27 20 / 18%);
+  transform-origin: top center;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: var(--nb-shadow-lg);
 }
 
-.nb-pdf-reader-page canvas {
+.nb-pdf-page:not([data-ready]) {
+  box-shadow: none;
+}
+
+/* A page is only shown once it is drawn: the canvas is cleared the moment it is
+   resized, so without this a page turn flashes an empty sheet before the new
+   one arrives. */
+.nb-pdf-page[data-ready]:not([data-rendered]) {
+  opacity: 0;
+}
+
+.nb-pdf-page canvas {
   position: absolute;
   inset: 0;
   display: block;
+  border-radius: 2px;
 }
 
+/* pdf.js positions these spans itself; the geometry below is its contract, not
+   a style choice. */
 .nb-pdf-text-layer {
-  z-index: 2;
-  color-scheme: only light;
   position: absolute;
+  z-index: 2;
   inset: 0;
   overflow: clip;
   line-height: 1;
   text-align: initial;
   transform-origin: 0 0;
   forced-color-adjust: none;
+  color-scheme: only light;
   --min-font-size: 1;
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
   --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
   --min-font-size-inv: calc(1 / var(--min-font-size));
 }
@@ -1867,6 +1833,10 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
   display: contents;
 }
 
+.nb-pdf-text-layer ::selection {
+  background: color-mix(in srgb, var(--nb-accent) 32%, transparent);
+}
+
 .nb-pdf-annotation-layer {
   position: absolute;
   z-index: 3;
@@ -1876,10 +1846,18 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
 
 .nb-pdf-annotation-layer button {
   position: absolute;
-  pointer-events: auto;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 2px;
+  box-shadow: 0 0 0 0 transparent;
   mix-blend-mode: multiply;
+  pointer-events: auto;
+  transition: box-shadow var(--nb-t-fast) var(--nb-ease-out);
+}
+
+/* Selection reads as a soft inset edge rather than a box drawn around every
+   line of the passage. */
+.nb-pdf-annotation-layer button[data-selected] {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--nb-accent) 55%, transparent);
 }
 
 .nb-pdf-annotation-layer button[data-color='yellow'] {
@@ -1894,168 +1872,294 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
 .nb-pdf-annotation-layer button[data-color='pink'] {
   background: rgb(246 108 166 / 34%);
 }
-.nb-pdf-annotation-layer button[data-selected] {
-  border-color: var(--nb-accent);
+
+/* Anchored to the highlight it belongs to: `top` is the anchor's edge, and the
+   translate lifts the card clear of it — flipped under the anchor when the
+   passage sits at the top of the page. */
+.nb-pdf-popover {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  padding: 5px;
+  transform: translate(-50%, calc(-100% - 9px));
+  border: 1px solid var(--nb-control-border);
+  border-radius: var(--nb-radius-md);
+  background: var(--nb-surface-modal);
+  box-shadow: var(--nb-shadow-lg);
+  align-items: center;
+  gap: 4px;
 }
 
-.nb-pdf-annotation-rail {
-  display: flex;
-  width: 216px;
-  flex: 0 0 216px;
+.nb-pdf-popover[data-below] {
+  transform: translate(-50%, 9px);
+}
+
+.nb-pdf-swatches > svg {
+  margin: 0 3px 0 2px;
+  color: var(--nb-text-3);
+}
+
+.nb-pdf-popover button[data-color] {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  border: 1.5px solid transparent;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 8%);
+  transition: transform var(--nb-t-fast) var(--nb-ease-spring);
+}
+
+.nb-pdf-popover button[data-color]:hover:not(:disabled) {
+  transform: scale(1.15);
+}
+
+.nb-pdf-popover button[data-selected] {
+  border-color: var(--nb-text-2);
+}
+
+.nb-pdf-popover button[data-color='yellow'] {
+  background: #ffdd3f;
+}
+.nb-pdf-popover button[data-color='green'] {
+  background: #5dcf7e;
+}
+.nb-pdf-popover button[data-color='blue'] {
+  background: #53a5ff;
+}
+.nb-pdf-popover button[data-color='pink'] {
+  background: #f66ca6;
+}
+
+.nb-pdf-note {
+  width: 264px;
   flex-direction: column;
-  overflow: auto;
-  border-left: 1px solid var(--nb-divider);
-  background: var(--nb-sidebar);
-}
-
-.nb-pdf-highlight-actions,
-.nb-pdf-annotation-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-bottom: 1px solid var(--nb-divider);
-  padding: 11px;
-}
-
-.nb-pdf-colors {
-  display: flex;
+  padding: 7px;
+  align-items: stretch;
   gap: 6px;
 }
 
-.nb-pdf-colors button,
-.nb-pdf-annotation-list button > span:first-child {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
-  border: 2px solid transparent;
-  border-radius: 50%;
+.nb-pdf-note-colors {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.nb-pdf-colors button[data-color='yellow'],
-.nb-pdf-annotation-list span[data-color='yellow'] {
+/* The spacer that pushes the actions to the trailing edge. */
+.nb-pdf-note-colors > span {
+  flex: 1;
+}
+
+.nb-pdf-note-action {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--nb-radius-sm);
+  color: var(--nb-text-3);
+  flex: none;
+  place-items: center;
+}
+
+.nb-pdf-note-action:hover:not(:disabled) {
+  color: var(--nb-text);
+  background: var(--nb-hover);
+}
+
+.nb-pdf-note textarea {
+  min-height: 62px;
+  padding: 6px 7px;
+  border: 1px solid var(--nb-divider);
+  border-radius: var(--nb-radius-sm);
+  color: var(--nb-text);
+  background: var(--nb-control-surface);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.nb-pdf-note textarea:focus {
+  outline: 2px solid var(--nb-accent-ring);
+  outline-offset: -1px;
+}
+
+/* Find bar: a floating strip under the header, the way a document reader puts
+   one there — not a permanent row taxing every page turn. */
+.nb-pdf-find {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  padding: 5px 6px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: var(--nb-radius-md);
+  color: var(--nb-text-3);
+  background: var(--nb-surface-modal);
+  box-shadow: var(--nb-shadow-lg);
+  align-items: center;
+  gap: 5px;
+}
+
+.nb-pdf-find input {
+  width: 190px;
+  border: 0;
+  color: var(--nb-text);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  outline: 0;
+}
+
+.nb-pdf-find > span {
+  min-width: 54px;
+  color: var(--nb-text-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.nb-pdf-find button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--nb-radius-sm);
+  color: var(--nb-text-3);
+  flex: none;
+  place-items: center;
+}
+
+.nb-pdf-find button:hover:not(:disabled) {
+  color: var(--nb-text);
+  background: var(--nb-hover);
+}
+
+.nb-pdf-find button:disabled {
+  opacity: 0.4;
+}
+
+.nb-pdf-highlights {
+  width: 250px;
+  padding: 10px;
+  overflow: auto;
+  border-left: 1px solid var(--nb-divider);
+  background: var(--nb-surface);
+  flex: none;
+}
+
+.nb-pdf-highlights-empty {
+  margin: 18px 8px;
+  color: var(--nb-text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+.nb-pdf-highlights ul {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+}
+
+.nb-pdf-highlights li button {
+  display: grid;
+  width: 100%;
+  padding: 8px;
+  border-radius: var(--nb-radius-sm);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 3px 7px;
+  text-align: left;
+}
+
+.nb-pdf-highlights li button:hover {
+  background: var(--nb-hover);
+}
+
+.nb-pdf-highlights li button[data-selected] {
+  background: var(--nb-active);
+}
+
+.nb-pdf-highlights li span[data-color] {
+  width: 9px;
+  height: 9px;
+  margin-top: 4px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.nb-pdf-highlights li span[data-color='yellow'] {
   background: #ffdd3f;
 }
-.nb-pdf-colors button[data-color='green'],
-.nb-pdf-annotation-list span[data-color='green'] {
+.nb-pdf-highlights li span[data-color='green'] {
   background: #5dcf7e;
 }
-.nb-pdf-colors button[data-color='blue'],
-.nb-pdf-annotation-list span[data-color='blue'] {
+.nb-pdf-highlights li span[data-color='blue'] {
   background: #53a5ff;
 }
-.nb-pdf-colors button[data-color='pink'],
-.nb-pdf-annotation-list span[data-color='pink'] {
+.nb-pdf-highlights li span[data-color='pink'] {
   background: #f66ca6;
 }
-.nb-pdf-colors button[data-selected] {
-  border-color: var(--nb-text);
-}
 
-.nb-pdf-primary-action {
-  display: flex;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  background: var(--nb-accent);
-  color: white;
-  font-size: 12px;
-}
-
-.nb-pdf-highlight-actions > p,
-.nb-pdf-annotation-list > p {
-  margin: 0;
-  color: var(--nb-muted);
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.nb-pdf-highlight-actions > p {
+.nb-pdf-highlight-text {
   display: -webkit-box;
   overflow: hidden;
+  color: var(--nb-text-2);
+  font-size: 11.5px;
+  line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
 
-.nb-pdf-annotation-list {
-  min-height: 0;
-  flex: 1;
-  overflow: auto;
-  padding: 9px;
+.nb-pdf-highlights li small {
+  color: var(--nb-text-3);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
-.nb-pdf-annotation-list h3 {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin: 2px 0 8px;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.nb-pdf-annotation-list > button {
-  display: grid;
-  width: 100%;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 6px;
-  padding: 7px;
-  text-align: left;
-}
-
-.nb-pdf-annotation-list > button[data-selected] {
-  background: var(--nb-hover);
-}
-
-.nb-pdf-annotation-list > button > span:nth-child(2) {
+.nb-pdf-highlight-note {
   display: -webkit-box;
   overflow: hidden;
+  color: var(--nb-text-3);
+  font-size: 11px;
+  grid-column: 2 / -1;
+  line-height: 1.35;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-size: 11px;
-  line-height: 1.35;
 }
 
-.nb-pdf-annotation-list small {
-  color: var(--nb-muted);
-  font-size: 10px;
-}
-.nb-pdf-annotation-editor label {
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.nb-pdf-annotation-editor textarea {
-  min-height: 72px;
-  resize: vertical;
-  border: 1px solid var(--nb-divider);
-  border-radius: 5px;
-  background: var(--nb-paper);
-  padding: 7px;
-  font-size: 11px;
-}
-
-.nb-pdf-annotation-editor > div {
-  display: flex;
-  gap: 5px;
-}
-
-.nb-pdf-annotation-editor button {
-  display: inline-flex;
-  min-height: 29px;
-  align-items: center;
-  gap: 4px;
-  padding: 0 7px;
-  border: 1px solid var(--nb-divider);
-  font-size: 11px;
-}
-
-@media (max-width: 1050px) {
-  .nb-pdf-reader {
-    min-width: 23rem;
+/* A laptop screen runs out of header before it runs out of page: the two
+   labelled actions keep their icons and drop their words. */
+@media (max-width: 1180px) {
+  .nb-pdf-action-label {
+    display: none;
   }
-  .nb-pdf-annotation-rail {
-    width: 176px;
-    flex-basis: 176px;
+}
+
+@media (max-width: 1000px) {
+  .nb-pdf-highlights {
+    width: 210px;
+  }
+}
+
+/* Motion, opt in only — the same rule the rest of the app follows. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Every full-window preview arrives the way a window does. */
+  .nb-attachment-viewer,
+  .nb-map-viewer {
+    animation: nb-window-in var(--nb-t-slow) var(--nb-ease-out);
+  }
+
+  .nb-pdf-page[data-ready] {
+    transition: opacity var(--nb-t-base) var(--nb-ease-out);
+  }
+
+  .nb-pdf-popover {
+    animation: nb-fade-in var(--nb-t-fast) var(--nb-ease-out);
+  }
+
+  .nb-pdf-find {
+    animation: nb-panel-in var(--nb-t-fast) var(--nb-ease-out);
   }
 }
