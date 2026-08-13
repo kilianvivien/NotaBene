@@ -2,8 +2,8 @@ import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { AiRichText } from '@/app/ai/AiRichText';
+import { loadPdfjs } from '@/lib/pdf/loadPdfjs';
 import type { AttachmentPreviewKind } from '@/lib/attachments/previewSupport';
 import { readAttachmentBuffer, readAttachmentText, rtfToText } from './documentPreview';
 import { renderOdtHtml } from './odtPreview';
@@ -64,8 +64,7 @@ function PdfPreview({ blob }: { blob: Blob }) {
 
     void (async () => {
       try {
-        const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        const pdfjs = await loadPdfjs();
         const data = new Uint8Array(await readAttachmentBuffer(blob));
         loadingTask = pdfjs.getDocument({ data });
         const loaded = await loadingTask.promise;

@@ -42,9 +42,9 @@ import type {
   RenderTask,
   TextLayer,
 } from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { assets } from '@/lib/adapters';
 import { attachmentKindLabel } from '@/lib/attachments/previewSupport';
+import { loadPdfjs } from '@/lib/pdf/loadPdfjs';
 import {
   beginAttachmentImportCommand,
   extractPdfAnnotationCommand,
@@ -268,8 +268,7 @@ export function PdfReader({ request }: { request: PdfReadingRequest }) {
       try {
         const blob = await assets.get(request.attachment.assetId);
         if (!blob) throw new Error(t('pdf.missingFile'));
-        const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        const pdfjs = await loadPdfjs();
         loadingTask = pdfjs.getDocument({
           data: new Uint8Array(await blob.arrayBuffer()),
         });
@@ -349,7 +348,7 @@ export function PdfReader({ request }: { request: PdfReadingRequest }) {
             '--total-scale-factor',
             String(nextViewport.scale),
           );
-          const pdfjs = await import('pdfjs-dist');
+          const pdfjs = await loadPdfjs();
           textLayer = new pdfjs.TextLayer({
             textContentSource: textContent,
             container: textContainer,
