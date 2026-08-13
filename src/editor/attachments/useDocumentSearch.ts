@@ -16,6 +16,14 @@ import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react
 
 const ALL = 'nb-find';
 const CURRENT = 'nb-find-current';
+/**
+ * The tints the two highlights paint with are custom properties that only have
+ * values while this is set. Removing a highlight from the registry does not
+ * repaint on WebKit — the entry goes and the marks stay, all over a document
+ * whose search was closed — but changing a custom property invalidates paint
+ * through the ordinary style path, which every engine gets right.
+ */
+const ACTIVE = 'nbFind';
 
 interface TextRun {
   node: Text;
@@ -103,21 +111,31 @@ export function paintDocumentMatches(
   if (!registry) return 0;
   const ranges = container ? findRanges(container, query) : [];
   if (!ranges.length) {
-    registry.delete(ALL);
-    registry.delete(CURRENT);
+    clearDocumentMatches();
     return 0;
   }
+  document.documentElement.dataset[ACTIVE] = '';
   registry.set(ALL, new Highlight(...ranges));
   const focused = ranges[current];
-  if (focused) registry.set(CURRENT, new Highlight(focused));
-  else registry.delete(CURRENT);
+  registry.set(CURRENT, focused ? new Highlight(focused) : new Highlight());
   return ranges.length;
 }
 
+/**
+ * Deleting a highlight is not enough on WebKit: the entry goes, the paint
+ * stays, and a closed search leaves its marks all over the document. Setting
+ * an empty highlight repaints — that path is the one the engine gets right,
+ * because it is how the marks arrived — and the delete after it keeps the
+ * registry clean for the next document.
+ */
 export function clearDocumentMatches(): void {
+  delete document.documentElement.dataset[ACTIVE];
   const registry = highlightRegistry();
-  registry?.delete(ALL);
-  registry?.delete(CURRENT);
+  if (!registry) return;
+  for (const name of [ALL, CURRENT]) {
+    if (registry.has(name)) registry.set(name, new Highlight());
+    registry.delete(name);
+  }
 }
 
 export interface DocumentSearch {
@@ -162,23 +180,16 @@ export function useDocumentSearch(
     const registry = highlightRegistry();
     if (!registry) return;
     if (!ranges.length) {
-      registry.delete(ALL);
-      registry.delete(CURRENT);
+      clearDocumentMatches();
       return;
     }
+    document.documentElement.dataset[ACTIVE] = '';
     registry.set(ALL, new Highlight(...ranges));
     const current = ranges[index];
-    if (current) registry.set(CURRENT, new Highlight(current));
-    else registry.delete(CURRENT);
+    registry.set(CURRENT, current ? new Highlight(current) : new Highlight());
   }, [index, ranges]);
 
-  useEffect(() => {
-    const registry = highlightRegistry();
-    return () => {
-      registry?.delete(ALL);
-      registry?.delete(CURRENT);
-    };
-  }, []);
+  useEffect(() => clearDocumentMatches, []);
 
   useEffect(() => {
     const current = ranges[index];

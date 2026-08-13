@@ -1780,10 +1780,11 @@ html[data-theme='light'] .nb-pdf-stage {
   box-shadow: none;
 }
 
-/* A page is only shown once it is drawn: the canvas is cleared the moment it is
-   resized, so without this a page turn flashes an empty sheet before the new
-   one arrives. */
-.nb-pdf-page[data-ready]:not([data-rendered]) {
+/* A page is only shown once it is drawn. Before it is measured it is a blank
+   white strip the width of the stage, and the canvas is cleared the moment it
+   is resized — so without this, opening a PDF flashes a bar and every page
+   turn flashes an empty sheet. */
+.nb-pdf-page:not([data-rendered]) {
   opacity: 0;
 }
 
@@ -2020,11 +2021,19 @@ html[data-theme='light'] .nb-pdf-stage {
    text layer, so an opaque match would hide the very word it found. The
    current one is simply the stronger wash. */
 ::highlight(nb-find) {
-  background-color: color-mix(in srgb, var(--nb-accent) 28%, transparent);
+  background-color: var(--nb-find-tint, transparent);
 }
 
 ::highlight(nb-find-current) {
-  background-color: color-mix(in srgb, var(--nb-accent) 62%, transparent);
+  background-color: var(--nb-find-tint-strong, transparent);
+}
+
+/* Set only while a search is open, so closing one repaints the document
+   through the ordinary style path instead of trusting the highlight registry
+   to invalidate — which WebKit does not do on removal. */
+html[data-nb-find] {
+  --nb-find-tint: color-mix(in srgb, var(--nb-accent) 28%, transparent);
+  --nb-find-tint-strong: color-mix(in srgb, var(--nb-accent) 62%, transparent);
 }
 
 .nb-doc-find input {
