@@ -1983,11 +1983,12 @@ html[data-theme='light'] .nb-pdf-stage {
 }
 
 /* Find bar: a floating strip under the header, the way a document reader puts
-   one there — not a permanent row taxing every page turn. */
-.nb-pdf-find {
+   one there — not a permanent row taxing every page turn. Shared by the PDF
+   reader, which anchors it to its stage, and the attachment viewer, which has
+   no stage frame and hangs it below the header instead. */
+.nb-doc-find {
   position: absolute;
   z-index: 6;
-  top: 12px;
   right: 16px;
   display: flex;
   padding: 5px 6px;
@@ -2000,7 +2001,33 @@ html[data-theme='light'] .nb-pdf-stage {
   gap: 5px;
 }
 
-.nb-pdf-find input {
+.nb-pdf-stage-frame > .nb-doc-find {
+  top: 12px;
+}
+
+.nb-attachment-viewer > .nb-doc-find {
+  top: calc(46px + 12px);
+}
+
+/* Layout-neutral: the preview stays the stage's own grid child, and this only
+   gives find-in-document a root to walk. */
+.nb-attachment-document {
+  display: contents;
+}
+
+/* Matches are painted over the document, never wrapped around it. Background
+   only, and translucent: on a PDF the glyphs belong to the canvas *under* the
+   text layer, so an opaque match would hide the very word it found. The
+   current one is simply the stronger wash. */
+::highlight(nb-find) {
+  background-color: color-mix(in srgb, var(--nb-accent) 28%, transparent);
+}
+
+::highlight(nb-find-current) {
+  background-color: color-mix(in srgb, var(--nb-accent) 62%, transparent);
+}
+
+.nb-doc-find input {
   width: 190px;
   border: 0;
   color: var(--nb-text);
@@ -2010,7 +2037,7 @@ html[data-theme='light'] .nb-pdf-stage {
   outline: 0;
 }
 
-.nb-pdf-find > span {
+.nb-doc-find > span {
   min-width: 54px;
   color: var(--nb-text-3);
   font-size: 11px;
@@ -2018,7 +2045,7 @@ html[data-theme='light'] .nb-pdf-stage {
   text-align: right;
 }
 
-.nb-pdf-find button {
+.nb-doc-find button {
   display: grid;
   width: 24px;
   height: 24px;
@@ -2028,12 +2055,12 @@ html[data-theme='light'] .nb-pdf-stage {
   place-items: center;
 }
 
-.nb-pdf-find button:hover:not(:disabled) {
+.nb-doc-find button:hover:not(:disabled) {
   color: var(--nb-text);
   background: var(--nb-hover);
 }
 
-.nb-pdf-find button:disabled {
+.nb-doc-find button:disabled {
   opacity: 0.4;
 }
 
@@ -2159,7 +2186,7 @@ html[data-theme='light'] .nb-pdf-stage {
     animation: nb-fade-in var(--nb-t-fast) var(--nb-ease-out);
   }
 
-  .nb-pdf-find {
+  .nb-doc-find {
     animation: nb-panel-in var(--nb-t-fast) var(--nb-ease-out);
   }
 }

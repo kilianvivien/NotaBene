@@ -10,10 +10,8 @@
  * and image viewers.
  */
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   Download,
   FileOutput,
   Highlighter,
@@ -44,6 +42,8 @@ import type {
 } from 'pdfjs-dist';
 import { assets } from '@/lib/adapters';
 import { attachmentKindLabel } from '@/lib/attachments/previewSupport';
+import { DocumentFindBar } from './DocumentFindBar';
+import { clearDocumentMatches, paintDocumentMatches } from './useDocumentSearch';
 import { loadPdfjs } from '@/lib/pdf/loadPdfjs';
 import {
   beginAttachmentImportCommand,
@@ -378,6 +378,27 @@ export function PdfReader({ request }: { request: PdfReadingRequest }) {
       textLayer?.cancel();
     };
   }, [pdf, stageWidth, page, zoom]);
+
+  /**
+   * Matches are painted on the page that is showing. `matches` holds one entry
+   * per hit, in page order, so the current hit's rank *within its page* is how
+   * many earlier entries share that page.
+   */
+  useEffect(() => {
+    if (!rendered || !findOpen) {
+      clearDocumentMatches();
+      return;
+    }
+    const onThisPage = matches.filter((candidate) => candidate === page).length;
+    const current =
+      matches[matchIndex] === page
+        ? matches.slice(0, matchIndex).filter((candidate) => candidate === page).length
+        : -1;
+    if (onThisPage === 0) clearDocumentMatches();
+    else paintDocumentMatches(textLayerRef.current, query, current);
+  }, [findOpen, matchIndex, matches, page, query, rendered]);
+
+  useEffect(() => clearDocumentMatches, []);
 
   /** A new page starts at its top, not wherever the last one was scrolled to. */
   useEffect(() => {
@@ -792,61 +813,19 @@ export function PdfReader({ request }: { request: PdfReadingRequest }) {
       <div className="nb-pdf-reader-body">
         <div className="nb-pdf-stage-frame">
           {findOpen && (
-            <div className="nb-pdf-find" role="search">
-              <Search size={14} aria-hidden />
-              <input
-                autoFocus
-                value={query}
-                type="search"
-                placeholder={t('pdf.search')}
-                aria-label={t('pdf.search')}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return;
-                  event.preventDefault();
-                  moveMatch(event.shiftKey ? -1 : 1);
-                }}
-              />
-              <span aria-live="polite">
-                {searching
-                  ? t('pdf.searching')
-                  : query.trim()
-                    ? t('pdf.matchCount', {
-                        current: matchIndex >= 0 ? matchIndex + 1 : 0,
-                        count: matches.length,
-                      })
-                    : ''}
-              </span>
-              <button
-                type="button"
-                disabled={!matches.length}
-                aria-label={t('pdf.previousMatch')}
-                title={t('pdf.previousMatch')}
-                onClick={() => moveMatch(-1)}
-              >
-                <ChevronUp size={14} aria-hidden />
-              </button>
-              <button
-                type="button"
-                disabled={!matches.length}
-                aria-label={t('pdf.nextMatch')}
-                title={t('pdf.nextMatch')}
-                onClick={() => moveMatch(1)}
-              >
-                <ChevronDown size={14} aria-hidden />
-              </button>
-              <button
-                type="button"
-                aria-label={t('common.close')}
-                title={t('common.close')}
-                onClick={() => {
-                  setFindOpen(false);
-                  setQuery('');
-                }}
-              >
-                <X size={14} aria-hidden />
-              </button>
-            </div>
+            <DocumentFindBar
+              query={query}
+              count={matches.length}
+              index={matchIndex}
+              busy={searching}
+              placeholder={t('pdf.search')}
+              onQuery={setQuery}
+              onStep={moveMatch}
+              onClose={() => {
+                setFindOpen(false);
+                setQuery('');
+              }}
+            />
           )}
 
           <main

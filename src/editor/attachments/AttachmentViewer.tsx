@@ -5,7 +5,7 @@
  * its native viewer, while every attachment can be saved back to disk without
  * changing its original bytes.
  */
-import { Download, FileOutput, Maximize2, Minus, Plus, X } from 'lucide-react';
+import { Download, FileOutput, Maximize2, Minus, Plus, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,8 @@ import { beginAttachmentImportCommand, saveAttachmentCommand } from '@/lib/comma
 import { documentImportSupported } from '@/lib/import/documentImport';
 import type { Attachment } from '@/lib/schema';
 import { AttachmentDocumentPreview } from './AttachmentDocumentPreview';
+import { DocumentFindBar } from './DocumentFindBar';
+import { useDocumentSearch } from './useDocumentSearch';
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 8;
@@ -62,6 +64,9 @@ export function AttachmentViewer({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
+  const [findOpen, setFindOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const documentRef = useRef<HTMLDivElement>(null);
   const previewKind = attachmentPreviewKind(attachment.name, mime);
   const isImage = previewKind === 'image';
   const convertible = documentImportSupported(attachment.name);
@@ -74,6 +79,10 @@ export function AttachmentViewer({
     previewKind === 'text'
       ? previewKind
       : null;
+  /** A PDF never lands here — `AttachmentPanel` sends it to the reader, which
+   * searches pages rather than a DOM. */
+  const searchable = documentKind !== null && documentKind !== 'pdf';
+  const search = useDocumentSearch(documentRef, query, findOpen && searchable);
 
   useEffect(() => {
     if (!isImage) return;
@@ -157,7 +166,15 @@ export function AttachmentViewer({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        // Escape backs out of the search first, the way it does in the reader.
+        if (findOpen) {
+          setFindOpen(false);
+          setQuery('');
+        } else {
+          onClose();
+        }
+      } else if (searchable && event.key === 'f' && (event.metaKey || event.ctrlKey)) {
+        setFindOpen(true);
       } else if (isImage && (event.key === '+' || event.key === '=')) {
         zoomAt(STEP);
       } else if (isImage && (event.key === '-' || event.key === '_')) {
@@ -171,7 +188,7 @@ export function AttachmentViewer({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [fit, isImage, onClose, zoomAt]);
+  }, [findOpen, fit, isImage, onClose, searchable, zoomAt]);
 
   useEffect(() => {
     const element = stage.current;
@@ -329,6 +346,20 @@ export function AttachmentViewer({
           </div>
         )}
 
+        {searchable && (
+          <div className="nb-map-viewer-controls">
+            <button
+              type="button"
+              aria-pressed={findOpen}
+              aria-label={t('find.placeholder')}
+              title={t('find.placeholder')}
+              onClick={() => setFindOpen((open) => !open)}
+            >
+              <Search size={14} aria-hidden />
+            </button>
+          </div>
+        )}
+
         {/* Two groups, not two buttons in one: `nb-map-viewer-controls` draws
             the pill, and a shared pill reads as one segmented control — these
             are unrelated actions. */}
@@ -361,6 +392,21 @@ export function AttachmentViewer({
           <X size={15} aria-hidden />
         </button>
       </header>
+
+      {findOpen && searchable && (
+        <DocumentFindBar
+          query={query}
+          count={search.count}
+          index={search.index}
+          placeholder={t('find.placeholder')}
+          onQuery={setQuery}
+          onStep={search.step}
+          onClose={() => {
+            setFindOpen(false);
+            setQuery('');
+          }}
+        />
+      )}
 
       <main
         ref={stage}
@@ -410,7 +456,9 @@ export function AttachmentViewer({
             />
           </div>
         ) : documentKind ? (
-          <AttachmentDocumentPreview blob={blob} kind={documentKind} />
+          <div ref={documentRef} className="nb-attachment-document">
+            <AttachmentDocumentPreview blob={blob} kind={documentKind} />
+          </div>
         ) : previewKind === 'audio' ? (
           <div className="nb-attachment-viewer-media">
             <audio controls preload="metadata" src={url} aria-label={attachment.name} />

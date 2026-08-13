@@ -166,10 +166,6 @@
     "loading": "Chargement du PDF…",
     "missingFile": "Le fichier PDF est absent de la bibliothèque.",
     "search": "Rechercher dans ce PDF",
-    "searching": "Recherche…",
-    "matchCount": "{{current}} sur {{count}}",
-    "previousMatch": "Occurrence PDF précédente",
-    "nextMatch": "Occurrence PDF suivante",
     "annotations": "Surlignages et notes",
     "noAnnotations": "Aucun surlignage.",
     "selectionHint": "Sélectionnez du texte sur la page pour le surligner.",
@@ -1090,5 +1086,12 @@
     "mapWrite": "Écrire",
     "mapOrganize": "Relier",
     "mapReview": "Réviser"
+  },
+  "find": {
+    "placeholder": "Rechercher dans ce document",
+    "searching": "Recherche…",
+    "matchCount": "{{current}} sur {{count}}",
+    "previous": "Occurrence précédente",
+    "next": "Occurrence suivante"
   }
 }

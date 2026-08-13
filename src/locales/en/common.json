@@ -166,10 +166,6 @@
     "loading": "Loading PDF…",
     "missingFile": "The PDF file is missing from the library.",
     "search": "Search this PDF",
-    "searching": "Searching…",
-    "matchCount": "{{current}} of {{count}}",
-    "previousMatch": "Previous PDF match",
-    "nextMatch": "Next PDF match",
     "annotations": "Highlights & notes",
     "noAnnotations": "No highlights yet.",
     "selectionHint": "Select text on the page to highlight it.",
@@ -1090,5 +1086,12 @@
     "mapWrite": "Write",
     "mapOrganize": "Connect",
     "mapReview": "Review"
+  },
+  "find": {
+    "placeholder": "Search this document",
+    "searching": "Searching…",
+    "matchCount": "{{current}} of {{count}}",
+    "previous": "Previous match",
+    "next": "Next match"
   }
 }
