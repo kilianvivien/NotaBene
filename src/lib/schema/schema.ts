@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -168,12 +168,37 @@ export const AssetSchema = z.object({
 });
 export type Asset = z.infer<typeof AssetSchema>;
 
+export const PdfAnnotationRectSchema = z.object({
+  /** PDF user-space coordinates, independent of the reader's current zoom. */
+  x1: z.number(),
+  y1: z.number(),
+  x2: z.number(),
+  y2: z.number(),
+});
+export type PdfAnnotationRect = z.infer<typeof PdfAnnotationRectSchema>;
+
+export const PdfAnnotationColorSchema = z.enum(['yellow', 'green', 'blue', 'pink']);
+export type PdfAnnotationColor = z.infer<typeof PdfAnnotationColorSchema>;
+
+export const PdfAnnotationSchema = z.object({
+  id,
+  page: z.number().int().positive(),
+  rects: z.array(PdfAnnotationRectSchema).min(1),
+  text: z.string().min(1),
+  comment: z.string().default(''),
+  color: PdfAnnotationColorSchema.default('yellow'),
+  createdAt: isoDate,
+  updatedAt: isoDate,
+});
+export type PdfAnnotation = z.infer<typeof PdfAnnotationSchema>;
+
 export const AttachmentSchema = z.object({
   id,
   noteId: id,
   assetId: id,
   name: z.string().min(1),
   createdAt: isoDate,
+  annotations: z.array(PdfAnnotationSchema).default([]),
 });
 export type Attachment = z.infer<typeof AttachmentSchema>;
 

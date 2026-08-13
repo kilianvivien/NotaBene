@@ -48,6 +48,8 @@ export function editorExtensions(
       openOnClick: false,
       autolink: true,
       defaultProtocol: 'https',
+      isAllowedUri: (url, { defaultValidate }) =>
+        url.startsWith('notabene-pdf:') || defaultValidate(url),
     }),
     Underline,
     Highlight.configure({ multicolor: true }),

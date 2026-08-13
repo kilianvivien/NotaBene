@@ -8,6 +8,7 @@
 pub mod assets;
 pub mod collections;
 pub mod journal;
+pub mod location;
 pub mod migrations;
 pub mod model;
 pub mod notes;
@@ -15,9 +16,12 @@ pub mod organization;
 pub mod transfer;
 
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, thiserror::Error)]
@@ -28,6 +32,8 @@ pub enum DbError {
     Json(#[from] serde_json::Error),
     #[error("{0}")]
     Other(String),
+    #[error("LIBRARY_READ_ONLY: This library is open read-only because another Mac is using it")]
+    ReadOnly,
 }
 
 /// Tauri commands must return something serialisable; a plain string is what
@@ -40,33 +46,72 @@ impl serde::Serialize for DbError {
 
 pub type DbResult<T> = Result<T, DbError>;
 
+#[derive(Clone)]
 pub struct Store {
-    connection: Mutex<Connection>,
+    connection: Arc<Mutex<Connection>>,
+    read_only: Arc<AtomicBool>,
 }
 
 impl Store {
-    pub fn open(path: &PathBuf) -> DbResult<Self> {
+    pub fn open(path: &PathBuf, read_only: Arc<AtomicBool>) -> DbResult<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|err| DbError::Other(err.to_string()))?;
         }
-        let connection = Connection::open(path)?;
+        let is_read_only = read_only.load(Ordering::Acquire);
+        let connection = if is_read_only {
+            Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?
+        } else {
+            Connection::open(path)?
+        };
 
         // WAL is what makes a hard kill survivable: committed transactions are
         // in the log before the app is told the write succeeded. NORMAL sync
         // is the right trade here — a power cut can cost the last transaction,
         // and the editor journal covers that gap.
-        connection.pragma_update(None, "journal_mode", "WAL")?;
-        connection.pragma_update(None, "synchronous", "NORMAL")?;
+        if !is_read_only {
+            connection.pragma_update(None, "journal_mode", "WAL")?;
+            connection.pragma_update(None, "synchronous", "NORMAL")?;
+        } else {
+            connection.pragma_update(None, "query_only", true)?;
+        }
         connection.pragma_update(None, "foreign_keys", "ON")?;
         // Let a blocked write wait rather than fail; nothing here holds a lock
         // for long.
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
 
         let store = Self {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
+            read_only,
         };
-        migrations::run(&store)?;
+        if is_read_only {
+            migrations::validate_current(&store)?;
+        } else {
+            migrations::run(&store)?;
+        }
         Ok(store)
+    }
+
+    pub fn is_read_only(&self) -> bool {
+        self.read_only.load(Ordering::Acquire)
+    }
+
+    pub fn ensure_writable(&self) -> DbResult<()> {
+        if self.is_read_only() {
+            Err(DbError::ReadOnly)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Permanently downgrade this process to read-only if its cross-machine
+    /// lock is replaced. Going writable again requires reopening the database,
+    /// which is deliberately left to a relaunch rather than attempted under
+    /// autosave.
+    pub fn make_read_only(&self) -> DbResult<()> {
+        self.read_only.store(true, Ordering::Release);
+        let guard = self.connection.lock().expect("store mutex poisoned");
+        guard.pragma_update(None, "query_only", true)?;
+        Ok(())
     }
 
     /// `PRAGMA integrity_check` — the full one, which walks every page. Returns
@@ -95,7 +140,7 @@ impl Store {
     /// panicked mid-transaction, which is not a state worth continuing from.
     pub fn with<T>(&self, body: impl FnOnce(&Connection) -> DbResult<T>) -> DbResult<T> {
         let guard = self.connection.lock().expect("store mutex poisoned");
-        body(&guard)
+        normalize_read_only(body(&guard))
     }
 
     /// Run `body` inside a transaction, rolling back on error.
@@ -103,6 +148,7 @@ impl Store {
         &self,
         body: impl FnOnce(&rusqlite::Transaction<'_>) -> DbResult<T>,
     ) -> DbResult<T> {
+        self.ensure_writable()?;
         let mut guard = self.connection.lock().expect("store mutex poisoned");
         let transaction = guard.transaction()?;
         let value = body(&transaction)?;
@@ -111,13 +157,15 @@ impl Store {
     }
 }
 
-/// Where the library lives: `~/Library/Application Support/app.notabene.desktop/`.
-pub fn database_path(app: &AppHandle) -> DbResult<PathBuf> {
-    Ok(data_dir(app)?.join("notabene.sqlite3"))
-}
-
-pub fn assets_path(app: &AppHandle) -> DbResult<PathBuf> {
-    Ok(data_dir(app)?.join("assets"))
+fn normalize_read_only<T>(result: DbResult<T>) -> DbResult<T> {
+    match result {
+        Err(DbError::Sqlite(error))
+            if error.sqlite_error_code() == Some(rusqlite::ErrorCode::ReadOnly) =>
+        {
+            Err(DbError::ReadOnly)
+        }
+        other => other,
+    }
 }
 
 /// The backup folder NotaBene manages itself. Scheduled backups land here

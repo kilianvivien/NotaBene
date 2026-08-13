@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { assets, dialog, library } from '@/lib/adapters';
 import {
   ATTACHMENT_ACCEPT,
+  attachmentPreviewKind,
   canPreviewAttachment,
 } from '@/lib/attachments/previewSupport';
 import {
@@ -23,6 +24,7 @@ import {
 import { documentImportSupported } from '@/lib/import/documentImport';
 import type { Attachment } from '@/lib/schema';
 import { useAttachmentStore } from '@/lib/state/attachmentStore';
+import { useUiStore } from '@/lib/state/uiStore';
 import { AttachmentViewer } from './AttachmentViewer';
 
 function AttachmentIcon({ mime }: { mime: string | null }) {
@@ -115,11 +117,23 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
     setDeletingId(attachment.id);
     await deleteAttachmentCommand(attachment.id);
     if (preview?.attachment.id === attachment.id) closePreview();
+    if (useUiStore.getState().pdfReading?.attachment.id === attachment.id) {
+      useUiStore.getState().closePdfReader();
+    }
     await refresh();
     setDeletingId(null);
   }
 
   async function openPreview(attachment: Attachment) {
+    if (
+      attachmentPreviewKind(
+        attachment.name,
+        mimes[attachment.assetId] ?? 'application/octet-stream',
+      ) === 'pdf'
+    ) {
+      useUiStore.getState().openPdfReader(attachment);
+      return;
+    }
     const blob = await assets.get(attachment.assetId);
     if (!blob) return;
     setPreview({ attachment, blob, url: URL.createObjectURL(blob) });

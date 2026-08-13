@@ -2,12 +2,14 @@ import { useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { RichTextEditor } from '@/editor/RichTextEditor';
+import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 
 export function EditorPane() {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
   const setTitle = useEditorStore((state) => state.setTitle);
   const applyDoc = useEditorStore((state) => state.applyDoc);
+  const readOnly = useLibraryAccessStore((state) => state.status?.readOnly === true);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
   useLayoutEffect(() => {
@@ -39,6 +41,7 @@ export function EditorPane() {
           ref={titleRef}
           rows={1}
           value={note.title}
+          readOnly={readOnly}
           onChange={(event) => setTitle(event.target.value.replaceAll(/\r?\n/g, ' '))}
           onKeyDown={(event) => {
             if (event.key !== 'Enter') return;
@@ -54,7 +57,12 @@ export function EditorPane() {
             lineHeight: 1.08,
           }}
         />
-        <RichTextEditor key={note.id} doc={note.doc} onChange={applyDoc} />
+        <RichTextEditor
+          key={note.id}
+          doc={note.doc}
+          editable={!readOnly}
+          onChange={applyDoc}
+        />
       </div>
     </div>
   );

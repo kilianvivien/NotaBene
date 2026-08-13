@@ -41,6 +41,18 @@ const MIGRATIONS: Record<number, Migration> = {
         )
       : input.snapshots,
   }),
+  // v5 persists PDF highlights and comments with their attachment. Existing
+  // attachments open with an empty annotation layer.
+  4: (input) => ({
+    ...input,
+    attachments: Array.isArray(input.attachments)
+      ? input.attachments.map((attachment) =>
+          typeof attachment === 'object' && attachment !== null
+            ? { annotations: [], ...(attachment as Record<string, unknown>) }
+            : attachment,
+        )
+      : input.attachments,
+  }),
 };
 
 export type ImportResult =

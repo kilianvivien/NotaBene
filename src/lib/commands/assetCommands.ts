@@ -32,6 +32,7 @@ export async function addAttachmentCommand(
     assetId: stored.value.id,
     name: file.name,
     createdAt: new Date().toISOString(),
+    annotations: [],
   });
   if (!parsed.success) {
     return fail('invalid_input', 'invalid attachment', parsed.error.issues);

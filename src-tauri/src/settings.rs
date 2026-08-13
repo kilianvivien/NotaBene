@@ -32,13 +32,37 @@ const SECRETS_FILE: &str = "secrets.json";
 /// pane that asks for your password to draw a checkmark is not shippable.)
 const SECRET_INDEX_FILE: &str = "secret-keys.json";
 
-fn data_dir(app: &AppHandle) -> Result<PathBuf> {
+pub(crate) fn data_dir(app: &AppHandle) -> Result<PathBuf> {
     let dir = app
         .path()
         .app_data_dir()
         .map_err(|error| error.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     Ok(dir)
+}
+
+/// The one setting Rust needs before the webview exists. Everything else stays
+/// opaque on this side; the library location is different because SQLite and
+/// the cross-machine lock have to open before TypeScript can migrate settings.
+pub(crate) fn configured_library_location(app: &AppHandle) -> Result<Option<PathBuf>> {
+    let path = data_dir(app)?.join(SETTINGS_FILE);
+    let Some(value) = read_json(&path)? else {
+        return Ok(None);
+    };
+    let Some(location) = value.get("libraryLocation") else {
+        return Ok(None);
+    };
+    if location.is_null() {
+        return Ok(None);
+    }
+    let location = location
+        .as_str()
+        .ok_or_else(|| "libraryLocation must be a path or null".to_string())?;
+    let path = PathBuf::from(location);
+    if !path.is_absolute() {
+        return Err("libraryLocation must be an absolute path".into());
+    }
+    Ok(Some(path))
 }
 
 /// Write through a temporary file and rename over the target.
@@ -151,7 +175,9 @@ mod keychain {
             // key to use, and the user's next move is to paste one in.
             return Ok(None);
         }
-        let value = String::from_utf8_lossy(&output.stdout).trim_end().to_string();
+        let value = String::from_utf8_lossy(&output.stdout)
+            .trim_end()
+            .to_string();
         Ok(Some(value))
     }
 

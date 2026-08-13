@@ -72,6 +72,25 @@ describe('library import', () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.library.snapshots[0]?.runId).toBeNull();
   });
+
+  it('adds an empty PDF annotation layer when importing a v4 library', () => {
+    const library = {
+      ...emptyLibrary(),
+      schemaVersion: 4,
+      attachments: [
+        {
+          id: 'attachment-1',
+          noteId: 'note-1',
+          assetId: 'asset-1',
+          name: 'paper.pdf',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    };
+    const result = safeImportLibrary(library);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.library.attachments[0]?.annotations).toEqual([]);
+  });
 });
 
 describe('note schema', () => {

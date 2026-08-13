@@ -48,6 +48,7 @@ describe('Phase C library behavior', () => {
       assetId: 'asset',
       name: 'Formulaire intégrales.pdf',
       createdAt: new Date().toISOString(),
+      annotations: [],
     });
 
     for (const text of ['mathematiques', 'elodie', 'integrales']) {

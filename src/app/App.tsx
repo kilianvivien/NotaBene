@@ -35,6 +35,8 @@ import { startAgentBridge } from '@/lib/mcp/agentBridge';
 import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 import { EditorConflictDialog } from './editor/EditorConflictDialog';
 import { ImportDocumentDialog } from './import/ImportDocumentDialog';
+import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
+import { PdfReadingPane } from '@/editor/attachments/PdfReadingPane';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -47,15 +49,18 @@ const INSPECTOR_WIDTH = 280;
  * that is a day or a week, decided by the command itself. */
 const BACKUP_HEARTBEAT_MS = 30 * 60 * 1000;
 const LAUNCH_MAINTENANCE_IDLE_MS = 10_000;
+const LIBRARY_ACCESS_POLL_MS = 15_000;
 
 export function App() {
   const bootstrap = useLibraryStore((state) => state.bootstrap);
   const loadSettings = useSettingsStore((state) => state.load);
+  const refreshLibraryAccess = useLibraryAccessStore((state) => state.refresh);
   const locale = useSettingsStore((state) => state.settings.locale);
   const sidebarVisible = useUiStore((state) => state.sidebarVisible);
   const noteListVisible = useUiStore((state) => state.noteListVisible);
   const inspectorVisible = useUiStore((state) => state.inspectorVisible);
   const focusMode = useUiStore((state) => state.focusMode);
+  const pdfReading = useUiStore((state) => state.pdfReading);
   const chromeRevealed = useChromeRevealed();
   useFullscreenAttribute();
 
@@ -73,15 +78,21 @@ export function App() {
       () => void runScheduledBackupCommand(),
       BACKUP_HEARTBEAT_MS,
     );
-    const maintenanceIdle = window.setTimeout(
-      () => void collectAssetGarbageCommand(),
-      LAUNCH_MAINTENANCE_IDLE_MS,
+    const accessPoll = window.setInterval(
+      () => void refreshLibraryAccess(),
+      LIBRARY_ACCESS_POLL_MS,
     );
+    const maintenanceIdle = window.setTimeout(() => {
+      if (!useLibraryAccessStore.getState().status?.readOnly) {
+        void collectAssetGarbageCommand();
+      }
+    }, LAUNCH_MAINTENANCE_IDLE_MS);
     void (async () => {
-      await loadSettings();
+      await Promise.all([loadSettings(), refreshLibraryAccess()]);
       setLocale(useSettingsStore.getState().settings.locale);
       await bootstrap();
-      await runOnboardingCommand();
+      const readOnly = useLibraryAccessStore.getState().status?.readOnly === true;
+      if (!readOnly) await runOnboardingCommand();
       if (!active) return;
       performance.mark('notabene-ready');
       performance.measure('notabene-startup', 'notabene-start', 'notabene-ready');
@@ -94,19 +105,20 @@ export function App() {
         return;
       }
       await useMcpStore.getState().initialize();
-      await purgeExpiredTrashCommand();
+      if (!readOnly) await purgeExpiredTrashCommand();
       await runScheduledBackupCommand();
     })();
     return () => {
       delete document.documentElement.dataset.ready;
       active = false;
       window.clearInterval(backupHeartbeat);
+      window.clearInterval(accessPoll);
       window.clearTimeout(maintenanceIdle);
       stopAgentBridge();
       stopStatusWatch();
       stopThemeWatch();
     };
-  }, [loadSettings, bootstrap]);
+  }, [loadSettings, refreshLibraryAccess, bootstrap]);
 
   useEffect(() => {
     setLocale(locale);
@@ -143,6 +155,7 @@ export function App() {
         <CollapsiblePane open={noteListVisible} width={NOTE_LIST_WIDTH}>
           <NoteList />
         </CollapsiblePane>
+        {pdfReading && <PdfReadingPane request={pdfReading} />}
         {/* The typewriter look is scoped to this column, not to `html`: warm
             stock and softened ink belong to the page being written, and must
             not follow a peeked inspector or an open dialog around. */}

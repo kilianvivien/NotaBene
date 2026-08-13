@@ -198,8 +198,8 @@ describe('provider catalogue', () => {
       models: expect.arrayContaining(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']),
     });
     expect(providerById('gemini')).toMatchObject({
-      defaultModel: 'gemini-3.6-flash',
-      models: expect.arrayContaining(['gemini-3.6-flash', 'gemini-3.5-flash-lite']),
+      defaultModel: 'gemini-3.7-flash',
+      models: expect.arrayContaining(['gemini-3.7-flash', 'gemini-3.5-flash-lite']),
     });
   });
 });

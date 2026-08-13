@@ -73,8 +73,9 @@ pub fn run() {
             // Opening the store runs migrations. Failing here is fatal on
             // purpose: a note app that cannot reach its library should say so
             // loudly rather than start up looking empty.
-            let path = db::database_path(handle)?;
-            let store = db::Store::open(&path)?;
+            let mut library_access = db::location::LibraryAccess::initialize(handle)?;
+            let path = library_access.database_path();
+            let store = db::Store::open(&path, library_access.read_only_flag())?;
 
             // A quick check is cheap enough to run on every launch and catches
             // the damage that matters. It is recorded, not raised: a database
@@ -88,7 +89,9 @@ pub fn run() {
                 eprintln!("database integrity warnings: {startup_integrity:?}");
             }
             app.manage(storage::StartupIntegrity(startup_integrity));
+            library_access.start_monitor(store.clone());
             app.manage(store);
+            app.manage(library_access);
 
             #[cfg(desktop)]
             app.global_shortcut().register("CmdOrCtrl+Shift+Q")?;
@@ -108,6 +111,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             storage::storage_summary,
+            storage::library_access_status,
+            storage::library_relocate,
             storage::db_integrity_check,
             storage::backups_dir,
             storage::exports_dir,

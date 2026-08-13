@@ -8,7 +8,7 @@
 use super::{DbResult, Store};
 
 /// Must match `SCHEMA_VERSION` in `src/lib/schema/schema.ts`.
-pub const SCHEMA_VERSION: i64 = 4;
+pub const SCHEMA_VERSION: i64 = 5;
 
 const V1: &str = include_str!("schema.sql");
 const V2: &str = r#"
@@ -63,6 +63,10 @@ ALTER TABLE snapshots ADD COLUMN run_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_snapshots_run ON snapshots(run_id);
 "#;
 
+const V5: &str = r#"
+ALTER TABLE attachments ADD COLUMN annotations_json TEXT NOT NULL DEFAULT '[]';
+"#;
+
 pub fn run(store: &Store) -> DbResult<()> {
     let current: i64 = store.with(|connection| {
         Ok(connection.query_row("PRAGMA user_version", [], |row| row.get(0))?)
@@ -99,14 +103,40 @@ pub fn run(store: &Store) -> DbResult<()> {
                 transaction.execute_batch(V4)?;
             }
         }
+        if current < 5 {
+            let has_annotations = transaction.query_row(
+                "SELECT count(*) FROM pragma_table_info('attachments') WHERE name = 'annotations_json'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )? > 0;
+            if !has_annotations {
+                transaction.execute_batch(V5)?;
+            }
+        }
         transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         Ok(())
     })
 }
 
+/// A library opened because another Mac owns its lock cannot be migrated: that
+/// would make "read-only" a label rather than a boundary. It still has to be
+/// the schema this build understands, or reads could be subtly wrong.
+pub fn validate_current(store: &Store) -> DbResult<()> {
+    let current: i64 = store.with(|connection| {
+        Ok(connection.query_row("PRAGMA user_version", [], |row| row.get(0))?)
+    })?;
+    if current == SCHEMA_VERSION {
+        Ok(())
+    } else {
+        Err(super::DbError::Other(format!(
+            "library schema v{current} requires writable migration to v{SCHEMA_VERSION}"
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
     use rusqlite::Connection;
 
@@ -146,7 +176,8 @@ mod tests {
             .pragma_update(None, "user_version", 2)
             .expect("failed to set schema version");
         let store = Store {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
         };
 
         run(&store).expect("failed to migrate");
@@ -173,7 +204,8 @@ mod tests {
             .pragma_update(None, "user_version", 3)
             .expect("failed to set schema version");
         let store = Store {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
         };
 
         run(&store).expect("failed to migrate");
@@ -188,5 +220,45 @@ mod tests {
             })
             .expect("failed to inspect migrated snapshots");
         assert_eq!(has_run_id, 1);
+    }
+
+    #[test]
+    fn v4_database_gains_an_empty_pdf_annotation_layer() {
+        let connection = Connection::open_in_memory().expect("failed to open database");
+        connection
+            .execute_batch(
+                "CREATE TABLE attachments (
+                    id TEXT PRIMARY KEY,
+                    note_id TEXT NOT NULL,
+                    asset_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                INSERT INTO attachments VALUES (
+                    'attachment-1', 'note-1', 'asset-1', 'paper.pdf',
+                    '2026-08-12T08:00:00Z'
+                );",
+            )
+            .expect("failed to seed v4 attachments");
+        connection
+            .pragma_update(None, "user_version", 4)
+            .expect("failed to set schema version");
+        let store = Store {
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
+        };
+
+        run(&store).expect("failed to migrate");
+
+        let annotations: String = store
+            .with(|database| {
+                Ok(database.query_row(
+                    "SELECT annotations_json FROM attachments WHERE id = 'attachment-1'",
+                    [],
+                    |row| row.get(0),
+                )?)
+            })
+            .expect("failed to read migrated attachment");
+        assert_eq!(annotations, "[]");
     }
 }

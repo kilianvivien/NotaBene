@@ -132,12 +132,35 @@ pub struct Asset {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PdfAnnotationRect {
+    pub x1: f64,
+    pub y1: f64,
+    pub x2: f64,
+    pub y2: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfAnnotation {
+    pub id: String,
+    pub page: i64,
+    pub rects: Vec<PdfAnnotationRect>,
+    pub text: String,
+    pub comment: String,
+    pub color: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Attachment {
     pub id: String,
     pub note_id: String,
     pub asset_id: String,
     pub name: String,
     pub created_at: String,
+    pub annotations: Vec<PdfAnnotation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

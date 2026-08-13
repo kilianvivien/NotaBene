@@ -90,7 +90,8 @@ CREATE TABLE IF NOT EXISTS attachments (
     note_id     TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
     asset_id    TEXT NOT NULL REFERENCES assets(id),
     name        TEXT NOT NULL,
-    created_at  TEXT NOT NULL
+    created_at  TEXT NOT NULL,
+    annotations_json TEXT NOT NULL DEFAULT '[]'
 );
 
 CREATE INDEX IF NOT EXISTS idx_attachments_note ON attachments(note_id);
