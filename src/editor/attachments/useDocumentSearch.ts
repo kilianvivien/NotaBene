@@ -41,6 +41,26 @@ function highlightRegistry(): HighlightRegistry | null {
     : null;
 }
 
+/**
+ * Mutate a registered highlight instead of replacing or deleting it. WebKit
+ * reliably invalidates paint for `Highlight.clear()`, while removing an entry
+ * from `CSS.highlights` can leave its last pixels on screen. Keeping two empty
+ * highlights registered costs nothing and makes clearing a real paint update.
+ */
+function replaceHighlight(
+  registry: HighlightRegistry,
+  name: string,
+  ranges: Range[],
+): void {
+  const highlight = registry.get(name);
+  if (!highlight) {
+    registry.set(name, new Highlight(...ranges));
+    return;
+  }
+  highlight.clear();
+  for (const range of ranges) highlight.add(range);
+}
+
 /** Every text node under `root`, in reading order, with its running offset. */
 function textRuns(root: HTMLElement): { runs: TextRun[]; text: string } {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -115,27 +135,23 @@ export function paintDocumentMatches(
     return 0;
   }
   document.documentElement.dataset[ACTIVE] = '';
-  registry.set(ALL, new Highlight(...ranges));
+  replaceHighlight(registry, ALL, ranges);
   const focused = ranges[current];
-  registry.set(CURRENT, focused ? new Highlight(focused) : new Highlight());
+  replaceHighlight(registry, CURRENT, focused ? [focused] : []);
   return ranges.length;
 }
 
 /**
- * Deleting a highlight is not enough on WebKit: the entry goes, the paint
- * stays, and a closed search leaves its marks all over the document. Setting
- * an empty highlight repaints — that path is the one the engine gets right,
- * because it is how the marks arrived — and the delete after it keeps the
- * registry clean for the next document.
+ * Deleting or replacing a highlight is not enough on WebKit: the registry
+ * changes, but the old paint can stay. Mutating each registered Highlight to
+ * empty invalidates that paint through the API path WebKit handles correctly.
  */
 export function clearDocumentMatches(): void {
   delete document.documentElement.dataset[ACTIVE];
   const registry = highlightRegistry();
   if (!registry) return;
-  for (const name of [ALL, CURRENT]) {
-    if (registry.has(name)) registry.set(name, new Highlight());
-    registry.delete(name);
-  }
+  replaceHighlight(registry, ALL, []);
+  replaceHighlight(registry, CURRENT, []);
 }
 
 export interface DocumentSearch {
@@ -184,9 +200,9 @@ export function useDocumentSearch(
       return;
     }
     document.documentElement.dataset[ACTIVE] = '';
-    registry.set(ALL, new Highlight(...ranges));
+    replaceHighlight(registry, ALL, ranges);
     const current = ranges[index];
-    registry.set(CURRENT, current ? new Highlight(current) : new Highlight());
+    replaceHighlight(registry, CURRENT, current ? [current] : []);
   }, [index, ranges]);
 
   useEffect(() => clearDocumentMatches, []);
