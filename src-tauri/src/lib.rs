@@ -15,6 +15,7 @@ mod settings;
 mod storage;
 mod tls;
 mod tts;
+mod web;
 
 use tauri::{Emitter, Manager};
 #[cfg(desktop)]
@@ -163,6 +164,7 @@ pub fn run() {
             commands::library_list_saved_searches,
             commands::library_upsert_saved_search,
             commands::library_delete_saved_search,
+            web::web_fetch_page,
             commands::library_list_tasks,
             commands::library_get_task,
             commands::library_search_tasks,
