@@ -5,7 +5,17 @@
  * its native viewer, while every attachment can be saved back to disk without
  * changing its original bytes.
  */
-import { Download, FileOutput, Maximize2, Minus, Plus, Search, X } from 'lucide-react';
+import {
+  Download,
+  ExternalLink,
+  FileOutput,
+  Maximize2,
+  Minus,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +23,12 @@ import {
   attachmentKindLabel,
   attachmentPreviewKind,
 } from '@/lib/attachments/previewSupport';
-import { beginAttachmentImportCommand, saveAttachmentCommand } from '@/lib/commands';
+import {
+  beginAttachmentImportCommand,
+  refetchWebLinkCommand,
+  saveAttachmentCommand,
+} from '@/lib/commands';
+import { externalLinks } from '@/lib/adapters';
 import { documentImportSupported } from '@/lib/import/documentImport';
 import type { Attachment } from '@/lib/schema';
 import { AttachmentDocumentPreview } from './AttachmentDocumentPreview';
@@ -62,6 +77,7 @@ export function AttachmentViewer({
   const [view, setView] = useState<View | null>(null);
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [refetching, setRefetching] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [findOpen, setFindOpen] = useState(false);
@@ -373,14 +389,47 @@ export function AttachmentViewer({
         )}
 
         <div className="nb-map-viewer-controls">
+          {/* A saved page is a copy taken at a moment; the live address is the
+              thing it is a copy *of*, so both actions belong on the chrome. */}
+          {attachment.url && (
+            <>
+              <button
+                type="button"
+                onClick={() => void externalLinks.open(attachment.url as string)}
+              >
+                <ExternalLink size={14} aria-hidden />
+                {t('editor.openInBrowser')}
+              </button>
+              <button
+                type="button"
+                disabled={refetching}
+                onClick={() => {
+                  setRefetching(true);
+                  void refetchWebLinkCommand(attachment).finally(() =>
+                    setRefetching(false),
+                  );
+                }}
+              >
+                <RefreshCw size={14} aria-hidden />
+                {refetching ? t('editor.savingLink') : t('editor.refetchLink')}
+              </button>
+            </>
+          )}
           <button type="button" disabled={saving} onClick={() => void saveOriginal()}>
             <Download size={14} aria-hidden />
             {t('editor.saveAttachment')}
           </button>
         </div>
 
-        <span className="nb-attachment-viewer-kind" title={mime}>
-          {attachmentKindLabel(attachment.name, mime) ?? t('editor.attachmentFile')}
+        <span
+          className="nb-attachment-viewer-kind"
+          title={attachment.url ?? mime}
+        >
+          {attachment.fetchedAt
+            ? t('editor.linkSavedOn', {
+                when: new Date(attachment.fetchedAt).toLocaleDateString(),
+              })
+            : (attachmentKindLabel(attachment.name, mime) ?? t('editor.attachmentFile'))}
         </span>
         <button
           type="button"

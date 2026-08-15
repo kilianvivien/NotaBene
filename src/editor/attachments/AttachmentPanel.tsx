@@ -1,6 +1,7 @@
 import {
   Eye,
   File,
+  Link2,
   FileOutput,
   FileText,
   Image,
@@ -9,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { AddWebLinkDialog } from './AddWebLinkDialog';
 import { useTranslation } from 'react-i18next';
 import { assets, dialog, library } from '@/lib/adapters';
 import {
@@ -47,6 +49,7 @@ export function AttachmentPanel({
   const input = useRef<HTMLInputElement>(null);
   const revision = useAttachmentStore((state) => state.revision);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [mimes, setMimes] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<{
     attachment: Attachment;
@@ -213,6 +216,20 @@ export function AttachmentPanel({
         <Plus size={14} />
         {busy ? t('editor.addingAttachment') : t('editor.addAttachment')}
       </button>
+      <button
+        type="button"
+        className="nb-attachment-add"
+        disabled={busy}
+        onClick={() => setLinkOpen(true)}
+      >
+        <Link2 size={14} />
+        {t('editor.addLink')}
+      </button>
+      <AddWebLinkDialog
+        open={linkOpen}
+        noteId={noteId}
+        onClose={() => setLinkOpen(false)}
+      />
       {addError && (
         <p className="nb-attachment-add-error" role="alert">
           {addError}

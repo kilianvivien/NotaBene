@@ -161,7 +161,22 @@
     "stopReading": "Arrêter la lecture",
     "resumeReading": "Reprendre la lecture",
     "tableControls": "Tableau",
-    "deleteTable": "Supprimer le tableau"
+    "deleteTable": "Supprimer le tableau",
+    "addLink": "Enregistrer une page web",
+    "addLinkTitle": "Enregistrer une page web",
+    "addLinkHint": "NotaBene récupère la page une fois, en conserve l’article lisible, et ne recontacte plus le site sans votre demande.",
+    "addLinkPlaceholder": "https://exemple.com/article",
+    "savingLink": "Récupération…",
+    "openInBrowser": "Ouvrir dans le navigateur",
+    "refetchLink": "Récupérer à nouveau",
+    "linkSavedOn": "Enregistrée le {{when}}",
+    "linkImagesDropped": "Les images ne sont pas enregistrées avec la page.",
+    "linkFailed": "Impossible d’enregistrer cette page.",
+    "linkRefusedHost": "Cette adresse n’est pas sur le web public.",
+    "linkNotHtml": "Cette adresse n’est pas une page web.",
+    "linkTooLarge": "Cette page dépasse ce que NotaBene peut lire.",
+    "linkEmpty": "Cette page ne contient aucun texte lisible.",
+    "linkNeedsDesktop": "Enregistrer une page web nécessite l’application de bureau."
   },
   "pdf": {
     "loading": "Chargement du PDF…",

@@ -161,7 +161,22 @@
     "stopReading": "Stop reading",
     "resumeReading": "Resume reading",
     "tableControls": "Table",
-    "deleteTable": "Delete table"
+    "deleteTable": "Delete table",
+    "addLink": "Save a web page",
+    "addLinkTitle": "Save a web page",
+    "addLinkHint": "NotaBene fetches the page once, keeps the readable article, and never contacts the site again unless you ask.",
+    "addLinkPlaceholder": "https://example.com/article",
+    "savingLink": "Fetching…",
+    "openInBrowser": "Open in browser",
+    "refetchLink": "Fetch again",
+    "linkSavedOn": "Saved {{when}}",
+    "linkImagesDropped": "Images are not saved with the page.",
+    "linkFailed": "Could not save that page.",
+    "linkRefusedHost": "That address is not on the public web.",
+    "linkNotHtml": "That address is not a web page.",
+    "linkTooLarge": "That page is larger than NotaBene will read.",
+    "linkEmpty": "That page had no readable text.",
+    "linkNeedsDesktop": "Saving a web page needs the desktop app."
   },
   "pdf": {
     "loading": "Loading PDF…",
