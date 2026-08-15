@@ -730,7 +730,16 @@
     "reminderPermissionDenied": "macOS is not allowing NotaBene to send notifications. Turn them on in System Settings › Notifications.",
     "reminderGroupTitle": "NotaBene",
     "reminderMissed_one": "{{count}} reminder while you were away",
-    "reminderMissed_other": "{{count}} reminders while you were away"
+    "reminderMissed_other": "{{count}} reminders while you were away",
+    "noDate": "No date",
+    "atTime": "at",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "calendarTitle": "Task calendar",
+    "calendarMore": "+{{count}} more",
+    "calendarUndated_one": "{{count}} task with no date is not shown",
+    "calendarUndated_other": "{{count}} tasks with no date are not shown",
+    "calendarAllDated": "Every open task has a date"
   },
   "mindMap": {
     "zoomIn": "Zoom in",
@@ -1021,7 +1030,8 @@
     "commandPalette": "Commands…",
     "mergeNotes": "Merge Notes…",
     "newTask": "New task",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "taskCalendar": "Task calendar"
   },
   "import": {
     "title": "Convert document to note",

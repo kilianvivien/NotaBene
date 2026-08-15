@@ -118,6 +118,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
       label: t('menu.view'),
       items: [
         command('view.tasks', t),
+        command('view.taskCalendar', t),
         separator,
         command('view.toggleSidebar', t),
         command('view.toggleInspector', t),

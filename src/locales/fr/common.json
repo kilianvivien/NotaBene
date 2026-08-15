@@ -730,7 +730,16 @@
     "reminderPermissionDenied": "macOS n’autorise pas NotaBene à envoyer des notifications. Activez-les dans Réglages Système › Notifications.",
     "reminderGroupTitle": "NotaBene",
     "reminderMissed_one": "{{count}} rappel pendant votre absence",
-    "reminderMissed_other": "{{count}} rappels pendant votre absence"
+    "reminderMissed_other": "{{count}} rappels pendant votre absence",
+    "noDate": "Aucune date",
+    "atTime": "à",
+    "previousMonth": "Mois précédent",
+    "nextMonth": "Mois suivant",
+    "calendarTitle": "Calendrier des tâches",
+    "calendarMore": "+{{count}} autres",
+    "calendarUndated_one": "{{count}} tâche sans date n’est pas affichée",
+    "calendarUndated_other": "{{count}} tâches sans date ne sont pas affichées",
+    "calendarAllDated": "Toutes les tâches en cours ont une date"
   },
   "mindMap": {
     "zoomIn": "Zoomer",
@@ -1021,7 +1030,8 @@
     "commandPalette": "Commandes…",
     "mergeNotes": "Fusionner les notes…",
     "newTask": "Nouvelle tâche",
-    "tasks": "Tâches"
+    "tasks": "Tâches",
+    "taskCalendar": "Calendrier des tâches"
   },
   "import": {
     "title": "Convertir un document en note",

@@ -66,6 +66,7 @@ export const APP_COMMAND_IDS = [
   'ai.agent',
   'task.new',
   'view.tasks',
+  'view.taskCalendar',
   'help.documentation',
   'help.github',
 ] as const;
@@ -441,6 +442,17 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     landsIn: 'J',
     run: () => {
       useUiStore.getState().openTasksView();
+      return ok(undefined);
+    },
+  },
+
+  'view.taskCalendar': {
+    id: 'view.taskCalendar',
+    labelKey: 'menu.taskCalendar',
+    accelerator: 'CmdOrCtrl+Alt+C',
+    landsIn: 'J',
+    run: () => {
+      useUiStore.getState().setTaskCalendarOpen(true);
       return ok(undefined);
     },
   },

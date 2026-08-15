@@ -21,6 +21,7 @@ import { completeTaskCommand, trashTasksCommand, updateTaskCommand } from '@/lib
 import type { Task, TaskStatus } from '@/lib/schema';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { TaskCalendarButton } from './TaskCalendarDialog';
 import { TaskRow } from './TaskRow';
 import { groupFor, groupTasks, subtaskProgress, TASK_GROUP_LABELS } from './taskGrouping';
 
@@ -124,6 +125,7 @@ export function TaskList() {
           ]}
           fill
         />
+        <TaskCalendarButton />
         <GlassIconButton
           label={t('tasks.new')}
           className="size-7 shrink-0"

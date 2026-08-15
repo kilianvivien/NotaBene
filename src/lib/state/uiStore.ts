@@ -136,6 +136,8 @@ interface UiState {
   taskDraft: TaskDraft | null;
   /** Open while the editor is choosing a task to mention inline. */
   taskPickerOpen: boolean;
+  /** The month view of every dated task. */
+  taskCalendarOpen: boolean;
 
   setView(view: ViewKind): void;
   selectNote(noteId: string | null): void;
@@ -176,6 +178,7 @@ interface UiState {
   closeTaskDialog(): void;
   openTaskPicker(): void;
   closeTaskPicker(): void;
+  setTaskCalendarOpen(open: boolean): void;
 }
 
 /**
@@ -200,7 +203,8 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiFlashcardsOpen ||
     state.aiPodcastOpen ||
     state.taskDraft !== null ||
-    state.taskPickerOpen
+    state.taskPickerOpen ||
+    state.taskCalendarOpen
   );
 }
 
@@ -224,6 +228,7 @@ export const useUiStore = create<UiState>()(
     selectedTaskId: null,
     taskDraft: null,
     taskPickerOpen: false,
+    taskCalendarOpen: false,
     sidebarVisible: true,
     noteListVisible: true,
     inspectorVisible: false,
@@ -310,6 +315,12 @@ export const useUiStore = create<UiState>()(
     closeTaskPicker() {
       set((state) => {
         state.taskPickerOpen = false;
+      });
+    },
+
+    setTaskCalendarOpen(open) {
+      set((state) => {
+        state.taskCalendarOpen = open;
       });
     },
 
