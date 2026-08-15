@@ -82,6 +82,12 @@ export function viewToQuery(view: ViewKind, context: ViewQueryContext = {}): Not
       );
       return saved ? { ...base, ...parsedSearch(saved.query, context) } : base;
     }
+    case 'tasks':
+      // Tasks are not notes, and this view has no note query behind it. The
+      // `default` below would already return `base`, but silently: that is how
+      // a Tasks view would one day quietly export the whole library. Saying it
+      // out loud means the next person to add a caller has to decide.
+      return base;
     case 'all':
     default:
       return base;

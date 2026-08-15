@@ -8,6 +8,7 @@ import {
   FileStack,
   FolderPlus,
   Inbox,
+  ListTodo,
   Pencil,
   Pin,
   Plus,
@@ -39,6 +40,7 @@ import {
   updateNoteCommand,
   updateSectionCommand,
 } from '@/lib/commands';
+import { taskCounts as countTasks } from '@/app/tasks/taskGrouping';
 import { tagLabel } from '@/lib/notes/tagLabel';
 import type { Course, NoteTemplate, SavedSearch, Section, Tag } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
@@ -67,6 +69,14 @@ const SMART_VIEWS: SmartView[] = [
   { view: { kind: 'trash' }, icon: Trash2, labelKey: 'sidebar.trash' },
 ];
 
+/** Sits apart from `SMART_VIEWS`: it is the one row that is not a note query,
+ * and it carries a count the others have no use for. */
+const TASKS_VIEW: SmartView = {
+  view: { kind: 'tasks' },
+  icon: ListTodo,
+  labelKey: 'sidebar.tasks',
+};
+
 function sameView(a: ViewKind, b: ViewKind): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'course' && b.kind === 'course') {
@@ -76,6 +86,9 @@ function sameView(a: ViewKind, b: ViewKind): boolean {
   if (a.kind === 'savedSearch' && b.kind === 'savedSearch') {
     return a.savedSearchId === b.savedSearchId;
   }
+  // The library-wide Tasks row must not light up while a course's tasks are on
+  // screen, and vice versa.
+  if (a.kind === 'tasks' && b.kind === 'tasks') return a.courseId === b.courseId;
   return true;
 }
 
@@ -106,6 +119,11 @@ function smartViewDrop(view: ViewKind): ((noteId: string) => Promise<unknown>) |
       return (noteId) => archiveNotesCommand(selectionFor(noteId), true);
     case 'trash':
       return (noteId) => trashNotesCommand(selectionFor(noteId));
+    case 'tasks':
+      // A note dropped here does not become a task — it opens the dialog with
+      // the link already made, so the student still says what the task is.
+      return async (noteId) =>
+        useUiStore.getState().openTaskDialog({ noteIds: selectionFor(noteId) });
     default:
       return null;
   }
@@ -128,6 +146,8 @@ export function Sidebar() {
   const tags = useLibraryStore((state) => state.tags);
   const savedSearches = useLibraryStore((state) => state.savedSearches);
   const templates = useLibraryStore((state) => state.templates);
+  const tasks = useLibraryStore((state) => state.tasks);
+  const taskCounts = countTasks(tasks);
   const refreshSections = useLibraryStore((state) => state.refreshSections);
   const view = useUiStore((state) => state.view);
   const setView = useUiStore((state) => state.setView);
@@ -230,6 +250,29 @@ export function Sidebar() {
               }}
             />
           ))}
+          <SmartViewRow
+            smart={TASKS_VIEW}
+            current={view}
+            badge={
+              taskCounts.open > 0 ? (
+                <span
+                  className={cn(
+                    'ml-auto shrink-0 rounded-full px-1.5 text-[11px] tabular-nums',
+                    // Overdue is the only number worth colouring: a count of
+                    // open tasks is a workload, a count of late ones is a
+                    // problem.
+                    taskCounts.overdue > 0
+                      ? 'bg-[var(--nb-warn)] text-white'
+                      : 'text-nb-text-3',
+                  )}
+                >
+                  {taskCounts.overdue > 0 ? taskCounts.overdue : taskCounts.open}
+                </span>
+              ) : undefined
+            }
+            onSelect={() => setView({ kind: 'tasks' })}
+            onContextMenu={(event) => event.preventDefault()}
+          />
         </ul>
 
         <SidebarSection
@@ -486,11 +529,14 @@ export function Sidebar() {
 function SmartViewRow({
   smart,
   current,
+  badge,
   onSelect,
   onContextMenu,
 }: {
   smart: SmartView;
   current: ViewKind;
+  /** A trailing count. Only Tasks has one; the rest pass nothing. */
+  badge?: React.ReactNode;
   onSelect(): void;
   onContextMenu(event: React.MouseEvent): void;
 }) {
@@ -526,6 +572,7 @@ function SmartViewRow({
       >
         <Icon size={14} className="shrink-0" />
         <span className="truncate">{t(smart.labelKey)}</span>
+        {badge}
       </button>
     </li>
   );
@@ -620,6 +667,13 @@ function CourseRow({
                     label: t('organization.newSection'),
                     icon: FolderPlus,
                     onSelect: onNewSection,
+                  },
+                  {
+                    id: 'tasks',
+                    label: t('sidebar.tasks'),
+                    icon: ListTodo,
+                    onSelect: () =>
+                      useUiStore.getState().openTasksView({ courseId: course.id }),
                   },
                   null,
                   {

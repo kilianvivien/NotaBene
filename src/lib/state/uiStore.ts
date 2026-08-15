@@ -24,7 +24,13 @@ export type ViewKind =
   | { kind: 'course'; courseId: string; sectionId?: string }
   | { kind: 'tag'; tagId: string }
   | { kind: 'savedSearch'; savedSearchId: string }
-  | { kind: 'search'; query: string };
+  | { kind: 'search'; query: string }
+  /**
+   * The one view that is not a note query. The list column shows tasks and the
+   * centre column shows the selected task, so `viewToQuery` never runs for it —
+   * see the explicit case there, which exists to say so out loud.
+   */
+  | { kind: 'tasks'; courseId?: string };
 
 export type InspectorTab =
   'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'ai';
@@ -49,6 +55,15 @@ interface PaneLayout {
   sidebar: boolean;
   noteList: boolean;
   inspector: boolean;
+}
+
+/** What the task dialog was opened from. `taskId` set means "edit"; absent
+ * means "new", and the rest of the fields seed the form. */
+export interface TaskDraft {
+  taskId?: string;
+  parentId?: string;
+  courseId?: string;
+  noteIds?: string[];
 }
 
 /** A sitting at the desk. `startWords` is the note's word count on entry, so
@@ -111,6 +126,14 @@ interface UiState {
   /** Set while an MCP agent is acting on the library, so the UI can show it. */
   agentBusy: boolean;
   pdfReading: PdfReadingRequest | null;
+  /** Which task the Tasks view's detail pane is showing. */
+  selectedTaskId: string | null;
+  /**
+   * The task dialog's request, or `null` when it is closed. A draft carries
+   * what the dialog was opened *from* — a course row, a parent task, the note
+   * on screen — so "new task for this note" needs no second step.
+   */
+  taskDraft: TaskDraft | null;
 
   setView(view: ViewKind): void;
   selectNote(noteId: string | null): void;
@@ -144,6 +167,11 @@ interface UiState {
   setAgentBusy(busy: boolean): void;
   openPdfReader(attachment: Attachment, page?: number, annotationId?: string): void;
   closePdfReader(): void;
+  selectTask(taskId: string | null): void;
+  /** Open the Tasks view, optionally scoped to a course, on a given task. */
+  openTasksView(options?: { courseId?: string; taskId?: string }): void;
+  openTaskDialog(draft?: TaskDraft): void;
+  closeTaskDialog(): void;
 }
 
 /**
@@ -166,7 +194,8 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiSynthesisOpen ||
     state.aiMindMapOpen ||
     state.aiFlashcardsOpen ||
-    state.aiPodcastOpen
+    state.aiPodcastOpen ||
+    state.taskDraft !== null
   );
 }
 
@@ -187,6 +216,8 @@ export const useUiStore = create<UiState>()(
     view: { kind: 'all' },
     selectedNoteId: null,
     multiSelection: [],
+    selectedTaskId: null,
+    taskDraft: null,
     sidebarVisible: true,
     noteListVisible: true,
     inspectorVisible: false,
@@ -220,6 +251,9 @@ export const useUiStore = create<UiState>()(
       set((state) => {
         state.view = view;
         state.multiSelection = [];
+        // Leaving the Tasks view drops the detail pane's subject; coming back
+        // should land on the list rather than on whatever was open last week.
+        if (view.kind !== 'tasks') state.selectedTaskId = null;
       });
     },
 
@@ -232,6 +266,32 @@ export const useUiStore = create<UiState>()(
         if (state.pdfReading?.attachment.noteId !== noteId) state.pdfReading = null;
         state.selectedNoteId = noteId;
         state.multiSelection = [];
+      });
+    },
+
+    selectTask(taskId) {
+      set((state) => {
+        state.selectedTaskId = taskId;
+      });
+    },
+
+    openTasksView(options = {}) {
+      set((state) => {
+        state.view = { kind: 'tasks', courseId: options.courseId };
+        state.multiSelection = [];
+        if (options.taskId !== undefined) state.selectedTaskId = options.taskId;
+      });
+    },
+
+    openTaskDialog(draft = {}) {
+      set((state) => {
+        state.taskDraft = draft;
+      });
+    },
+
+    closeTaskDialog() {
+      set((state) => {
+        state.taskDraft = null;
       });
     },
 
