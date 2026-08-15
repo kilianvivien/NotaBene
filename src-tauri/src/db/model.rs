@@ -161,6 +161,10 @@ pub struct Attachment {
     pub name: String,
     pub created_at: String,
     pub annotations: Vec<PdfAnnotation>,
+    /// The page a web link was saved from; `None` for a file.
+    pub url: Option<String>,
+    /// When that snapshot was taken; `None` for a file.
+    pub fetched_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

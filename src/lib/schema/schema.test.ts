@@ -93,6 +93,29 @@ describe('library import', () => {
     if (result.ok) expect(result.library.attachments[0]?.annotations).toEqual([]);
   });
 
+  it('marks pre-web-link attachments as coming from no page when importing v6', () => {
+    const library = {
+      ...emptyLibrary(),
+      schemaVersion: 6,
+      attachments: [
+        {
+          id: 'attachment-1',
+          noteId: 'note-1',
+          assetId: 'asset-1',
+          name: 'paper.pdf',
+          createdAt: new Date().toISOString(),
+          annotations: [],
+        },
+      ],
+    };
+    const result = safeImportLibrary(library);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.library.attachments[0]?.url).toBeNull();
+      expect(result.library.attachments[0]?.fetchedAt).toBeNull();
+    }
+  });
+
   it('gives a v5 library empty task collections rather than refusing it', () => {
     const { tasks: _tasks, taskNoteLinks: _links, ...v5 } = emptyLibrary();
     const result = safeImportLibrary({ ...v5, schemaVersion: 5 });

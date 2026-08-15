@@ -36,6 +36,8 @@ fn attachment_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Attachment> 
         name: row.get(3)?,
         created_at: row.get(4)?,
         annotations,
+        url: row.get(6)?,
+        fetched_at: row.get(7)?,
     })
 }
 
@@ -92,7 +94,7 @@ pub(crate) fn list_assets_in(connection: &Connection) -> DbResult<Vec<Asset>> {
 
 pub(crate) fn list_all_attachments_in(connection: &Connection) -> DbResult<Vec<Attachment>> {
     let mut statement = connection.prepare(
-        "SELECT id, note_id, asset_id, name, created_at, annotations_json
+        "SELECT id, note_id, asset_id, name, created_at, annotations_json, url, fetched_at
          FROM attachments ORDER BY created_at",
     )?;
     let rows = statement
@@ -104,7 +106,7 @@ pub(crate) fn list_all_attachments_in(connection: &Connection) -> DbResult<Vec<A
 pub fn list_attachments(store: &Store, note_id: &str) -> DbResult<Vec<Attachment>> {
     store.with(|connection| {
         let mut statement = connection.prepare(
-            "SELECT id, note_id, asset_id, name, created_at, annotations_json
+            "SELECT id, note_id, asset_id, name, created_at, annotations_json, url, fetched_at
              FROM attachments WHERE note_id = ?1 ORDER BY created_at",
         )?;
         let rows = statement
@@ -131,20 +133,24 @@ pub(crate) fn upsert_attachment_in(
         .ok();
     let annotations = serde_json::to_string(&attachment.annotations)?;
     connection.execute(
-        "INSERT INTO attachments (id, note_id, asset_id, name, created_at, annotations_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        "INSERT INTO attachments (id, note_id, asset_id, name, created_at, annotations_json, url, fetched_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
          ON CONFLICT(id) DO UPDATE SET
            note_id = excluded.note_id,
            asset_id = excluded.asset_id,
            name = excluded.name,
-           annotations_json = excluded.annotations_json",
+           annotations_json = excluded.annotations_json,
+           url = excluded.url,
+           fetched_at = excluded.fetched_at",
         params![
             attachment.id,
             attachment.note_id,
             attachment.asset_id,
             attachment.name,
             attachment.created_at,
-            annotations
+            annotations,
+            attachment.url,
+            attachment.fetched_at
         ],
     )?;
     notes::reindex_note(connection, &attachment.note_id)?;
@@ -327,6 +333,8 @@ mod tests {
             asset_id: "asset".into(),
             name: "paper.pdf".into(),
             created_at: "2026-08-12T08:00:00Z".into(),
+            url: None,
+            fetched_at: None,
             annotations: vec![PdfAnnotation {
                 id: "highlight".into(),
                 page: 2,

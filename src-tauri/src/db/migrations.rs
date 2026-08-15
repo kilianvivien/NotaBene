@@ -8,7 +8,7 @@
 use super::{DbResult, Store};
 
 /// Must match `SCHEMA_VERSION` in `src/lib/schema/schema.ts`.
-pub const SCHEMA_VERSION: i64 = 6;
+pub const SCHEMA_VERSION: i64 = 7;
 
 const V1: &str = include_str!("schema.sql");
 const V2: &str = r#"
@@ -128,6 +128,11 @@ CREATE VIRTUAL TABLE IF NOT EXISTS tasks_fts USING fts5(
 );
 "#;
 
+const V7: &str = r#"
+ALTER TABLE attachments ADD COLUMN url TEXT;
+ALTER TABLE attachments ADD COLUMN fetched_at TEXT;
+"#;
+
 pub fn run(store: &Store) -> DbResult<()> {
     let current: i64 = store.with(|connection| {
         Ok(connection.query_row("PRAGMA user_version", [], |row| row.get(0))?)
@@ -178,6 +183,16 @@ pub fn run(store: &Store) -> DbResult<()> {
             // Every statement in V6 is `IF NOT EXISTS`, so unlike the `ALTER`
             // steps above this one needs no `pragma_table_info` probe.
             transaction.execute_batch(V6)?;
+        }
+        if current < 7 {
+            let has_url = transaction.query_row(
+                "SELECT count(*) FROM pragma_table_info('attachments') WHERE name = 'url'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )? > 0;
+            if !has_url {
+                transaction.execute_batch(V7)?;
+            }
         }
         transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         Ok(())
@@ -390,6 +405,45 @@ mod tests {
         assert_eq!(status, "todo");
         assert_eq!(origin, "mention");
         assert_eq!(matches, 1);
+    }
+
+    #[test]
+    fn v6_database_gains_the_link_columns_on_attachments() {
+        let connection = Connection::open_in_memory().expect("failed to open database");
+        for step in [V1, V2, V3] {
+            connection.execute_batch(step).expect("failed to apply step");
+        }
+        connection
+            .pragma_update(None, "user_version", 6)
+            .expect("failed to set schema version");
+        let store = Store {
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
+        };
+
+        run(&store).expect("failed to migrate");
+
+        // An existing attachment is a file, so it came from nowhere.
+        let (url, fetched): (Option<String>, Option<String>) = store
+            .with(|database| {
+                database.execute_batch(
+                    "INSERT INTO notes (id, title, doc_json, created_at, updated_at)
+                     VALUES ('note-1', 'Lecture', '{}', '2026-08-15T08:00:00Z', '2026-08-15T08:00:00Z');
+                     INSERT INTO assets (id, mime, bytes, created_at)
+                     VALUES ('asset-1', 'application/pdf', 10, '2026-08-15T08:00:00Z');
+                     INSERT INTO attachments (id, note_id, asset_id, name, created_at)
+                     VALUES ('a-1', 'note-1', 'asset-1', 'paper.pdf', '2026-08-15T08:00:00Z');",
+                )?;
+                Ok(database.query_row(
+                    "SELECT url, fetched_at FROM attachments WHERE id = 'a-1'",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )?)
+            })
+            .expect("failed to read migrated attachment");
+
+        assert_eq!(url, None);
+        assert_eq!(fetched, None);
     }
 
     /// Purging a task must not leave its subtasks behind, and deleting a course

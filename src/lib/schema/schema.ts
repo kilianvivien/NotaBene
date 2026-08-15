@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -199,6 +199,17 @@ export const AttachmentSchema = z.object({
   name: z.string().min(1),
   createdAt: isoDate,
   annotations: z.array(PdfAnnotationSchema).default([]),
+  /**
+   * The page this attachment was saved from, for a web link; `null` for a file.
+   *
+   * A link attachment is not a different kind of row — it is an ordinary
+   * attachment whose asset happens to be a Markdown snapshot of a page. That is
+   * what lets it preview, export and import through the paths files already
+   * use; this field and `fetchedAt` are the only things that make it a link.
+   */
+  url: z.string().url().nullable().default(null),
+  /** When the snapshot was taken. `null` for a file. */
+  fetchedAt: isoDate.nullable().default(null),
 });
 export type Attachment = z.infer<typeof AttachmentSchema>;
 

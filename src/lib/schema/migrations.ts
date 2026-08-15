@@ -57,6 +57,18 @@ const MIGRATIONS: Record<number, Migration> = {
   // neither, and `LibrarySchema` would default both arrays anyway — the step is
   // explicit so the envelope ladder still has a rung for every database one.
   5: (input) => ({ tasks: [], taskNoteLinks: [], ...input }),
+  // v7 lets an attachment record the page it was saved from. Every existing
+  // attachment is a file, so it came from nowhere.
+  6: (input) => ({
+    ...input,
+    attachments: Array.isArray(input.attachments)
+      ? input.attachments.map((attachment) =>
+          typeof attachment === 'object' && attachment !== null
+            ? { url: null, fetchedAt: null, ...(attachment as Record<string, unknown>) }
+            : attachment,
+        )
+      : input.attachments,
+  }),
 };
 
 export type ImportResult =

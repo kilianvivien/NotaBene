@@ -16,6 +16,8 @@ const pdf: Attachment = {
   name: 'paper.pdf',
   createdAt: '2026-08-12T08:00:00.000Z',
   annotations: [],
+  url: null,
+  fetchedAt: null,
 };
 
 beforeEach(() => {
