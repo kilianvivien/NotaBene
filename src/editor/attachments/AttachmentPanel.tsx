@@ -33,7 +33,16 @@ function AttachmentIcon({ mime }: { mime: string | null }) {
   return <File size={15} />;
 }
 
-export function AttachmentPanel({ noteId }: { noteId: string }) {
+export function AttachmentPanel({
+  noteId,
+  compact = false,
+}: {
+  noteId: string;
+  /** Set when the panel is one section of a tab rather than the whole of it:
+   * the roomy centred empty state then becomes a single line, so what sits
+   * below it is not pushed a screen down by a note that has no files. */
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
   const revision = useAttachmentStore((state) => state.revision);
@@ -148,7 +157,7 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
     // lecture handout at the Attachments tab is aiming at the tab, and a zone
     // small enough to miss is worse than no zone at all.
     <div
-      className="nb-attachments"
+      className={compact ? 'nb-attachments nb-attachments--compact' : 'nb-attachments'}
       data-dropping={dropping || undefined}
       onDragEnter={(event) => {
         if (!carriesFiles(event)) return;
@@ -211,10 +220,14 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
       )}
 
       {attachments.length === 0 ? (
-        <div className="nb-attachment-empty">
-          <Paperclip size={18} />
-          <p>{t('editor.noAttachments')}</p>
-        </div>
+        compact ? (
+          <p className="text-[12px] text-nb-text-3">{t('editor.noAttachments')}</p>
+        ) : (
+          <div className="nb-attachment-empty">
+            <Paperclip size={18} />
+            <p>{t('editor.noAttachments')}</p>
+          </div>
+        )
       ) : (
         <ul>
           {attachments.map((attachment) => (

@@ -364,7 +364,8 @@ export function PodcastDialog() {
       return;
     }
     setStatus(t('ai.audioAttached'));
-    setInspectorTab('attachments');
+    // Attachments live in the Links tab now, alongside inbound links.
+    setInspectorTab('links');
   }
 
   async function saveScript() {

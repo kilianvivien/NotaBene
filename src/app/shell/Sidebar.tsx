@@ -61,21 +61,31 @@ interface SmartView {
   labelKey: string;
 }
 
-const SMART_VIEWS: SmartView[] = [
+/**
+ * What the student is working in today.
+ *
+ * Tasks belongs here rather than at the end of one long list: it was landing
+ * next to Trash, which put the feature people open every morning in the
+ * put-away group and read as an afterthought.
+ */
+const WORKING_VIEWS: SmartView[] = [
   { view: { kind: 'all' }, icon: Files, labelKey: 'sidebar.allNotes' },
   { view: { kind: 'inbox' }, icon: Inbox, labelKey: 'sidebar.inbox' },
   { view: { kind: 'pinned' }, icon: Pin, labelKey: 'sidebar.pinned' },
-  { view: { kind: 'archived' }, icon: Archive, labelKey: 'sidebar.archived' },
-  { view: { kind: 'trash' }, icon: Trash2, labelKey: 'sidebar.trash' },
 ];
 
-/** Sits apart from `SMART_VIEWS`: it is the one row that is not a note query,
- * and it carries a count the others have no use for. */
+/** The one row that is not a note query, and the only one carrying a count. */
 const TASKS_VIEW: SmartView = {
   view: { kind: 'tasks' },
   icon: ListTodo,
   labelKey: 'sidebar.tasks',
 };
+
+/** Put away rather than in play. Kept below a rule, for the same reason. */
+const ARCHIVE_VIEWS: SmartView[] = [
+  { view: { kind: 'archived' }, icon: Archive, labelKey: 'sidebar.archived' },
+  { view: { kind: 'trash' }, icon: Trash2, labelKey: 'sidebar.trash' },
+];
 
 function sameView(a: ViewKind, b: ViewKind): boolean {
   if (a.kind !== b.kind) return false;
@@ -223,7 +233,45 @@ export function Sidebar() {
         className="flex h-full w-full flex-col gap-4 overflow-y-auto border-r border-[var(--nb-divider)] bg-[var(--nb-sidebar-surface)] px-2 py-3"
       >
         <ul className="flex flex-col gap-0.5">
-          {SMART_VIEWS.map((smart) => (
+          {WORKING_VIEWS.map((smart) => (
+            <SmartViewRow
+              key={smart.labelKey}
+              smart={smart}
+              current={view}
+              onSelect={() => setView(smart.view)}
+              onContextMenu={(event) => event.preventDefault()}
+            />
+          ))}
+          <SmartViewRow
+            smart={TASKS_VIEW}
+            current={view}
+            badge={
+              taskCounts.open > 0 ? (
+                <span
+                  className={cn(
+                    'ml-auto shrink-0 rounded-full px-1.5 text-[11px] tabular-nums',
+                    // Overdue is the only number worth colouring: a count of
+                    // open tasks is a workload, a count of late ones is a
+                    // problem.
+                    taskCounts.overdue > 0
+                      ? 'bg-[var(--nb-warn)] text-white'
+                      : 'text-nb-text-3',
+                  )}
+                >
+                  {taskCounts.overdue > 0 ? taskCounts.overdue : taskCounts.open}
+                </span>
+              ) : undefined
+            }
+            onSelect={() => setView({ kind: 'tasks' })}
+            onContextMenu={(event) => event.preventDefault()}
+          />
+
+          {/* Archived and Trash are where notes go to stop being in the way,
+              so they sit under a rule rather than in the same run as the
+              views the student actually works in. */}
+          <li aria-hidden className="my-1 h-px bg-[var(--nb-divider)]" />
+
+          {ARCHIVE_VIEWS.map((smart) => (
             <SmartViewRow
               key={smart.labelKey}
               smart={smart}
@@ -250,29 +298,6 @@ export function Sidebar() {
               }}
             />
           ))}
-          <SmartViewRow
-            smart={TASKS_VIEW}
-            current={view}
-            badge={
-              taskCounts.open > 0 ? (
-                <span
-                  className={cn(
-                    'ml-auto shrink-0 rounded-full px-1.5 text-[11px] tabular-nums',
-                    // Overdue is the only number worth colouring: a count of
-                    // open tasks is a workload, a count of late ones is a
-                    // problem.
-                    taskCounts.overdue > 0
-                      ? 'bg-[var(--nb-warn)] text-white'
-                      : 'text-nb-text-3',
-                  )}
-                >
-                  {taskCounts.overdue > 0 ? taskCounts.overdue : taskCounts.open}
-                </span>
-              ) : undefined
-            }
-            onSelect={() => setView({ kind: 'tasks' })}
-            onContextMenu={(event) => event.preventDefault()}
-          />
         </ul>
 
         <SidebarSection

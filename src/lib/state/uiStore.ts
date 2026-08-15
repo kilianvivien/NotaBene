@@ -33,7 +33,7 @@ export type ViewKind =
   | { kind: 'tasks'; courseId?: string };
 
 export type InspectorTab =
-  'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'tasks' | 'ai';
+  'info' | 'tags' | 'versions' | 'links' | 'tasks' | 'ai';
 
 /** Settings sections. Future sections stay addressable while their panes are
  * placeholders, so commands and navigation do not change shape between phases. */

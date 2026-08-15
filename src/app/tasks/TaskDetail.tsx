@@ -106,7 +106,10 @@ export function TaskDetail() {
 
   return (
     <GlassScrollArea className="flex-1 px-6 py-5" resetKey={task.id}>
-      <div className="mx-auto max-w-[640px]">
+      {/* 520px, not 640: `FieldRow` gives its control column up to 280px and
+          the label the rest, so a wider container just strands the two ends of
+          every row apart from each other. */}
+      <div className="mx-auto max-w-[520px]">
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
@@ -139,8 +142,11 @@ export function TaskDetail() {
             )}
             {done ? t('tasks.reopen') : t('tasks.complete')}
           </GlassButton>
+          {/* Ghost, not danger: the loud red read as the second thing to do
+              on the page, and moving a task to recoverable Trash is neither
+              destructive nor the point of the pane. */}
           <GlassButton
-            variant="danger"
+            variant="ghost"
             size="sm"
             onClick={() => {
               void trashTasksCommand([task.id]);
@@ -160,7 +166,7 @@ export function TaskDetail() {
               onBlur={() => {
                 if (details !== task.details) patch({ details });
               }}
-              rows={4}
+              rows={3}
               placeholder={t('tasks.detailsPlaceholder')}
               aria-label={t('tasks.details')}
               className="w-full resize-y rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2.5 py-2 text-[13px] leading-relaxed text-nb-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--nb-accent-ring)]"
@@ -273,16 +279,15 @@ export function TaskDetail() {
 
         {!task.parentId && (
           <div className="mt-5">
-            <FieldSection
-              title={`${t('tasks.subtasks')}${
-                progress.total
-                  ? ` — ${t('tasks.subtaskProgress', {
-                      done: progress.done,
-                      total: progress.total,
-                    })}`
-                  : ''
-              }`}
-            >
+            <FieldSection title={t('tasks.subtasks')}>
+              {progress.total > 0 && (
+                <p className="-mt-1 mb-1 text-[11.5px] text-nb-text-3">
+                  {t('tasks.subtaskProgress', {
+                    done: progress.done,
+                    total: progress.total,
+                  })}
+                </p>
+              )}
               {children.map((child) => (
                 <TaskRow
                   key={child.id}
