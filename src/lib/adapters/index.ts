@@ -122,6 +122,7 @@ export type {
   NoteMatch,
   NoteQuery,
   SnapshotRetentionPolicy,
+  TaskQuery,
 } from './library/LibraryAdapter';
 export type { AssetAdapter } from './assets/AssetAdapter';
 export type {

@@ -1058,6 +1058,7 @@
     "courseMissing": "That course no longer exists.",
     "sectionMissing": "That section no longer exists.",
     "snapshotMissing": "That version no longer exists.",
+    "taskMissing": "That task no longer exists.",
     "invalidInput": "Check the information and try again.",
     "notAvailable": "This action is not available yet.",
     "openExternalLink": "Could not open the link in your browser."

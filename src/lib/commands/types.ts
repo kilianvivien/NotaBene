@@ -65,11 +65,13 @@ export function fail<T>(
             ? i18n.t('error.sectionMissing')
             : /^no snapshot /i.test(message)
               ? i18n.t('error.snapshotMissing')
-              : /nothing|empty|choose|invalid|required/i.test(message)
-                ? i18n.t('error.invalidInput')
-                : /phase [A-Z]/i.test(message)
-                  ? i18n.t('error.notAvailable')
-                  : message;
+              : /^no task /i.test(message)
+                ? i18n.t('error.taskMissing')
+                : /nothing|empty|choose|invalid|required/i.test(message)
+                  ? i18n.t('error.invalidInput')
+                  : /phase [A-Z]/i.test(message)
+                    ? i18n.t('error.notAvailable')
+                    : message;
   return { ok: false, code, message: translated, details };
 }
 
