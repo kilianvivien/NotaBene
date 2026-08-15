@@ -670,6 +670,8 @@
     "subtaskProgress": "{{done}} of {{total}}",
     "linkedNotes": "Linked notes",
     "linkNote": "Link this note",
+    "mentionTask": "Link a task",
+    "mentionTaskTitle": "Choose a task to mention",
     "unlink": "Unlink",
     "noLinkedNotes": "Not linked to any note",
     "mentionedIn": "Mentioned in this note",

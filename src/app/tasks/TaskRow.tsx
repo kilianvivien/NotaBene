@@ -46,14 +46,14 @@ export function TaskRow({
   const { t, i18n } = useTranslation();
   const done = task.status === 'done';
 
+  // The checkbox is a *sibling* of the row button, not a child of it. Nesting
+  // one button inside another is invalid HTML: the browser drops the inner one
+  // out of the accessibility tree, and React warns about it on every render.
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <div
       onContextMenu={onContextMenu}
-      aria-current={selected}
       className={cn(
-        'group flex w-full items-start gap-2 rounded-nb-xs px-2 py-1.5 text-left',
+        'group flex w-full items-start gap-2 rounded-nb-xs px-2 py-1.5',
         'transition-colors duration-[var(--nb-t-fast)]',
         depth === 1 && 'ml-5 w-[calc(100%-1.25rem)]',
         selected
@@ -70,7 +70,11 @@ export function TaskRow({
         />
       </span>
 
-      <span className="min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-current={selected}
+        className="min-w-0 flex-1 text-left">
         <span
           className={cn(
             'block truncate text-[13px] leading-snug',
@@ -127,7 +131,7 @@ export function TaskRow({
             )}
           </span>
         )}
-      </span>
+      </button>
 
       {task.priority !== 'none' && !done && (
         <span
@@ -144,6 +148,6 @@ export function TaskRow({
           )}
         />
       )}
-    </button>
+    </div>
   );
 }

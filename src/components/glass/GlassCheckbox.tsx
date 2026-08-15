@@ -11,8 +11,17 @@ import { Check, Minus } from 'lucide-react';
 import type { TaskStatus } from '@/lib/schema';
 import { cn } from '@/lib/utils/cn';
 
+/**
+ * Ticking the box means "done", from any state.
+ *
+ * It cycled todo → inProgress → done, which read well in the abstract and was
+ * wrong in the hand: finishing something is overwhelmingly the most common
+ * thing a student does to a task, and that made it cost two clicks while
+ * leaving a half-filled box behind on the first. "In progress" is set from the
+ * status menu, where it is a deliberate choice rather than a stop on the way.
+ */
 const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
-  todo: 'inProgress',
+  todo: 'done',
   inProgress: 'done',
   done: 'todo',
 };
@@ -45,8 +54,10 @@ export function GlassCheckbox({
       aria-label={label}
       disabled={disabled}
       onClick={(event) => {
-        // The row underneath opens the task; ticking it off must not also
-        // navigate away from the list the student is working through.
+        // Ticking a task off must not also open it. The row's button is a
+        // sibling rather than an ancestor, so this only guards against a
+        // future clickable wrapper — cheap insurance against a regression
+        // that would be felt rather than seen.
         event.stopPropagation();
         onChange(NEXT_STATUS[status]);
       }}

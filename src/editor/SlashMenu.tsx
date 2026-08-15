@@ -64,7 +64,7 @@ export function SlashMenu({ editor, state, close, run }: SlashMenuProps) {
         },
         {
           id: 'taskRef',
-          label: t('tasks.linkNote'),
+          label: t('tasks.mentionTask'),
           icon: ListTodo,
           // The picker is opened from `uiStore` rather than mounted here, so
           // the dialog is not a child of a menu that closes on the next click.

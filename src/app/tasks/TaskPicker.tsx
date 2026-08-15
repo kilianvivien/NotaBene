@@ -43,7 +43,7 @@ export function TaskPicker({
     <Dialog
       open={open}
       onClose={onClose}
-      title={t('tasks.linkNote')}
+      title={t('tasks.mentionTaskTitle')}
       size="sm"
       footer={
         <GlassButton variant="ghost" onClick={onClose}>
