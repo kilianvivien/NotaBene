@@ -215,6 +215,133 @@ pub struct OrganizeParams {
     pub moves: Vec<MoveNoteParams>,
 }
 
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ListTasksParams {
+    /// Any of `todo`, `inProgress`, `done`. Omit for every status.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<Vec<String>>,
+    /// Course id, or `null` for tasks filed under no course.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub course_id: Option<Option<String>>,
+    /// `null` returns top-level tasks only; a task id returns its subtasks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<Option<String>>,
+    /// Tasks linked to this note, by an explicit link or an inline chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_id: Option<String>,
+    /// ISO-8601 instant; returns tasks due at or before it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub due_before: Option<String>,
+    /// `live` (default), `trashed`, or `all`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    /// `due` (default), `created`, `updated`, `priority`, or `manual`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RecurrenceParams {
+    /// `daily`, `weekly`, or `monthly`.
+    pub freq: String,
+    /// Repeat every N periods. Defaults to 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interval: Option<i64>,
+    /// 0 = Sunday … 6 = Saturday. Only read when `freq` is `weekly`.
+    #[serde(default)]
+    pub weekdays: Vec<i64>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTaskParams {
+    pub title: String,
+    /// Plain-text detail. A task that wants a document should link to one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+    /// `todo` (default), `inProgress`, or `done`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// `none` (default), `low`, `medium`, or `high`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub course_id: Option<Option<String>>,
+    /// Makes this a subtask. Subtasks are one level deep.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<Option<String>>,
+    /// ISO-8601 instant the task is due.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<Option<String>>,
+    /// ISO-8601 instant to notify the student. Independent of `dueAt`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remind_at: Option<Option<String>>,
+    /// Only a top-level task may repeat.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recurrence: Option<Option<RecurrenceParams>>,
+    /// Notes to link the new task to.
+    #[serde(default)]
+    pub note_ids: Vec<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateTaskParams {
+    pub task_id: String,
+    /// The task's current `updatedAt`. A concurrent edit returns a conflict.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_updated_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+    /// Use `notabene_complete_task` to finish one — it handles subtasks and
+    /// repeats, which setting the status directly does not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub course_id: Option<Option<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<Option<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remind_at: Option<Option<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recurrence: Option<Option<RecurrenceParams>>,
+    /// `true` moves the task to recoverable Trash; `false` restores it.
+    /// Permanent deletion is not available through this server.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trashed: Option<bool>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CompleteTaskParams {
+    pub task_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_updated_at: Option<String>,
+    /// `false` reopens a completed task. Defaults to `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub done: Option<bool>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkTaskNoteParams {
+    pub task_id: String,
+    pub note_id: String,
+    /// `false` detaches instead of attaching. Defaults to `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub linked: Option<bool>,
+}
+
 #[derive(Clone)]
 pub struct NotaBeneMcpServer {
     bridge: Arc<McpBridge>,
@@ -373,6 +500,103 @@ impl NotaBeneMcpServer {
         to_tool_result(
             self.bridge
                 .call("read_note", args, client_of(&ctx), READ_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_list_tasks",
+        description = "List the student's assignments and to-dos, filtered by status, course, due date, or the note they are linked to. Pass parentId: null for top-level tasks only; subtasks are returned by passing their parent's id."
+    )]
+    pub async fn list_tasks(
+        &self,
+        Parameters(params): Parameters<ListTasksParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("list_tasks", args, client_of(&ctx), READ_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_create_task",
+        description = "Create a task and optionally link it to notes. Subtasks are one level deep, and only a top-level task may repeat."
+    )]
+    pub async fn create_task(
+        &self,
+        Parameters(params): Parameters<CreateTaskParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("create_task", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_update_task",
+        description = "Update a task's title, details, priority, course, due date, reminder, or repeat. Pass the task's current updatedAt as baseUpdatedAt; a concurrent user edit returns a recoverable conflict. Set trashed: true to move it to recoverable Trash and trashed: false to restore it — permanent deletion is not available."
+    )]
+    pub async fn update_task(
+        &self,
+        Parameters(params): Parameters<UpdateTaskParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("update_task", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_complete_task",
+        description = "Tick a task off, or reopen it with done: false. Use this rather than setting the status directly: it closes the task's subtasks, and a repeating task rolls forward to its next occurrence instead of closing."
+    )]
+    pub async fn complete_task(
+        &self,
+        Parameters(params): Parameters<CompleteTaskParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("complete_task", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_link_task_note",
+        description = "Attach a task to a note so each shows the other, or detach it with linked: false."
+    )]
+    pub async fn link_task_note(
+        &self,
+        Parameters(params): Parameters<LinkTaskNoteParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("link_task_note", args, client_of(&ctx), WRITE_TIMEOUT)
                 .await,
         )
     }
@@ -575,7 +799,11 @@ impl ServerHandler for NotaBeneMcpServer {
              reversible by the user. Before any note-changing operation, pass \
              its current `updatedAt` as `baseUpdatedAt`; if a conflict is returned, \
              read it again before retrying. Trash is recoverable, and there is no \
-             permanent-delete or empty-Trash tool. Never rewrite a note wholesale unless the user asked for \
+             permanent-delete or empty-Trash tool, for notes or for tasks. \
+             Assignments and deadlines live in tasks rather than in note text: use \
+             notabene_list_tasks to see what is due, and notabene_complete_task \
+             rather than a status update to finish one, because it closes subtasks \
+             and rolls a repeating task forward. Never rewrite a note wholesale unless the user asked for \
              exactly that."
                 .into(),
         );

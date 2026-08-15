@@ -780,7 +780,12 @@
     "clientHint_claudeDesktop": "L’application de bureau Claude. Quittez-la et rouvrez-la après configuration.",
     "clientHint_codex": "L’interface Codex d’OpenAI et son extension d’éditeur, qui partagent un même fichier TOML. Les commentaires du fichier sont conservés.",
     "clientHint_antigravity": "Google Antigravity. Rechargez ensuite le panneau des serveurs MCP.",
-    "clientHint_opencode": "OpenCode. L’entrée désactive OAuth pour que le jeton d’appairage soit utilisé."
+    "clientHint_opencode": "OpenCode. L’entrée désactive OAuth pour que le jeton d’appairage soit utilisé.",
+    "tool_list_tasks": "Lister les tâches",
+    "tool_create_task": "Créer une tâche",
+    "tool_update_task": "Modifier une tâche",
+    "tool_complete_task": "Terminer une tâche",
+    "tool_link_task_note": "Lier une tâche à une note"
   },
   "settings": {
     "title": "Réglages",
@@ -1106,7 +1111,18 @@
     "status_completed": "Terminé",
     "status_failed": "Arrêté sur une erreur",
     "status_cancelled": "Arrêté",
-    "status_undone": "Modifications annulées"
+    "status_undone": "Modifications annulées",
+    "did_list_tasks_one": "{{count}} tâche listée",
+    "did_list_tasks_other": "{{count}} tâches listées",
+    "did_create_task": "Tâche « {{title}} » ajoutée",
+    "did_update_task": "Tâche « {{title}} » modifiée",
+    "did_update_task_generic": "Une tâche a été modifiée",
+    "did_complete_task": "« {{title}} » terminée",
+    "did_complete_task_generic": "Une tâche a été terminée",
+    "did_reopen_task": "« {{title}} » rouverte",
+    "did_reopen_task_generic": "Une tâche a été rouverte",
+    "did_link_task_note": "Une tâche a été liée à une note",
+    "did_unlink_task_note": "Une tâche a été déliée d’une note"
   },
   "reading": {
     "controls": "Réglages de lecture",

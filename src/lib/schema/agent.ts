@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CourseSchema, SectionSchema, TagSchema } from './schema';
+import { CourseSchema, SectionSchema, TagSchema, TaskSchema } from './schema';
 
 /** Exactly the MCP surface. The in-app agent imports this list rather than
  * growing a private capability that external agents do not have. */
@@ -19,6 +19,11 @@ export const AGENT_TOOL_NAMES = [
   'create_course',
   'export_notes',
   'organize',
+  'list_tasks',
+  'create_task',
+  'update_task',
+  'complete_task',
+  'link_task_note',
 ] as const;
 export const AgentToolNameSchema = z.enum(AGENT_TOOL_NAMES);
 export type AgentToolName = z.infer<typeof AgentToolNameSchema>;
@@ -128,6 +133,13 @@ export const AgentUndoJournalSchema = z.object({
   createdSections: z.array(SectionSchema),
   createdTagIds: z.array(z.string()),
   tagsBeforeRename: z.array(TagSchema),
+  /** Optional throughout, so journals written before tasks existed stay valid. */
+  tasksBefore: z.array(TaskSchema).optional(),
+  createdTaskIds: z.array(z.string()).optional(),
+  /** The full link set for every task a run touched, as it stood before. */
+  taskLinksBefore: z
+    .array(z.object({ taskId: z.string().min(1), noteIds: z.array(z.string()) }))
+    .optional(),
 });
 export type AgentUndoJournal = z.infer<typeof AgentUndoJournalSchema>;
 

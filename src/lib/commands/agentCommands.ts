@@ -420,6 +420,30 @@ export async function undoAgentRunCommand(
     }
   }
 
+  // Tasks go back whole. `upsertTask` rather than `updateTaskCommand` because
+  // the journalled row *is* the answer, including its `updatedAt` — running it
+  // through the patching command would stamp a new one and defeat the point.
+  for (const task of record.undoJournal.tasksBefore ?? []) {
+    await library.upsertTask(task);
+  }
+  for (const links of record.undoJournal.taskLinksBefore ?? []) {
+    await library.setTaskNoteLinks(links.taskId, links.noteIds);
+  }
+  // Created tasks go to recoverable Trash, never purged — the same rule that
+  // archives an agent-created note rather than destroying it.
+  const createdTaskIds = record.undoJournal.createdTaskIds ?? [];
+  if (createdTaskIds.length) {
+    const live = [];
+    for (const taskId of createdTaskIds) {
+      const task = await library.getTask(taskId);
+      if (task && !task.trashedAt) live.push(taskId);
+    }
+    if (live.length) await library.trashTasks(live);
+  }
+  if (createdTaskIds.length || (record.undoJournal.tasksBefore ?? []).length) {
+    await useLibraryStore.getState().refreshTasks();
+  }
+
   for (const tag of record.undoJournal.tagsBeforeRename) {
     const restored = await updateTagCommand(tag);
     if (!restored.ok) return restored;
@@ -540,6 +564,36 @@ async function captureBefore(
     typeof sectionCourseId === 'string'
       ? await library.listSections(sectionCourseId)
       : [];
+
+  // Tasks are journalled whole rather than field by field: a task is small, and
+  // "put it back exactly as it was" is the only undo worth offering for one.
+  const taskId = referencedTaskId(tool, args);
+  if (taskId !== null) {
+    const journal = record.undoJournal;
+    journal.tasksBefore ??= [];
+    journal.createdTaskIds ??= [];
+    journal.taskLinksBefore ??= [];
+    if (
+      !journal.createdTaskIds.includes(taskId) &&
+      !journal.tasksBefore.some((entry) => entry.id === taskId)
+    ) {
+      const task = await library.getTask(taskId);
+      if (task) journal.tasksBefore.push(task);
+    }
+    if (
+      tool === 'link_task_note' &&
+      !journal.taskLinksBefore.some((entry) => entry.taskId === taskId)
+    ) {
+      const links = await library.listTaskNoteLinks();
+      journal.taskLinksBefore.push({
+        taskId,
+        noteIds: links
+          .filter((link) => link.taskId === taskId && link.origin === 'manual')
+          .map((link) => link.noteId),
+      });
+    }
+  }
+
   return { tags, courses, sections };
 }
 
@@ -550,6 +604,10 @@ async function journalAfter(
   value: unknown,
   before: BeforeTool,
 ): Promise<void> {
+  if (tool === 'create_task' && isObject(value) && typeof value.id === 'string') {
+    record.undoJournal.createdTaskIds ??= [];
+    addUnique(record.undoJournal.createdTaskIds, value.id);
+  }
   if ((tool === 'create_note' || tool === 'merge_notes') && isNote(value)) {
     addUnique(record.undoJournal.createdNoteIds, value.id);
     upsertTouched(record, value.id, value.title, null, true);
@@ -618,6 +676,12 @@ async function enforceScope(
   if (record.scope.kind === 'course' && tool === 'create_note') {
     scoped.courseId = record.scope.courseId;
   }
+  if (
+    record.scope.kind === 'course' &&
+    (tool === 'list_tasks' || tool === 'create_task')
+  ) {
+    scoped.courseId = record.scope.courseId;
+  }
   if (record.scope.kind === 'course' && tool === 'create_course') {
     return scopeDenied();
   }
@@ -640,6 +704,18 @@ async function enforceScope(
     }
   }
   if (record.scope.kind === 'course' && tool === 'update_note') {
+    const target = scoped.courseId;
+    if (target !== undefined && target !== record.scope.courseId) {
+      return scopeDenied();
+    }
+  }
+  const taskId = referencedTaskId(tool, scoped);
+  if (taskId !== null && !(await taskAllowed(record, taskId))) {
+    return scopeDenied();
+  }
+  // Moving a task out of the scoped course would put it somewhere the run can
+  // no longer see, which is a widening dressed up as an edit.
+  if (record.scope.kind === 'course' && tool === 'update_task') {
     const target = scoped.courseId;
     if (target !== undefined && target !== record.scope.courseId) {
       return scopeDenied();
@@ -678,6 +754,23 @@ async function filterReadResult(
   tool: AgentToolName,
   value: unknown,
 ): Promise<unknown> {
+  if (tool === 'list_tasks' && Array.isArray(value)) {
+    if (scope.kind === 'library') return value;
+    if (scope.kind === 'course') {
+      return value.filter(
+        (entry) => isObject(entry) && entry.courseId === scope.courseId,
+      );
+    }
+    const links = await library.listTaskNoteLinks();
+    const reachable = new Set(
+      links
+        .filter((link) => scope.noteIds.includes(link.noteId))
+        .map((link) => link.taskId),
+    );
+    return value.filter(
+      (entry) => isObject(entry) && typeof entry.id === 'string' && reachable.has(entry.id),
+    );
+  }
   if ((tool !== 'list_notes' && tool !== 'search_notes') || !Array.isArray(value)) {
     return value;
   }
@@ -725,7 +818,49 @@ function referencedNoteIds(tool: AgentToolName, args: Record<string, unknown>): 
           .filter((id): id is string => typeof id === 'string')
       : [];
   }
+  if (tool === 'link_task_note' || tool === 'list_tasks') {
+    return typeof args.noteId === 'string' ? [args.noteId] : [];
+  }
+  if (tool === 'create_task') {
+    return Array.isArray(args.noteIds)
+      ? args.noteIds.filter((id): id is string => typeof id === 'string')
+      : [];
+  }
   return [];
+}
+
+/** The task a tool call is aimed at, where it names exactly one. */
+function referencedTaskId(
+  tool: AgentToolName,
+  args: Record<string, unknown>,
+): string | null {
+  if (tool === 'update_task' || tool === 'complete_task' || tool === 'link_task_note') {
+    return typeof args.taskId === 'string' ? args.taskId : null;
+  }
+  return null;
+}
+
+/**
+ * May this run touch this task?
+ *
+ * Course scope means the course's tasks. Selection scope means tasks linked to
+ * the notes in the selection — the only reading of "this selection" that gives
+ * a task-aware agent anything to do, and it still cannot reach a task belonging
+ * to a note the student did not choose.
+ */
+async function taskAllowed(record: AgentRunRecord, taskId: string): Promise<boolean> {
+  if (record.undoJournal.createdTaskIds?.includes(taskId)) return true;
+  if (record.scope.kind === 'library') return true;
+  const task = await library.getTask(taskId);
+  if (!task) return true; // Let the command report `not_found` rather than a denial.
+  if (record.scope.kind === 'course') return task.courseId === record.scope.courseId;
+  const links = await library.listTaskNoteLinks();
+  return links.some(
+    (link) =>
+      link.taskId === taskId &&
+      record.scope.kind === 'selection' &&
+      record.scope.noteIds.includes(link.noteId),
+  );
 }
 
 function writeNoteIds(tool: AgentToolName, args: Record<string, unknown>): string[] {

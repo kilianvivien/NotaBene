@@ -137,6 +137,44 @@ export function callOutcome(
       return t('agent.did_export_notes');
     case 'organize':
       return t('agent.did_organize');
+
+    case 'list_tasks':
+      return Array.isArray(parsed)
+        ? t('agent.did_list_tasks', { count: parsed.length })
+        : null;
+
+    case 'create_task': {
+      const title =
+        previewTitle(parsed) ?? (typeof args.title === 'string' ? args.title : null);
+      return title ? t('agent.did_create_task', { title }) : null;
+    }
+
+    case 'update_task': {
+      const title = previewTitle(parsed);
+      return title
+        ? t('agent.did_update_task', { title })
+        : t('agent.did_update_task_generic');
+    }
+
+    case 'complete_task': {
+      const title = previewTitle(parsed);
+      // `done: false` is a reopen, and saying "completed" would be a lie in the
+      // one place the student is checking what the agent actually did.
+      const reopened = args.done === false;
+      if (reopened) {
+        return title
+          ? t('agent.did_reopen_task', { title })
+          : t('agent.did_reopen_task_generic');
+      }
+      return title
+        ? t('agent.did_complete_task', { title })
+        : t('agent.did_complete_task_generic');
+    }
+
+    case 'link_task_note':
+      return args.linked === false
+        ? t('agent.did_unlink_task_note')
+        : t('agent.did_link_task_note');
   }
 }
 

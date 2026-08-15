@@ -46,6 +46,11 @@ export const AGENT_TOOL_GUIDE = `
 - create_course { name, professor?, semester? } — create a course; whole-library scope only
 - export_notes { noteIds, format, fileName, layout?, includeToc? } — export into NotaBene's exports folder
 - organize { createSection?: { courseId, name }, moves?: [{ noteId, baseUpdatedAt, courseId: string|null, sectionId: string|null }] } — create a section and/or move notes. Every move must include both courseId and sectionId; use null explicitly for no course or no section
+- list_tasks { status?, courseId?, parentId?, noteId?, dueBefore?, scope?: "live"|"trashed"|"all", sort?, limit?, offset? } — assignments and to-dos; pass parentId: null for top-level tasks only
+- create_task { title, details?, priority?, courseId?, parentId?, dueAt?, remindAt?, recurrence?: { freq: "daily"|"weekly"|"monthly", interval?, weekdays? }, noteIds? } — create a task; subtasks are one level deep and only a top-level task may repeat
+- update_task { taskId, baseUpdatedAt, title?, details?, status?, priority?, courseId?, dueAt?, remindAt?, recurrence?, trashed? } — versioned update; trashed: true moves it to recoverable Trash and trashed: false restores it, and permanent deletion is unavailable
+- complete_task { taskId, baseUpdatedAt, done? } — tick a task off; this is the only correct way to finish one, because it closes subtasks and rolls a repeating task forward to its next occurrence rather than closing it
+- link_task_note { taskId, noteId, linked? } — attach a task to a note, or detach it with linked: false
 `.trim();
 
 export interface AgentPlanRequest {
