@@ -4,6 +4,7 @@ import {
   Image,
   List,
   ListChecks,
+  ListTodo,
   MessageSquareWarning,
   PanelTop,
   PencilRuler,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useUiStore } from '@/lib/state/uiStore';
 import type { EditorCommand } from './commandBridge';
 
 export interface SlashState {
@@ -59,6 +61,14 @@ export function SlashMenu({ editor, state, close, run }: SlashMenuProps) {
           label: t('editor.taskList'),
           icon: ListChecks,
           action: () => editor.chain().focus().toggleTaskList().run(),
+        },
+        {
+          id: 'taskRef',
+          label: t('tasks.linkNote'),
+          icon: ListTodo,
+          // The picker is opened from `uiStore` rather than mounted here, so
+          // the dialog is not a child of a menu that closes on the next click.
+          action: () => useUiStore.getState().openTaskPicker(),
         },
         {
           id: 'callout',

@@ -3,6 +3,7 @@ import {
   History,
   Info,
   ListTree,
+  ListTodo,
   Link2,
   Paperclip,
   Plus,
@@ -31,8 +32,9 @@ import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { NoteTasksPanel } from '@/app/tasks/NoteTasksPanel';
 
-type VisibleTab = 'info' | 'versions' | 'backlinks' | 'attachments' | 'ai';
+type VisibleTab = 'info' | 'versions' | 'backlinks' | 'attachments' | 'tasks' | 'ai';
 
 export function Inspector() {
   const { t } = useTranslation();
@@ -41,7 +43,7 @@ export function Inspector() {
   const setTab = useUiStore((state) => state.setInspectorTab);
   const agentMode = useAiStore((state) => state.agentMode);
   const visibleTab: VisibleTab = (
-    ['info', 'versions', 'backlinks', 'attachments', 'ai'] as const
+    ['info', 'versions', 'backlinks', 'attachments', 'tasks', 'ai'] as const
   ).includes(tab as VisibleTab)
     ? (tab as VisibleTab)
     : 'info';
@@ -64,6 +66,7 @@ export function Inspector() {
             label: t('inspector.attachments'),
             icon: Paperclip,
           },
+          { value: 'tasks', label: t('tasks.title'), icon: ListTodo },
           { value: 'ai', label: t('ai.ask'), icon: Sparkles },
         ]}
         iconOnly
@@ -79,6 +82,8 @@ export function Inspector() {
         <p className="text-[12px] text-nb-text-3">{t('editor.noSelection')}</p>
       ) : visibleTab === 'ai' ? (
         <AskPanel noteId={note.id} />
+      ) : visibleTab === 'tasks' ? (
+        <NoteTasksPanel noteId={note.id} />
       ) : visibleTab === 'attachments' ? (
         <AttachmentPanel noteId={note.id} />
       ) : visibleTab === 'backlinks' ? (

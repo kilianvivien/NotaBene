@@ -33,7 +33,7 @@ export type ViewKind =
   | { kind: 'tasks'; courseId?: string };
 
 export type InspectorTab =
-  'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'ai';
+  'info' | 'tags' | 'versions' | 'attachments' | 'backlinks' | 'tasks' | 'ai';
 
 /** Settings sections. Future sections stay addressable while their panes are
  * placeholders, so commands and navigation do not change shape between phases. */
@@ -134,6 +134,8 @@ interface UiState {
    * on screen — so "new task for this note" needs no second step.
    */
   taskDraft: TaskDraft | null;
+  /** Open while the editor is choosing a task to mention inline. */
+  taskPickerOpen: boolean;
 
   setView(view: ViewKind): void;
   selectNote(noteId: string | null): void;
@@ -172,6 +174,8 @@ interface UiState {
   openTasksView(options?: { courseId?: string; taskId?: string }): void;
   openTaskDialog(draft?: TaskDraft): void;
   closeTaskDialog(): void;
+  openTaskPicker(): void;
+  closeTaskPicker(): void;
 }
 
 /**
@@ -195,7 +199,8 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiMindMapOpen ||
     state.aiFlashcardsOpen ||
     state.aiPodcastOpen ||
-    state.taskDraft !== null
+    state.taskDraft !== null ||
+    state.taskPickerOpen
   );
 }
 
@@ -218,6 +223,7 @@ export const useUiStore = create<UiState>()(
     multiSelection: [],
     selectedTaskId: null,
     taskDraft: null,
+    taskPickerOpen: false,
     sidebarVisible: true,
     noteListVisible: true,
     inspectorVisible: false,
@@ -292,6 +298,18 @@ export const useUiStore = create<UiState>()(
     closeTaskDialog() {
       set((state) => {
         state.taskDraft = null;
+      });
+    },
+
+    openTaskPicker() {
+      set((state) => {
+        state.taskPickerOpen = true;
+      });
+    },
+
+    closeTaskPicker() {
+      set((state) => {
+        state.taskPickerOpen = false;
       });
     },
 

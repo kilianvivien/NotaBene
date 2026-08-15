@@ -46,6 +46,14 @@ function walk(node: DocNode, out: string[]): void {
     const latex = node.attrs?.latex;
     if (typeof latex === 'string') out.push(latex);
   }
+
+  // An inline task chip is text on the page, so it is text in the index: a
+  // student searching a note for "problem set" should find the paragraph that
+  // mentions it, not just the task itself.
+  if (node.type === 'taskRef') {
+    const label = node.attrs?.label;
+    if (typeof label === 'string' && label) out.push(label);
+  }
   if (node.type === 'image') {
     const caption = node.attrs?.caption;
     const alt = node.attrs?.alt;

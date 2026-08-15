@@ -13,6 +13,7 @@ import { Callout } from './Callout';
 import { Toggle } from './Toggle';
 import { MathBlock, MathInline } from './Math';
 import { WikiLink } from './WikiLink';
+import { TaskRef } from './TaskRef';
 import { Drawing } from './Drawing';
 import { MindMap } from './MindMap';
 import { AssetImage } from './AssetImage';
@@ -64,6 +65,7 @@ export function editorExtensions(
     MathInline,
     MathBlock,
     WikiLink,
+    TaskRef,
     AssetImage,
     Drawing,
     MindMap,
