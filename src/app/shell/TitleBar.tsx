@@ -1,6 +1,4 @@
 import {
-  CornerDownLeft,
-  FileText,
   Focus,
   History,
   PanelLeft,
@@ -18,7 +16,7 @@ import { runAppCommand } from '@/lib/commands';
 import { saveSearchCommand } from '@/lib/commands';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { NameDialog } from '@/app/organization/OrganizationModals';
-import { HighlightedSnippet } from './HighlightedSnippet';
+import { CommandSearchRowBody } from './CommandSearchRow';
 import {
   chooseCommandSearchRow,
   useCommandSearch,
@@ -221,22 +219,8 @@ export function TitleBar() {
                           <span className="nb-palette-label">{row.query}</span>
                           <span className="nb-palette-hint">{t('search.recent')}</span>
                         </>
-                      ) : row.kind === 'note' ? (
-                        <>
-                          <FileText size={13} aria-hidden />
-                          <span className="nb-palette-label">{row.title}</span>
-                          {row.snippet && (
-                            <span className="nb-palette-hint">
-                              <HighlightedSnippet value={row.snippet} />
-                            </span>
-                          )}
-                        </>
                       ) : (
-                        <>
-                          <CornerDownLeft size={13} aria-hidden />
-                          <span className="nb-palette-label">{row.label}</span>
-                          {row.keys && <kbd>{row.keys}</kbd>}
-                        </>
+                        <CommandSearchRowBody row={row} />
                       )}
                     </button>
                   </li>
