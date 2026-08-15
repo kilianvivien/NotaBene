@@ -53,6 +53,10 @@ const MIGRATIONS: Record<number, Migration> = {
         )
       : input.attachments,
   }),
+  // v6 adds tasks and their links to notes. A library written before them has
+  // neither, and `LibrarySchema` would default both arrays anyway — the step is
+  // explicit so the envelope ladder still has a rung for every database one.
+  5: (input) => ({ tasks: [], taskNoteLinks: [], ...input }),
 };
 
 export type ImportResult =

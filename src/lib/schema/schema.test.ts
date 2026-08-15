@@ -6,6 +6,7 @@ import {
   NoteSchema,
   safeImportLibrary,
   SCHEMA_VERSION,
+  TaskSchema,
 } from './index';
 
 describe('library import', () => {
@@ -90,6 +91,57 @@ describe('library import', () => {
     const result = safeImportLibrary(library);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.library.attachments[0]?.annotations).toEqual([]);
+  });
+
+  it('gives a v5 library empty task collections rather than refusing it', () => {
+    const { tasks: _tasks, taskNoteLinks: _links, ...v5 } = emptyLibrary();
+    const result = safeImportLibrary({ ...v5, schemaVersion: 5 });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.library.tasks).toEqual([]);
+      expect(result.library.taskNoteLinks).toEqual([]);
+      expect(result.library.schemaVersion).toBe(SCHEMA_VERSION);
+    }
+  });
+});
+
+describe('task schema', () => {
+  it('fills in defaults for a minimal task', () => {
+    const parsed = TaskSchema.parse({
+      id: 't1',
+      title: 'Problem set 3',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    expect(parsed.status).toBe('todo');
+    expect(parsed.priority).toBe('none');
+    expect(parsed.courseId).toBeNull();
+    expect(parsed.parentId).toBeNull();
+    expect(parsed.recurrence).toBeNull();
+    expect(parsed.trashedAt).toBeNull();
+  });
+
+  it('refuses a task with no title, because a blank row is not a to-do', () => {
+    const result = TaskSchema.safeParse({
+      id: 't1',
+      title: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('keeps a weekly recurrence with its weekdays', () => {
+    const parsed = TaskSchema.parse({
+      id: 't1',
+      title: 'Lab report',
+      recurrence: { freq: 'weekly', interval: 2, weekdays: [2, 4] },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    expect(parsed.recurrence).toEqual({ freq: 'weekly', interval: 2, weekdays: [2, 4] });
   });
 });
 

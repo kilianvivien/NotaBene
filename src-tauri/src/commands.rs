@@ -13,10 +13,10 @@ use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::location::LibraryAccess;
 use crate::db::model::{
     Asset, Attachment, Backlink, Course, Library, Note, NoteMatch, NoteQuery, NoteSummary,
-    NoteTemplate, SavedSearch, Section, Snapshot, SnapshotMeta, Tag,
+    NoteTemplate, SavedSearch, Section, Snapshot, SnapshotMeta, Tag, Task, TaskNoteLink, TaskQuery,
 };
 use crate::db::{
-    assets, collections, journal, notes, organization, transfer, DbError, DbResult, Store,
+    assets, collections, journal, notes, organization, tasks, transfer, DbError, DbResult, Store,
 };
 
 fn now() -> String {
@@ -368,6 +368,78 @@ pub fn library_upsert_saved_search(store: State<'_, Store>, search: SavedSearch)
 #[tauri::command]
 pub fn library_delete_saved_search(store: State<'_, Store>, search_id: String) -> DbResult<()> {
     collections::delete_saved_search(&store, &search_id)
+}
+
+// -- tasks -------------------------------------------------------------------
+
+#[tauri::command]
+pub fn library_list_tasks(store: State<'_, Store>, query: TaskQuery) -> DbResult<Vec<Task>> {
+    tasks::list(&store, &query)
+}
+
+#[tauri::command]
+pub fn library_get_task(store: State<'_, Store>, task_id: String) -> DbResult<Option<Task>> {
+    tasks::get(&store, &task_id)
+}
+
+#[tauri::command]
+pub fn library_search_tasks(
+    store: State<'_, Store>,
+    text: String,
+    limit: i64,
+) -> DbResult<Vec<Task>> {
+    tasks::search(&store, &text, limit)
+}
+
+#[tauri::command]
+pub fn library_upsert_task(store: State<'_, Store>, task: Task) -> DbResult<()> {
+    tasks::upsert(&store, &task)
+}
+
+#[tauri::command]
+pub fn library_upsert_task_if_unchanged(
+    store: State<'_, Store>,
+    task: Task,
+    base_updated_at: String,
+) -> DbResult<bool> {
+    tasks::upsert_if_unchanged(&store, &task, &base_updated_at)
+}
+
+#[tauri::command]
+pub fn library_trash_tasks(store: State<'_, Store>, task_ids: Vec<String>) -> DbResult<()> {
+    tasks::trash(&store, &task_ids, &now())
+}
+
+#[tauri::command]
+pub fn library_restore_tasks(store: State<'_, Store>, task_ids: Vec<String>) -> DbResult<()> {
+    tasks::restore(&store, &task_ids, &now())
+}
+
+#[tauri::command]
+pub fn library_purge_trashed_tasks(
+    store: State<'_, Store>,
+    trashed_before: String,
+) -> DbResult<i64> {
+    tasks::purge_trashed(&store, &trashed_before)
+}
+
+#[tauri::command]
+pub fn library_list_due_reminders(store: State<'_, Store>) -> DbResult<Vec<Task>> {
+    tasks::list_due_reminders(&store, &now())
+}
+
+#[tauri::command]
+pub fn library_list_task_note_links(store: State<'_, Store>) -> DbResult<Vec<TaskNoteLink>> {
+    tasks::list_note_links(&store)
+}
+
+#[tauri::command]
+pub fn library_set_task_note_links(
+    store: State<'_, Store>,
+    task_id: String,
+    note_ids: Vec<String>,
+) -> DbResult<()> {
+    tasks::set_manual_note_links(&store, &task_id, &note_ids)
 }
 
 #[tauri::command]

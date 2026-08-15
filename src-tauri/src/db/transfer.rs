@@ -21,7 +21,8 @@ use sha2::{Digest, Sha256};
 use super::location::{ASSETS_DIR, DATABASE_FILE, LOCK_FILE};
 use super::migrations::SCHEMA_VERSION;
 use super::model::Library;
-use super::{assets, collections, notes, organization, DbError, DbResult, Store};
+use super::model::TaskQuery;
+use super::{assets, collections, notes, organization, tasks, DbError, DbResult, Store};
 
 pub fn export_library(store: &Store) -> DbResult<Library> {
     let courses = organization::list_courses(store)?;
@@ -52,6 +53,16 @@ pub fn export_library(store: &Store) -> DbResult<Library> {
         snapshots,
         saved_searches: collections::list_saved_searches(store)?,
         templates: collections::list_templates(store)?,
+        // `all` scope: a backup that quietly dropped Trash would turn "restore"
+        // into a second, silent purge.
+        tasks: tasks::list(
+            store,
+            &TaskQuery {
+                scope: Some("all".into()),
+                ..TaskQuery::default()
+            },
+        )?,
+        task_note_links: tasks::list_note_links(store)?,
     })
 }
 
@@ -76,6 +87,10 @@ pub fn import_library(store: &Store, library: &Library, mode: &str) -> DbResult<
                  DELETE FROM note_links;
                  DELETE FROM template_tags;
                  DELETE FROM note_tags;
+                 DELETE FROM task_notes;
+                 DELETE FROM task_tags;
+                 DELETE FROM tasks;
+                 DELETE FROM tasks_fts;
                  DELETE FROM attachments;
                  DELETE FROM snapshots;
                  DELETE FROM templates;
@@ -115,6 +130,18 @@ pub fn import_library(store: &Store, library: &Library, mode: &str) -> DbResult<
         }
         for template in &library.templates {
             collections::upsert_template_in(transaction, template)?;
+        }
+        // After notes and courses: every link row has a foreign key into both.
+        // Parents before children, because `tasks.parent_id` references the
+        // same table and the export order is the query's, not a topological one.
+        for task in library.tasks.iter().filter(|task| task.parent_id.is_none()) {
+            tasks::upsert_in(transaction, task)?;
+        }
+        for task in library.tasks.iter().filter(|task| task.parent_id.is_some()) {
+            tasks::upsert_in(transaction, task)?;
+        }
+        for link in &library.task_note_links {
+            tasks::upsert_link_in(transaction, link)?;
         }
         Ok(())
     })
@@ -377,6 +404,8 @@ mod tests {
             snapshots: Vec::new(),
             saved_searches: Vec::new(),
             templates: Vec::new(),
+            tasks: Vec::new(),
+            task_note_links: Vec::new(),
         }
     }
 

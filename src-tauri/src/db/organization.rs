@@ -9,7 +9,7 @@
 use rusqlite::Connection;
 
 use super::model::{Course, Section, Tag};
-use super::{notes, DbResult, Store};
+use super::{notes, tasks, DbResult, Store};
 
 pub fn list_courses(store: &Store) -> DbResult<Vec<Course>> {
     store.with(|connection| {
@@ -69,7 +69,7 @@ pub(crate) fn upsert_course_in(connection: &Connection, course: &Course) -> DbRe
             course.updated_at,
         ],
     )?;
-    let note_ids = note_ids(
+    let note_ids = ids_for(
         connection,
         "SELECT id FROM notes WHERE course_id = ?",
         &course.id,
@@ -77,21 +77,40 @@ pub(crate) fn upsert_course_in(connection: &Connection, course: &Course) -> DbRe
     for note_id in note_ids {
         notes::reindex_note(connection, &note_id)?;
     }
+    // A task's search row carries its course name too, so a rename has to
+    // reach both indexes or the old name keeps answering.
+    let task_ids = ids_for(
+        connection,
+        "SELECT id FROM tasks WHERE course_id = ?",
+        &course.id,
+    )?;
+    for task_id in task_ids {
+        tasks::reindex_task(connection, &task_id)?;
+    }
     Ok(())
 }
 
 /// Deleting a course does not delete its notes — the foreign key is
-/// `ON DELETE SET NULL`, so they land back in the inbox.
+/// `ON DELETE SET NULL`, so they land back in the inbox. Its tasks are unfiled
+/// the same way: an assignment outlives the course it was set for.
 pub fn delete_course(store: &Store, course_id: &str) -> DbResult<()> {
     store.transact(|connection| {
-        let note_ids = note_ids(
+        let note_ids = ids_for(
             connection,
             "SELECT id FROM notes WHERE course_id = ?",
+            course_id,
+        )?;
+        let task_ids = ids_for(
+            connection,
+            "SELECT id FROM tasks WHERE course_id = ?",
             course_id,
         )?;
         connection.execute("DELETE FROM courses WHERE id = ?", [course_id])?;
         for note_id in note_ids {
             notes::reindex_note(connection, &note_id)?;
+        }
+        for task_id in task_ids {
+            tasks::reindex_task(connection, &task_id)?;
         }
         Ok(())
     })
@@ -187,7 +206,7 @@ pub(crate) fn upsert_tag_in(connection: &Connection, tag: &Tag) -> DbResult<()> 
          name = excluded.name, color = excluded.color",
         rusqlite::params![tag.id, tag.namespace, tag.name, tag.color],
     )?;
-    let note_ids = note_ids(
+    let note_ids = ids_for(
         connection,
         "SELECT note_id FROM note_tags WHERE tag_id = ?",
         &tag.id,
@@ -200,7 +219,7 @@ pub(crate) fn upsert_tag_in(connection: &Connection, tag: &Tag) -> DbResult<()> 
 
 pub fn delete_tag(store: &Store, tag_id: &str) -> DbResult<()> {
     store.transact(|connection| {
-        let note_ids = note_ids(
+        let note_ids = ids_for(
             connection,
             "SELECT note_id FROM note_tags WHERE tag_id = ?",
             tag_id,
@@ -215,7 +234,7 @@ pub fn delete_tag(store: &Store, tag_id: &str) -> DbResult<()> {
 
 pub fn merge_tags(store: &Store, from_tag_id: &str, into_tag_id: &str) -> DbResult<()> {
     store.transact(|transaction| {
-        let affected = note_ids(
+        let affected = ids_for(
             transaction,
             "SELECT note_id FROM note_tags WHERE tag_id = ?",
             from_tag_id,
@@ -235,7 +254,7 @@ pub fn merge_tags(store: &Store, from_tag_id: &str, into_tag_id: &str) -> DbResu
     })
 }
 
-fn note_ids(connection: &rusqlite::Connection, sql: &str, value: &str) -> DbResult<Vec<String>> {
+fn ids_for(connection: &rusqlite::Connection, sql: &str, value: &str) -> DbResult<Vec<String>> {
     let mut statement = connection.prepare(sql)?;
     let ids = statement
         .query_map([value], |row| row.get(0))?

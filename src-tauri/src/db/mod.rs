@@ -13,6 +13,7 @@ pub mod migrations;
 pub mod model;
 pub mod notes;
 pub mod organization;
+pub mod tasks;
 pub mod transfer;
 
 use std::path::PathBuf;
