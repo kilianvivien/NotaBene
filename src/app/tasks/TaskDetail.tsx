@@ -32,6 +32,7 @@ import {
 } from '@/lib/schema';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { ensureReminderPermission } from '@/lib/tasks/reminderScheduler';
 import { cn } from '@/lib/utils/cn';
 import { TaskRow } from './TaskRow';
 import { groupFor, subtaskProgress } from './taskGrouping';
@@ -59,6 +60,8 @@ export function TaskDetail() {
   // round trip through the store on every keystroke.
   const [title, setTitle] = useState('');
   const [details, setDetails] = useState('');
+  /** Set only when macOS has actually refused, so the row stays quiet normally. */
+  const [reminderHint, setReminderHint] = useState<string | null>(null);
 
   useEffect(() => {
     setTitle(task?.title ?? '');
@@ -228,11 +231,22 @@ export function TaskDetail() {
                 onChange={(next) => patch({ dueAt: next })}
               />
             </FieldRow>
-            <FieldRow label={t('tasks.remindAt')}>
+            <FieldRow label={t('tasks.remindAt')} hint={reminderHint ?? undefined}>
               <GlassDateField
                 label={t('tasks.remindAt')}
                 value={task.remindAt}
-                onChange={(next) => patch({ remindAt: next })}
+                onChange={(next) => {
+                  patch({ remindAt: next });
+                  // Setting a reminder is the first moment the student has
+                  // expressed any interest in being notified, and therefore the
+                  // right moment to ask macOS — not at launch, where a prompt
+                  // out of nowhere gets refused for good.
+                  if (next) {
+                    void ensureReminderPermission().then((allowed) =>
+                      setReminderHint(allowed ? null : t('tasks.reminderPermissionDenied')),
+                    );
+                  }
+                }}
                 showQuickChips={false}
               />
             </FieldRow>

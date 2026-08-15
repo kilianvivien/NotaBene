@@ -33,6 +33,10 @@ import { createGeminiTtsEngine } from './tts/geminiTtsEngine';
 import { createTtsEngineRegistry } from './tts/ttsEngineRegistry';
 import { createLocalTtsEngine, unavailableLocalTtsEngine } from './tts/localTtsEngines';
 import { tauriMcpAdapter, unavailableMcpAdapter } from './mcp/tauriMcpAdapter';
+import {
+  tauriNotificationAdapter,
+  unavailableNotificationAdapter,
+} from './notification/tauriNotificationAdapter';
 import { browserExternalLinkAdapter } from './external/browserExternalLinkAdapter';
 import { tauriExternalLinkAdapter } from './external/tauriExternalLinkAdapter';
 import { browserWindowAdapter } from './window/browserWindowAdapter';
@@ -57,6 +61,7 @@ import type { ExportAdapter } from './export/ExportAdapter';
 import type { MenuAdapter } from './menu/MenuAdapter';
 import type { AiTransport } from './ai/AiTransport';
 import type { McpAdapter } from './mcp/McpAdapter';
+import type { NotificationAdapter } from './notification/NotificationAdapter';
 import type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 import type { WindowAdapter } from './window/WindowAdapter';
 import type { StorageAdapter } from './storage/StorageAdapter';
@@ -78,6 +83,9 @@ export const exporter: ExportAdapter = isTauri
   ? tauriExportAdapter
   : browserExportAdapter;
 export const mcp: McpAdapter = isTauri ? tauriMcpAdapter : unavailableMcpAdapter;
+export const notifications: NotificationAdapter = isTauri
+  ? tauriNotificationAdapter
+  : unavailableNotificationAdapter;
 export const appMenu: MenuAdapter = isTauri ? tauriMenuAdapter : unavailableMenuAdapter;
 export const externalLinks: ExternalLinkAdapter = isTauri
   ? tauriExternalLinkAdapter
@@ -125,6 +133,10 @@ export type {
   TaskQuery,
 } from './library/LibraryAdapter';
 export type { AssetAdapter } from './assets/AssetAdapter';
+export type {
+  NotificationAdapter,
+  SystemNotification,
+} from './notification/NotificationAdapter';
 export type {
   Abbreviation,
   AccentColor,

@@ -13,6 +13,7 @@
     "opener:default",
     "process:default",
     "updater:default",
+    "notification:default",
     "fs:default",
     {
       "identifier": "fs:scope",

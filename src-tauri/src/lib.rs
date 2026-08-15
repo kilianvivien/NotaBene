@@ -47,6 +47,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
+        // Task reminders. Delivery is best-effort by design: nothing here runs
+        // when the app is closed, and the sweep in the webview catches up on
+        // launch instead of a background service doing it.
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
