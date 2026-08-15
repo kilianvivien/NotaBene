@@ -54,6 +54,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('note.new', t),
         command('note.quick', t),
         command('note.newFromTemplate', t),
+        command('task.new', t),
         command('course.new', t),
         separator,
         command('note.importDocument', t),
@@ -116,6 +117,8 @@ export function buildMenuBar(t: Translate): MenuNode[] {
       kind: 'submenu',
       label: t('menu.view'),
       items: [
+        command('view.tasks', t),
+        separator,
         command('view.toggleSidebar', t),
         command('view.toggleInspector', t),
         separator,

@@ -64,6 +64,8 @@ export const APP_COMMAND_IDS = [
   'ai.flashcards',
   'ai.podcast',
   'ai.agent',
+  'task.new',
+  'view.tasks',
   'help.documentation',
   'help.github',
 ] as const;
@@ -71,7 +73,7 @@ export const APP_COMMAND_IDS = [
 export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
 
 /** The phase a command becomes real. `A` means it works today. */
-export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I';
+export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J';
 
 export interface AppCommand {
   id: AppCommandId;
@@ -404,6 +406,41 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
       const note = useEditorStore.getState().note;
       if (!note) return fail('not_found', 'open a note first');
       await speech.speak(note.plainText);
+      return ok(undefined);
+    },
+  },
+
+  'task.new': {
+    id: 'task.new',
+    labelKey: 'menu.newTask',
+    // ⌘⇧T is taken; ⌘⌥T is free.
+    accelerator: 'CmdOrCtrl+Alt+T',
+    landsIn: 'J',
+    run: () => {
+      // Opens the dialog rather than creating a blank task: a to-do with no
+      // title is a row nobody can act on.
+      const ui = useUiStore.getState();
+      const view = ui.view;
+      ui.openTaskDialog({
+        courseId:
+          view.kind === 'tasks'
+            ? view.courseId
+            : view.kind === 'course'
+              ? view.courseId
+              : undefined,
+      });
+      return ok(undefined);
+    },
+  },
+  'view.tasks': {
+    id: 'view.tasks',
+    labelKey: 'menu.tasks',
+    // L for the task list. T belongs to `task.new`, which sits with the other
+    // File-menu creates the way `course.new` does on Alt+N.
+    accelerator: 'CmdOrCtrl+Alt+L',
+    landsIn: 'J',
+    run: () => {
+      useUiStore.getState().openTasksView();
       return ok(undefined);
     },
   },
