@@ -195,7 +195,10 @@ class MemoryLibraryAdapter implements LibraryAdapter {
       .filter((entry) => entry.noteId === note.id)
       .map((entry) => entry.name)
       .join(' ');
-    return [note.title, note.plainText, course?.name ?? '', tagText, attachmentText];
+    // Schema order — title, plainText, tags, course, attachments — because the
+    // weights are positional. Course and tags were the wrong way round here,
+    // which quietly gave course a tag's weight and tags a course's.
+    return [note.title, note.plainText, tagText, course?.name ?? '', attachmentText];
   }
 
   /** Everything a query constrains except the free text. */
