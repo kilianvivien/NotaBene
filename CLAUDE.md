@@ -105,12 +105,12 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A–I are code-complete, apart from the explicitly deferred signing,
+Phases A–J are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
-server, the study features, and bulk selection. The MCP and in-app Agent share
-15 tools: the original surface plus tag discovery, native merging, and
-recoverable Trash/restore operations. E adds the
+server, the study features, bulk selection, and tasks. The MCP and in-app Agent
+share 20 tools: the original surface plus tag discovery, native merging,
+recoverable Trash/restore operations, and the five task tools. E adds the
 provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
 Studio, custom), Keychain key storage, rewrite-with-diff-gate, synthesis, and
 an Ask panel for questions about a note. F adds the authenticated MCP
@@ -118,8 +118,10 @@ surface, client setup, agent activity, versioned writes, and optimistic
 concurrency protection. G adds mind maps (a real editor block that survives
 every export), flashcards with Anki export, and note-to-podcast over macOS
 system voices, onboarding, editable study artefacts, accessibility, performance
-instrumentation, and release documentation. `docs/plan.md` tracks what is still
-open honestly — read it before assuming something works.
+instrumentation, and release documentation. J adds tasks: a recurrence engine,
+reminders that survive a quit, a Tasks view, tasks linked to notes both in the
+inspector and inline, and saving a web page onto a note. `docs/plan.md` tracks
+what is still open honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
 
@@ -165,6 +167,30 @@ Phase I notes worth knowing before touching it:
   is refused in the dialog; the token budget comes back as `details.limit` so
   the message is translated at the surface rather than carried from the
   command layer in English.
+
+Phase J notes worth knowing before touching it:
+
+- Tasks _are_ library entities, unlike decks: they took `SCHEMA_VERSION` from 5
+  to 7, with `V6` and `V7` in `src-tauri/src/db/migrations.rs` and a table in
+  `db/tasks.rs`. All three legs of rule 3 moved together — keep it that way.
+- Reminders are a thirty-second poll in `src/lib/tasks/reminderScheduler.ts`,
+  not a `setTimeout` ladder: a timer does not survive the laptop sleeping
+  between an evening reminder and the morning it is due. The first sweep after
+  launch is also the catch-up, delivering everything already past as one
+  grouped notification, and `remindedAt` is what makes each fire exactly once
+  across a relaunch. Nothing runs while the app is closed, by decision.
+- Exactly one occurrence of a recurring task exists at a time — completing it
+  rolls the due date forward instead of closing it, which is what stops "every
+  Tuesday" from materialising a hundred rows. The arithmetic in
+  `src/lib/tasks/recurrence.ts` runs in local time on purpose: doing it in UTC
+  moves an 08:00 task by an hour for half the year.
+- Trashing a task takes its subtasks with it and restoring lifts them back.
+  As everywhere else, MCP gets `trashed: true/false` and no permanent delete.
+- Fetching a web page goes through `src-tauri/src/web.rs`, never the webview,
+  and that is a security boundary rather than a transport preference: it
+  refuses non-HTTP schemes, loopback, the private ranges, link-local and
+  carrier-grade NAT, after resolution rather than before. `http://localhost:22600`
+  is NotaBene's own MCP server, and a pasted link must not be able to drive it.
 
 ## House rules
 
