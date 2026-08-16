@@ -232,7 +232,10 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   });
 
   useEffect(() => {
-    editor?.setEditable(editable);
+    // TipTap emits an `update` from `setEditable` by default even though the
+    // document did not change. That made opening every note mark it dirty and
+    // bump `updatedAt`, so date-sorted lists treated a view as an edit.
+    editor?.setEditable(editable, false);
   }, [editor, editable]);
   editorRef.current = editor;
 
