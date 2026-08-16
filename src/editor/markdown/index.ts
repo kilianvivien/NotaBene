@@ -9,7 +9,7 @@ function textNode(text: string, marks?: Mark[]): DocNode {
 function parseInline(source: string): DocNode[] {
   const nodes: DocNode[] = [];
   const pattern =
-    /(\[\[([^|\]]+)(?:\|([^\]]+))?\]\]|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|==([^=]+)==|`([^`]+)`|\$([^$\n]+)\$|\*([^*\n]+)\*|_([^_\n]+)_)/g;
+    /(\[\[([^|\]]+)(?:\|([^\]]+))?\]\]|\[task:([^|\]]+)\|([^\]]*)\]|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|==([^=]+)==|`([^`]+)`|\$([^$\n]+)\$|\*([^*\n]+)\*|_([^_\n]+)_)/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -21,18 +21,23 @@ function parseInline(source: string): DocNode[] {
         type: 'wikiLink',
         attrs: { title: match[2], noteId: match[3] ?? null },
       });
-    } else if (match[4] && match[5]) {
-      nodes.push(textNode(match[4], [{ type: 'link', attrs: { href: match[5] } }]));
-    } else if (match[6]) {
-      nodes.push(textNode(match[6], [{ type: 'bold' }]));
-    } else if (match[7]) {
-      nodes.push(textNode(match[7], [{ type: 'highlight', attrs: { color: null } }]));
+    } else if (match[4]) {
+      nodes.push({
+        type: 'taskRef',
+        attrs: { taskId: match[4], label: match[5] ?? '' },
+      });
+    } else if (match[6] && match[7]) {
+      nodes.push(textNode(match[6], [{ type: 'link', attrs: { href: match[7] } }]));
     } else if (match[8]) {
-      nodes.push(textNode(match[8], [{ type: 'code' }]));
+      nodes.push(textNode(match[8], [{ type: 'bold' }]));
     } else if (match[9]) {
-      nodes.push({ type: 'math', attrs: { latex: match[9] } });
+      nodes.push(textNode(match[9], [{ type: 'highlight', attrs: { color: null } }]));
+    } else if (match[10]) {
+      nodes.push(textNode(match[10], [{ type: 'code' }]));
+    } else if (match[11]) {
+      nodes.push({ type: 'math', attrs: { latex: match[11] } });
     } else {
-      nodes.push(textNode(match[10] ?? match[11] ?? '', [{ type: 'italic' }]));
+      nodes.push(textNode(match[12] ?? match[13] ?? '', [{ type: 'italic' }]));
     }
     cursor = pattern.lastIndex;
   }
@@ -279,6 +284,13 @@ function inlineToMarkdown(node: DocNode): string {
     const id = node.attrs?.noteId;
     return id ? `[[${title}|${String(id)}]]` : `[[${title}]]`;
   }
+  // Round-trips through `TASK_REF` below, so a note exported to Markdown and
+  // imported again keeps its chips rather than degrading to plain text.
+  if (node.type === 'taskRef') {
+    const label = String(node.attrs?.label ?? '');
+    const id = node.attrs?.taskId;
+    return id ? `[task:${String(id)}|${label}]` : `☐ ${label}`;
+  }
   if (node.type === 'math') return `$${String(node.attrs?.latex ?? '')}$`;
   if (node.type === 'image') {
     const caption = String(node.attrs?.caption ?? node.attrs?.alt ?? '');
@@ -389,6 +401,7 @@ function blockToMarkdown(node: DocNode): string {
       return `\`\`\`notabene-mindmap\n${JSON.stringify(node.attrs ?? {})}\n\`\`\``;
     case 'image':
     case 'wikiLink':
+    case 'taskRef':
     case 'math':
       return inlineToMarkdown(node);
     default:

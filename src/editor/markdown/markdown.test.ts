@@ -2,6 +2,40 @@ import { describe, expect, it } from 'vitest';
 import { docToMarkdown, markdownToDoc } from '.';
 
 describe('editor Markdown', () => {
+  /**
+   * Inserting the task-chip alternative into the inline pattern shifted every
+   * capture group after it, so this pins the whole inline vocabulary rather
+   * than the chip alone — a silent off-by-two would turn bold into italics.
+   */
+  it('round-trips the inline vocabulary, including a task chip', () => {
+    const markdown =
+      'A **bold** and *slanted* idea with `code`, ==marked==, $x^2$, ' +
+      '[a link](https://example.com), [[Limits|note_limits]] and ' +
+      '[task:task_1|Problem set 3].';
+
+    const parsed = markdownToDoc(markdown);
+    const inline = parsed.content[0]?.content ?? [];
+
+    expect(inline.find((node) => node.type === 'taskRef')?.attrs).toEqual({
+      taskId: 'task_1',
+      label: 'Problem set 3',
+    });
+    expect(inline.find((node) => node.type === 'wikiLink')?.attrs).toEqual({
+      title: 'Limits',
+      noteId: 'note_limits',
+    });
+    expect(inline.find((node) => node.type === 'math')?.attrs).toEqual({ latex: 'x^2' });
+    const marksOf = (value: string) =>
+      inline.find((node) => node.text === value)?.marks?.map((mark) => mark.type);
+    expect(marksOf('bold')).toEqual(['bold']);
+    expect(marksOf('slanted')).toEqual(['italic']);
+    expect(marksOf('code')).toEqual(['code']);
+    expect(marksOf('marked')).toEqual(['highlight']);
+    expect(marksOf('a link')).toEqual(['link']);
+
+    expect(docToMarkdown(parsed)).toBe(markdown);
+  });
+
   it('round-trips the Phase B block vocabulary', () => {
     const markdown = [
       '# Lecture',

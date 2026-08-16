@@ -10,7 +10,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { library } from '@/lib/adapters';
-import type { NoteQuery } from '@/lib/adapters';
+import type { NoteQuery, TaskQuery } from '@/lib/adapters';
 import type {
   Course,
   NoteSummary,
@@ -19,6 +19,8 @@ import type {
   SavedSearch,
   Section,
   Tag,
+  Task,
+  TaskNoteLink,
 } from '@/lib/schema';
 
 interface LibraryState {
@@ -38,6 +40,15 @@ interface LibraryState {
   /** The query behind `notes`, remembered so anything that mutates a note can
    * refresh the list without knowing which view is on screen. */
   lastQuery: NoteQuery;
+  /**
+   * Every live task, not just the current filter's. The sidebar badge counts
+   * what is overdue across the whole library while the Tasks view may be
+   * showing one course, so a filtered cache would make the two disagree.
+   */
+  tasks: Task[];
+  taskNoteLinks: TaskNoteLink[];
+  /** The query behind the Tasks view, remembered the way `lastQuery` is. */
+  lastTaskQuery: TaskQuery;
 
   /** Load everything the sidebar needs. Called once at startup. */
   bootstrap(): Promise<void>;
@@ -47,6 +58,8 @@ interface LibraryState {
   refreshSavedSearches(): Promise<void>;
   refreshTemplates(): Promise<void>;
   refreshPendingRecoveries(): Promise<void>;
+  /** Re-read every task and link. Called after any task write. */
+  refreshTasks(): Promise<void>;
   /** Run a note query and remember it as the current view. */
   refreshNotes(query: NoteQuery): Promise<void>;
   appendNotes(): Promise<void>;
@@ -56,6 +69,7 @@ interface LibraryState {
 }
 
 const DEFAULT_QUERY: NoteQuery = { scope: 'live', sort: 'updated', limit: 200 };
+const DEFAULT_TASK_QUERY: TaskQuery = { scope: 'live', sort: 'due' };
 let noteQueryGeneration = 0;
 
 export const useLibraryStore = create<LibraryState>()(
@@ -72,6 +86,9 @@ export const useLibraryStore = create<LibraryState>()(
     loading: false,
     error: null,
     lastQuery: DEFAULT_QUERY,
+    tasks: [],
+    taskNoteLinks: [],
+    lastTaskQuery: DEFAULT_TASK_QUERY,
 
     async bootstrap() {
       set((state) => {
@@ -86,6 +103,7 @@ export const useLibraryStore = create<LibraryState>()(
           get().refreshSavedSearches(),
           get().refreshTemplates(),
           get().refreshPendingRecoveries(),
+          get().refreshTasks(),
         ]);
         await get().refreshNotes(DEFAULT_QUERY);
       } catch (error) {
@@ -138,6 +156,17 @@ export const useLibraryStore = create<LibraryState>()(
       const pendingRecoveries = await library.pendingRecoveries();
       set((state) => {
         state.pendingRecoveries = pendingRecoveries;
+      });
+    },
+
+    async refreshTasks() {
+      const [tasks, taskNoteLinks] = await Promise.all([
+        library.listTasks(DEFAULT_TASK_QUERY),
+        library.listTaskNoteLinks(),
+      ]);
+      set((state) => {
+        state.tasks = tasks;
+        state.taskNoteLinks = taskNoteLinks;
       });
     },
 

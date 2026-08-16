@@ -31,11 +31,23 @@ import {
   restoreNotesCommand,
   trashNotesCommand,
 } from '@/lib/commands/bulkCommands';
+import {
+  completeTaskCommand,
+  createTaskCommand,
+  linkTaskToNoteCommand,
+  listTasksCommand,
+  restoreTasksCommand,
+  trashTasksCommand,
+  updateTaskCommand,
+} from '@/lib/commands/taskCommands';
 import { storage } from '@/lib/adapters';
 import { joinPath } from '@/lib/commands/backupCommands';
 import {
   NoteDocSchema,
+  RECURRENCE_FREQS,
   TAG_NAMESPACES,
+  TASK_PRIORITIES,
+  TASK_STATUSES,
   type AgentToolName,
   type Note,
 } from '@/lib/schema';
@@ -174,6 +186,76 @@ const OrganizeArgs = z
 function invalid(issues: unknown): CommandResult<never> {
   return fail('invalid_input', 'invalid arguments', issues);
 }
+
+const ListTasksArgs = z.object({
+  status: z.array(z.enum(TASK_STATUSES)).optional(),
+  courseId: z.string().nullable().optional(),
+  parentId: z.string().nullable().optional(),
+  /** Tasks linked to this note, by a manual link or an inline chip. */
+  noteId: z.string().optional(),
+  dueBefore: z.string().datetime({ offset: true }).optional(),
+  /** `trashed` lists recoverable Trash; there is no way to empty it from here. */
+  scope: z.enum(['live', 'trashed', 'all']).default('live'),
+  sort: z.enum(['due', 'created', 'updated', 'priority', 'manual']).default('due'),
+  limit: z.number().int().positive().max(500).default(200),
+  offset: z.number().int().nonnegative().default(0),
+});
+
+const RecurrenceArgs = z.object({
+  freq: z.enum(RECURRENCE_FREQS),
+  interval: z.number().int().min(1).max(52).default(1),
+  weekdays: z.array(z.number().int().min(0).max(6)).default([]),
+});
+
+const CreateTaskArgs = z.object({
+  title: z.string().trim().min(1).max(500),
+  details: z.string().max(10_000).optional(),
+  status: z.enum(TASK_STATUSES).optional(),
+  priority: z.enum(TASK_PRIORITIES).optional(),
+  courseId: z.string().nullable().optional(),
+  /** Makes this a subtask. Depth is one level; a subtask of a subtask is refused. */
+  parentId: z.string().nullable().optional(),
+  dueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  remindAt: z.string().datetime({ offset: true }).nullable().optional(),
+  recurrence: RecurrenceArgs.nullable().optional(),
+  /** Notes to link the new task to. */
+  noteIds: z.array(z.string()).max(100).optional(),
+});
+
+const UpdateTaskArgs = z.object({
+  taskId: z.string().min(1),
+  /** Optimistic-concurrency guard. Pass the `updatedAt` you read. */
+  baseUpdatedAt: z.string().datetime({ offset: true }).optional(),
+  title: z.string().trim().min(1).max(500).optional(),
+  details: z.string().max(10_000).optional(),
+  status: z.enum(TASK_STATUSES).optional(),
+  priority: z.enum(TASK_PRIORITIES).optional(),
+  courseId: z.string().nullable().optional(),
+  parentId: z.string().nullable().optional(),
+  dueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  remindAt: z.string().datetime({ offset: true }).nullable().optional(),
+  recurrence: RecurrenceArgs.nullable().optional(),
+  /**
+   * Move to recoverable Trash, or restore from it. Folded in here rather than
+   * given its own pair of tools so there is no shape on this surface that
+   * resembles a delete — Trash is the hard boundary, and it cannot be emptied
+   * from outside the app.
+   */
+  trashed: z.boolean().optional(),
+});
+
+const CompleteTaskArgs = z.object({
+  taskId: z.string().min(1),
+  baseUpdatedAt: z.string().datetime({ offset: true }).optional(),
+  /** `false` reopens a completed task. */
+  done: z.boolean().default(true),
+});
+
+const LinkTaskNoteArgs = z.object({
+  taskId: z.string().min(1),
+  noteId: z.string().min(1),
+  linked: z.boolean().default(true),
+});
 
 export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
   async list_courses(_args: unknown, context: CommandContext) {
@@ -477,6 +559,58 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     });
   },
 
+  async list_tasks(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = ListTasksArgs.safeParse(args ?? {});
+    if (!parsed.success) return invalid(parsed.error.issues);
+    return listTasksCommand(parsed.data, context);
+  },
+
+  async create_task(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = CreateTaskArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    return createTaskCommand(parsed.data, context);
+  },
+
+  async update_task(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = UpdateTaskArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+
+    const { trashed, ...fields } = parsed.data;
+    if (trashed !== undefined) {
+      // Trash and restore are whole-task moves that cascade to subtasks, so
+      // they go through their own commands rather than being patched in.
+      const moved = trashed
+        ? await trashTasksCommand([fields.taskId], context)
+        : await restoreTasksCommand([fields.taskId], context);
+      if (!moved.ok) return moved;
+      // Nothing else to write: `{ trashed }` on its own is the whole request.
+      if (Object.keys(fields).length === 1) return readTask(fields.taskId);
+    }
+    return updateTaskCommand(fields, context);
+  },
+
+  async complete_task(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = CompleteTaskArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    return completeTaskCommand(parsed.data, context);
+  },
+
+  async link_task_note(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = LinkTaskNoteArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    return linkTaskToNoteCommand(parsed.data, context);
+  },
+
   async organize(args: unknown, context: CommandContext) {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
@@ -501,6 +635,14 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     });
   },
 };
+
+/** Read a task back so a trash or restore answers with the row it moved. */
+async function readTask(taskId: string): Promise<CommandResult<unknown>> {
+  const tasks = await listTasksCommand({ scope: 'all' });
+  if (!tasks.ok) return tasks;
+  const task = tasks.value.find((entry) => entry.id === taskId);
+  return task ? ok(task) : fail('not_found', `no task ${taskId}`);
+}
 
 async function validateVersionedNotes(
   requested: { noteId: string; baseUpdatedAt: string }[],

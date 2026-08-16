@@ -61,6 +61,7 @@ import { AiProviderSettings } from './AiProviderSettings';
 import { AgentSettings } from './AgentSettings';
 import { AboutSettings } from './AboutSettings';
 import { SpeechSettings } from './SpeechSettings';
+import { ensureReminderPermission } from '@/lib/tasks/reminderScheduler';
 
 interface TabEntry {
   id: SettingsTab;
@@ -213,6 +214,25 @@ export function SettingsWindow() {
                     label={t('settings.checkForUpdates')}
                     checked={settings.checkForUpdates}
                     onChange={(checked) => set('checkForUpdates', checked)}
+                  />
+                </FieldRow>
+                {/* The hint is not decoration: reminders cannot fire while the
+                    app is closed, and a student should read that here rather
+                    than discover it the morning an essay is due. */}
+                <FieldRow
+                  label={t('tasks.reminderSetting')}
+                  hint={t('tasks.reminderSettingHint')}
+                  align="end"
+                >
+                  <FieldToggle
+                    label={t('tasks.reminderSetting')}
+                    checked={settings.taskRemindersEnabled}
+                    onChange={(checked) => {
+                      set('taskRemindersEnabled', checked);
+                      // Ask only when they turn it on, and only if macOS has
+                      // not already been asked.
+                      if (checked) void ensureReminderPermission();
+                    }}
                   />
                 </FieldRow>
               </FieldSection>

@@ -1,5 +1,25 @@
 # Release notes
 
+## NotaBene 0.8.0
+
+- **Tasks and to-dos.** A Tasks view in the sidebar with deadlines, priorities,
+  courses, one level of subtasks, and repeats for the weekly problem set.
+  Completing a repeating task rolls it forward to its next occurrence rather
+  than closing it. Tasks link to notes both ways, and a task can be mentioned
+  inline in prose as a live chip that shows its current status.
+- **Reminders.** A task can carry a reminder, delivered as a macOS
+  notification. Reminders fire while NotaBene is open; any that come due while
+  it is closed arrive, grouped, the next time it launches. There is no
+  background service, and the setting says so.
+- **Tasks through MCP and the in-app agent.** Five new tools, so an agent can
+  see what is due, create assignments, tick them off and link them to notes.
+  As with notes, an agent can fill recoverable Trash but cannot empty it.
+- **Save a web page onto a note.** Paste a URL and NotaBene fetches the page
+  once, keeps the readable article, and stores it as an attachment. It previews
+  inside the app, opens in your browser, can be fetched again, and turns into a
+  note the same way a PDF or a DOCX does. The page is contacted only when you
+  ask; images are not saved with it.
+
 ## NotaBene 0.7.5
 
 - **Read and annotate PDFs without leaving NotaBene.** PDF attachments now open

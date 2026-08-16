@@ -11,7 +11,7 @@
  * differently and FTS5 promises nothing about absolute values.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createNote } from '@/lib/schema';
+import { createCourse, createNote, newId } from '@/lib/schema';
 import { MemoryLibraryAdapter } from './memoryLibraryAdapter';
 import corpus from '@/lib/search/fixtures/ranking-corpus.json';
 
@@ -49,4 +49,68 @@ describe('ranking parity', () => {
       }
     });
   }
+});
+
+/**
+ * The shared corpus carries only titles and bodies, so it can say nothing about
+ * the other three indexed columns — which is how they came to be mapped in the
+ * wrong order here without a single test noticing. `BM25_WEIGHTS` is positional
+ * and mirrors `notes_fts`'s column order (title, plainText, tags, course,
+ * attachments); getting that mapping wrong silently swaps two weights rather
+ * than failing anywhere.
+ *
+ * This stays out of the fixture on purpose: `src-tauri/src/db/notes.rs` reads
+ * the same JSON, and widening it means changing the Rust half in step.
+ */
+describe('indexed column weights', () => {
+  let library: MemoryLibraryAdapter;
+
+  beforeEach(async () => {
+    library = new MemoryLibraryAdapter();
+    await library.init();
+  });
+
+  it('weights a tag hit above a course hit, as the schema order says', async () => {
+    // A course and a tag may legitimately share a name, which is what makes
+    // this comparison possible at all.
+    const course = createCourse({ name: 'Thermodynamics' });
+    await library.upsertCourse(course);
+    const tagId = newId();
+    await library.upsertTag({
+      id: tagId,
+      namespace: 'topic',
+      name: 'Thermodynamics',
+      color: '#9b5c2f',
+    });
+
+    const body = 'Nothing in this sentence names the subject.';
+    const doc = {
+      type: 'doc' as const,
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: body }] }],
+    };
+    await library.upsertNote({
+      ...createNote(),
+      id: 'tagged',
+      title: 'Second lecture',
+      doc,
+      plainText: body,
+      tagIds: [tagId],
+    });
+    await library.upsertNote({
+      ...createNote(),
+      id: 'filed',
+      title: 'Third lecture',
+      doc,
+      plainText: body,
+      courseId: course.id,
+    });
+
+    const found = await library.searchNotes({ text: 'thermodynamics' });
+    const ids = found.map((match) => match.note.id);
+
+    expect(ids).toHaveLength(2);
+    expect(ids[0], `tags carry weight 6 and course 3 (got ${ids.join(', ')})`).toBe(
+      'tagged',
+    );
+  });
 });

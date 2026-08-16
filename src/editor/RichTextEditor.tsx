@@ -7,6 +7,7 @@ import { storeAssetCommand } from '@/lib/commands';
 import { createNoteCommand } from '@/lib/commands';
 import { library } from '@/lib/adapters';
 import { buildPdfSourceHref, parsePdfSourceHref } from '@/lib/pdf/sourceLinks';
+import { TaskPicker } from '@/app/tasks/TaskPicker';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
@@ -46,6 +47,8 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   const editorRef = useRef<Editor | null>(null);
   const [slash, setSlash] = useState<SlashState | null>(null);
   const [wikiLink, setWikiLink] = useState<WikiLinkState | null>(null);
+  const taskPickerOpen = useUiStore((state) => state.taskPickerOpen);
+  const closeTaskPicker = useUiStore((state) => state.closeTaskPicker);
   const [findOpen, setFindOpen] = useState(false);
   const [prompt, setPrompt] = useState<EditorPromptRequest | null>(null);
   const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
@@ -495,6 +498,22 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
           close={() => setWikiLink(null)}
         />
       )}
+      {/* Mounted here rather than inside the slash menu, which unmounts the
+          moment focus leaves it — taking the dialog with it. */}
+      <TaskPicker
+        open={taskPickerOpen}
+        onClose={closeTaskPicker}
+        onChoose={(task) =>
+          editor
+            .chain()
+            .focus()
+            .insertContent({
+              type: 'taskRef',
+              attrs: { taskId: task.id, label: task.title },
+            })
+            .run()
+        }
+      />
       <EditorPromptDialog request={prompt} onResolve={resolvePrompt} />
     </div>
   );

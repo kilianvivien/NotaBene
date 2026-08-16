@@ -38,6 +38,12 @@ function inlineHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): stri
   if (node.type === 'wikiLink') {
     return `<span class="wiki-link">${escapeHtml(node.attrs?.title)}</span>`;
   }
+  // Inert text, like every other live node an export has to flatten: the
+  // reader of a PDF cannot tick a box, and a chip that looked interactive
+  // would be a promise the document cannot keep.
+  if (node.type === 'taskRef') {
+    return `<span class="task-ref">☐ ${escapeHtml(node.attrs?.label)}</span>`;
+  }
   if (node.type === 'math') {
     try {
       return katex.renderToString(String(node.attrs?.latex ?? ''), {

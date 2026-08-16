@@ -26,6 +26,8 @@ import type {
   Snapshot,
   SnapshotCause,
   Tag,
+  Task,
+  TaskNoteLink,
 } from '@/lib/schema';
 
 export type { NoteMatch };
@@ -54,6 +56,25 @@ export interface NoteQuery {
    * them returns nothing.
    */
   textMatch?: 'all' | 'any';
+}
+
+/** What the Tasks view, the inspector, and the agent's `list_tasks` all ask. */
+export interface TaskQuery {
+  /** Free text over title and details; empty means "no text constraint". */
+  text?: string;
+  status?: ('todo' | 'inProgress' | 'done')[];
+  /** `null` asks for unfiled tasks, the way `NoteQuery.courseId` does. */
+  courseId?: string | null;
+  /** `null` asks for top-level tasks only — the list renders children nested. */
+  parentId?: string | null;
+  /** Tasks linked to this note, by either a manual link or an inline chip. */
+  noteId?: string;
+  dueBefore?: string;
+  /** Default `live`: a task in Trash is not part of the workload. */
+  scope?: 'live' | 'trashed' | 'all';
+  sort?: 'due' | 'created' | 'updated' | 'priority' | 'manual';
+  limit?: number;
+  offset?: number;
 }
 
 export interface SnapshotRetentionPolicy {
@@ -134,6 +155,27 @@ export interface LibraryAdapter {
   listSavedSearches(): Promise<SavedSearch[]>;
   upsertSavedSearch(search: SavedSearch): Promise<void>;
   deleteSavedSearch(searchId: string): Promise<void>;
+
+  listTasks(query: TaskQuery): Promise<Task[]>;
+  getTask(taskId: string): Promise<Task | null>;
+  /** Ranked free-text search, for the title bar's command search. */
+  searchTasks(text: string, limit: number): Promise<Task[]>;
+  upsertTask(task: Task): Promise<void>;
+  /** Atomic optimistic write, for editor and MCP updates. */
+  upsertTaskIfUnchanged(task: Task, baseUpdatedAt: string): Promise<boolean>;
+  /** Soft delete, cascading to subtasks. Hard removal is `purgeTrashedTasks`. */
+  trashTasks(taskIds: string[]): Promise<void>;
+  restoreTasks(taskIds: string[]): Promise<void>;
+  purgeTrashedTasks(trashedBefore: string): Promise<number>;
+  /**
+   * Tasks whose reminder has come due and has not been delivered. The sweep on
+   * launch is the same query as the sweep thirty seconds later, which is what
+   * makes a reminder missed while the app was closed arrive exactly once.
+   */
+  listDueReminders(): Promise<Task[]>;
+  listTaskNoteLinks(): Promise<TaskNoteLink[]>;
+  /** Replaces one task's `manual` links; inline `mention` rows are untouched. */
+  setTaskNoteLinks(taskId: string, noteIds: string[]): Promise<void>;
 
   listTemplates(): Promise<NoteTemplate[]>;
   upsertTemplate(template: NoteTemplate): Promise<void>;

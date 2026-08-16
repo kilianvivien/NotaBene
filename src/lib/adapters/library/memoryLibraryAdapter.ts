@@ -27,6 +27,8 @@ import {
   type Snapshot,
   type SnapshotCause,
   type Tag,
+  type Task,
+  type TaskNoteLink,
 } from '@/lib/schema';
 import { flattenDoc, docHasFeature } from '@/lib/notes/docText';
 import { retainedSnapshotIds } from '@/lib/history/retention';
@@ -37,6 +39,7 @@ import type {
   NoteMatch,
   NoteQuery,
   SnapshotRetentionPolicy,
+  TaskQuery,
 } from './LibraryAdapter';
 
 function clone<T>(value: T): T {
@@ -85,6 +88,41 @@ function wikiTargets(note: Note): { noteId: string | null; title: string }[] {
   return targets;
 }
 
+/** Task ids an inline chip in this document points at, in document order. */
+function taskRefIds(note: Note): string[] {
+  const found: string[] = [];
+  function visit(node: Note['doc'] | NonNullable<Note['doc']['content']>[number]) {
+    if (node.type === 'taskRef') {
+      const taskId = typeof node.attrs?.taskId === 'string' ? node.attrs.taskId : '';
+      if (taskId && !found.includes(taskId)) found.push(taskId);
+    }
+    node.content?.forEach(visit);
+  }
+  visit(note.doc);
+  return found;
+}
+
+/**
+ * Mirrors `BM25_WEIGHTS` in `src-tauri/src/db/tasks.rs`, padded to the shared
+ * five-column shape `bm25Rank` takes. `tasks_fts` has three columns; the two
+ * trailing zeroes are what let tasks reuse the note ranker rather than fork it.
+ */
+const TASK_BM25_WEIGHTS: readonly [number, number, number, number, number] = [
+  10, 1, 3, 0, 0,
+];
+
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2, none: 3 } as const;
+
+/** Nulls last, so a task with no due date does not lead the list. */
+function byDueDate(a: Task, b: Task): number {
+  if (a.dueAt !== b.dueAt) {
+    if (!a.dueAt) return 1;
+    if (!b.dueAt) return -1;
+    return a.dueAt.localeCompare(b.dueAt);
+  }
+  return a.order - b.order || a.createdAt.localeCompare(b.createdAt);
+}
+
 class MemoryLibraryAdapter implements LibraryAdapter {
   private library: Library = emptyLibrary();
   private attachments: Attachment[] = [];
@@ -116,6 +154,10 @@ class MemoryLibraryAdapter implements LibraryAdapter {
         note.courseId = null;
         note.sectionId = null;
       }
+    }
+    // So do tasks: an assignment outlives the course it was set for.
+    for (const task of this.library.tasks) {
+      if (task.courseId === courseId) task.courseId = null;
     }
   }
 
@@ -153,7 +195,10 @@ class MemoryLibraryAdapter implements LibraryAdapter {
       .filter((entry) => entry.noteId === note.id)
       .map((entry) => entry.name)
       .join(' ');
-    return [note.title, note.plainText, course?.name ?? '', tagText, attachmentText];
+    // Schema order — title, plainText, tags, course, attachments — because the
+    // weights are positional. Course and tags were the wrong way round here,
+    // which quietly gave course a tag's weight and tags a course's.
+    return [note.title, note.plainText, tagText, course?.name ?? '', attachmentText];
   }
 
   /** Everything a query constrains except the free text. */
@@ -269,6 +314,9 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     const index = this.library.notes.findIndex((entry) => entry.id === note.id);
     if (index >= 0) this.library.notes[index] = stored;
     else this.library.notes.push(stored);
+    // Inline task chips are derived from the document, exactly as the SQLite
+    // adapter derives them inside the same write transaction.
+    this.rebuildTaskMentions(stored);
     // The note reached the store, so any journalled in-flight copy is stale —
     // the SQLite adapter does this inside the write transaction.
     this.journal.delete(note.id);
@@ -298,6 +346,10 @@ class MemoryLibraryAdapter implements LibraryAdapter {
       (entry) => entry.noteId !== noteId,
     );
     this.attachments = this.attachments.filter((entry) => entry.noteId !== noteId);
+    // `task_notes.note_id … ON DELETE CASCADE` in SQL.
+    this.library.taskNoteLinks = this.library.taskNoteLinks.filter(
+      (link) => link.noteId !== noteId,
+    );
   }
 
   async listBacklinks(noteId: string): Promise<Backlink[]> {
@@ -464,6 +516,196 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     );
   }
 
+  // -- tasks ---------------------------------------------------------------
+
+  async listTasks(query: TaskQuery): Promise<Task[]> {
+    const matches = this.library.tasks.filter((task) => {
+      const scope = query.scope ?? 'live';
+      if (scope === 'live' && task.trashedAt) return false;
+      if (scope === 'trashed' && !task.trashedAt) return false;
+      if (query.status && !query.status.includes(task.status)) return false;
+      if (query.courseId !== undefined && task.courseId !== query.courseId) return false;
+      if (query.parentId !== undefined && task.parentId !== query.parentId) return false;
+      if (query.noteId !== undefined) {
+        const linked = this.library.taskNoteLinks.some(
+          (link) => link.taskId === task.id && link.noteId === query.noteId,
+        );
+        if (!linked) return false;
+      }
+      if (query.dueBefore !== undefined) {
+        if (!task.dueAt || task.dueAt > query.dueBefore) return false;
+      }
+      if (query.text?.trim()) {
+        const haystack = fold(this.taskFields(task).join('\n'));
+        const terms = fold(query.text.trim()).split(/\s+/).filter(Boolean);
+        if (!terms.every((term) => haystack.includes(term))) return false;
+      }
+      return true;
+    });
+
+    const sorted = [...matches];
+    switch (query.sort) {
+      case 'created':
+        sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        break;
+      case 'updated':
+        sorted.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        break;
+      case 'priority':
+        sorted.sort(
+          (a, b) =>
+            PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || byDueDate(a, b),
+        );
+        break;
+      case 'manual':
+        sorted.sort((a, b) => a.order - b.order || byDueDate(a, b));
+        break;
+      default:
+        sorted.sort(byDueDate);
+    }
+
+    const offset = query.offset ?? 0;
+    const limit = query.limit ?? sorted.length;
+    return clone(sorted.slice(offset, offset + limit));
+  }
+
+  async getTask(taskId: string): Promise<Task | null> {
+    const task = this.library.tasks.find((entry) => entry.id === taskId);
+    return task ? clone(task) : null;
+  }
+
+  async searchTasks(text: string, limit: number): Promise<Task[]> {
+    if (!text.trim()) return [];
+    const live = this.library.tasks.filter((task) => !task.trashedAt);
+    const scores = bm25Rank(
+      live.map((task) => ({ id: task.id, fields: this.taskFields(task) })),
+      text.trim().split(/\s+/).filter(Boolean),
+      TASK_BM25_WEIGHTS,
+    );
+    return clone(
+      live
+        .filter((task) => (scores.get(task.id) ?? 0) > 0)
+        .sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0))
+        .slice(0, limit),
+    );
+  }
+
+  async upsertTask(task: Task): Promise<void> {
+    const index = this.library.tasks.findIndex((entry) => entry.id === task.id);
+    if (index >= 0) this.library.tasks[index] = clone(task);
+    else this.library.tasks.push(clone(task));
+  }
+
+  async upsertTaskIfUnchanged(task: Task, baseUpdatedAt: string): Promise<boolean> {
+    const existing = this.library.tasks.find((entry) => entry.id === task.id);
+    if (!existing || existing.updatedAt !== baseUpdatedAt) return false;
+    await this.upsertTask(task);
+    return true;
+  }
+
+  async trashTasks(taskIds: string[]): Promise<void> {
+    // Cascade to subtasks, mirroring what `tasks::trash` does in one statement.
+    const stamp = new Date().toISOString();
+    for (const task of this.library.tasks) {
+      const targeted =
+        taskIds.includes(task.id) || (task.parentId && taskIds.includes(task.parentId));
+      if (targeted && !task.trashedAt) {
+        task.trashedAt = stamp;
+        task.updatedAt = stamp;
+      }
+    }
+  }
+
+  async restoreTasks(taskIds: string[]): Promise<void> {
+    const stamp = new Date().toISOString();
+    // A restored subtask whose parent is still in Trash would be invisible in
+    // every view, so lift the parent with it.
+    const parentIds = this.library.tasks
+      .filter((task) => taskIds.includes(task.id) && task.parentId)
+      .map((task) => task.parentId as string);
+    const lifted = new Set([...taskIds, ...parentIds]);
+    for (const task of this.library.tasks) {
+      if (lifted.has(task.id) || (task.parentId && lifted.has(task.parentId))) {
+        task.trashedAt = null;
+        task.updatedAt = stamp;
+      }
+    }
+  }
+
+  async purgeTrashedTasks(trashedBefore: string): Promise<number> {
+    const doomed = this.library.tasks
+      .filter((task) => task.trashedAt && task.trashedAt < trashedBefore)
+      .map((task) => task.id);
+    if (!doomed.length) return 0;
+    // `parent_id … ON DELETE CASCADE` in SQL; explicit here.
+    const withChildren = new Set(doomed);
+    for (const task of this.library.tasks) {
+      if (task.parentId && withChildren.has(task.parentId)) withChildren.add(task.id);
+    }
+    this.library.tasks = this.library.tasks.filter((task) => !withChildren.has(task.id));
+    this.library.taskNoteLinks = this.library.taskNoteLinks.filter(
+      (link) => !withChildren.has(link.taskId),
+    );
+    return doomed.length;
+  }
+
+  async listDueReminders(): Promise<Task[]> {
+    const now = new Date().toISOString();
+    return clone(
+      this.library.tasks
+        .filter(
+          (task) =>
+            task.remindAt !== null &&
+            task.remindAt <= now &&
+            task.remindedAt === null &&
+            task.status !== 'done' &&
+            !task.trashedAt,
+        )
+        .sort((a, b) => (a.remindAt ?? '').localeCompare(b.remindAt ?? '')),
+    );
+  }
+
+  async listTaskNoteLinks(): Promise<TaskNoteLink[]> {
+    return clone(this.library.taskNoteLinks);
+  }
+
+  async setTaskNoteLinks(taskId: string, noteIds: string[]): Promise<void> {
+    this.library.taskNoteLinks = this.library.taskNoteLinks.filter(
+      (link) => !(link.taskId === taskId && link.origin === 'manual'),
+    );
+    for (const noteId of noteIds) {
+      const existing = this.library.taskNoteLinks.find(
+        (link) => link.taskId === taskId && link.noteId === noteId,
+      );
+      // An explicit link outranks an inline mention and must survive the chip
+      // being deleted from the prose.
+      if (existing) existing.origin = 'manual';
+      else this.library.taskNoteLinks.push({ taskId, noteId, origin: 'manual' });
+    }
+  }
+
+  /** Fields tasks are ranked over, padded to the shared five-column shape. */
+  private taskFields(task: Task): RankedFields {
+    const course = this.library.courses.find((entry) => entry.id === task.courseId);
+    return [task.title, task.details, course?.name ?? '', '', ''];
+  }
+
+  /** Rebuild the `mention` links one note's document implies. */
+  private rebuildTaskMentions(note: Note): void {
+    this.library.taskNoteLinks = this.library.taskNoteLinks.filter(
+      (link) => !(link.noteId === note.id && link.origin === 'mention'),
+    );
+    for (const taskId of taskRefIds(note)) {
+      const known = this.library.tasks.some((task) => task.id === taskId);
+      const already = this.library.taskNoteLinks.some(
+        (link) => link.taskId === taskId && link.noteId === note.id,
+      );
+      if (known && !already) {
+        this.library.taskNoteLinks.push({ taskId, noteId: note.id, origin: 'mention' });
+      }
+    }
+  }
+
   async listTemplates(): Promise<NoteTemplate[]> {
     return clone(this.library.templates);
   }
@@ -513,6 +755,14 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     }
     for (const search of library.savedSearches) await this.upsertSavedSearch(search);
     for (const template of library.templates) await this.upsertTemplate(template);
+    for (const task of library.tasks) await this.upsertTask(task);
+    for (const link of library.taskNoteLinks) {
+      const existing = this.library.taskNoteLinks.find(
+        (entry) => entry.taskId === link.taskId && entry.noteId === link.noteId,
+      );
+      if (existing) existing.origin = link.origin;
+      else this.library.taskNoteLinks.push(clone(link));
+    }
   }
 
   /** Test seam: wipe everything between test cases. */

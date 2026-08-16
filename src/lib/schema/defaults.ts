@@ -9,6 +9,7 @@ import {
   type Note,
   type NoteDoc,
   type Section,
+  type Task,
 } from './schema';
 
 export const COURSE_COLORS = [
@@ -80,6 +81,30 @@ export function createNote(input: Partial<Note> = {}): Note {
   };
 }
 
+export function createTask(input: Partial<Task> & { title: string }): Task {
+  const timestamp = now();
+  return {
+    id: input.id ?? newId(),
+    title: input.title,
+    details: input.details ?? '',
+    status: input.status ?? 'todo',
+    priority: input.priority ?? 'none',
+    courseId: input.courseId ?? null,
+    parentId: input.parentId ?? null,
+    tagIds: input.tagIds ?? [],
+    dueAt: input.dueAt ?? null,
+    remindAt: input.remindAt ?? null,
+    remindedAt: input.remindedAt ?? null,
+    recurrence: input.recurrence ?? null,
+    completedAt: input.completedAt ?? null,
+    lastCompletedAt: input.lastCompletedAt ?? null,
+    trashedAt: input.trashedAt ?? null,
+    createdAt: input.createdAt ?? timestamp,
+    updatedAt: input.updatedAt ?? timestamp,
+    order: input.order ?? 0,
+  };
+}
+
 /**
  * `appVersion` is stamped into every backup manifest, so a hardcoded literal
  * here would quietly start lying at the next release. `__APP_VERSION__` is
@@ -104,5 +129,7 @@ export function emptyLibrary(appVersion = APP_VERSION): Library {
     snapshots: [],
     savedSearches: [],
     templates: [],
+    tasks: [],
+    taskNoteLinks: [],
   };
 }

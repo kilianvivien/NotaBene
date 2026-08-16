@@ -161,6 +161,10 @@ pub struct Attachment {
     pub name: String,
     pub created_at: String,
     pub annotations: Vec<PdfAnnotation>,
+    /// The page a web link was saved from; `None` for a file.
+    pub url: Option<String>,
+    /// When that snapshot was taken; `None` for a file.
+    pub fetched_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +198,68 @@ pub struct Backlink {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Recurrence {
+    pub freq: String,
+    pub interval: i64,
+    /// 0 = Sunday … 6 = Saturday. Only read when `freq` is `weekly`.
+    pub weekdays: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Task {
+    pub id: String,
+    pub title: String,
+    pub details: String,
+    pub status: String,
+    pub priority: String,
+    pub course_id: Option<String>,
+    pub parent_id: Option<String>,
+    pub tag_ids: Vec<String>,
+    pub due_at: Option<String>,
+    pub remind_at: Option<String>,
+    pub reminded_at: Option<String>,
+    pub recurrence: Option<Recurrence>,
+    pub completed_at: Option<String>,
+    pub last_completed_at: Option<String>,
+    pub trashed_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub order: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskNoteLink {
+    pub task_id: String,
+    pub note_id: String,
+    pub origin: String,
+}
+
+/// Mirrors `TaskQuery` in `LibraryAdapter.ts`. `course_id` and `parent_id` are
+/// double options for the same reason `NoteQuery::course_id` is: "unfiled" and
+/// "top level" are real questions, distinct from "no constraint".
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskQuery {
+    pub text: Option<String>,
+    pub status: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub course_id: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub parent_id: Option<Option<String>>,
+    pub note_id: Option<String>,
+    pub due_before: Option<String>,
+    /// `live` (the default), `trashed`, or `all`.
+    pub scope: Option<String>,
+    /// `due` (the default), `created`, `updated`, `priority`, or `manual`.
+    pub sort: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Library {
     pub schema_version: i64,
     pub exported_at: String,
@@ -207,6 +273,8 @@ pub struct Library {
     pub snapshots: Vec<Snapshot>,
     pub saved_searches: Vec<SavedSearch>,
     pub templates: Vec<NoteTemplate>,
+    pub tasks: Vec<Task>,
+    pub task_note_links: Vec<TaskNoteLink>,
 }
 
 /// Mirrors `NoteQuery` in `LibraryAdapter.ts`. Every field is optional, and

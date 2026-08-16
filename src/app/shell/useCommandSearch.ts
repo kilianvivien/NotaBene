@@ -8,13 +8,19 @@ import {
   searchNotesCommand,
   type AppCommandId,
 } from '@/lib/commands';
-import type { NoteSummary } from '@/lib/schema';
+import { library } from '@/lib/adapters';
+import type { NoteSummary, Task } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 
 export type CommandSearchRow =
   | { kind: 'note'; id: string; title: string; snippet: string }
+  | { kind: 'task'; id: string; title: string; snippet: string; done: boolean }
   | { kind: 'action'; id: AppCommandId; label: string; keys: string | null };
+
+/** Tasks are the shorter, sparser index; a handful is enough to be useful
+ * without pushing the notes that match off the bottom of the dropdown. */
+const TASK_RESULT_LIMIT = 5;
 
 /** Tauri accelerator syntax as the symbols a Mac menu would show. */
 export function commandShortcut(accelerator: string | undefined): string | null {
@@ -41,6 +47,7 @@ export function commandShortcut(accelerator: string | undefined): string | null 
 export function useCommandSearch(query: string, enabled = true): CommandSearchRow[] {
   const { t } = useTranslation();
   const [notes, setNotes] = useState<NoteSummary[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   /** Debounced, and guarded against an earlier search resolving last. */
   useEffect(() => {
@@ -48,6 +55,7 @@ export function useCommandSearch(query: string, enabled = true): CommandSearchRo
     const term = query.trim();
     if (!term) {
       setNotes([]);
+      setTasks([]);
       return;
     }
     let live = true;
@@ -55,6 +63,14 @@ export function useCommandSearch(query: string, enabled = true): CommandSearchRo
       void searchNotesCommand(term).then((result) => {
         if (live && result.ok) setNotes(result.value);
       });
+      // Its own index (`tasks_fts`), so its own call. A failure here must not
+      // cost the student their note results.
+      void library
+        .searchTasks(term, TASK_RESULT_LIMIT)
+        .then((found) => {
+          if (live) setTasks(found);
+        })
+        .catch(() => {});
     }, 90);
     return () => {
       live = false;
@@ -84,9 +100,16 @@ export function useCommandSearch(query: string, enabled = true): CommandSearchRo
         title: note.title || t('noteList.untitled'),
         snippet: note.snippet ?? '',
       })),
+      ...tasks.map((task) => ({
+        kind: 'task' as const,
+        id: task.id,
+        title: task.title,
+        snippet: task.details.slice(0, 200),
+        done: task.status === 'done',
+      })),
       ...actions.map((entry) => ({ kind: 'action' as const, ...entry })),
     ],
-    [notes, actions, t],
+    [notes, tasks, actions, t],
   );
 }
 
@@ -94,6 +117,8 @@ export async function chooseCommandSearchRow(row: CommandSearchRow): Promise<voi
   if (row.kind === 'note') {
     useUiStore.getState().selectNote(row.id);
     await useEditorStore.getState().openNote(row.id);
+  } else if (row.kind === 'task') {
+    useUiStore.getState().openTasksView({ taskId: row.id });
   } else {
     await runAppCommand(row.id);
   }

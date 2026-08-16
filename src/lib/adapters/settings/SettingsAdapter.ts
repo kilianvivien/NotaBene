@@ -108,8 +108,16 @@ export interface AppSettings {
   abbreviations: Abbreviation[];
   /** How concentration mode behaves and reads. */
   focus: FocusSettings;
-  /** Trash retention, in days. */
+  /** Trash retention, in days. Applies to trashed tasks as well as notes. */
   trashRetentionDays: number;
+  /**
+   * Whether a task's reminder raises a system notification.
+   *
+   * Delivery is only ever best-effort: nothing sweeps while the app is closed,
+   * and a reminder that came due meanwhile arrives at next launch instead. The
+   * settings copy says so rather than leaving it to be discovered.
+   */
+  taskRemindersEnabled: boolean;
   /** How aggressively old per-note versions are thinned. */
   snapshotRetention: 'standard' | 'extended' | 'forever';
   backupSchedule: 'off' | 'daily' | 'weekly';
@@ -204,6 +212,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     fullscreen: false,
   },
   trashRetentionDays: 30,
+  taskRemindersEnabled: true,
   snapshotRetention: 'standard',
   // On by default, into NotaBene's own folder. An unprotected library is the
   // default state that costs the most and is hardest to notice.

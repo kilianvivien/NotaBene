@@ -13,11 +13,11 @@
  * phase has not landed are filtered out rather than listed disabled: the menu
  * greys them to show a roadmap, but a search result you cannot pick is noise.
  */
-import { CornerDownLeft, FileText, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUiStore } from '@/lib/state/uiStore';
-import { HighlightedSnippet } from './HighlightedSnippet';
+import { CommandSearchRowBody } from './CommandSearchRow';
 import {
   chooseCommandSearchRow,
   useCommandSearch,
@@ -121,23 +121,7 @@ export function CommandPalette() {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => void choose(row)}
               >
-                {row.kind === 'note' ? (
-                  <>
-                    <FileText size={13} aria-hidden />
-                    <span className="nb-palette-label">{row.title}</span>
-                    {row.snippet && (
-                      <span className="nb-palette-hint">
-                        <HighlightedSnippet value={row.snippet} />
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <CornerDownLeft size={13} aria-hidden />
-                    <span className="nb-palette-label">{row.label}</span>
-                    {row.keys && <kbd>{row.keys}</kbd>}
-                  </>
-                )}
+                <CommandSearchRowBody row={row} />
               </button>
             </li>
           ))}

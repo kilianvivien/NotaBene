@@ -1376,6 +1376,15 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
   font-size: 12px;
 }
 
+/* One section of a shared tab rather than the whole pane. The tall drop
+   target above is right when attachments own the tab and wrong here, where it
+   pushed the next heading most of a screen down; a drop still lands anywhere
+   over the button and the list, which is where a file is aimed anyway. */
+.nb-attachments--compact {
+  min-height: 0;
+  flex: none;
+}
+
 .nb-attachments ul {
   display: flex;
   margin: 0;

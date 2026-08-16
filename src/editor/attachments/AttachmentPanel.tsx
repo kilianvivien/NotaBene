@@ -1,6 +1,7 @@
 import {
   Eye,
   File,
+  Link2,
   FileOutput,
   FileText,
   Image,
@@ -9,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { AddWebLinkDialog } from './AddWebLinkDialog';
 import { useTranslation } from 'react-i18next';
 import { assets, dialog, library } from '@/lib/adapters';
 import {
@@ -33,11 +35,21 @@ function AttachmentIcon({ mime }: { mime: string | null }) {
   return <File size={15} />;
 }
 
-export function AttachmentPanel({ noteId }: { noteId: string }) {
+export function AttachmentPanel({
+  noteId,
+  compact = false,
+}: {
+  noteId: string;
+  /** Set when the panel is one section of a tab rather than the whole of it:
+   * the roomy centred empty state then becomes a single line, so what sits
+   * below it is not pushed a screen down by a note that has no files. */
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
   const revision = useAttachmentStore((state) => state.revision);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [mimes, setMimes] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<{
     attachment: Attachment;
@@ -148,7 +160,7 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
     // lecture handout at the Attachments tab is aiming at the tab, and a zone
     // small enough to miss is worse than no zone at all.
     <div
-      className="nb-attachments"
+      className={compact ? 'nb-attachments nb-attachments--compact' : 'nb-attachments'}
       data-dropping={dropping || undefined}
       onDragEnter={(event) => {
         if (!carriesFiles(event)) return;
@@ -204,6 +216,20 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
         <Plus size={14} />
         {busy ? t('editor.addingAttachment') : t('editor.addAttachment')}
       </button>
+      <button
+        type="button"
+        className="nb-attachment-add"
+        disabled={busy}
+        onClick={() => setLinkOpen(true)}
+      >
+        <Link2 size={14} />
+        {t('editor.addLink')}
+      </button>
+      <AddWebLinkDialog
+        open={linkOpen}
+        noteId={noteId}
+        onClose={() => setLinkOpen(false)}
+      />
       {addError && (
         <p className="nb-attachment-add-error" role="alert">
           {addError}
@@ -211,10 +237,14 @@ export function AttachmentPanel({ noteId }: { noteId: string }) {
       )}
 
       {attachments.length === 0 ? (
-        <div className="nb-attachment-empty">
-          <Paperclip size={18} />
-          <p>{t('editor.noAttachments')}</p>
-        </div>
+        compact ? (
+          <p className="text-[12px] text-nb-text-3">{t('editor.noAttachments')}</p>
+        ) : (
+          <div className="nb-attachment-empty">
+            <Paperclip size={18} />
+            <p>{t('editor.noAttachments')}</p>
+          </div>
+        )
       ) : (
         <ul>
           {attachments.map((attachment) => (

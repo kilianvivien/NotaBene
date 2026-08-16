@@ -48,6 +48,8 @@ describe('Phase C library behavior', () => {
       assetId: 'asset',
       name: 'Formulaire intégrales.pdf',
       createdAt: new Date().toISOString(),
+      url: null,
+      fetchedAt: null,
       annotations: [],
     });
 

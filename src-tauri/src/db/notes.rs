@@ -30,7 +30,7 @@ fn row_to_summary(row: &Row<'_>) -> rusqlite::Result<NoteSummary> {
 
 /// How the words of a free-text query combine.
 #[derive(Clone, Copy, PartialEq)]
-enum TextMatch {
+pub(crate) enum TextMatch {
     /// Every word must appear. The note list, the palette and the MCP search
     /// tool all want this: a search box narrows as you type.
     All,
@@ -296,7 +296,7 @@ fn attach_tags(connection: &Connection, mut rows: Vec<NoteSummary>) -> DbResult<
 /// otherwise turn a search into a parse error. That quoting carries more weight
 /// now than it used to: with a real `OR` in the expression, a student who types
 /// the word "or" must still be searching for the word, not writing an operator.
-fn fts_match_expression(text: &str, mode: TextMatch) -> String {
+pub(crate) fn fts_match_expression(text: &str, mode: TextMatch) -> String {
     let terms = text
         .split_whitespace()
         .map(|token| format!("\"{}\"*", token.replace('"', "\"\"")))
@@ -450,6 +450,7 @@ pub fn upsert_if_unchanged(store: &Store, note: &Note, base_updated_at: &str) ->
             rusqlite::params![note.id, note.title],
         )?;
         reindex_note(transaction, &note.id)?;
+        super::tasks::rebuild_mentions_in(transaction, &note.id, &note.doc)?;
         transaction.execute("DELETE FROM editor_journal WHERE note_id = ?", [&note.id])?;
         Ok(true)
     })
@@ -509,6 +510,9 @@ pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
         rusqlite::params![note.id, note.title],
     )?;
     reindex_note(transaction, &note.id)?;
+    // Inline task chips are derived from the document the same way wiki links
+    // are: the prose is the source of truth, so they are rebuilt on every save.
+    super::tasks::rebuild_mentions_in(transaction, &note.id, &note.doc)?;
 
     // The note reached disk, so any journalled in-flight copy is stale.
     transaction.execute("DELETE FROM editor_journal WHERE note_id = ?", [&note.id])?;

@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 7;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -199,6 +199,17 @@ export const AttachmentSchema = z.object({
   name: z.string().min(1),
   createdAt: isoDate,
   annotations: z.array(PdfAnnotationSchema).default([]),
+  /**
+   * The page this attachment was saved from, for a web link; `null` for a file.
+   *
+   * A link attachment is not a different kind of row — it is an ordinary
+   * attachment whose asset happens to be a Markdown snapshot of a page. That is
+   * what lets it preview, export and import through the paths files already
+   * use; this field and `fetchedAt` are the only things that make it a link.
+   */
+  url: z.string().url().nullable().default(null),
+  /** When the snapshot was taken. `null` for a file. */
+  fetchedAt: isoDate.nullable().default(null),
 });
 export type Attachment = z.infer<typeof AttachmentSchema>;
 
@@ -274,6 +285,83 @@ export const BacklinkSchema = z.object({
 export type Backlink = z.infer<typeof BacklinkSchema>;
 
 // ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+export const TASK_STATUSES = ['todo', 'inProgress', 'done'] as const;
+export const TaskStatusSchema = z.enum(TASK_STATUSES);
+export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+
+export const TASK_PRIORITIES = ['none', 'low', 'medium', 'high'] as const;
+export const TaskPrioritySchema = z.enum(TASK_PRIORITIES);
+export type TaskPriority = z.infer<typeof TaskPrioritySchema>;
+
+export const RECURRENCE_FREQS = ['daily', 'weekly', 'monthly'] as const;
+export const RecurrenceFreqSchema = z.enum(RECURRENCE_FREQS);
+export type RecurrenceFreq = z.infer<typeof RecurrenceFreqSchema>;
+
+/**
+ * Deliberately three presets rather than an iCalendar rule. A weekly problem set
+ * and a monthly report are what a semester actually contains; RRULE would be a
+ * large surface to validate through Zod and MCP in exchange for cases nobody has
+ * asked for.
+ */
+export const RecurrenceSchema = z.object({
+  freq: RecurrenceFreqSchema,
+  interval: z.number().int().min(1).max(52).default(1),
+  /** 0 = Sunday … 6 = Saturday. Only read when `freq` is `weekly`. */
+  weekdays: z.array(z.number().int().min(0).max(6)).default([]),
+});
+export type Recurrence = z.infer<typeof RecurrenceSchema>;
+
+export const TaskSchema = z.object({
+  id,
+  title: z.string().min(1).max(500),
+  /**
+   * Plain text, deliberately not a note document: a task is a line item, and a
+   * task that wants a document should link to one.
+   */
+  details: z.string().max(10_000).default(''),
+  status: TaskStatusSchema.default('todo'),
+  priority: TaskPrioritySchema.default('none'),
+  /** A task outlives its course, exactly as a note does. */
+  courseId: id.nullable().default(null),
+  /** One level only — a subtask never has subtasks of its own. */
+  parentId: id.nullable().default(null),
+  tagIds: z.array(id).default([]),
+  dueAt: isoDate.nullable().default(null),
+  /** Separate from `dueAt` so "the evening before" is expressible. */
+  remindAt: isoDate.nullable().default(null),
+  /** Stamped when the notification is delivered, so it fires exactly once. */
+  remindedAt: isoDate.nullable().default(null),
+  /** Top-level tasks only; a subtask that recurred would outlive its parent. */
+  recurrence: RecurrenceSchema.nullable().default(null),
+  completedAt: isoDate.nullable().default(null),
+  /** Survives a recurrence rollover, which clears `completedAt`. */
+  lastCompletedAt: isoDate.nullable().default(null),
+  /** Set when the task is in Trash; `null` for live tasks. */
+  trashedAt: isoDate.nullable().default(null),
+  createdAt: isoDate,
+  updatedAt: isoDate,
+  /** Manual ordering within a status group; ties break on `dueAt`. */
+  order: z.number().int().nonnegative().default(0),
+});
+export type Task = z.infer<typeof TaskSchema>;
+
+export const TaskNoteLinkSchema = z.object({
+  taskId: id,
+  noteId: id,
+  /**
+   * `mention` rows are derived from the note's document and rebuilt on every
+   * save, the way `note_links` are. `manual` rows are the student's and are
+   * never rebuilt away — deleting the chip from a paragraph must not silently
+   * detach a link they made from the inspector.
+   */
+  origin: z.enum(['manual', 'mention']).default('manual'),
+});
+export type TaskNoteLink = z.infer<typeof TaskNoteLinkSchema>;
+
+// ---------------------------------------------------------------------------
 // Library envelope — what backups and full exports carry
 // ---------------------------------------------------------------------------
 
@@ -295,6 +383,8 @@ export const LibrarySchema = z.object({
   snapshots: z.array(SnapshotSchema).default([]),
   savedSearches: z.array(SavedSearchSchema).default([]),
   templates: z.array(NoteTemplateSchema).default([]),
+  tasks: z.array(TaskSchema).default([]),
+  taskNoteLinks: z.array(TaskNoteLinkSchema).default([]),
 });
 export type Library = z.infer<typeof LibrarySchema>;
 

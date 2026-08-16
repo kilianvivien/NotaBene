@@ -3,6 +3,7 @@ import {
   History,
   Info,
   ListTree,
+  ListTodo,
   Link2,
   Paperclip,
   Plus,
@@ -31,8 +32,9 @@ import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { NoteTasksPanel } from '@/app/tasks/NoteTasksPanel';
 
-type VisibleTab = 'info' | 'versions' | 'backlinks' | 'attachments' | 'ai';
+type VisibleTab = 'info' | 'versions' | 'links' | 'tasks' | 'ai';
 
 export function Inspector() {
   const { t } = useTranslation();
@@ -41,7 +43,7 @@ export function Inspector() {
   const setTab = useUiStore((state) => state.setInspectorTab);
   const agentMode = useAiStore((state) => state.agentMode);
   const visibleTab: VisibleTab = (
-    ['info', 'versions', 'backlinks', 'attachments', 'ai'] as const
+    ['info', 'versions', 'links', 'tasks', 'ai'] as const
   ).includes(tab as VisibleTab)
     ? (tab as VisibleTab)
     : 'info';
@@ -58,12 +60,8 @@ export function Inspector() {
         options={[
           { value: 'info', label: t('inspector.info'), icon: Info },
           { value: 'versions', label: t('inspector.versions'), icon: History },
-          { value: 'backlinks', label: t('inspector.backlinks'), icon: Link2 },
-          {
-            value: 'attachments',
-            label: t('inspector.attachments'),
-            icon: Paperclip,
-          },
+          { value: 'links', label: t('inspector.links'), icon: Paperclip },
+          { value: 'tasks', label: t('tasks.title'), icon: ListTodo },
           { value: 'ai', label: t('ai.ask'), icon: Sparkles },
         ]}
         iconOnly
@@ -79,10 +77,10 @@ export function Inspector() {
         <p className="text-[12px] text-nb-text-3">{t('editor.noSelection')}</p>
       ) : visibleTab === 'ai' ? (
         <AskPanel noteId={note.id} />
-      ) : visibleTab === 'attachments' ? (
-        <AttachmentPanel noteId={note.id} />
-      ) : visibleTab === 'backlinks' ? (
-        <BacklinksPanel noteId={note.id} />
+      ) : visibleTab === 'tasks' ? (
+        <NoteTasksPanel noteId={note.id} />
+      ) : visibleTab === 'links' ? (
+        <LinksPanel noteId={note.id} />
       ) : visibleTab === 'versions' ? (
         <VersionsPanel noteId={note.id} />
       ) : (
@@ -535,6 +533,34 @@ function TagsPanel() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Everything else this note is attached to.
+ *
+ * Files and inbound links were two tabs, which made six icons fight for a
+ * 280px strip — and the distinction is not one a student is looking for.
+ * "What is stuck to this note" is one question, so it is one tab, with the
+ * two answers under their own headings.
+ */
+function LinksPanel({ noteId }: { noteId: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-4">
+      <section>
+        <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
+          {t('inspector.attachmentsHeading')}
+        </h3>
+        <AttachmentPanel noteId={noteId} compact />
+      </section>
+      <section>
+        <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
+          {t('inspector.backlinksHeading')}
+        </h3>
+        <BacklinksPanel noteId={noteId} />
+      </section>
     </div>
   );
 }

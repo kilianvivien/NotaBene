@@ -43,6 +43,9 @@ function nodeText(node: DocNode): string {
 
 function inlineRuns(node: DocNode): ParagraphChild[] {
   if (node.type === 'wikiLink') return [new TextRun(String(node.attrs?.title ?? ''))];
+  if (node.type === 'taskRef') {
+    return [new TextRun(`☐ ${String(node.attrs?.label ?? '')}`)];
+  }
   if (node.type === 'math') {
     return [new DocxMath({ children: [new MathRun(String(node.attrs?.latex ?? ''))] })];
   }

@@ -61,6 +61,9 @@ function inline(node: DocNode): ContentText[] {
   if (node.type === 'wikiLink') {
     return [{ text: String(node.attrs?.title ?? ''), color: COLORS.accent }];
   }
+  if (node.type === 'taskRef') {
+    return [{ text: `☐ ${String(node.attrs?.label ?? '')}`, color: COLORS.accent }];
+  }
   if (node.type === 'math') {
     return [
       {

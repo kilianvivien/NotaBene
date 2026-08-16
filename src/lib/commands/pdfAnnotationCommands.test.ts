@@ -27,6 +27,8 @@ function attachment(noteId: string): Attachment {
     name: 'research paper.pdf',
     createdAt: now,
     annotations: [],
+    url: null,
+    fetchedAt: null,
   };
 }
 

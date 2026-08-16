@@ -15,6 +15,7 @@ mod settings;
 mod storage;
 mod tls;
 mod tts;
+mod web;
 
 use tauri::{Emitter, Manager};
 #[cfg(desktop)]
@@ -47,6 +48,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
+        // Task reminders. Delivery is best-effort by design: nothing here runs
+        // when the app is closed, and the sweep in the webview catches up on
+        // launch instead of a background service doing it.
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -159,6 +164,18 @@ pub fn run() {
             commands::library_list_saved_searches,
             commands::library_upsert_saved_search,
             commands::library_delete_saved_search,
+            web::web_fetch_page,
+            commands::library_list_tasks,
+            commands::library_get_task,
+            commands::library_search_tasks,
+            commands::library_upsert_task,
+            commands::library_upsert_task_if_unchanged,
+            commands::library_trash_tasks,
+            commands::library_restore_tasks,
+            commands::library_purge_trashed_tasks,
+            commands::library_list_due_reminders,
+            commands::library_list_task_note_links,
+            commands::library_set_task_note_links,
             commands::library_list_templates,
             commands::library_upsert_template,
             commands::library_delete_template,
