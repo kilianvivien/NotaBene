@@ -33,12 +33,25 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { NoteTasksPanel } from '@/app/tasks/NoteTasksPanel';
+import { TaskInspector } from '@/app/tasks/TaskInspector';
 
 type VisibleTab = 'info' | 'versions' | 'links' | 'tasks' | 'ai';
 
+/**
+ * The pane on the right, about whatever the window is currently about.
+ *
+ * It follows the view rather than the editor. That distinction is the whole
+ * reason this comment exists: the inspector used to read `editorStore.note`
+ * unconditionally, so opening the Tasks view left it showing the note last
+ * opened — or, on a fresh launch, telling a student who is looking at a task to
+ * select a note. In the Tasks view the subject is the selected task, and the
+ * split with the centre column is the same one notes get: the page is what the
+ * thing is, this is everything about it.
+ */
 export function Inspector() {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
+  const showingTasks = useUiStore((state) => state.view.kind === 'tasks');
   const tab = useUiStore((state) => state.inspectorTab);
   const setTab = useUiStore((state) => state.setInspectorTab);
   const agentMode = useAiStore((state) => state.agentMode);
@@ -47,6 +60,10 @@ export function Inspector() {
   ).includes(tab as VisibleTab)
     ? (tab as VisibleTab)
     : 'info';
+  // A task has no versions, no attachments and no backlinks, so the Tasks view
+  // gets the two tabs that mean anything there. Any other stored tab — the one
+  // a note left behind — reads as the task itself.
+  const taskTab: VisibleTab = visibleTab === 'ai' ? 'ai' : 'info';
 
   return (
     <aside
@@ -55,23 +72,39 @@ export function Inspector() {
     >
       <GlassSegmentedControl<VisibleTab>
         label={t('inspector.details')}
-        value={visibleTab}
+        value={showingTasks ? taskTab : visibleTab}
         onChange={setTab}
-        options={[
-          { value: 'info', label: t('inspector.info'), icon: Info },
-          { value: 'versions', label: t('inspector.versions'), icon: History },
-          { value: 'links', label: t('inspector.links'), icon: Paperclip },
-          { value: 'tasks', label: t('tasks.title'), icon: ListTodo },
-          { value: 'ai', label: t('ai.ask'), icon: Sparkles },
-        ]}
+        options={
+          showingTasks
+            ? [
+                { value: 'info', label: t('tasks.title'), icon: ListTodo },
+                { value: 'ai', label: t('agent.title'), icon: Sparkles },
+              ]
+            : [
+                { value: 'info', label: t('inspector.info'), icon: Info },
+                { value: 'versions', label: t('inspector.versions'), icon: History },
+                { value: 'links', label: t('inspector.links'), icon: Paperclip },
+                { value: 'tasks', label: t('tasks.title'), icon: ListTodo },
+                { value: 'ai', label: t('ai.ask'), icon: Sparkles },
+              ]
+        }
         iconOnly
         fill
       />
 
-      {/* The agent is the one panel that works without an open note: its scope
-          can be the whole library, and the shortcut that opens this tab is
-          reachable from an empty editor. */}
-      {visibleTab === 'ai' && agentMode ? (
+      {showingTasks ? (
+        // The AI tab in this view *is* the agent, whatever mode the note side
+        // was left in: Ask is about the note you are reading, and there is
+        // none here. An explanation of what is unavailable is not a panel.
+        taskTab === 'ai' ? (
+          <AgentPanel noteId={null} agentOnly />
+        ) : (
+          <TaskInspector />
+        )
+      ) : /* The agent is the one panel that works without an open note: its
+             scope can be the whole library, and the shortcut that opens this
+             tab is reachable from an empty editor. */
+      visibleTab === 'ai' && agentMode ? (
         <AgentPanel noteId={note?.id ?? null} />
       ) : !note ? (
         <p className="text-[12px] text-nb-text-3">{t('editor.noSelection')}</p>

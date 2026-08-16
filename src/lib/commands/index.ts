@@ -19,4 +19,5 @@ export * from './agentCommands';
 export * from './storageCommands';
 export * from './pdfAnnotationCommands';
 export * from './taskCommands';
+export * from './taskAiCommands';
 export * from './webLinkCommands';

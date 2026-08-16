@@ -54,13 +54,25 @@ import {
 import { SCOPE_ICONS } from './scopeIcons';
 import { useAiAvailability } from './useAiAvailability';
 
+/** The three jobs worth offering, per view. A student looking at their to-do
+ * list is not there to file notes into courses, and an example of work they
+ * did not come to do reads as a feature that does not know where it is. */
 const SUGGESTIONS = ['tidy', 'recap', 'tag'] as const;
+const TASK_SUGGESTIONS = ['plan', 'catchUp', 'fromNotes'] as const;
 
 /** Same ceiling as the Ask composer: four or five lines, then the task matters
  * less than what the agent is doing with it. */
 const COMPOSER_MAX_HEIGHT = 108;
 
-export function AgentPanel({ noteId }: { noteId: string | null }) {
+export function AgentPanel({
+  noteId,
+  /** Set where Ask is not an option — the Tasks view has no open note, so the
+   * AI tab there *is* the agent and a switch out of it leads nowhere. */
+  agentOnly = false,
+}: {
+  noteId: string | null;
+  agentOnly?: boolean;
+}) {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
   const selection = useUiStore((state) => state.multiSelection);
@@ -221,13 +233,15 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
             { value: 'library', label: t('ai.askScopeLibrary') },
           ]}
         />
-        <AiModeSwitch
-          label={t('ai.agentSwitch')}
-          title={t('ai.agentSwitchHint')}
-          checked
-          className="ml-auto"
-          onChange={() => setAgentMode(false)}
-        />
+        {!agentOnly && (
+          <AiModeSwitch
+            label={t('ai.agentSwitch')}
+            title={t('ai.agentSwitchHint')}
+            checked
+            className="ml-auto"
+            onChange={() => setAgentMode(false)}
+          />
+        )}
         {run && !running && (
           <button
             type="button"
@@ -257,6 +271,7 @@ export function AgentPanel({ noteId }: { noteId: string | null }) {
         ) : (
           <EmptyState
             disabled={!availability.available}
+            taskContext={agentOnly}
             onPick={(text) => {
               setInstruction(text);
               composerRef.current?.focus();
@@ -427,9 +442,12 @@ function agentScope(
 
 function EmptyState({
   disabled,
+  taskContext,
   onPick,
 }: {
   disabled: boolean;
+  /** The Tasks view, where the work in front of the student is a deadline. */
+  taskContext: boolean;
   onPick(instruction: string): void;
 }) {
   const { t } = useTranslation();
@@ -446,7 +464,7 @@ function EmptyState({
         {t('agent.emptyIntro')}
       </p>
       <div className="mt-3.5 flex w-full flex-col gap-1">
-        {SUGGESTIONS.map((key) => {
+        {(taskContext ? TASK_SUGGESTIONS : SUGGESTIONS).map((key) => {
           const suggestion = t(`agent.suggestion_${key}`);
           return (
             <button

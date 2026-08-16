@@ -192,5 +192,6 @@ export const AI_FEATURES = [
   'podcast',
   'importFormat',
   'agent',
+  'tasks',
 ] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];

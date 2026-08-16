@@ -10,17 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { GlassCheckbox } from '@/components/glass';
 import type { Task, TaskStatus } from '@/lib/schema';
 import { cn } from '@/lib/utils/cn';
-
-/** Same shape the note list uses, plus the time when the deadline has one. */
-function formatDue(iso: string, locale: string): string {
-  const date = new Date(iso);
-  const midnight = date.getHours() === 0 && date.getMinutes() === 0;
-  return date.toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
-    ...(midnight ? {} : { hour: 'numeric', minute: '2-digit' }),
-  });
-}
+import { formatTaskDate, keySuffix } from './taskLabels';
 
 export function TaskRow({
   task,
@@ -95,24 +85,19 @@ export function TaskRow({
                 )}
               >
                 <CalendarClock size={11} aria-hidden />
-                {formatDue(task.dueAt, i18n.language)}
+                {formatTaskDate(task.dueAt, i18n.language)}
               </span>
             )}
             {task.remindAt && !done && (
               <span className="flex items-center gap-1">
                 <Bell size={11} aria-hidden />
-                {formatDue(task.remindAt, i18n.language)}
+                {formatTaskDate(task.remindAt, i18n.language)}
               </span>
             )}
             {task.recurrence && (
               <span className="flex items-center gap-1">
                 <Repeat size={11} aria-hidden />
-                {t(
-                  `tasks.recurrence${
-                    task.recurrence.freq.charAt(0).toUpperCase() +
-                    task.recurrence.freq.slice(1)
-                  }`,
-                )}
+                {t(`tasks.recurrence${keySuffix(task.recurrence.freq)}`)}
               </span>
             )}
             {progress && progress.total > 0 && (
@@ -135,11 +120,7 @@ export function TaskRow({
 
       {task.priority !== 'none' && !done && (
         <span
-          aria-label={t(
-            `tasks.priority${
-              task.priority.charAt(0).toUpperCase() + task.priority.slice(1)
-            }`,
-          )}
+          aria-label={t(`tasks.priority${keySuffix(task.priority)}`)}
           className={cn(
             'mt-[6px] size-[6px] shrink-0 rounded-full',
             task.priority === 'high' && 'bg-[var(--nb-danger)]',

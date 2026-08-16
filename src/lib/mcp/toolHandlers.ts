@@ -53,6 +53,7 @@ import {
 } from '@/lib/schema';
 import { parseQuery, resolveQuery } from '@/lib/search/query';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docToMarkdown, markdownToDoc } from '@/editor/markdown';
 
@@ -625,6 +626,15 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     if (cancelled) return cancelled;
     const editor = useEditorStore.getState();
     const ui = useUiStore.getState();
+    // The Tasks view has its own subject. Without it, "break this down into
+    // subtasks" arrives with no idea which task "this" is, and the agent has to
+    // guess from `list_tasks`.
+    const openTask =
+      ui.view.kind === 'tasks' && ui.selectedTaskId
+        ? (useLibraryStore
+            .getState()
+            .tasks.find((task) => task.id === ui.selectedTaskId) ?? null)
+        : null;
     return ok({
       appVersion: __APP_VERSION__,
       openNoteId: editor.note?.id ?? null,
@@ -632,6 +642,8 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
       saveState: editor.saveState,
       view: ui.view,
       selection: ui.multiSelection,
+      openTaskId: openTask?.id ?? null,
+      openTaskTitle: openTask?.title ?? null,
     });
   },
 };

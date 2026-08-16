@@ -117,7 +117,7 @@ fn directory_bytes(path: &Path, excluded: Option<&Path>) -> u64 {
     };
     entries
         .flatten()
-        .filter(|entry| !excluded.is_some_and(|excluded| entry.path() == excluded))
+        .filter(|entry| excluded.is_none_or(|excluded| entry.path() != excluded))
         .map(|entry| match entry.file_type() {
             Ok(kind) if kind.is_dir() => directory_bytes(&entry.path(), excluded),
             // Symlinks are counted as the link, not the target: following them

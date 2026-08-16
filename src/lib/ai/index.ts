@@ -15,3 +15,4 @@ export * from './flashcards';
 export * from './podcast';
 export * from './retrieval';
 export * from './agent';
+export * from './taskAssist';

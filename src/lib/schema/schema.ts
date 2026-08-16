@@ -586,3 +586,53 @@ export type AiFlashcardsResponse = z.infer<typeof AiFlashcardsResponseSchema>;
  */
 export const AiMindMapResponseSchema = MindMapSchema;
 export const AiPodcastResponseSchema = PodcastScriptSchema;
+
+/**
+ * A plan for a task, as a model emits it.
+ *
+ * `dueDate` is a calendar day and not an instant, deliberately. A model told
+ * "today is the 16th" and asked for ISO instants returns `2026-08-18T00:00:00Z`,
+ * which is the 17th in half the world — the same trap the recurrence engine
+ * avoids by doing its arithmetic in local time. The day is unambiguous; the
+ * hour is `src/lib/ai/taskAssist.ts`'s to choose, from the parent's own.
+ */
+export const AiTaskBreakdownResponseSchema = z.object({
+  subtasks: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        details: z.string().max(2_000).optional(),
+        /** `YYYY-MM-DD`, or absent when the step has no day of its own. */
+        dueDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        priority: TaskPrioritySchema.optional(),
+      }),
+    )
+    .max(20),
+});
+export type AiTaskBreakdownResponse = z.infer<typeof AiTaskBreakdownResponseSchema>;
+
+/**
+ * Whether the notes suggest a task is finished.
+ *
+ * `unclear` is a first-class answer rather than a failure: notes that say
+ * nothing about the essay are the common case, and a model forced to choose
+ * between "done" and "not done" will invent a reason for one of them.
+ */
+export const AiTaskCheckResponseSchema = z.object({
+  verdict: z.enum(['done', 'partly', 'notDone', 'unclear']),
+  summary: z.string().trim().min(1).max(600),
+  /** What in the notes says so. Quoted, so the claim can be checked. */
+  evidence: z
+    .array(
+      z.object({
+        noteTitle: z.string().max(200),
+        quote: z.string().trim().min(1).max(400),
+      }),
+    )
+    .max(6)
+    .default([]),
+});
+export type AiTaskCheckResponse = z.infer<typeof AiTaskCheckResponseSchema>;

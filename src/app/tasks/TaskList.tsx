@@ -6,11 +6,10 @@
  * render nested under their parent instead of as rows of their own.
  */
 import { useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { CheckCircle2, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ContextMenu,
-  GlassIconButton,
   GlassScrollArea,
   GlassSegmentedControl,
   GlassSelect,
@@ -33,7 +32,6 @@ export function TaskList() {
   const view = useUiStore((state) => state.view);
   const selectedTaskId = useUiStore((state) => state.selectedTaskId);
   const selectTask = useUiStore((state) => state.selectTask);
-  const openTaskDialog = useUiStore((state) => state.openTaskDialog);
   const tasks = useLibraryStore((state) => state.tasks);
   const links = useLibraryStore((state) => state.taskNoteLinks);
 
@@ -125,14 +123,9 @@ export function TaskList() {
           ]}
           fill
         />
+        {/* No plus here: the title bar's New button makes a task while this
+            view is open, so a second one beside it was the same glyph twice. */}
         <TaskCalendarButton />
-        <GlassIconButton
-          label={t('tasks.new')}
-          className="size-7 shrink-0"
-          onClick={() => openTaskDialog({ courseId })}
-        >
-          <Plus size={14} />
-        </GlassIconButton>
       </header>
 
       <div className="flex items-center justify-between gap-2 px-3 pb-1.5">
@@ -184,11 +177,16 @@ export function TaskList() {
         <ContextMenu
           point={menu.point}
           onClose={() => setMenu(null)}
+          // Titled and iconned like the note list's menu: they are the same
+          // gesture on the same kind of row, and only one of them saying what
+          // it is about made the other look unfinished.
+          header={menu.task.title}
           items={[
             {
               id: 'complete',
               label:
                 menu.task.status === 'done' ? t('tasks.reopen') : t('tasks.complete'),
+              icon: menu.task.status === 'done' ? RotateCcw : CheckCircle2,
               onSelect: () =>
                 void completeTaskCommand({
                   taskId: menu.task.id,
@@ -198,6 +196,7 @@ export function TaskList() {
             {
               id: 'subtask',
               label: t('tasks.newSubtask'),
+              icon: Plus,
               // Depth is one level, so a subtask cannot have one of its own.
               disabled: menu.task.parentId !== null,
               onSelect: () =>
@@ -210,6 +209,7 @@ export function TaskList() {
             {
               id: 'trash',
               label: t('tasks.trash'),
+              icon: Trash2,
               danger: true,
               onSelect: () => {
                 void trashTasksCommand([menu.task.id]);

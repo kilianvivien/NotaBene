@@ -136,6 +136,12 @@ interface UiState {
   taskDraft: TaskDraft | null;
   /** Open while the editor is choosing a task to mention inline. */
   taskPickerOpen: boolean;
+  /**
+   * The task the breakdown dialog is planning, or `null` when it is closed.
+   * It carries its own id rather than reading `selectedTaskId`, so a plan
+   * cannot land on a different task than the one it was asked about.
+   */
+  taskBreakdownFor: string | null;
   /** The month view of every dated task. */
   taskCalendarOpen: boolean;
 
@@ -178,6 +184,8 @@ interface UiState {
   closeTaskDialog(): void;
   openTaskPicker(): void;
   closeTaskPicker(): void;
+  openTaskBreakdown(taskId: string): void;
+  closeTaskBreakdown(): void;
   setTaskCalendarOpen(open: boolean): void;
 }
 
@@ -204,6 +212,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiPodcastOpen ||
     state.taskDraft !== null ||
     state.taskPickerOpen ||
+    state.taskBreakdownFor !== null ||
     state.taskCalendarOpen
   );
 }
@@ -228,6 +237,7 @@ export const useUiStore = create<UiState>()(
     selectedTaskId: null,
     taskDraft: null,
     taskPickerOpen: false,
+    taskBreakdownFor: null,
     taskCalendarOpen: false,
     sidebarVisible: true,
     noteListVisible: true,
@@ -315,6 +325,18 @@ export const useUiStore = create<UiState>()(
     closeTaskPicker() {
       set((state) => {
         state.taskPickerOpen = false;
+      });
+    },
+
+    openTaskBreakdown(taskId) {
+      set((state) => {
+        state.taskBreakdownFor = taskId;
+      });
+    },
+
+    closeTaskBreakdown() {
+      set((state) => {
+        state.taskBreakdownFor = null;
       });
     },
 

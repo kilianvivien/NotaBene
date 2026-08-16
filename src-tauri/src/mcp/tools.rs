@@ -410,7 +410,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_get_app_state",
-        description = "Live NotaBene state: the note currently open, the active view, the current selection, and the app version. Call this first so you can act on what the user is looking at."
+        description = "Live NotaBene state: the note currently open, the task selected in the Tasks view, the active view, the current selection, and the app version. Call this first so you can act on what the user is looking at."
     )]
     pub async fn get_app_state(
         &self,

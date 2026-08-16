@@ -46,6 +46,8 @@ export type AiActivity =
   | 'podcast'
   | 'importFormat'
   | 'agent'
+  | 'taskPlan'
+  | 'taskCheck'
   | 'speech';
 
 export interface AskThread {

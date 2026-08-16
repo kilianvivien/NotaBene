@@ -31,7 +31,7 @@ const PLAN_MAX_TOKENS = 1_600;
 const MAX_TOOL_RESULT_CHARS = 16_000;
 
 export const AGENT_TOOL_GUIDE = `
-- get_app_state {} — current note, view and selection
+- get_app_state {} — current note, view, selection, and the task open in the Tasks view
 - list_courses {} — courses and sections
 - list_tags {} — the library's existing tag taxonomy
 - list_notes { courseId?, scope?: "live"|"archived"|"trashed", limit?, offset? } — note summaries; use the trashed scope before restoring

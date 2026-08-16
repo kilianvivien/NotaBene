@@ -32,6 +32,7 @@ export function TitleBar() {
   const sidebarVisible = useUiStore((state) => state.sidebarVisible);
   const inspectorVisible = useUiStore((state) => state.inspectorVisible);
   const focusMode = useUiStore((state) => state.focusMode);
+  const showingTasks = useUiStore((state) => state.view.kind === 'tasks');
   const searchQuery = useUiStore((state) => state.searchQuery);
   const setSearchQuery = useUiStore((state) => state.setSearchQuery);
   const searchScope = useUiStore((state) => state.searchScope);
@@ -118,9 +119,12 @@ export function TitleBar() {
         <PanelLeft size={16} />
       </GlassIconButton>
 
+      {/* One New button, for whatever the window is currently showing. The
+          Tasks view had a second plus of its own in the list header, which put
+          two identical glyphs a centimetre apart meaning different things. */}
       <GlassIconButton
-        label={t('noteList.newNote')}
-        onClick={() => void runAppCommand('note.new')}
+        label={showingTasks ? t('tasks.new') : t('noteList.newNote')}
+        onClick={() => void runAppCommand(showingTasks ? 'task.new' : 'note.new')}
       >
         <Plus size={16} />
       </GlassIconButton>

@@ -42,6 +42,7 @@ import { TaskList } from './tasks/TaskList';
 import { TaskDetail } from './tasks/TaskDetail';
 import { TaskDialog } from './tasks/TaskDialog';
 import { TaskCalendarDialog } from './tasks/TaskCalendarDialog';
+import { TaskBreakdownDialog } from './tasks/TaskBreakdownDialog';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -210,6 +211,7 @@ export function App() {
       <PodcastDialog />
       <TaskDialog />
       <TaskCalendarDialog />
+      <TaskBreakdownDialog />
       <EditorConflictDialog />
       {pdfReading && <PdfReader request={pdfReading} />}
     </div>

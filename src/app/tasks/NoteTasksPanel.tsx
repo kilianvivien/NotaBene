@@ -40,7 +40,9 @@ export function NoteTasksPanel({ noteId }: { noteId: string }) {
   return (
     <div className="flex flex-col gap-1">
       {linked.length === 0 ? (
-        <p className="text-[12px] text-nb-text-3">{t('tasks.noLinkedNotes')}</p>
+        // "Not linked to any note" is the sentence for the other direction —
+        // this panel is the note's side of the same link.
+        <p className="text-[12px] text-nb-text-3">{t('tasks.noNoteTasks')}</p>
       ) : (
         linked.map((task) => (
           <TaskRow

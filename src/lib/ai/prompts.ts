@@ -490,3 +490,117 @@ function askScopeRules(scope: AskScope, truncated: boolean): string {
   }
   return `\n${lines.join('\n')}`;
 }
+
+// -- Tasks -------------------------------------------------------------------
+
+/** A task as the two task prompts see it. Plain strings: the model is being
+ * asked about a piece of work, not about a database row. */
+export interface TaskPromptSubject {
+  title: string;
+  details: string;
+  /** Local calendar day, `YYYY-MM-DD`, or null when nothing is due. */
+  dueDate: string | null;
+  courseName: string | null;
+  existingSubtasks: string[];
+}
+
+function taskBlock(task: TaskPromptSubject): string {
+  const lines = [`Task: ${task.title}`];
+  if (task.courseName) lines.push(`Course: ${task.courseName}`);
+  lines.push(`Due: ${task.dueDate ?? 'no deadline set'}`);
+  if (task.details.trim()) lines.push(`The student's notes to self: ${task.details}`);
+  if (task.existingSubtasks.length) {
+    lines.push(`Steps already on the list:\n- ${task.existingSubtasks.join('\n- ')}`);
+  }
+  return lines.join('\n');
+}
+
+function sourceBlock(sources: { title: string; markdown: string }[]): string {
+  if (!sources.length) return 'No notes are linked to this task.';
+  return sources
+    .map(
+      (source, index) =>
+        `<note index="${index}" title="${source.title.replace(/"/g, "'")}">\n${source.markdown}\n</note>`,
+    )
+    .join('\n\n');
+}
+
+/**
+ * Break a piece of work into steps.
+ *
+ * The dates are the delicate part. The model is given today and the deadline as
+ * calendar days and asked for calendar days back — an instant would be a
+ * timezone bug waiting for the first student who works after 19:00 — and it is
+ * told that a step without an obvious day should simply not have one. Inventing
+ * a schedule for every line is how a plan stops being believed.
+ */
+export function taskBreakdownPrompt(options: {
+  task: TaskPromptSubject;
+  sources: { title: string; markdown: string }[];
+  today: string;
+  count: number;
+  language: string;
+}): AiMessage[] {
+  return [
+    {
+      role: 'system',
+      content: `You are helping a student break one piece of coursework into the steps it actually takes.
+
+${languageRule(options.language)}
+
+- Today is ${options.today}. ${options.task.dueDate ? `The work is due ${options.task.dueDate}.` : 'No deadline has been set.'}
+- Aim for ${options.count} steps at most, fewer when the work does not need them. Four honest steps beat ten padded ones.
+- Each step is one sitting's work, and its title says what to *do*: "draft the second section", not "second section".
+- Do not repeat a step that is already on the list. If the list already covers the work, return an empty array.
+- Use the linked notes for what the work actually involves — a reading list, a marking scheme, the questions asked in the lecture.
+- "dueDate" is a calendar day in YYYY-MM-DD form, on or before the deadline and not before today. Leave it out when a step has no natural day of its own; do not spread steps evenly just to give each one a date.
+- "priority" is optional and only worth setting for a step that gates the others.
+
+${JSON_ONLY} It must match:
+{"subtasks": [{"title": "<what to do>", "details": "<optional, one line>", "dueDate": "<optional YYYY-MM-DD>", "priority": "none" | "low" | "medium" | "high"}]}`,
+    },
+    {
+      role: 'user',
+      content: `${taskBlock(options.task)}\n\n${sourceBlock(options.sources)}`,
+    },
+  ];
+}
+
+/**
+ * Read the notes and say whether the work looks done.
+ *
+ * The prompt spends most of its length on the answer that is neither yes nor
+ * no. Notes are not a record of work completed — they are what was written down
+ * in a lecture — so "these notes do not say" is usually the truthful answer,
+ * and a model that will not give it becomes a model whose verdicts mean
+ * nothing.
+ */
+export function taskCheckPrompt(options: {
+  task: TaskPromptSubject;
+  sources: { title: string; markdown: string }[];
+  today: string;
+  language: string;
+}): AiMessage[] {
+  return [
+    {
+      role: 'system',
+      content: `You are judging whether a student's task looks finished, using only the notes they have linked to it.
+
+${languageRule(options.language)}
+
+- Today is ${options.today}.
+- The notes are class notes, not a work log. Evidence of the work existing — a written draft, worked answers, a completed summary — is what counts. A note *about* the topic is not evidence the task was done.
+- "done" needs evidence the whole task is finished. "partly" is for clear progress with something obviously left. "notDone" is for evidence it has not been started or is only planned. "unclear" is for everything else, and it is the right answer whenever the notes simply do not say.
+- Never guess to be helpful. An honest "unclear" is more useful than a confident verdict the student then has to check.
+- "summary" is two sentences at most, addressed to the student, saying what the notes show and what is missing.
+- Quote the notes in "evidence": short passages, copied exactly, each with the title of the note it came from. Leave the array empty when nothing in the notes bears on the task.
+
+${JSON_ONLY} It must match:
+{"verdict": "done" | "partly" | "notDone" | "unclear", "summary": "<two sentences at most>", "evidence": [{"noteTitle": "<note title>", "quote": "<exact passage>"}]}`,
+    },
+    {
+      role: 'user',
+      content: `${taskBlock(options.task)}\n\n${sourceBlock(options.sources)}`,
+    },
+  ];
+}
