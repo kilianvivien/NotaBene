@@ -10,6 +10,7 @@ import { library } from '@/lib/adapters';
 import {
   AgentBudgetError,
   AgentScopeError,
+  AiParseError,
   DEFAULT_AGENT_BUDGET,
   requestAgentPlan,
   runAgentLoop,
@@ -111,25 +112,25 @@ export function finalizeAgentPlan(
 }
 
 /** A model may say `done`; completion still requires every capability the
- * approved plan promised to have succeeded at least as many times as planned. */
+ * approved plan promised to have succeeded. `expectedTools` describes kinds
+ * of work, not call cardinality: a plan often repeats `read_note` in prose even
+ * though one successful read satisfies both later steps. Counting duplicates
+ * made efficient, correctly completed runs fail their final audit. */
 export function missingSuccessfulPlanTools(
   plan: AgentPlan,
   calls: AgentToolCallRecord[],
 ): AgentToolName[] {
-  const remaining = new Map<AgentToolName, number>();
+  const remaining = new Set<AgentToolName>();
   for (const step of plan.steps) {
     for (const tool of step.expectedTools) {
-      remaining.set(tool, (remaining.get(tool) ?? 0) + 1);
+      remaining.add(tool);
     }
   }
   for (const call of calls) {
     if (call.status !== 'succeeded') continue;
-    const count = remaining.get(call.tool) ?? 0;
-    if (count > 0) remaining.set(call.tool, count - 1);
+    remaining.delete(call.tool);
   }
-  return [...remaining.entries()].flatMap(([tool, count]) =>
-    Array.from({ length: count }, () => tool),
-  );
+  return [...remaining];
 }
 
 export async function defaultAgentScope(): Promise<AgentScope> {
@@ -219,6 +220,9 @@ export async function planAgentCommand(
     useAgentStore.getState().setActiveRun(run.id);
     return ok(run);
   } catch (error) {
+    if (error instanceof AiParseError) {
+      return fail('invalid_input', i18n.t('agent.invalidModelResponse'));
+    }
     return aiFailure(error, options.signal);
   }
 }
@@ -318,9 +322,11 @@ export async function runAgentCommand(
         ? budgetError(error.limit)
         : error instanceof AgentCompletionError
           ? i18n.t('agent.incompletePlan')
-          : error instanceof Error
-            ? error.message
-            : String(error);
+          : error instanceof AiParseError
+            ? i18n.t('agent.invalidModelResponse')
+            : error instanceof Error
+              ? error.message
+              : String(error);
     record.completedAt = new Date().toISOString();
     for (const call of record.calls) {
       if (call.status === 'running') {
@@ -768,7 +774,8 @@ async function filterReadResult(
         .map((link) => link.taskId),
     );
     return value.filter(
-      (entry) => isObject(entry) && typeof entry.id === 'string' && reachable.has(entry.id),
+      (entry) =>
+        isObject(entry) && typeof entry.id === 'string' && reachable.has(entry.id),
     );
   }
   if ((tool !== 'list_notes' && tool !== 'search_notes') || !Array.isArray(value)) {
@@ -825,6 +832,9 @@ function referencedNoteIds(tool: AgentToolName, args: Record<string, unknown>): 
     return Array.isArray(args.noteIds)
       ? args.noteIds.filter((id): id is string => typeof id === 'string')
       : [];
+  }
+  if (tool === 'create_note' && isObject(args.copyFrom)) {
+    return typeof args.copyFrom.noteId === 'string' ? [args.copyFrom.noteId] : [];
   }
   return [];
 }
@@ -970,10 +980,10 @@ function auditValue(value: unknown): unknown {
 
 function budgetError(limit: AgentBudgetError['limit']): string {
   return limit === 'tokens'
-    ? 'the run reached its token ceiling'
+    ? i18n.t('agent.tokenLimitReached')
     : limit === 'tools'
-      ? 'the run reached its tool-call ceiling'
-      : 'the run reached its time ceiling';
+      ? i18n.t('agent.stepLimitReached')
+      : i18n.t('agent.timeLimitReached');
 }
 
 function addUnique(values: string[], value: string): void {

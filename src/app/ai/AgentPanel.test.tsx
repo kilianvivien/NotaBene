@@ -32,7 +32,7 @@ function plannedRun(): AgentRunRecord {
         },
       ],
     },
-    budget: { tokenCeiling: 50_000, toolCallCeiling: 24, wallClockMs: 120_000 },
+    budget: { tokenCeiling: 200_000, toolCallCeiling: 32, wallClockMs: 600_000 },
     status: 'planned',
     calls: [],
     touchedNotes: [],
@@ -79,7 +79,7 @@ describe('AgentPanel review gate', () => {
     // as a sentence, and without the word "token".
     expect(
       screen.getByText(
-        'Works only on this course. Stops by itself after 24 steps or 2 min.',
+        'Works only on this course. Stops by itself after 32 steps or 10 min.',
       ),
     ).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Run it' })).not.toHaveProperty(

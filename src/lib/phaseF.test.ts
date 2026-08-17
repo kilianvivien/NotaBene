@@ -7,6 +7,7 @@ import { TOOL_HANDLERS } from '@/lib/mcp/toolHandlers';
 import { useMcpStore } from '@/lib/state/mcpStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import type { CommandContext, CommandResult } from '@/lib/commands';
+import type { Note } from '@/lib/schema';
 
 const AGENT: CommandContext = { source: 'agent', agentName: 'contract-test' };
 type Handler = (
@@ -120,6 +121,37 @@ describe('Phase F MCP tool contracts', () => {
     }
   });
 
+  it('reads indexed blocks and applies only targeted note patches', async () => {
+    const { note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+    const blocks = await call('read_note', { noteId: note.id, format: 'blocks' });
+    expect(blocks).toMatchObject({
+      ok: true,
+      value: {
+        updatedAt: note.updatedAt,
+        blocks: [
+          { index: 0, markdown: expect.stringContaining('Limits') },
+          { index: 1, markdown: expect.stringContaining('derivative') },
+        ],
+      },
+    });
+
+    const patched = await call('update_note', {
+      noteId: note.id,
+      baseUpdatedAt: note.updatedAt,
+      patches: [
+        { index: 1, action: 'replace', markdown: 'A derivative is a local rate.' },
+        { index: 2, action: 'insert', markdown: 'A final unchanged-size addition.' },
+      ],
+    });
+    expect(patched.ok).toBe(true);
+    if (!patched.ok) return;
+    const result = patched.value as Note;
+    expect(result.doc.content[0]).toEqual(note.doc.content[0]);
+    expect(result.plainText).toContain('A derivative is a local rate.');
+    expect(result.plainText).toContain('A final unchanged-size addition.');
+  });
+
   it('rejects a malformed create payload without writing a note', async () => {
     const result = await call('create_note', {
       markdown: 'one representation',
@@ -127,6 +159,41 @@ describe('Phase F MCP tool contracts', () => {
     });
     expect(result).toMatchObject({ ok: false, code: 'invalid_input' });
     expect(await library.queryNotes({ scope: 'all' })).toHaveLength(0);
+  });
+
+  it('copies a long note exactly and prepends only newly generated Markdown', async () => {
+    const { note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+    const longBody = Array.from(
+      { length: 2_000 },
+      (_, index) => `Paragraph ${index}: evidence that must remain unchanged.`,
+    ).join('\n\n');
+    const updated = await call('update_note', {
+      noteId: note.id,
+      baseUpdatedAt: note.updatedAt,
+      markdown: longBody,
+    });
+    if (!updated.ok) throw new Error(updated.message);
+    const source = updated.value as Note;
+
+    const copied = await call('create_note', {
+      title: 'Lecture one — summary copy',
+      copyFrom: { noteId: source.id, baseUpdatedAt: source.updatedAt },
+      prependMarkdown: '## Summary\n\nA concise overview.',
+    });
+
+    expect(copied.ok).toBe(true);
+    if (!copied.ok) return;
+    const result = copied.value as Note;
+    expect(result.courseId).toBe(source.courseId);
+    expect(result.tagIds).toEqual(source.tagIds);
+    expect(result.plainText).toContain('A concise overview.');
+    expect(result.plainText).toContain(
+      'Paragraph 1999: evidence that must remain unchanged.',
+    );
+    expect(result.doc.content.slice(-source.doc.content.length)).toEqual(
+      source.doc.content,
+    );
   });
 
   it('versions an update as agent work and rejects a stale retry', async () => {
@@ -149,6 +216,43 @@ describe('Phase F MCP tool contracts', () => {
     });
     expect(stale).toMatchObject({ ok: false, code: 'conflict' });
     expect((await library.getNote(note.id))?.title).toBe('Lecture one');
+  });
+
+  it('prepends Markdown to a long note without replacing its source document', async () => {
+    const { note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+    const originalContent = note.doc.content;
+
+    const result = await call('update_note', {
+      noteId: note.id,
+      baseUpdatedAt: note.updatedAt,
+      prependMarkdown: '## Summary\n\nThe important result.',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const updated = result.value as Note;
+    expect(updated.plainText).toContain('The important result.');
+    expect(updated.doc.content.slice(-originalContent.length)).toEqual(originalContent);
+  });
+
+  it('appends Markdown without making the caller resend the note', async () => {
+    const { note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+
+    const result = await call('update_note', {
+      noteId: note.id,
+      baseUpdatedAt: note.updatedAt,
+      appendMarkdown: '## Further reading\n\nChapter 3.',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const updated = result.value as Note;
+    expect(updated.doc.content.slice(0, note.doc.content.length)).toEqual(
+      note.doc.content,
+    );
+    expect(updated.plainText).toContain('Chapter 3.');
   });
 
   it('moves notes to recoverable Trash, lists them there, and restores them', async () => {

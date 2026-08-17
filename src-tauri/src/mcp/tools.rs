@@ -56,10 +56,21 @@ pub struct SearchNotesParams {
 #[serde(rename_all = "camelCase")]
 pub struct ReadNoteParams {
     pub note_id: String,
-    /// `json` for the document tree, `markdown` for rendered text, `both` for
-    /// each. Defaults to `both`.
+    /// `json` for the document tree, `markdown` for rendered text, `blocks`
+    /// for indexed top-level Markdown blocks, or `both`. Defaults to `both`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteBlockPatchParams {
+    /// Top-level block index from a `read_note` blocks response.
+    pub index: u32,
+    /// `insert`, `replace`, or `remove`.
+    pub action: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markdown: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
@@ -77,9 +88,17 @@ pub struct CreateNoteParams {
     /// Lossless structured editor document. Do not supply with `markdown`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<Value>,
+    /// Copy this exact saved revision instead of resending its body. May be
+    /// combined with `prependMarkdown` for a summary or heading at the top.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copy_from: Option<VersionedNoteParams>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prepend_markdown: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub append_markdown: Option<String>,
     /// Tags as `name` or `namespace:name`, e.g. `topic:derivatives`.
-    #[serde(default)]
-    pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
@@ -96,6 +115,16 @@ pub struct UpdateNoteParams {
     pub markdown: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc: Option<Value>,
+    /// Insert new Markdown before the existing document without resending or
+    /// replacing its unchanged body.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prepend_markdown: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub append_markdown: Option<String>,
+    /// Targeted top-level block edits indexed against a `read_note` blocks
+    /// response. Prefer this to replacing an otherwise unchanged long body.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patches: Option<Vec<NoteBlockPatchParams>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub course_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -301,6 +330,11 @@ pub struct UpdateTaskParams {
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<String>,
+    /// Add plain text before or after existing details without resending them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prepend_details: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub append_details: Option<String>,
     /// Use `notabene_complete_task` to finish one — it handles subtasks and
     /// repeats, which setting the status directly does not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -489,7 +523,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_read_note",
-        description = "Read one note as structured JSON, rendered Markdown, or both, along with its course and tags."
+        description = "Read one note as structured JSON, rendered Markdown, indexed top-level Markdown blocks for targeted edits, or both, along with its course and tags."
     )]
     pub async fn read_note(
         &self,
@@ -543,7 +577,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_update_task",
-        description = "Update a task's title, details, priority, course, due date, reminder, or repeat. Pass the task's current updatedAt as baseUpdatedAt; a concurrent user edit returns a recoverable conflict. Set trashed: true to move it to recoverable Trash and trashed: false to restore it — permanent deletion is not available."
+        description = "Update a task's title, details, priority, course, due date, reminder, or repeat. Use prependDetails or appendDetails when the existing details should remain instead of resending them. Pass the task's current updatedAt as baseUpdatedAt; a concurrent user edit returns a recoverable conflict. Set trashed: true to move it to recoverable Trash and trashed: false to restore it — permanent deletion is not available."
     )]
     pub async fn update_task(
         &self,
@@ -603,7 +637,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_create_note",
-        description = "Create a note from Markdown and file it under a course. Autosave and version history apply exactly as they would to a note the student typed."
+        description = "Create a note from Markdown and file it under a course. To duplicate a note without making the model reproduce its body, pass copyFrom with its noteId and current baseUpdatedAt; prependMarkdown may add a short summary or heading before the exact copy. Autosave and version history apply exactly as they would to a note the student typed."
     )]
     pub async fn create_note(
         &self,
@@ -623,7 +657,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_update_note",
-        description = "Update a note's title, body, course, section, or archived flag. Pass the note's current updatedAt as baseUpdatedAt; a concurrent user edit returns a recoverable conflict. The previous state is kept as a restorable agent version."
+        description = "Update a note's title, body, course, section, or archived flag. Prefer prependMarkdown, appendMarkdown, or indexed block patches when most of a long body remains unchanged; use full Markdown or doc only for an intentional whole-note replacement. Pass the note's current updatedAt as baseUpdatedAt; a concurrent user edit returns a recoverable conflict. The previous state is kept as a restorable agent version."
     )]
     pub async fn update_note(
         &self,

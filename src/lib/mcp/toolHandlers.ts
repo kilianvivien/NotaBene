@@ -50,6 +50,7 @@ import {
   TASK_STATUSES,
   type AgentToolName,
   type Note,
+  type Task,
 } from '@/lib/schema';
 import { parseQuery, resolveQuery } from '@/lib/search/query';
 import { useEditorStore } from '@/lib/state/editorStore';
@@ -94,8 +95,24 @@ const SearchArgs = z.object({
 const ReadNoteArgs = z.object({
   noteId: z.string().min(1),
   /** `json` gives the document tree; `markdown` gives rendered text. */
-  format: z.enum(['json', 'markdown', 'both']).default('both'),
+  format: z.enum(['json', 'markdown', 'blocks', 'both']).default('both'),
 });
+
+const NoteBlockPatchArgs = z
+  .object({
+    index: z.number().int().nonnegative(),
+    action: z.enum(['insert', 'replace', 'remove']),
+    markdown: z.string().optional(),
+  })
+  .superRefine((patch, ctx) => {
+    if (patch.action !== 'remove' && !patch.markdown?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['markdown'],
+        message: `${patch.action} requires markdown`,
+      });
+    }
+  });
 
 const CreateNoteArgs = z
   .object({
@@ -106,11 +123,29 @@ const CreateNoteArgs = z
     markdown: z.string().optional(),
     /** Structured editor document for lossless callers. */
     doc: NoteDocSchema.optional(),
-    tags: z.array(z.string()).default([]),
+    /** Copy an existing note without sending its unchanged body through a model. */
+    copyFrom: VersionedNoteArgs.optional(),
+    /** New Markdown inserted before a copied document. */
+    prependMarkdown: z.string().optional(),
+    /** New Markdown inserted after a copied document. */
+    appendMarkdown: z.string().optional(),
+    tags: z.array(z.string()).optional(),
   })
   .refine((value) => value.markdown === undefined || value.doc === undefined, {
     message: 'supply markdown or doc, not both',
-  });
+  })
+  .refine(
+    (value) =>
+      value.copyFrom === undefined ||
+      (value.markdown === undefined && value.doc === undefined),
+    { message: 'copyFrom cannot be combined with markdown or doc' },
+  )
+  .refine(
+    (value) =>
+      (value.prependMarkdown === undefined && value.appendMarkdown === undefined) ||
+      value.copyFrom !== undefined,
+    { message: 'prependMarkdown and appendMarkdown require copyFrom' },
+  );
 
 const UpdateNoteArgs = z
   .object({
@@ -120,13 +155,27 @@ const UpdateNoteArgs = z
     title: z.string().max(500).optional(),
     markdown: z.string().optional(),
     doc: NoteDocSchema.optional(),
+    /** New Markdown inserted before the existing document without replacing it. */
+    prependMarkdown: z.string().optional(),
+    /** New Markdown inserted after the existing document without replacing it. */
+    appendMarkdown: z.string().optional(),
+    /** Top-level block edits indexed against a `read_note` blocks response. */
+    patches: z.array(NoteBlockPatchArgs).min(1).max(500).optional(),
     courseId: z.string().nullable().optional(),
     sectionId: z.string().nullable().optional(),
     archived: z.boolean().optional(),
   })
   .refine((value) => value.markdown === undefined || value.doc === undefined, {
     message: 'supply markdown or doc, not both',
-  });
+  })
+  .refine(
+    (value) =>
+      (value.prependMarkdown === undefined &&
+        value.appendMarkdown === undefined &&
+        value.patches === undefined) ||
+      (value.markdown === undefined && value.doc === undefined),
+    { message: 'delta body edits cannot be combined with markdown or doc' },
+  );
 
 const ManageTagsArgs = z.object({
   noteId: z.string().min(1),
@@ -223,27 +272,36 @@ const CreateTaskArgs = z.object({
   noteIds: z.array(z.string()).max(100).optional(),
 });
 
-const UpdateTaskArgs = z.object({
-  taskId: z.string().min(1),
-  /** Optimistic-concurrency guard. Pass the `updatedAt` you read. */
-  baseUpdatedAt: z.string().datetime({ offset: true }).optional(),
-  title: z.string().trim().min(1).max(500).optional(),
-  details: z.string().max(10_000).optional(),
-  status: z.enum(TASK_STATUSES).optional(),
-  priority: z.enum(TASK_PRIORITIES).optional(),
-  courseId: z.string().nullable().optional(),
-  parentId: z.string().nullable().optional(),
-  dueAt: z.string().datetime({ offset: true }).nullable().optional(),
-  remindAt: z.string().datetime({ offset: true }).nullable().optional(),
-  recurrence: RecurrenceArgs.nullable().optional(),
-  /**
-   * Move to recoverable Trash, or restore from it. Folded in here rather than
-   * given its own pair of tools so there is no shape on this surface that
-   * resembles a delete — Trash is the hard boundary, and it cannot be emptied
-   * from outside the app.
-   */
-  trashed: z.boolean().optional(),
-});
+const UpdateTaskArgs = z
+  .object({
+    taskId: z.string().min(1),
+    /** Optimistic-concurrency guard. Pass the `updatedAt` you read. */
+    baseUpdatedAt: z.string().datetime({ offset: true }).optional(),
+    title: z.string().trim().min(1).max(500).optional(),
+    details: z.string().max(10_000).optional(),
+    prependDetails: z.string().max(10_000).optional(),
+    appendDetails: z.string().max(10_000).optional(),
+    status: z.enum(TASK_STATUSES).optional(),
+    priority: z.enum(TASK_PRIORITIES).optional(),
+    courseId: z.string().nullable().optional(),
+    parentId: z.string().nullable().optional(),
+    dueAt: z.string().datetime({ offset: true }).nullable().optional(),
+    remindAt: z.string().datetime({ offset: true }).nullable().optional(),
+    recurrence: RecurrenceArgs.nullable().optional(),
+    /**
+     * Move to recoverable Trash, or restore from it. Folded in here rather than
+     * given its own pair of tools so there is no shape on this surface that
+     * resembles a delete — Trash is the hard boundary, and it cannot be emptied
+     * from outside the app.
+     */
+    trashed: z.boolean().optional(),
+  })
+  .refine(
+    (value) =>
+      value.details === undefined ||
+      (value.prependDetails === undefined && value.appendDetails === undefined),
+    { message: 'details cannot be combined with prependDetails or appendDetails' },
+  );
 
 const CompleteTaskArgs = z.object({
   taskId: z.string().min(1),
@@ -346,8 +404,21 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
       sectionId: note.value.sectionId,
       tagIds: note.value.tagIds,
       updatedAt: note.value.updatedAt,
-      doc: parsed.data.format === 'markdown' ? undefined : note.value.doc,
-      markdown: parsed.data.format === 'json' ? undefined : docToMarkdown(note.value.doc),
+      doc:
+        parsed.data.format === 'markdown' || parsed.data.format === 'blocks'
+          ? undefined
+          : note.value.doc,
+      markdown:
+        parsed.data.format === 'json' || parsed.data.format === 'blocks'
+          ? undefined
+          : docToMarkdown(note.value.doc),
+      blocks:
+        parsed.data.format === 'blocks'
+          ? note.value.doc.content.map((node, index) => ({
+              index,
+              markdown: docToMarkdown({ type: 'doc', content: [node] }).trim(),
+            }))
+          : undefined,
     });
   },
 
@@ -357,8 +428,22 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const parsed = CreateNoteArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
-    const tagIds: string[] = [];
-    for (const raw of parsed.data.tags) {
+    let source: Note | null = null;
+    if (parsed.data.copyFrom) {
+      const read = await readNoteCommand(parsed.data.copyFrom.noteId);
+      if (!read.ok) return read;
+      if (read.value.updatedAt !== parsed.data.copyFrom.baseUpdatedAt) {
+        return fail('conflict', 'the note changed after it was read', {
+          expectedUpdatedAt: parsed.data.copyFrom.baseUpdatedAt,
+          actualUpdatedAt: read.value.updatedAt,
+        });
+      }
+      source = read.value;
+    }
+
+    const tagIds: string[] =
+      parsed.data.tags === undefined ? [...(source?.tagIds ?? [])] : [];
+    for (const raw of parsed.data.tags ?? []) {
       const stopped = cancelledIfRequested<unknown>(context);
       if (stopped) return stopped;
       const [maybeNamespace, ...rest] = raw.split(':');
@@ -372,12 +457,30 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
       tagIds.push(tag.value.id);
     }
 
+    const prefix = parsed.data.prependMarkdown
+      ? markdownToDoc(parsed.data.prependMarkdown)
+      : null;
+    const suffix = parsed.data.appendMarkdown
+      ? markdownToDoc(parsed.data.appendMarkdown)
+      : null;
+    const copiedDoc = source
+      ? {
+          type: 'doc' as const,
+          content: [
+            ...(prefix?.content ?? []),
+            ...source.doc.content,
+            ...(suffix?.content ?? []),
+          ],
+        }
+      : undefined;
+
     return createNoteCommand(
       {
-        title: parsed.data.title,
-        courseId: parsed.data.courseId ?? null,
-        sectionId: parsed.data.sectionId ?? null,
+        title: parsed.data.title ?? source?.title,
+        courseId: parsed.data.courseId ?? source?.courseId ?? null,
+        sectionId: parsed.data.sectionId ?? source?.sectionId ?? null,
         doc:
+          copiedDoc ??
           parsed.data.doc ??
           (parsed.data.markdown !== undefined
             ? markdownToDoc(parsed.data.markdown)
@@ -394,6 +497,34 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const parsed = UpdateNoteArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
+    const hasDeltaBodyEdit =
+      parsed.data.prependMarkdown !== undefined ||
+      parsed.data.appendMarkdown !== undefined ||
+      parsed.data.patches !== undefined;
+    const existing = hasDeltaBodyEdit ? await readNoteCommand(parsed.data.noteId) : null;
+    if (existing && !existing.ok) return existing;
+    const prefix = parsed.data.prependMarkdown
+      ? markdownToDoc(parsed.data.prependMarkdown)
+      : null;
+    const suffix = parsed.data.appendMarkdown
+      ? markdownToDoc(parsed.data.appendMarkdown)
+      : null;
+    const patched =
+      existing?.ok && parsed.data.patches
+        ? applyNoteBlockPatches(existing.value.doc.content, parsed.data.patches)
+        : null;
+    if (patched && !patched.ok) return patched;
+    const deltaDoc = existing?.ok
+      ? {
+          type: 'doc' as const,
+          content: [
+            ...(prefix?.content ?? []),
+            ...(patched?.ok ? patched.value : existing.value.doc.content),
+            ...(suffix?.content ?? []),
+          ],
+        }
+      : undefined;
+
     return updateNoteCommand(
       {
         noteId: parsed.data.noteId,
@@ -403,6 +534,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
         sectionId: parsed.data.sectionId,
         archived: parsed.data.archived,
         doc:
+          deltaDoc ??
           parsed.data.doc ??
           (parsed.data.markdown !== undefined
             ? markdownToDoc(parsed.data.markdown)
@@ -582,7 +714,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const parsed = UpdateTaskArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
-    const { trashed, ...fields } = parsed.data;
+    const { trashed, prependDetails, appendDetails, ...fields } = parsed.data;
     if (trashed !== undefined) {
       // Trash and restore are whole-task moves that cascade to subtasks, so
       // they go through their own commands rather than being patched in.
@@ -592,6 +724,15 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
       if (!moved.ok) return moved;
       // Nothing else to write: `{ trashed }` on its own is the whole request.
       if (Object.keys(fields).length === 1) return readTask(fields.taskId);
+    }
+    if (prependDetails !== undefined || appendDetails !== undefined) {
+      const current = await readTask(fields.taskId);
+      if (!current.ok) return current;
+      fields.details = joinTaskDetails(
+        prependDetails,
+        current.value.details,
+        appendDetails,
+      );
     }
     return updateTaskCommand(fields, context);
   },
@@ -649,11 +790,60 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
 };
 
 /** Read a task back so a trash or restore answers with the row it moved. */
-async function readTask(taskId: string): Promise<CommandResult<unknown>> {
-  const tasks = await listTasksCommand({ scope: 'all' });
+async function readTask(taskId: string): Promise<CommandResult<Task>> {
+  const tasks = await listTasksCommand({ scope: 'all', limit: 500 });
   if (!tasks.ok) return tasks;
   const task = tasks.value.find((entry) => entry.id === taskId);
   return task ? ok(task) : fail('not_found', `no task ${taskId}`);
+}
+
+function applyNoteBlockPatches(
+  original: Note['doc']['content'],
+  patches: z.infer<typeof NoteBlockPatchArgs>[],
+): CommandResult<Note['doc']['content']> {
+  const grouped = new Map<number, typeof patches>();
+  for (const patch of patches) {
+    if (patch.index > original.length) {
+      return fail(
+        'invalid_input',
+        `block patch index ${patch.index} is outside the note`,
+      );
+    }
+    const atIndex = grouped.get(patch.index) ?? [];
+    if (patch.action !== 'insert' && atIndex.some((entry) => entry.action !== 'insert')) {
+      return fail(
+        'invalid_input',
+        `block ${patch.index} has more than one replacement or removal`,
+      );
+    }
+    atIndex.push(patch);
+    grouped.set(patch.index, atIndex);
+  }
+
+  const content: Note['doc']['content'] = [];
+  for (let index = 0; index <= original.length; index += 1) {
+    const atIndex = grouped.get(index) ?? [];
+    for (const patch of atIndex.filter((entry) => entry.action === 'insert')) {
+      content.push(...markdownToDoc(patch.markdown ?? '').content);
+    }
+    if (index === original.length) break;
+    const mutation = atIndex.find((entry) => entry.action !== 'insert');
+    if (!mutation) content.push(original[index]!);
+    else if (mutation.action === 'replace') {
+      content.push(...markdownToDoc(mutation.markdown ?? '').content);
+    }
+  }
+  return ok(content);
+}
+
+function joinTaskDetails(
+  before: string | undefined,
+  current: string,
+  after: string | undefined,
+): string {
+  return [before, current, after]
+    .filter((part): part is string => part !== undefined && part.length > 0)
+    .join('\n\n');
 }
 
 async function validateVersionedNotes(

@@ -7,6 +7,7 @@ import {
   AGENT_TOOL_GUIDE,
   AgentBudgetError,
   AgentScopeError,
+  requestAgentPlan,
   runAgentLoop,
   type AgentLoopRequest,
   type AgentLoopRuntime,
@@ -57,6 +58,74 @@ function runtime(decisions: AgentDecision[]): AgentLoopRuntime {
 }
 
 describe('in-app agent loop', () => {
+  it('constrains LM Studio plans without changing other providers', async () => {
+    const { aiTransport } = await import('@/lib/adapters');
+    const request = vi.spyOn(aiTransport, 'request').mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary: 'Inspect safely',
+                steps: [
+                  {
+                    description: 'Check the current note.',
+                    expectedTools: ['read_note'],
+                    noteIds: ['note-1'],
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      }),
+    });
+    const lmStudio: ResolvedProvider = {
+      definition: providerById('lmstudio')!,
+      baseUrl: 'http://localhost:1234/v1',
+      apiKey: null,
+      model: 'lfm2.5-2.6b-mlx',
+    };
+
+    await requestAgentPlan({
+      provider: lmStudio,
+      instruction: 'Inspect this note.',
+      scope: { kind: 'selection', noteIds: ['note-1'] },
+      scopeContext: 'note-1 — Example',
+      language: 'English',
+    });
+
+    const lmStudioBody = JSON.parse(String(request.mock.calls[0]?.[0].body)) as {
+      messages: { content: string }[];
+      response_format: { type: string; json_schema: { name: string } };
+    };
+    expect(lmStudioBody.response_format).toMatchObject({
+      type: 'json_schema',
+      json_schema: { name: 'notabene_agent_plan' },
+    });
+    expect(lmStudioBody.messages[0]?.content).toContain(
+      'Never emit native function-call syntax',
+    );
+
+    await requestAgentPlan({
+      provider,
+      instruction: 'Inspect this note.',
+      scope: { kind: 'selection', noteIds: ['note-1'] },
+      scopeContext: 'note-1 — Example',
+      language: 'English',
+    });
+    const existingProviderBody = JSON.parse(String(request.mock.calls[1]?.[0].body)) as {
+      messages: { content: string }[];
+      response_format?: unknown;
+    };
+    expect(existingProviderBody).toHaveProperty('response_format');
+    expect(existingProviderBody.messages[0]?.content).not.toContain(
+      'Never emit native function-call syntax',
+    );
+  });
+
   it('documents the exact nullable location contract for every organize move', () => {
     expect(AGENT_TOOL_GUIDE).toContain(
       'moves?: [{ noteId, baseUpdatedAt, courseId: string|null, sectionId: string|null }]',
@@ -112,6 +181,51 @@ describe('in-app agent loop', () => {
       ]),
     );
     expect(result).toMatchObject({ outcomeAchieved: false, toolCalls: 0 });
+  });
+
+  it('keeps long Markdown reads available without duplicating the document tree', async () => {
+    const ending = 'THE END OF THE LONG ARTICLE';
+    const markdown = `${'Long source paragraph. '.repeat(2_000)}${ending}`;
+    let turn = 0;
+    const decisions: AgentLoopRuntime = {
+      decide: vi.fn(async (_request, transcript) => {
+        if (turn++ === 0) {
+          return {
+            action: 'tool' as const,
+            tool: 'read_note' as const,
+            arguments: { noteId: 'note-1' },
+            rationale: 'Read the complete article.',
+          };
+        }
+        const carried = JSON.stringify(transcript);
+        expect(carried).toContain(ending);
+        expect(carried).not.toContain('large-document-tree-marker');
+        return {
+          action: 'done' as const,
+          outcomeAchieved: true,
+          summary: 'The complete article was available.',
+        };
+      }),
+      now: () => 0,
+      newId: () => 'long-read',
+    };
+
+    await expect(
+      runAgentLoop(
+        request({
+          executeTool: async () => ({
+            ok: true,
+            value: {
+              id: 'note-1',
+              markdown,
+              doc: { type: 'doc', content: ['large-document-tree-marker'] },
+            },
+          }),
+        }),
+        {},
+        decisions,
+      ),
+    ).resolves.toMatchObject({ outcomeAchieved: true });
   });
 
   it('enforces token and tool-call ceilings', async () => {

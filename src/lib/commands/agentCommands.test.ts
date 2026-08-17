@@ -153,6 +153,44 @@ describe('agent command boundary', () => {
     ]);
   });
 
+  it('treats repeated planned tool names as capabilities, not call counts', () => {
+    const record = run({ kind: 'library' });
+    record.plan.steps = [
+      {
+        description: 'Check the note.',
+        expectedTools: ['read_note'],
+        noteIds: [],
+      },
+      {
+        description: 'Use what was checked.',
+        expectedTools: ['read_note', 'create_note'],
+        noteIds: [],
+      },
+    ];
+    record.calls = [
+      {
+        id: 'read-once',
+        tool: 'read_note',
+        arguments: { noteId: 'note-1' },
+        rationale: 'Check it once.',
+        status: 'succeeded',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      },
+      {
+        id: 'create-once',
+        tool: 'create_note',
+        arguments: { title: 'Copy' },
+        rationale: 'Create the result.',
+        status: 'succeeded',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      },
+    ];
+
+    expect(missingSuccessfulPlanTools(record.plan, record.calls)).toEqual([]);
+  });
+
   it('rejects notes and global structures outside a selected-note scope', async () => {
     const first = await createNoteCommand({ title: 'In scope' });
     const second = await createNoteCommand({ title: 'Outside' });
@@ -165,6 +203,19 @@ describe('agent command boundary', () => {
     ).resolves.toMatchObject({ ok: false, code: 'scope_denied' });
     await expect(
       executeAgentTool(record, 'create_course', { name: 'Not allowed' }, signal),
+    ).resolves.toMatchObject({ ok: false, code: 'scope_denied' });
+    await expect(
+      executeAgentTool(
+        record,
+        'create_note',
+        {
+          copyFrom: {
+            noteId: second.value.id,
+            baseUpdatedAt: second.value.updatedAt,
+          },
+        },
+        signal,
+      ),
     ).resolves.toMatchObject({ ok: false, code: 'scope_denied' });
   });
 

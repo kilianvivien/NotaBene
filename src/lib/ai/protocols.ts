@@ -34,6 +34,13 @@ export interface AiCall {
   /** Ask the provider to constrain output to JSON where it can. Not a
    * substitute for parsing — every response still goes through Zod. */
   json: boolean;
+  /** A provider may use this to constrain structured output. It remains
+   * optional because most providers already handle `json_object` reliably,
+   * and changing their wire contract would risk a needless regression. */
+  jsonSchema?: {
+    name: string;
+    schema: Record<string, unknown>;
+  };
   stream: boolean;
 }
 
@@ -114,12 +121,28 @@ function openAiRequest(call: AiCall): AiRequest {
       messages: call.messages,
       [tokenField]: call.maxTokens,
       ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
-      ...(call.json && quirks.jsonMode !== false
-        ? { response_format: { type: 'json_object' } }
-        : {}),
+      ...openAiResponseFormat(call),
       ...(call.stream ? { stream: true } : {}),
     }),
   };
+}
+
+function openAiResponseFormat(call: AiCall): Record<string, unknown> {
+  if (!call.json) return {};
+  const quirks = call.provider.definition.quirks ?? {};
+  if (quirks.jsonSchemaMode && call.jsonSchema) {
+    return {
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: call.jsonSchema.name,
+          strict: true,
+          schema: call.jsonSchema.schema,
+        },
+      },
+    };
+  }
+  return quirks.jsonMode === false ? {} : { response_format: { type: 'json_object' } };
 }
 
 // -- Gemini ------------------------------------------------------------------

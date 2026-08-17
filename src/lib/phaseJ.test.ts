@@ -67,6 +67,23 @@ describe('task tools', () => {
     expect((await library.getTask(task.id))?.title).toBe('Essay, revised');
   });
 
+  it('extends task details without making the caller resend them', async () => {
+    const task = await createTask({ title: 'Essay', details: 'Draft the argument.' });
+
+    const updated = await call('update_task', {
+      taskId: task.id,
+      baseUpdatedAt: task.updatedAt,
+      prependDetails: 'Read the primary source.',
+      appendDetails: 'Proofread the citations.',
+    });
+
+    expect(updated.ok).toBe(true);
+    if (!updated.ok) return;
+    expect((updated.value as Task).details).toBe(
+      'Read the primary source.\n\nDraft the argument.\n\nProofread the citations.',
+    );
+  });
+
   it('moves a task to recoverable Trash and restores it, through one tool', async () => {
     const task = await createTask({ title: 'Essay' });
 
