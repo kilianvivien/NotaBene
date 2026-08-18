@@ -20,6 +20,10 @@
   note the same way a PDF or a DOCX does. The page is contacted only when you
   ask; images are not saved with it.
 
+This release updates the library schema from version 5 to 7 for tasks and
+task reminders. Existing libraries are migrated automatically when they are
+opened.
+
 ## NotaBene 0.7.5
 
 - **Read and annotate PDFs without leaving NotaBene.** PDF attachments now open

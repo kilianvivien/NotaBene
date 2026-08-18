@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.7.5"><img alt="Latest release: 0.7.5" src="https://img.shields.io/badge/release-0.7.5-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.0"><img alt="Latest release: 0.8.0" src="https://img.shields.io/badge/release-0.8.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,8 +24,8 @@
 
 ## Download
 
-Download **[NotaBene 0.7.5 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.7.5/NotaBene_0.7.5_aarch64.dmg)**.
+Download **[NotaBene 0.8.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.8.0/NotaBene_0.8.0_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
@@ -58,6 +58,7 @@ and control over your own data. NotaBene is being built so you do not have to.
 | Attachments with in-app preview       | Search across notes and commands     | On-device or hosted neural voices | No account, no telemetry      |
 | Import PDF, Word, and slides as notes | Convert an attachment in place       | Optional AI layout for a handout  | Documents converted on-device |
 | Select many notes and act on them all | Merge several notes into one         | Study tools read the whole set    | Nothing leaves without asking |
+| Tasks, subtasks, and reminders        | Link tasks and notes both ways        | Repeating coursework rolls ahead  | No background service         |
 
 ### An editor you can actually take notes in
 
@@ -99,6 +100,12 @@ Build a library from **courses → sections → notes**, then cut across that
 hierarchy with namespaced tags such as `topic:`, `prof:`, `semester:`, `exam:`,
 and `type:`. Templates make recurring note formats quick to start, while wiki
 links and backlinks connect ideas across classes.
+
+Tasks live beside the notes they belong to. Give an assignment a deadline,
+priority, reminder, subtasks, and a course; link it to its source note or place
+it inline in your prose as a live status chip. Repeating tasks roll forward one
+occurrence at a time, and reminders missed while the app was closed arrive
+together the next time it opens.
 
 ### Work on a whole stack of notes
 
@@ -204,8 +211,8 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 0.7.5** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.7.5).
+**NotaBene 0.8.0** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.0).
 Everything described above is built and working.
 
 Two things are deliberately not done yet: the app is **not** signed with an
