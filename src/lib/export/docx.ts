@@ -2,23 +2,37 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  EndnoteReferenceRun,
   ExternalHyperlink,
+  Footer,
+  FootnoteReferenceRun,
+  Header,
   HeadingLevel,
   ImageRun,
   Math as DocxMath,
   MathRun,
   Packer,
+  PageBreak,
+  PageNumber,
   Paragraph,
   Table,
   TableCell,
   TableLayoutType,
   TableRow,
+  TableOfContents,
   TextRun,
   WidthType,
   type FileChild,
   type ParagraphChild,
 } from 'docx';
 import type { DocNode, Note } from '@/lib/schema';
+import { documentNoteReferences } from '@/lib/longForm/notes';
+import {
+  manuscriptLabel,
+  nextHeadingNumber,
+  type ManuscriptExportOptions,
+  type SectionNumberState,
+} from '@/lib/export/manuscript';
 
 const TRANSPARENT_PNG = Uint8Array.from(
   atob(
@@ -41,15 +55,32 @@ function nodeText(node: DocNode): string {
   return (node.content ?? []).map(nodeText).join('');
 }
 
-function inlineRuns(node: DocNode): ParagraphChild[] {
+interface DocxBuildContext {
+  references: ReadonlyMap<DocNode, { id: number; kind: 'footnote' | 'endnote' }>;
+  manuscript?: ManuscriptExportOptions;
+  numbering?: SectionNumberState;
+  language?: string;
+}
+
+function inlineRuns(node: DocNode, context?: DocxBuildContext): ParagraphChild[] {
   if (node.type === 'wikiLink') return [new TextRun(String(node.attrs?.title ?? ''))];
   if (node.type === 'taskRef') {
     return [new TextRun(`☐ ${String(node.attrs?.label ?? '')}`)];
   }
+  if (node.type === 'footnote') {
+    const reference = context?.references.get(node);
+    if (!reference) return [];
+    return [
+      reference.kind === 'endnote'
+        ? (new EndnoteReferenceRun(reference.id) as unknown as ParagraphChild)
+        : new FootnoteReferenceRun(reference.id),
+    ];
+  }
   if (node.type === 'math') {
     return [new DocxMath({ children: [new MathRun(String(node.attrs?.latex ?? ''))] })];
   }
-  if (node.type !== 'text') return (node.content ?? []).flatMap(inlineRuns);
+  if (node.type !== 'text')
+    return (node.content ?? []).flatMap((child) => inlineRuns(child, context));
   const options = {
     text: node.text ?? '',
     bold: node.marks?.some((mark) => mark.type === 'bold'),
@@ -79,11 +110,11 @@ function inlineRuns(node: DocNode): ParagraphChild[] {
     : [new TextRun(options)];
 }
 
-function paragraphRuns(node: DocNode): ParagraphChild[] {
+function paragraphRuns(node: DocNode, context?: DocxBuildContext): ParagraphChild[] {
   return (node.content ?? []).flatMap((child) =>
     child.type === 'paragraph'
-      ? (child.content ?? []).flatMap(inlineRuns)
-      : inlineRuns(child),
+      ? (child.content ?? []).flatMap((inline) => inlineRuns(inline, context))
+      : inlineRuns(child, context),
   );
 }
 
@@ -148,18 +179,38 @@ async function imageParagraph(
 async function blocks(
   nodes: DocNode[],
   assetData: ReadonlyMap<string, { bytes: Uint8Array; mime: string }>,
+  context?: DocxBuildContext,
 ): Promise<Array<Paragraph | Table>> {
   const result: Array<Paragraph | Table> = [];
   for (const node of nodes) {
     const image = await imageParagraph(node, assetData);
     if (image) {
       result.push(image);
+      const caption = String(node.attrs?.caption ?? node.attrs?.title ?? '');
+      if (caption || context?.manuscript?.numberFigures) {
+        if (context?.manuscript?.numberFigures && context.numbering) {
+          context.numbering.figure += 1;
+        }
+        const prefix =
+          context?.manuscript?.numberFigures && context.numbering
+            ? `${manuscriptLabel('figure', context.language)} ${context.numbering.figure}`
+            : '';
+        result.push(
+          new Paragraph({
+            text: [prefix, caption].filter(Boolean).join('. '),
+            style: 'Caption',
+            alignment: AlignmentType.CENTER,
+          }),
+        );
+      }
       continue;
     }
     switch (node.type) {
       case 'paragraph':
         result.push(
-          new Paragraph({ children: (node.content ?? []).flatMap(inlineRuns) }),
+          new Paragraph({
+            children: (node.content ?? []).flatMap((child) => inlineRuns(child, context)),
+          }),
         );
         break;
       case 'heading': {
@@ -171,10 +222,24 @@ async function blocks(
           HeadingLevel.HEADING_5,
           HeadingLevel.HEADING_6,
         ];
+        const sourceLevel = Math.min(6, Math.max(1, Number(node.attrs?.level ?? 1)));
+        const displayLevel = Math.min(
+          6,
+          sourceLevel + (context?.manuscript?.enabled ? 1 : 0),
+        );
+        const number =
+          context?.manuscript?.enabled &&
+          context.manuscript.numberSections &&
+          context.numbering
+            ? `${nextHeadingNumber(context.numbering, sourceLevel)} `
+            : '';
         result.push(
           new Paragraph({
-            heading: levels[Math.min(5, Math.max(0, Number(node.attrs?.level ?? 1) - 1))],
-            children: (node.content ?? []).flatMap(inlineRuns),
+            heading: levels[displayLevel - 1],
+            children: [
+              ...(number ? [new TextRun({ text: number, bold: true })] : []),
+              ...(node.content ?? []).flatMap((child) => inlineRuns(child, context)),
+            ],
           }),
         );
         break;
@@ -194,7 +259,7 @@ async function blocks(
               : [];
           result.push(
             new Paragraph({
-              children: [...prefix, ...paragraphRuns(item)],
+              children: [...prefix, ...paragraphRuns(item, context)],
               bullet: node.type === 'bulletList' ? { level: 0 } : undefined,
               numbering:
                 node.type === 'orderedList'
@@ -210,7 +275,7 @@ async function blocks(
       case 'blockquote':
         result.push(
           new Paragraph({
-            children: paragraphRuns(node),
+            children: paragraphRuns(node, context),
             indent: { left: 360 },
             border: {
               left: {
@@ -266,7 +331,7 @@ async function blocks(
                         ],
                         spacing: { after: 80 },
                       }),
-                      ...(await blocks(node.content ?? [], assetData)),
+                      ...(await blocks(node.content ?? [], assetData, context)),
                     ],
                   }),
                 ],
@@ -289,7 +354,7 @@ async function blocks(
                 bold: true,
                 color: 'A8602D',
               }),
-              ...paragraphRuns(node),
+              ...paragraphRuns(node, context),
             ],
             indent: { left: 260 },
             spacing: { before: 100, after: 120 },
@@ -318,6 +383,19 @@ async function blocks(
         );
         break;
       case 'table':
+        if (
+          context?.manuscript?.enabled &&
+          context.manuscript.numberFigures &&
+          context.numbering
+        ) {
+          context.numbering.table += 1;
+          result.push(
+            new Paragraph({
+              text: `${manuscriptLabel('table', context.language)} ${context.numbering.table}`,
+              style: 'Caption',
+            }),
+          );
+        }
         result.push(
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
@@ -334,7 +412,7 @@ async function blocks(
                         margins: { top: 90, bottom: 90, left: 110, right: 110 },
                         children: [
                           new Paragraph({
-                            children: paragraphRuns(cell),
+                            children: paragraphRuns(cell, context),
                             run: { bold: cell.type === 'tableHeader' },
                           }),
                         ],
@@ -369,19 +447,102 @@ async function blocks(
 export async function notesToDocx(
   notes: Note[],
   assetData: ReadonlyMap<string, { bytes: Uint8Array; mime: string }>,
+  options: {
+    includeToc?: boolean;
+    language?: string;
+    manuscript?: ManuscriptExportOptions;
+  } = {},
 ): Promise<Blob> {
   const children: FileChild[] = [];
+  const manuscript = options.manuscript?.enabled ? options.manuscript : undefined;
+  const title = manuscript?.title.trim() || notes[0]?.title || 'Untitled manuscript';
+  const footnotes: Record<string, { children: Paragraph[] }> = {};
+  const endnotes: Record<string, { children: Paragraph[] }> = {};
+  let footnoteId = 0;
+  let endnoteId = 0;
+  const referencesByNote = new Map<string, DocxBuildContext['references']>();
   for (const note of notes) {
+    const references = new Map<DocNode, { id: number; kind: 'footnote' | 'endnote' }>();
+    for (const reference of documentNoteReferences(note.doc)) {
+      const id = reference.kind === 'endnote' ? ++endnoteId : ++footnoteId;
+      references.set(reference.node, { id, kind: reference.kind });
+      const target = reference.kind === 'endnote' ? endnotes : footnotes;
+      target[String(id)] = { children: [new Paragraph(reference.note)] };
+    }
+    referencesByNote.set(note.id, references);
+  }
+
+  if (manuscript) {
+    children.push(
+      new Paragraph({ heading: HeadingLevel.TITLE, text: title }),
+      ...(manuscript.subtitle
+        ? [
+            new Paragraph({
+              text: manuscript.subtitle,
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 120, after: 240 },
+            }),
+          ]
+        : []),
+      new Paragraph({
+        text: manuscript.author,
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 360 },
+      }),
+      new Paragraph({ children: [new PageBreak()] }),
+    );
+  }
+
+  if (options.includeToc) {
     children.push(
       new Paragraph({
         heading: HeadingLevel.TITLE,
-        text: note.title || 'Untitled note',
-        pageBreakBefore: children.length > 0,
+        text: manuscriptLabel('contents', options.language),
       }),
-      ...(await blocks(note.doc.content, assetData)),
+      new TableOfContents(manuscriptLabel('contents', options.language), {
+        hyperlink: true,
+        headingStyleRange: '1-6',
+      }),
+      new Paragraph({ children: [new PageBreak()] }),
     );
   }
+
+  let manuscriptFigure = 0;
+  let manuscriptTable = 0;
+  for (const [index, note] of notes.entries()) {
+    const chapter = index + 1;
+    const numbering = manuscript
+      ? {
+          chapter,
+          headings: [],
+          figure: manuscriptFigure,
+          table: manuscriptTable,
+        }
+      : undefined;
+    children.push(
+      new Paragraph({
+        heading: manuscript ? HeadingLevel.HEADING_1 : HeadingLevel.TITLE,
+        text: `${manuscript?.numberSections ? `${chapter} ` : ''}${
+          note.title || 'Untitled note'
+        }`,
+        pageBreakBefore: index > 0,
+      }),
+      ...(await blocks(note.doc.content, assetData, {
+        references: referencesByNote.get(note.id) ?? new Map(),
+        manuscript,
+        numbering,
+        language: options.language,
+      })),
+    );
+    manuscriptFigure = numbering?.figure ?? manuscriptFigure;
+    manuscriptTable = numbering?.table ?? manuscriptTable;
+  }
   const document = new Document({
+    title,
+    creator: 'NotaBene',
+    footnotes,
+    endnotes,
+    features: { updateFields: true },
     styles: {
       default: {
         document: {
@@ -429,6 +590,31 @@ export async function notesToDocx(
       {
         properties: {
           page: { margin: { top: 960, right: 1080, bottom: 1080, left: 1080 } },
+          titlePage: Boolean(manuscript),
+        },
+        headers: manuscript
+          ? {
+              first: new Header({ children: [] }),
+              default: new Header({
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [new TextRun(manuscript.runningHead || title)],
+                  }),
+                ],
+              }),
+            }
+          : undefined,
+        footers: {
+          first: manuscript ? new Footer({ children: [] }) : undefined,
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ children: [PageNumber.CURRENT] })],
+              }),
+            ],
+          }),
         },
         children,
       },

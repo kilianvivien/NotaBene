@@ -7,6 +7,126 @@
   line-height: var(--nb-editor-leading);
 }
 
+.nb-long-form-layout {
+  max-width: calc(var(--nb-editor-measure) + 19rem);
+}
+
+.nb-document-map {
+  position: sticky;
+  top: 28px;
+  width: 14rem;
+  max-height: calc(100cqh - 56px);
+  margin-top: 36px;
+  padding: 9px;
+  overflow: auto;
+  flex: 0 0 14rem;
+  color: var(--nb-text-3);
+  font-size: 11px;
+}
+
+.nb-document-map-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 7px;
+  color: var(--nb-text-2);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+}
+
+.nb-document-map-title button,
+.nb-document-map-target,
+.nb-document-map-grip {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--nb-radius-xs);
+  color: inherit;
+  background: transparent;
+}
+
+.nb-document-map-title button {
+  width: 22px;
+  height: 22px;
+}
+
+.nb-document-map-title button:hover,
+.nb-document-map-target:hover,
+.nb-document-map-grip:hover {
+  color: var(--nb-text);
+  background: var(--nb-hover);
+}
+
+.nb-document-map-note-target {
+  margin: -2px 4px 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.nb-document-map ol {
+  display: grid;
+  gap: 1px;
+}
+
+.nb-document-map li {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  border-radius: var(--nb-radius-xs);
+}
+
+.nb-document-map li.is-dragging {
+  opacity: 0.4;
+}
+
+.nb-document-map-grip {
+  width: 14px;
+  height: 24px;
+  cursor: grab;
+}
+
+.nb-document-map-link {
+  min-width: 0;
+  padding: 5px 3px;
+  overflow: hidden;
+  border: 0;
+  color: var(--nb-text-2);
+  background: transparent;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nb-document-map-link:hover {
+  color: var(--nb-text);
+}
+
+.nb-document-map-target {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.nb-document-map-progress {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  left: 17px;
+  height: 1px;
+  overflow: hidden;
+  background: var(--nb-active);
+}
+
+.nb-document-map-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--nb-accent);
+}
+
 /* Toolbar and find bar share one sticky row: the find bar belongs beside the
    formatting controls, not floating in its own strip above them. */
 .nb-editor-bar {
@@ -228,6 +348,30 @@
 
 .nb-prosemirror p {
   margin: 0.65em 0;
+}
+
+.nb-footnote {
+  margin: 0 1px;
+  vertical-align: super;
+  font-size: 0.7em;
+  line-height: 0;
+}
+
+.nb-footnote button {
+  min-width: 1.25em;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  color: var(--nb-accent);
+  background: color-mix(in srgb, var(--nb-accent) 10%, transparent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.nb-footnote[data-kind='endnote'] button {
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
 }
 
 .nb-prosemirror h1,
@@ -1249,6 +1393,12 @@ html[data-focus='true'][data-focus-look='typewriter'] .nb-editor-page::before {
   .nb-editor-page {
     padding-right: 20px;
     padding-left: 20px;
+  }
+}
+
+@container (max-width: 760px) {
+  .nb-document-map {
+    display: none;
   }
 }
 

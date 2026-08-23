@@ -11,6 +11,7 @@ import {
   Pilcrow,
   Sigma,
   Table2,
+  Superscript,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -98,6 +99,18 @@ export function SlashMenu({ editor, state, close, run }: SlashMenuProps) {
           action: () => run('math'),
         },
         {
+          id: 'footnote',
+          label: t('longForm.footnote'),
+          icon: Superscript,
+          action: () => run('footnote'),
+        },
+        {
+          id: 'endnote',
+          label: t('longForm.endnote'),
+          icon: Superscript,
+          action: () => run('endnote'),
+        },
+        {
           id: 'table',
           label: t('menu.table'),
           icon: Table2,
@@ -139,7 +152,8 @@ export function SlashMenu({ editor, state, close, run }: SlashMenuProps) {
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
         setActive(
-          (current) => (current - 1 + Math.max(items.length, 1)) % Math.max(items.length, 1),
+          (current) =>
+            (current - 1 + Math.max(items.length, 1)) % Math.max(items.length, 1),
         );
       } else if (event.key === 'Enter') {
         event.preventDefault();

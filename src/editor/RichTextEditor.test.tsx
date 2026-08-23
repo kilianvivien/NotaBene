@@ -28,4 +28,20 @@ describe('RichTextEditor change tracking', () => {
 
     await waitFor(() => expect(onChange).toHaveBeenCalled());
   });
+
+  it('preserves externally applied document metadata on the next edit', async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<RichTextEditor doc={doc} onChange={onChange} />);
+    await screen.findByText('Original');
+
+    const targeted: NoteDoc = { ...doc, attrs: { writingTarget: 250 } };
+    rerender(<RichTextEditor doc={targeted} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Bulleted list' }));
+
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ attrs: { writingTarget: 250 } }),
+      ),
+    );
+  });
 });

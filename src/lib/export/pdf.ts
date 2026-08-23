@@ -20,6 +20,13 @@ import type {
 } from 'pdfmake/interfaces';
 import { svgSize } from '@/lib/mindmap/svg';
 import type { DocNode, Note } from '@/lib/schema';
+import { documentNoteReferences, type DocumentNoteReference } from '@/lib/longForm/notes';
+import {
+  manuscriptLabel,
+  nextHeadingNumber,
+  type ManuscriptExportOptions,
+  type SectionNumberState,
+} from '@/lib/export/manuscript';
 
 pdfMake.addVirtualFileSystem(pdfFonts);
 
@@ -57,12 +64,26 @@ function printableSvg(svg: string): string {
   return svg.replace(/<svg\b/i, `<svg${attributes}`);
 }
 
-function inline(node: DocNode): ContentText[] {
+interface PdfBuildContext {
+  references: ReadonlyMap<DocNode, DocumentNoteReference>;
+  manuscript?: ManuscriptExportOptions;
+  numbering?: SectionNumberState;
+  includeToc: boolean;
+  language?: string;
+}
+
+function inline(node: DocNode, context?: PdfBuildContext): ContentText[] {
   if (node.type === 'wikiLink') {
     return [{ text: String(node.attrs?.title ?? ''), color: COLORS.accent }];
   }
   if (node.type === 'taskRef') {
     return [{ text: `☐ ${String(node.attrs?.label ?? '')}`, color: COLORS.accent }];
+  }
+  if (node.type === 'footnote') {
+    const reference = context?.references.get(node);
+    return reference
+      ? [{ text: String(reference.number), sup: true, color: COLORS.accent }]
+      : [];
   }
   if (node.type === 'math') {
     return [
@@ -73,7 +94,8 @@ function inline(node: DocNode): ContentText[] {
       },
     ];
   }
-  if (node.type !== 'text') return (node.content ?? []).flatMap(inline);
+  if (node.type !== 'text')
+    return (node.content ?? []).flatMap((child) => inline(child, context));
 
   const marks = node.marks ?? [];
   const decorations: Array<'lineThrough' | 'underline'> = [];
@@ -98,19 +120,19 @@ function inline(node: DocNode): ContentText[] {
   return [result];
 }
 
-function paragraphContent(node: DocNode): Content {
+function paragraphContent(node: DocNode, context?: PdfBuildContext): Content {
   return {
-    text: (node.content ?? []).flatMap(inline),
+    text: (node.content ?? []).flatMap((child) => inline(child, context)),
     margin: [0, 0, 0, 7],
   };
 }
 
-function listItem(node: DocNode): Content {
-  const content = blocks(node.content ?? []);
+function listItem(node: DocNode, context?: PdfBuildContext): Content {
+  const content = blocks(node.content ?? [], new Map(), context);
   return content.length === 1 ? content[0]! : { stack: content };
 }
 
-function callout(node: DocNode): Content {
+function callout(node: DocNode, context?: PdfBuildContext): Content {
   const kind = String(node.attrs?.kind ?? 'info');
   const palette =
     kind === 'warn'
@@ -129,7 +151,7 @@ function callout(node: DocNode): Content {
         characterSpacing: 0.7,
         margin: [0, 0, 0, 5],
       },
-      ...blocks(node.content ?? []),
+      ...blocks(node.content ?? [], new Map(), context),
     ],
     fillColor: palette.fill,
     border: [true, false, false, false] as [boolean, boolean, boolean, boolean],
@@ -157,31 +179,43 @@ function callout(node: DocNode): Content {
 function blocks(
   nodes: DocNode[],
   assetUrls: ReadonlyMap<string, string> = new Map(),
+  context?: PdfBuildContext,
 ): Content[] {
   const result: Content[] = [];
   for (const node of nodes) {
     switch (node.type) {
       case 'paragraph':
-        result.push(paragraphContent(node));
+        result.push(paragraphContent(node, context));
         break;
       case 'heading': {
         const level = Math.min(3, Math.max(1, Number(node.attrs?.level ?? 1)));
+        const number =
+          context?.manuscript?.enabled &&
+          context.manuscript.numberSections &&
+          context.numbering
+            ? `${nextHeadingNumber(context.numbering, level)} `
+            : '';
         result.push({
-          text: (node.content ?? []).flatMap(inline),
-          style: `heading${level}`,
-        });
+          text: [
+            ...(number ? [{ text: number, bold: true } as ContentText] : []),
+            ...(node.content ?? []).flatMap((child) => inline(child, context)),
+          ],
+          style: `heading${Math.min(3, level + (context?.manuscript?.enabled ? 1 : 0))}`,
+          tocItem: context?.manuscript?.enabled && context.includeToc,
+          outline: context?.manuscript?.enabled,
+        } as Content);
         break;
       }
       case 'bulletList':
         result.push({
-          ul: (node.content ?? []).map(listItem),
+          ul: (node.content ?? []).map((item) => listItem(item, context)),
           margin: [13, 0, 0, 8],
           markerColor: COLORS.accent,
         });
         break;
       case 'orderedList':
         result.push({
-          ol: (node.content ?? []).map(listItem),
+          ol: (node.content ?? []).map((item) => listItem(item, context)),
           start: Number(node.attrs?.start ?? 1),
           margin: [13, 0, 0, 8],
           markerColor: COLORS.accent,
@@ -192,7 +226,7 @@ function blocks(
           ul: (node.content ?? []).map((item) => ({
             text: [
               { text: item.attrs?.checked ? '☑  ' : '☐  ', color: COLORS.accent },
-              ...inline(item),
+              ...inline(item, context),
             ],
           })),
           type: 'none',
@@ -200,7 +234,7 @@ function blocks(
         });
         break;
       case 'callout':
-        result.push(callout(node));
+        result.push(callout(node, context));
         break;
       case 'blockquote':
         result.push({
@@ -209,7 +243,7 @@ function blocks(
             body: [
               [
                 {
-                  stack: blocks(node.content ?? []),
+                  stack: blocks(node.content ?? [], assetUrls, context),
                   border: [true, false, false, false],
                   borderColor: ['#AAA59D', '#AAA59D', '#AAA59D', '#AAA59D'],
                   color: '#57534E',
@@ -237,7 +271,7 @@ function blocks(
               color: COLORS.accent,
               margin: [0, 0, 0, 4],
             },
-            ...blocks(node.content ?? []),
+            ...blocks(node.content ?? [], assetUrls, context),
           ],
           margin: [10, 5, 0, 8],
         });
@@ -263,6 +297,18 @@ function blocks(
       case 'table': {
         const rows = node.content ?? [];
         const columnCount = Math.max(1, ...rows.map((row) => row.content?.length ?? 0));
+        if (
+          context?.manuscript?.enabled &&
+          context.manuscript.numberFigures &&
+          context.numbering
+        ) {
+          context.numbering.table += 1;
+          result.push({
+            text: `${manuscriptLabel('table', context.language)} ${context.numbering.table}`,
+            style: 'caption',
+            alignment: 'left',
+          });
+        }
         result.push({
           table: {
             headerRows: rows[0]?.content?.some((cell) => cell.type === 'tableHeader')
@@ -273,7 +319,7 @@ function blocks(
               (row.content ?? []).map(
                 (cell) =>
                   ({
-                    stack: blocks(cell.content ?? []),
+                    stack: blocks(cell.content ?? [], assetUrls, context),
                     bold: cell.type === 'tableHeader',
                     fillColor: cell.type === 'tableHeader' ? COLORS.surface : undefined,
                   }) as TableCell,
@@ -303,9 +349,17 @@ function blocks(
             alignment: 'center',
             margin: [0, 5, 0, 4],
           });
-          if (node.attrs?.caption) {
+          if (node.attrs?.caption || context?.manuscript?.numberFigures) {
+            if (context?.manuscript?.numberFigures && context.numbering) {
+              context.numbering.figure += 1;
+            }
+            const prefix =
+              context?.manuscript?.numberFigures && context.numbering
+                ? `${manuscriptLabel('figure', context.language)} ${context.numbering.figure}`
+                : '';
+            const caption = String(node.attrs?.caption ?? '');
             result.push({
-              text: String(node.attrs.caption),
+              text: [prefix, caption].filter(Boolean).join('. '),
               style: 'caption',
             });
           }
@@ -323,8 +377,18 @@ function blocks(
             alignment: 'center',
             margin: [0, 5, 0, 4],
           });
-          if (node.attrs?.title) {
-            result.push({ text: String(node.attrs.title), style: 'caption' });
+          if (node.attrs?.title || context?.manuscript?.numberFigures) {
+            if (context?.manuscript?.numberFigures && context.numbering) {
+              context.numbering.figure += 1;
+            }
+            const prefix =
+              context?.manuscript?.numberFigures && context.numbering
+                ? `${manuscriptLabel('figure', context.language)} ${context.numbering.figure}`
+                : '';
+            result.push({
+              text: [prefix, String(node.attrs?.title ?? '')].filter(Boolean).join('. '),
+              style: 'caption',
+            });
           }
         }
         break;
@@ -395,18 +459,72 @@ export interface PdfMetadata {
   updated?: string;
 }
 
+export interface PdfExportOptions {
+  includeToc?: boolean;
+  language?: string;
+  manuscript?: ManuscriptExportOptions;
+}
+
 export function pdfDocumentDefinition(
   notes: Note[],
   assetUrls: ReadonlyMap<string, string>,
   metadata: ReadonlyMap<string, PdfMetadata> = new Map(),
-  options: { includeToc?: boolean; language?: string } = {},
+  options: PdfExportOptions = {},
 ): TDocumentDefinitions {
   const content: Content[] = [];
-  if (options.includeToc && notes.length > 1) {
+  const manuscript = options.manuscript?.enabled ? options.manuscript : undefined;
+  const title = manuscript?.title.trim() || notes[0]?.title || 'Untitled manuscript';
+  let manuscriptFigure = 0;
+  let manuscriptTable = 0;
+
+  let footnoteNumber = 0;
+  let endnoteNumber = 0;
+  const referencesByNote = new Map(
+    notes.map((note) => [
+      note.id,
+      documentNoteReferences(note.doc).map((reference) => ({
+        ...reference,
+        number: reference.kind === 'endnote' ? ++endnoteNumber : ++footnoteNumber,
+        id: `${reference.kind === 'endnote' ? 'en' : 'fn'}-${
+          reference.kind === 'endnote' ? endnoteNumber : footnoteNumber
+        }`,
+      })),
+    ]),
+  );
+
+  if (manuscript) {
+    content.push(
+      {
+        text: title,
+        style: 'title',
+        alignment: 'center',
+        margin: [0, 180, 0, 12],
+      },
+      ...(manuscript.subtitle
+        ? [
+            {
+              text: manuscript.subtitle,
+              fontSize: 15,
+              alignment: 'center' as const,
+              color: COLORS.muted,
+              margin: [0, 0, 0, 24] as [number, number, number, number],
+            },
+          ]
+        : []),
+      {
+        text: manuscript.author || ' ',
+        alignment: 'center',
+        margin: [0, 30, 0, 0],
+        pageBreak: 'after',
+      },
+    );
+  }
+
+  if (options.includeToc && (Boolean(manuscript) || notes.length > 1)) {
     content.push({
       toc: {
         title: {
-          text: options.language?.startsWith('fr') ? 'Sommaire' : 'Contents',
+          text: manuscriptLabel('contents', options.language),
           style: 'title',
         },
         textStyle: { color: COLORS.text },
@@ -414,23 +532,87 @@ export function pdfDocumentDefinition(
         outlines: true,
       },
       margin: [0, 0, 0, 12],
+      pageBreak: manuscript ? 'after' : undefined,
     });
   }
+  const manuscriptEndnotes: Array<{ reference: DocumentNoteReference; chapter: number }> =
+    [];
   notes.forEach((note, index) => {
     const details = metadata.get(note.id);
     const detailLine = [details?.course, details?.updated].filter(Boolean).join(' · ');
+    const chapterNumber = index + 1;
+    const chapterTitle = `${
+      manuscript?.numberSections ? `${chapterNumber} ` : ''
+    }${note.title || 'Untitled note'}`;
     content.push({
-      text: note.title || 'Untitled note',
-      style: 'title',
+      text: manuscript ? chapterTitle : note.title || 'Untitled note',
+      style: manuscript ? 'heading1' : 'title',
       pageBreak:
-        index > 0 || (options.includeToc && notes.length > 1) ? 'before' : undefined,
-      tocItem: options.includeToc && notes.length > 1,
+        index > 0 || (!manuscript && options.includeToc && notes.length > 1)
+          ? 'before'
+          : undefined,
+      tocItem: options.includeToc && (Boolean(manuscript) || notes.length > 1),
       outline: true,
-      outlineText: note.title || 'Untitled note',
+      outlineText: chapterTitle,
     });
-    if (detailLine) content.push({ text: detailLine, style: 'metadata' });
-    content.push(...blocks(note.doc.content, assetUrls));
+    if (detailLine && !manuscript) content.push({ text: detailLine, style: 'metadata' });
+    const references = referencesByNote.get(note.id) ?? [];
+    const numbering = manuscript
+      ? {
+          chapter: chapterNumber,
+          headings: [],
+          figure: manuscriptFigure,
+          table: manuscriptTable,
+        }
+      : undefined;
+    const context: PdfBuildContext = {
+      references: new Map(references.map((reference) => [reference.node, reference])),
+      manuscript,
+      numbering,
+      includeToc: Boolean(options.includeToc),
+      language: options.language,
+    };
+    content.push(...blocks(note.doc.content, assetUrls, context));
+    manuscriptFigure = numbering?.figure ?? manuscriptFigure;
+    manuscriptTable = numbering?.table ?? manuscriptTable;
+    const footnotes = references.filter((reference) => reference.kind === 'footnote');
+    if (footnotes.length) {
+      content.push(
+        {
+          text: manuscriptLabel('footnotes', options.language),
+          style: 'heading3',
+        },
+        {
+          ol: footnotes.map((reference) => ({ text: reference.note })),
+          start: footnotes[0]?.number,
+          fontSize: 8.5,
+          color: COLORS.muted,
+        },
+      );
+    }
+    for (const reference of references) {
+      if (reference.kind === 'endnote') {
+        manuscriptEndnotes.push({ reference, chapter: chapterNumber });
+      }
+    }
   });
+  if (manuscriptEndnotes.length) {
+    content.push(
+      {
+        text: manuscriptLabel('endnotes', options.language),
+        style: 'heading1',
+        pageBreak: 'before',
+        tocItem: Boolean(options.includeToc),
+        outline: true,
+      },
+      {
+        ol: manuscriptEndnotes.map(({ reference, chapter }) => ({
+          text: `${manuscript && notes.length > 1 ? `[${chapter}] ` : ''}${reference.note}`,
+        })),
+        fontSize: 9,
+      },
+    );
+  }
   return {
     pageSize: 'A4',
     pageMargins: [54, 48, 54, 54],
@@ -443,11 +625,21 @@ export function pdfDocumentDefinition(
     },
     styles,
     info: {
-      title: notes.length === 1 ? notes[0]?.title : 'NotaBene notes',
+      title: manuscript ? title : notes.length === 1 ? notes[0]?.title : 'NotaBene notes',
+      author: manuscript?.author || undefined,
       creator: 'NotaBene',
     },
+    header: manuscript
+      ? (currentPage) => ({
+          text: currentPage === 1 ? '' : manuscript.runningHead || title,
+          alignment: 'center',
+          color: COLORS.muted,
+          fontSize: 8,
+          margin: [54, 20, 54, 0],
+        })
+      : undefined,
     footer: (currentPage, pageCount) => ({
-      text: `${currentPage} / ${pageCount}`,
+      text: manuscript && currentPage === 1 ? '' : `${currentPage} / ${pageCount}`,
       alignment: 'center',
       color: COLORS.muted,
       fontSize: 8,
@@ -460,7 +652,7 @@ export function notesToPdf(
   notes: Note[],
   assetUrls: ReadonlyMap<string, string>,
   metadata: ReadonlyMap<string, PdfMetadata> = new Map(),
-  options: { includeToc?: boolean; language?: string } = {},
+  options: PdfExportOptions = {},
 ): Promise<Blob> {
   return pdfMake
     .createPdf(pdfDocumentDefinition(notes, assetUrls, metadata, options))

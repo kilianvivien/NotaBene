@@ -4,6 +4,7 @@ import {
   Dialog,
   FieldNote,
   FieldRow,
+  FieldSection,
   FieldToggle,
   GlassButton,
   GlassSelect,
@@ -13,6 +14,10 @@ import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import type { AppSettings } from '@/lib/adapters';
+import {
+  DEFAULT_MANUSCRIPT_OPTIONS,
+  type ManuscriptExportOptions,
+} from '@/lib/export/manuscript';
 
 export function ExportDialog() {
   const { t, i18n } = useTranslation();
@@ -27,6 +32,9 @@ export function ExportDialog() {
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState('');
   const [failed, setFailed] = useState(false);
+  const [manuscript, setManuscript] = useState<ManuscriptExportOptions>(
+    DEFAULT_MANUSCRIPT_OPTIONS,
+  );
 
   const ids =
     scope === 'view'
@@ -47,8 +55,9 @@ export function ExportDialog() {
     setFailed(false);
     const result = await exportNotesCommand(ids, {
       ...preset,
-      layout: preset.format === 'pdf' ? 'combined' : preset.layout,
+      layout: preset.format === 'pdf' || manuscript.enabled ? 'combined' : preset.layout,
       language: i18n.language,
+      manuscript,
     });
     setWorking(false);
     if (result.ok) {
@@ -66,7 +75,7 @@ export function ExportDialog() {
 
   // PDF goes through the system print sheet, which has no concept of a file
   // per note. Saying so beats a select that silently ignores what you picked.
-  const layoutLocked = preset.format === 'pdf';
+  const layoutLocked = preset.format === 'pdf' || manuscript.enabled;
 
   return (
     <Dialog
@@ -120,7 +129,13 @@ export function ExportDialog() {
 
       <FieldRow
         label={t('export.layout')}
-        hint={layoutLocked ? t('export.layoutPdfHint') : undefined}
+        hint={
+          layoutLocked
+            ? manuscript.enabled
+              ? t('export.layoutManuscriptHint')
+              : t('export.layoutPdfHint')
+            : undefined
+        }
       >
         <GlassSelect
           label={t('export.layout')}
@@ -145,6 +160,69 @@ export function ExportDialog() {
           onChange={(includeToc) => setPreset({ includeToc })}
         />
       </FieldRow>
+
+      {(preset.format === 'pdf' || preset.format === 'docx') && (
+        <FieldSection
+          title={t('export.manuscript')}
+          description={t('export.manuscriptHint')}
+          collapsible
+          defaultOpen={manuscript.enabled}
+        >
+          <FieldRow label={t('export.manuscriptMode')} align="end">
+            <FieldToggle
+              label={t('export.manuscriptMode')}
+              checked={manuscript.enabled}
+              onChange={(enabled) => setManuscript((value) => ({ ...value, enabled }))}
+            />
+          </FieldRow>
+          {manuscript.enabled && (
+            <>
+              {(
+                [
+                  ['title', 'manuscriptTitle'],
+                  ['subtitle', 'manuscriptSubtitle'],
+                  ['author', 'manuscriptAuthor'],
+                  ['runningHead', 'runningHead'],
+                ] as const
+              ).map(([field, label]) => (
+                <FieldRow key={field} label={t(`export.${label}`)}>
+                  <input
+                    value={manuscript[field]}
+                    onChange={(event) =>
+                      setManuscript((value) => ({
+                        ...value,
+                        [field]: event.target.value,
+                      }))
+                    }
+                    placeholder={
+                      field === 'title' ? t('export.titleFromFirstChapter') : undefined
+                    }
+                    className="h-8 rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2.5 text-[13px] outline-none focus:ring-2 focus:ring-[var(--nb-accent-ring)]"
+                  />
+                </FieldRow>
+              ))}
+              <FieldRow label={t('export.numberSections')} align="end">
+                <FieldToggle
+                  label={t('export.numberSections')}
+                  checked={manuscript.numberSections}
+                  onChange={(numberSections) =>
+                    setManuscript((value) => ({ ...value, numberSections }))
+                  }
+                />
+              </FieldRow>
+              <FieldRow label={t('export.numberFigures')} align="end">
+                <FieldToggle
+                  label={t('export.numberFigures')}
+                  checked={manuscript.numberFigures}
+                  onChange={(numberFigures) =>
+                    setManuscript((value) => ({ ...value, numberFigures }))
+                  }
+                />
+              </FieldRow>
+            </>
+          )}
+        </FieldSection>
+      )}
 
       <FieldNote>{t('export.noteCount', { count: ids.length })}</FieldNote>
       {message && <FieldNote tone={failed ? 'danger' : 'muted'}>{message}</FieldNote>}

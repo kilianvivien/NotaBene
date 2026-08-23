@@ -29,6 +29,7 @@ import { SlashMenu, type SlashState } from './SlashMenu';
 import { WikiLinkMenu, type WikiLinkState } from './WikiLinkMenu';
 import { FindReplaceBar } from './FindReplaceBar';
 import { markdownToDoc } from './markdown';
+import { newId } from '@/lib/schema';
 import './editor.css';
 
 interface RichTextEditorProps {
@@ -45,6 +46,8 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
+  const docRef = useRef(doc);
+  docRef.current = doc;
   const [slash, setSlash] = useState<SlashState | null>(null);
   const [wikiLink, setWikiLink] = useState<WikiLinkState | null>(null);
   const taskPickerOpen = useUiStore((state) => state.taskPickerOpen);
@@ -224,7 +227,13 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
       },
     },
     onUpdate({ editor: current }) {
-      onChange(current.getJSON() as NoteDoc);
+      const next = current.getJSON() as NoteDoc;
+      const externalAttrs = docRef.current.attrs;
+      onChange(
+        externalAttrs
+          ? { ...next, attrs: { ...(next.attrs ?? {}), ...externalAttrs } }
+          : next,
+      );
     },
     onTransaction() {
       refresh((value) => value + 1);
@@ -330,6 +339,29 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
             .chain()
             .focus()
             .insertContent({ type: 'mathBlock', attrs: { latex } })
+            .run();
+        }
+        case 'footnote':
+        case 'endnote': {
+          const note = await ask({
+            title:
+              command === 'endnote'
+                ? t('longForm.endnotePrompt')
+                : t('longForm.footnotePrompt'),
+            value: '',
+          });
+          if (note === null || !note.trim()) return false;
+          return current
+            .chain()
+            .focus()
+            .insertContent({
+              type: 'footnote',
+              attrs: {
+                id: newId(),
+                kind: command === 'endnote' ? 'endnote' : 'footnote',
+                note: note.trim(),
+              },
+            })
             .run();
         }
         case 'link': {

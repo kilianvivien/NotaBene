@@ -10,6 +10,39 @@ import {
 } from './index';
 
 describe('library import', () => {
+  it('round-trips long-form document metadata without a library schema migration', () => {
+    const library = emptyLibrary();
+    library.notes.push(
+      createNote({
+        doc: {
+          type: 'doc',
+          attrs: { writingTarget: 12_000 },
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'Claim' },
+                {
+                  type: 'footnote',
+                  attrs: { id: 'source', kind: 'footnote', note: 'Source text' },
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    const result = safeImportLibrary(library);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.library.schemaVersion).toBe(SCHEMA_VERSION);
+      expect(result.library.notes[0]?.doc.attrs).toEqual({ writingTarget: 12_000 });
+      expect(result.library.notes[0]?.doc.content[0]?.content?.[1]?.type).toBe(
+        'footnote',
+      );
+    }
+  });
+
   it('round-trips an empty library', () => {
     const result = safeImportLibrary(emptyLibrary());
     expect(result.ok).toBe(true);

@@ -54,6 +54,10 @@ function walk(node: DocNode, out: string[]): void {
     const label = node.attrs?.label;
     if (typeof label === 'string' && label) out.push(label);
   }
+  if (node.type === 'footnote') {
+    const note = node.attrs?.note;
+    if (typeof note === 'string' && note) out.push(` ${note} `);
+  }
   if (node.type === 'image') {
     const caption = node.attrs?.caption;
     const alt = node.attrs?.alt;
@@ -89,7 +93,10 @@ const FEATURE_NODE_TYPES: Record<'image' | 'drawing' | 'table', string[]> = {
 };
 
 /** Backs the `has:image` / `has:drawing` / `has:table` search filters. */
-export function docHasFeature(doc: NoteDoc, feature: 'image' | 'drawing' | 'table'): boolean {
+export function docHasFeature(
+  doc: NoteDoc,
+  feature: 'image' | 'drawing' | 'table',
+): boolean {
   const wanted = new Set(FEATURE_NODE_TYPES[feature]);
   const stack: DocNode[] = [...doc.content];
   while (stack.length > 0) {

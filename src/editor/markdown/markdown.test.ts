@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { docToMarkdown, markdownToDoc } from '.';
 
 describe('editor Markdown', () => {
+  it('round-trips footnotes and endnotes without flattening their semantics', () => {
+    const markdown =
+      'Claim[^fn-1] and coda[^en-1].\n\n[^fn-1]: Source note\n[^en-1]: Closing note';
+    const parsed = markdownToDoc(markdown);
+    const references = parsed.content[0]?.content?.filter(
+      (node) => node.type === 'footnote',
+    );
+    expect(references?.map((node) => node.attrs)).toEqual([
+      { id: 'fn-1', kind: 'footnote', note: 'Source note' },
+      { id: 'en-1', kind: 'endnote', note: 'Closing note' },
+    ]);
+    expect(docToMarkdown(parsed)).toBe(markdown);
+  });
+
   /**
    * Inserting the task-chip alternative into the inline pattern shifted every
    * capture group after it, so this pins the whole inline vocabulary rather

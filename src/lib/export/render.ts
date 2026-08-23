@@ -1,5 +1,6 @@
 import katex from 'katex';
 import type { DocNode, NoteDoc } from '@/lib/schema';
+import { documentNoteReferences } from '@/lib/longForm/notes';
 
 /**
  * KaTeX's default output writes the equation twice — once as visually hidden
@@ -22,6 +23,7 @@ code{font-family:"SFMono-Regular",Consolas,monospace;background:#f3f1ed;border-r
 table{border-collapse:collapse;width:100%;margin:1em 0}th,td{border:1px solid #ccc;padding:.45em .6em;text-align:left}
 img,svg{display:block;max-width:100%;height:auto;margin:1em auto}figcaption{text-align:center;color:#777;font-size:.85rem}
 .note{break-after:page}.note:last-child{break-after:auto}.metadata{color:#777;font-size:.85rem}.toc a{text-decoration:none}
+.note-ref{font-size:.72em;vertical-align:super}.note-ref a{text-decoration:none}.document-notes{border-top:1px solid #ccc;margin-top:2em;font-size:.88rem}.document-notes h2{font-size:1.1rem}.document-notes li{margin:.35em 0}.note-back{text-decoration:none}
 @page{margin:18mm 16mm 20mm}@media print{body{max-width:none;padding:0}.note{break-after:page}}
 `;
 
@@ -34,7 +36,12 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", '&#39;');
 }
 
-function inlineHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): string {
+interface HtmlContext {
+  assetUrls: ReadonlyMap<string, string>;
+  notes: ReadonlyMap<DocNode, ReturnType<typeof documentNoteReferences>[number]>;
+}
+
+function inlineHtml(node: DocNode, context: HtmlContext): string {
   if (node.type === 'wikiLink') {
     return `<span class="wiki-link">${escapeHtml(node.attrs?.title)}</span>`;
   }
@@ -43,6 +50,11 @@ function inlineHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): stri
   // would be a promise the document cannot keep.
   if (node.type === 'taskRef') {
     return `<span class="task-ref">☐ ${escapeHtml(node.attrs?.label)}</span>`;
+  }
+  if (node.type === 'footnote') {
+    const reference = context.notes.get(node);
+    if (!reference) return '';
+    return `<sup class="note-ref ${reference.kind}" id="ref-${reference.id}"><a href="#${reference.id}" aria-label="${escapeHtml(reference.kind)} ${reference.number}">${reference.number}</a></sup>`;
   }
   if (node.type === 'math') {
     try {
@@ -54,9 +66,9 @@ function inlineHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): stri
       return `<code>${escapeHtml(node.attrs?.latex)}</code>`;
     }
   }
-  if (node.type === 'image') return blockHtml(node, assetUrls);
+  if (node.type === 'image') return blockHtml(node, context);
   if (node.type !== 'text') {
-    return (node.content ?? []).map((child) => inlineHtml(child, assetUrls)).join('');
+    return (node.content ?? []).map((child) => inlineHtml(child, context)).join('');
   }
 
   let value = escapeHtml(node.text);
@@ -90,13 +102,13 @@ function inlineHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): stri
   return value;
 }
 
-function childrenHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): string {
-  return (node.content ?? []).map((child) => blockHtml(child, assetUrls)).join('');
+function childrenHtml(node: DocNode, context: HtmlContext): string {
+  return (node.content ?? []).map((child) => blockHtml(child, context)).join('');
 }
 
-function blockHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): string {
+function blockHtml(node: DocNode, context: HtmlContext): string {
   const inline = () =>
-    (node.content ?? []).map((child) => inlineHtml(child, assetUrls)).join('');
+    (node.content ?? []).map((child) => inlineHtml(child, context)).join('');
   switch (node.type) {
     case 'paragraph':
       return `<p>${inline() || '<br>'}</p>`;
@@ -107,11 +119,11 @@ function blockHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): strin
     case 'horizontalRule':
       return '<hr>';
     case 'blockquote':
-      return `<blockquote>${childrenHtml(node, assetUrls)}</blockquote>`;
+      return `<blockquote>${childrenHtml(node, context)}</blockquote>`;
     case 'callout':
-      return `<aside class="callout"><div class="callout-label">${escapeHtml(node.attrs?.kind ?? 'info')}</div>${childrenHtml(node, assetUrls)}</aside>`;
+      return `<aside class="callout"><div class="callout-label">${escapeHtml(node.attrs?.kind ?? 'info')}</div>${childrenHtml(node, context)}</aside>`;
     case 'toggle':
-      return `<details open><summary>${escapeHtml(node.attrs?.summary ?? 'Details')}</summary>${childrenHtml(node, assetUrls)}</details>`;
+      return `<details open><summary>${escapeHtml(node.attrs?.summary ?? 'Details')}</summary>${childrenHtml(node, context)}</details>`;
     case 'codeBlock':
       return `<pre><code class="language-${escapeHtml(node.attrs?.language)}">${escapeHtml((node.content ?? []).map((child) => child.text ?? '').join(''))}</code></pre>`;
     case 'mathBlock': {
@@ -126,16 +138,16 @@ function blockHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): strin
       }
     }
     case 'bulletList':
-      return `<ul>${(node.content ?? []).map((item) => `<li>${childrenHtml(item, assetUrls)}</li>`).join('')}</ul>`;
+      return `<ul>${(node.content ?? []).map((item) => `<li>${childrenHtml(item, context)}</li>`).join('')}</ul>`;
     case 'orderedList':
-      return `<ol start="${Number(node.attrs?.start ?? 1)}">${(node.content ?? []).map((item) => `<li>${childrenHtml(item, assetUrls)}</li>`).join('')}</ol>`;
+      return `<ol start="${Number(node.attrs?.start ?? 1)}">${(node.content ?? []).map((item) => `<li>${childrenHtml(item, context)}</li>`).join('')}</ol>`;
     case 'taskList':
-      return `<ul class="tasks">${(node.content ?? []).map((item) => `<li>${item.attrs?.checked ? '☑' : '☐'} ${childrenHtml(item, assetUrls)}</li>`).join('')}</ul>`;
+      return `<ul class="tasks">${(node.content ?? []).map((item) => `<li>${item.attrs?.checked ? '☑' : '☐'} ${childrenHtml(item, context)}</li>`).join('')}</ul>`;
     case 'listItem':
     case 'taskItem':
     case 'tableCell':
     case 'tableHeader':
-      return childrenHtml(node, assetUrls);
+      return childrenHtml(node, context);
     case 'table':
       return `<table>${(node.content ?? [])
         .map(
@@ -143,14 +155,14 @@ function blockHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): strin
             `<tr>${(row.content ?? [])
               .map((cell) => {
                 const tag = cell.type === 'tableHeader' ? 'th' : 'td';
-                return `<${tag}>${childrenHtml(cell, assetUrls)}</${tag}>`;
+                return `<${tag}>${childrenHtml(cell, context)}</${tag}>`;
               })
               .join('')}</tr>`,
         )
         .join('')}</table>`;
     case 'image': {
       const id = String(node.attrs?.assetId ?? '');
-      const source = assetUrls.get(id);
+      const source = context.assetUrls.get(id);
       if (!source) return `<p>[${escapeHtml(node.attrs?.caption ?? 'Image')}]</p>`;
       return `<figure><img src="${escapeHtml(source)}" alt="${escapeHtml(node.attrs?.alt ?? node.attrs?.caption)}"><figcaption>${escapeHtml(node.attrs?.caption)}</figcaption></figure>`;
     }
@@ -163,15 +175,34 @@ function blockHtml(node: DocNode, assetUrls: ReadonlyMap<string, string>): strin
         : `<p>[${escapeHtml(node.attrs?.title ?? fallback)}]</p>`;
     }
     default:
-      return childrenHtml(node, assetUrls);
+      return childrenHtml(node, context);
   }
 }
 
 export function docToSemanticHtml(
   doc: NoteDoc,
   assetUrls: ReadonlyMap<string, string> = new Map(),
+  options: { language?: string; idPrefix?: string } = {},
 ): string {
-  return doc.content.map((node) => blockHtml(node, assetUrls)).join('');
+  const references = documentNoteReferences(doc).map((reference) => ({
+    ...reference,
+    id: `${options.idPrefix ?? ''}${reference.id}`,
+  }));
+  const context: HtmlContext = {
+    assetUrls,
+    notes: new Map(references.map((reference) => [reference.node, reference])),
+  };
+  const body = doc.content.map((node) => blockHtml(node, context)).join('');
+  const noteSection = (kind: 'footnote' | 'endnote', title: string) => {
+    const notes = references.filter((reference) => reference.kind === kind);
+    if (!notes.length) return '';
+    const back = options.language?.startsWith('fr')
+      ? 'Retour à l’appel'
+      : 'Back to reference';
+    return `<section class="document-notes ${kind}s"><h2>${title}</h2><ol>${notes.map((reference) => `<li id="${reference.id}" value="${reference.number}">${escapeHtml(reference.note)} <a class="note-back" href="#ref-${reference.id}" aria-label="${back}">↩</a></li>`).join('')}</ol></section>`;
+  };
+  const french = options.language?.startsWith('fr');
+  return `${body}${noteSection('footnote', french ? 'Notes de bas de page' : 'Footnotes')}${noteSection('endnote', french ? 'Notes de fin' : 'Endnotes')}`;
 }
 
 export function completeHtmlDocument(

@@ -9,6 +9,7 @@ import {
   Italic,
   Link2,
   List,
+  ListTree,
   ListOrdered,
   Loader2,
   MessageSquareWarning,
@@ -21,6 +22,7 @@ import {
   Table2,
   Underline as UnderlineIcon,
   Volume2,
+  Superscript,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +30,7 @@ import type { EditorCommand } from './commandBridge';
 import { useSpeechStore } from '@/lib/state/speechStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { cn } from '@/lib/utils/cn';
+import { useUiStore } from '@/lib/state/uiStore';
 
 interface ToolbarProps {
   editor: Editor;
@@ -155,6 +158,8 @@ export function Toolbar({ editor, run }: ToolbarProps) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const documentMapVisible = useUiStore((state) => state.documentMapVisible);
+  const toggleDocumentMap = useUiStore((state) => state.toggleDocumentMap);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -166,6 +171,14 @@ export function Toolbar({ editor, run }: ToolbarProps) {
   }, [moreOpen]);
 
   const extraActions = [
+    {
+      label: t(
+        documentMapVisible ? 'longForm.hideDocumentMap' : 'longForm.showDocumentMap',
+      ),
+      icon: ListTree,
+      action: toggleDocumentMap,
+      active: documentMapVisible,
+    },
     {
       label: t('editor.bulletList'),
       icon: List,
@@ -208,6 +221,16 @@ export function Toolbar({ editor, run }: ToolbarProps) {
       action: () => run('callout'),
     },
     { label: t('menu.math'), icon: Sigma, action: () => run('math') },
+    {
+      label: t('longForm.footnote'),
+      icon: Superscript,
+      action: () => run('footnote'),
+    },
+    {
+      label: t('longForm.endnote'),
+      icon: Superscript,
+      action: () => run('endnote'),
+    },
     { label: t('menu.table'), icon: Table2, action: () => run('table') },
     { label: t('menu.image'), icon: Image, action: () => run('image') },
     { label: t('menu.drawing'), icon: PencilRuler, action: () => run('drawing') },

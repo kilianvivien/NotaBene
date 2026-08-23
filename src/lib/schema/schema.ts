@@ -51,6 +51,8 @@ export const DocNodeSchema: z.ZodType<DocNode> = z.lazy(() =>
 
 export const NoteDocSchema = z.object({
   type: z.literal('doc'),
+  /** Document-level authoring metadata such as a long-form word target. */
+  attrs: z.record(z.unknown()).optional(),
   content: z.array(DocNodeSchema).default([]),
 });
 export type NoteDoc = z.infer<typeof NoteDocSchema>;

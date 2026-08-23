@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { RichTextEditor } from '@/editor/RichTextEditor';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
+import { DocumentMap } from '@/app/longForm/DocumentMap';
+import { useUiStore } from '@/lib/state/uiStore';
 
 export function EditorPane() {
   const { t } = useTranslation();
@@ -10,6 +12,7 @@ export function EditorPane() {
   const setTitle = useEditorStore((state) => state.setTitle);
   const applyDoc = useEditorStore((state) => state.applyDoc);
   const readOnly = useLibraryAccessStore((state) => state.status?.readOnly === true);
+  const documentMapVisible = useUiStore((state) => state.documentMapVisible);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
   useLayoutEffect(() => {
@@ -32,37 +35,42 @@ export function EditorPane() {
   }
 
   return (
-    <div className="nb-editor-scroll flex flex-1 justify-center overflow-y-auto">
-      <div
-        className="nb-editor-page w-full px-10 pb-28 pt-9"
-        style={{ maxWidth: 'calc(var(--nb-editor-measure) + 5rem)' }}
-      >
-        <textarea
-          ref={titleRef}
-          rows={1}
-          value={note.title}
-          readOnly={readOnly}
-          onChange={(event) => setTitle(event.target.value.replaceAll(/\r?\n/g, ' '))}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            document.querySelector<HTMLElement>('.nb-prosemirror')?.focus();
-          }}
-          placeholder={t('editor.titlePlaceholder')}
-          aria-label={t('editor.titlePlaceholder')}
-          autoComplete="off"
-          className="mb-3 block w-full resize-none bg-transparent font-semibold tracking-[-0.03em] placeholder:text-nb-text-3 focus:outline-none"
-          style={{
-            fontSize: 'var(--nb-editor-title-size)',
-            lineHeight: 1.08,
-          }}
-        />
-        <RichTextEditor
-          key={note.id}
-          doc={note.doc}
-          editable={!readOnly}
-          onChange={applyDoc}
-        />
+    <div className="nb-editor-scroll flex flex-1 overflow-y-auto">
+      <div className="nb-long-form-layout mx-auto flex w-full items-start justify-center">
+        {documentMapVisible && (
+          <DocumentMap doc={note.doc} editable={!readOnly} onChange={applyDoc} />
+        )}
+        <div
+          className="nb-editor-page min-w-0 flex-1 px-10 pb-28 pt-9"
+          style={{ maxWidth: 'calc(var(--nb-editor-measure) + 5rem)' }}
+        >
+          <textarea
+            ref={titleRef}
+            rows={1}
+            value={note.title}
+            readOnly={readOnly}
+            onChange={(event) => setTitle(event.target.value.replaceAll(/\r?\n/g, ' '))}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              document.querySelector<HTMLElement>('.nb-prosemirror')?.focus();
+            }}
+            placeholder={t('editor.titlePlaceholder')}
+            aria-label={t('editor.titlePlaceholder')}
+            autoComplete="off"
+            className="mb-3 block w-full resize-none bg-transparent font-semibold tracking-[-0.03em] placeholder:text-nb-text-3 focus:outline-none"
+            style={{
+              fontSize: 'var(--nb-editor-title-size)',
+              lineHeight: 1.08,
+            }}
+          />
+          <RichTextEditor
+            key={note.id}
+            doc={note.doc}
+            editable={!readOnly}
+            onChange={applyDoc}
+          />
+        </div>
       </div>
     </div>
   );

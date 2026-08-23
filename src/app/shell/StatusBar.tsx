@@ -7,6 +7,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docStats } from '@/lib/notes/docText';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
+import { writingProgress } from '@/lib/longForm/outline';
 
 /** Save state, note stats, and the agent-activity indicator. The save state is
  * load-bearing UI: it is what replaces a Save button.
@@ -31,6 +32,7 @@ export function StatusBar() {
   const access = useLibraryAccessStore((state) => state.status);
 
   const stats = note ? docStats(note.doc) : null;
+  const target = note ? writingProgress(note.doc) : null;
   const elapsed = useElapsed(focusMode ? (session?.startedAt ?? null) : null);
 
   return (
@@ -58,6 +60,23 @@ export function StatusBar() {
             })}
           </span>
           <span>{t('editor.sessionTime', { time: elapsed })}</span>
+        </span>
+      )}
+
+      {target && (
+        <span
+          className="flex items-center gap-1.5 tabular-nums text-[var(--nb-text-2)]"
+          title={t(`longForm.${target.source}Progress`)}
+        >
+          <span>
+            {t('longForm.progress', { words: target.words, target: target.target })}
+          </span>
+          <span className="h-1 w-14 overflow-hidden rounded-full bg-[var(--nb-active)]">
+            <span
+              className="block h-full rounded-full bg-[var(--nb-accent)]"
+              style={{ width: `${Math.min(100, (target.words / target.target) * 100)}%` }}
+            />
+          </span>
         </span>
       )}
 

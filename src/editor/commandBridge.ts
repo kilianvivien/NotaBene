@@ -14,6 +14,8 @@ export type EditorCommand =
   | 'table'
   | 'callout'
   | 'math'
+  | 'footnote'
+  | 'endnote'
   | 'link'
   | 'find';
 

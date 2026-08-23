@@ -32,8 +32,7 @@ export type ViewKind =
    */
   | { kind: 'tasks'; courseId?: string };
 
-export type InspectorTab =
-  'info' | 'tags' | 'versions' | 'links' | 'tasks' | 'ai';
+export type InspectorTab = 'info' | 'tags' | 'versions' | 'links' | 'tasks' | 'ai';
 
 /** Settings sections. Future sections stay addressable while their panes are
  * placeholders, so commands and navigation do not change shape between phases. */
@@ -92,6 +91,9 @@ interface UiState {
   sidebarVisible: boolean;
   noteListVisible: boolean;
   inspectorVisible: boolean;
+  /** Long-form navigation is opt-in so headings do not turn an ordinary note
+   * into a manuscript workspace unless the writer asks for it. */
+  documentMapVisible: boolean;
   inspectorTab: InspectorTab;
   focusMode: boolean;
   /** What to put back on the way out. Null whenever focus mode is off. */
@@ -153,6 +155,7 @@ interface UiState {
   toggleSidebar(): void;
   toggleNoteList(): void;
   toggleInspector(): void;
+  toggleDocumentMap(): void;
   setInspectorTab(tab: InspectorTab): void;
   setFocusMode(on: boolean, startWords?: number): void;
   toggleFocusMode(startWords?: number): void;
@@ -242,6 +245,7 @@ export const useUiStore = create<UiState>()(
     sidebarVisible: true,
     noteListVisible: true,
     inspectorVisible: false,
+    documentMapVisible: false,
     inspectorTab: 'info',
     focusMode: false,
     focusRestore: null,
@@ -408,6 +412,12 @@ export const useUiStore = create<UiState>()(
     toggleInspector() {
       set((state) => {
         state.inspectorVisible = !state.inspectorVisible;
+      });
+    },
+
+    toggleDocumentMap() {
+      set((state) => {
+        state.documentMapVisible = !state.documentMapVisible;
       });
     },
 

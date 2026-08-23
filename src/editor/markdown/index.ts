@@ -1,15 +1,19 @@
 import type { DocNode, NoteDoc } from '@/lib/schema';
 
 type Mark = NonNullable<DocNode['marks']>[number];
+type NoteDefinition = { note: string; kind: 'footnote' | 'endnote' };
 
 function textNode(text: string, marks?: Mark[]): DocNode {
   return marks?.length ? { type: 'text', text, marks } : { type: 'text', text };
 }
 
-function parseInline(source: string): DocNode[] {
+function parseInline(
+  source: string,
+  definitions: ReadonlyMap<string, NoteDefinition> = new Map(),
+): DocNode[] {
   const nodes: DocNode[] = [];
   const pattern =
-    /(\[\[([^|\]]+)(?:\|([^\]]+))?\]\]|\[task:([^|\]]+)\|([^\]]*)\]|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|==([^=]+)==|`([^`]+)`|\$([^$\n]+)\$|\*([^*\n]+)\*|_([^_\n]+)_)/g;
+    /(\[\[([^|\]]+)(?:\|([^\]]+))?\]\]|\[task:([^|\]]+)\|([^\]]*)\]|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|==([^=]+)==|`([^`]+)`|\$([^$\n]+)\$|\*([^*\n]+)\*|_([^_\n]+)_|\[\^([^\]]+)\])/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -36,6 +40,16 @@ function parseInline(source: string): DocNode[] {
       nodes.push(textNode(match[10], [{ type: 'code' }]));
     } else if (match[11]) {
       nodes.push({ type: 'math', attrs: { latex: match[11] } });
+    } else if (match[14]) {
+      const definition = definitions.get(match[14]);
+      if (definition) {
+        nodes.push({
+          type: 'footnote',
+          attrs: { id: match[14], kind: definition.kind, note: definition.note },
+        });
+      } else {
+        nodes.push(textNode(match[0]));
+      }
     } else {
       nodes.push(textNode(match[12] ?? match[13] ?? '', [{ type: 'italic' }]));
     }
@@ -45,8 +59,11 @@ function parseInline(source: string): DocNode[] {
   return nodes;
 }
 
-function paragraph(text: string): DocNode {
-  const content = parseInline(text);
+function paragraph(
+  text: string,
+  definitions?: ReadonlyMap<string, NoteDefinition>,
+): DocNode {
+  const content = parseInline(text, definitions);
   return content.length ? { type: 'paragraph', content } : { type: 'paragraph' };
 }
 
@@ -62,12 +79,22 @@ function cells(line: string): string[] {
     .map((cell) => cell.trim());
 }
 
-function tableCell(value: string, type = 'tableCell'): DocNode {
-  return { type, content: [paragraph(value)] };
+function tableCell(
+  value: string,
+  type = 'tableCell',
+  definitions?: ReadonlyMap<string, NoteDefinition>,
+): DocNode {
+  return { type, content: [paragraph(value, definitions)] };
 }
 
-function parseQuotedBlock(lines: string[], start: number): [DocNode, number] {
-  const marker = lines[start]?.match(/^>\s*\[!(INFO|WARN|IMPORTANT|TOGGLE)(?:\s+([^\]]+))?\]\s*$/i);
+function parseQuotedBlock(
+  lines: string[],
+  start: number,
+  definitions: ReadonlyMap<string, NoteDefinition>,
+): [DocNode, number] {
+  const marker = lines[start]?.match(
+    /^>\s*\[!(INFO|WARN|IMPORTANT|TOGGLE)(?:\s+([^\]]+))?\]\s*$/i,
+  );
   const body: string[] = [];
   let index = start + 1;
   while (index < lines.length && /^>\s?/.test(lines[index] ?? '')) {
@@ -76,13 +103,13 @@ function parseQuotedBlock(lines: string[], start: number): [DocNode, number] {
   }
 
   if (marker) {
-    const nested = markdownToDoc(body.join('\n')).content;
+    const nested = parseMarkdown(body.join('\n'), definitions).content;
     if (marker[1]?.toUpperCase() === 'TOGGLE') {
       return [
         {
           type: 'toggle',
           attrs: { summary: marker[2] ?? 'Details', open: false },
-          content: nested.length ? nested : [paragraph('')],
+          content: nested.length ? nested : [paragraph('', definitions)],
         },
         index,
       ];
@@ -91,21 +118,42 @@ function parseQuotedBlock(lines: string[], start: number): [DocNode, number] {
       {
         type: 'callout',
         attrs: { kind: marker[1]?.toLowerCase() ?? 'info' },
-        content: nested.length ? nested : [paragraph('')],
+        content: nested.length ? nested : [paragraph('', definitions)],
       },
       index,
     ];
   }
 
-  const content = markdownToDoc(
+  const content = parseMarkdown(
     [lines[start]?.replace(/^>\s?/, '') ?? '', ...body].join('\n'),
+    definitions,
   ).content;
   return [{ type: 'blockquote', content }, index];
 }
 
 /** Parse the loss-aware Markdown dialect used by exports and MCP tools. */
 export function markdownToDoc(markdown: string): NoteDoc {
-  const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+  return parseMarkdown(markdown, new Map());
+}
+
+function parseMarkdown(
+  markdown: string,
+  inherited: ReadonlyMap<string, NoteDefinition>,
+): NoteDoc {
+  const definitions = new Map(inherited);
+  const lines = markdown
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .filter((line) => {
+      const definition = line.match(/^\[\^([^\]]+)\]:\s*(.*)$/);
+      if (!definition) return true;
+      const label = definition[1] ?? '';
+      definitions.set(label, {
+        note: definition[2] ?? '',
+        kind: label.startsWith('en-') ? 'endnote' : 'footnote',
+      });
+      return false;
+    });
   const content: DocNode[] = [];
   let index = 0;
 
@@ -182,7 +230,7 @@ export function markdownToDoc(markdown: string): NoteDoc {
       content.push({
         type: 'heading',
         attrs: { level: heading[1]?.length ?? 1 },
-        content: parseInline(heading[2] ?? ''),
+        content: parseInline(heading[2] ?? '', definitions),
       });
       index += 1;
       continue;
@@ -195,7 +243,7 @@ export function markdownToDoc(markdown: string): NoteDoc {
     }
 
     if (line.startsWith('>')) {
-      const [node, next] = parseQuotedBlock(lines, index);
+      const [node, next] = parseQuotedBlock(lines, index, definitions);
       content.push(node);
       index = next;
       continue;
@@ -210,7 +258,7 @@ export function markdownToDoc(markdown: string): NoteDoc {
         items.push({
           type: 'taskItem',
           attrs: { checked: candidate[1]?.toLowerCase() === 'x' },
-          content: [paragraph(candidate[2] ?? '')],
+          content: [paragraph(candidate[2] ?? '', definitions)],
         });
         index += 1;
       }
@@ -231,7 +279,7 @@ export function markdownToDoc(markdown: string): NoteDoc {
         if (!candidate) break;
         items.push({
           type: 'listItem',
-          content: [paragraph(candidate[ordered ? 1 : 1] ?? '')],
+          content: [paragraph(candidate[ordered ? 1 : 1] ?? '', definitions)],
         });
         index += 1;
       }
@@ -246,13 +294,18 @@ export function markdownToDoc(markdown: string): NoteDoc {
     ) {
       const header = cells(line);
       const rows: DocNode[] = [
-        { type: 'tableRow', content: header.map((value) => tableCell(value, 'tableHeader')) },
+        {
+          type: 'tableRow',
+          content: header.map((value) => tableCell(value, 'tableHeader', definitions)),
+        },
       ];
       index += 2;
       while (index < lines.length && (lines[index] ?? '').includes('|')) {
         rows.push({
           type: 'tableRow',
-          content: cells(lines[index] ?? '').map((value) => tableCell(value)),
+          content: cells(lines[index] ?? '').map((value) =>
+            tableCell(value, 'tableCell', definitions),
+          ),
         });
         index += 1;
       }
@@ -272,13 +325,16 @@ export function markdownToDoc(markdown: string): NoteDoc {
       paragraphLines.push(lines[index] ?? '');
       index += 1;
     }
-    content.push(paragraph(paragraphLines.join(' ')));
+    content.push(paragraph(paragraphLines.join(' '), definitions));
   }
 
   return { type: 'doc', content };
 }
 
-function inlineToMarkdown(node: DocNode): string {
+function inlineToMarkdown(
+  node: DocNode,
+  noteLabels: ReadonlyMap<DocNode, string>,
+): string {
   if (node.type === 'wikiLink') {
     const title = String(node.attrs?.title ?? '');
     const id = node.attrs?.noteId;
@@ -291,12 +347,16 @@ function inlineToMarkdown(node: DocNode): string {
     const id = node.attrs?.taskId;
     return id ? `[task:${String(id)}|${label}]` : `☐ ${label}`;
   }
+  if (node.type === 'footnote') return `[^${noteLabels.get(node) ?? 'fn-1'}]`;
   if (node.type === 'math') return `$${String(node.attrs?.latex ?? '')}$`;
   if (node.type === 'image') {
     const caption = String(node.attrs?.caption ?? node.attrs?.alt ?? '');
     return `![${caption}](asset:${String(node.attrs?.assetId ?? '')})`;
   }
-  if (node.type !== 'text') return (node.content ?? []).map(inlineToMarkdown).join('');
+  if (node.type !== 'text')
+    return (node.content ?? [])
+      .map((child) => inlineToMarkdown(child, noteLabels))
+      .join('');
 
   let text = node.text ?? '';
   for (const mark of node.marks ?? []) {
@@ -326,9 +386,14 @@ function inlineToMarkdown(node: DocNode): string {
   return text;
 }
 
-function blockToMarkdown(node: DocNode): string {
-  const inline = () => (node.content ?? []).map(inlineToMarkdown).join('');
-  const nested = () => (node.content ?? []).map(blockToMarkdown).join('\n\n');
+function blockToMarkdown(
+  node: DocNode,
+  noteLabels: ReadonlyMap<DocNode, string>,
+): string {
+  const inline = () =>
+    (node.content ?? []).map((child) => inlineToMarkdown(child, noteLabels)).join('');
+  const nested = () =>
+    (node.content ?? []).map((child) => blockToMarkdown(child, noteLabels)).join('\n\n');
 
   switch (node.type) {
     case 'paragraph':
@@ -362,14 +427,17 @@ function blockToMarkdown(node: DocNode): string {
       return `$$\n${String(node.attrs?.latex ?? '')}\n$$`;
     case 'bulletList':
       return (node.content ?? [])
-        .map((item) => `- ${(item.content ?? []).map(blockToMarkdown).join(' ')}`)
+        .map(
+          (item) =>
+            `- ${(item.content ?? []).map((child) => blockToMarkdown(child, noteLabels)).join(' ')}`,
+        )
         .join('\n');
     case 'orderedList': {
       const start = Number(node.attrs?.start ?? 1);
       return (node.content ?? [])
         .map(
           (item, index) =>
-            `${start + index}. ${(item.content ?? []).map(blockToMarkdown).join(' ')}`,
+            `${start + index}. ${(item.content ?? []).map((child) => blockToMarkdown(child, noteLabels)).join(' ')}`,
         )
         .join('\n');
     }
@@ -378,14 +446,18 @@ function blockToMarkdown(node: DocNode): string {
         .map(
           (item) =>
             `- [${item.attrs?.checked ? 'x' : ' '}] ${(item.content ?? [])
-              .map(blockToMarkdown)
+              .map((child) => blockToMarkdown(child, noteLabels))
               .join(' ')}`,
         )
         .join('\n');
     case 'table': {
       const rows = node.content ?? [];
       const values = rows.map((row) =>
-        (row.content ?? []).map((cell) => (cell.content ?? []).map(blockToMarkdown).join(' ')),
+        (row.content ?? []).map((cell) =>
+          (cell.content ?? [])
+            .map((child) => blockToMarkdown(child, noteLabels))
+            .join(' '),
+        ),
       );
       if (!values.length) return '';
       const width = values[0]?.length ?? 0;
@@ -403,12 +475,36 @@ function blockToMarkdown(node: DocNode): string {
     case 'wikiLink':
     case 'taskRef':
     case 'math':
-      return inlineToMarkdown(node);
+    case 'footnote':
+      return inlineToMarkdown(node, noteLabels);
     default:
       return nested();
   }
 }
 
 export function docToMarkdown(doc: NoteDoc): string {
-  return doc.content.map(blockToMarkdown).filter(Boolean).join('\n\n').trim();
+  const notes: DocNode[] = [];
+  const walk = (node: DocNode) => {
+    if (node.type === 'footnote') notes.push(node);
+    for (const child of node.content ?? []) walk(child);
+  };
+  for (const node of doc.content) walk(node);
+  const labels = new Map<DocNode, string>();
+  let footnote = 0;
+  let endnote = 0;
+  for (const node of notes) {
+    const kind = node.attrs?.kind === 'endnote' ? 'endnote' : 'footnote';
+    const number = kind === 'endnote' ? ++endnote : ++footnote;
+    labels.set(node, `${kind === 'endnote' ? 'en' : 'fn'}-${number}`);
+  }
+  const body = doc.content
+    .map((node) => blockToMarkdown(node, labels))
+    .filter(Boolean)
+    .join('\n\n')
+    .trim();
+  const definitions = notes.map(
+    (node) =>
+      `[^${labels.get(node)}]: ${String(node.attrs?.note ?? '').replaceAll('\n', ' ')}`,
+  );
+  return [body, definitions.join('\n')].filter(Boolean).join('\n\n');
 }

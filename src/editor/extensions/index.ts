@@ -20,6 +20,8 @@ import { AssetImage } from './AssetImage';
 import { AlignedTableCell, AlignedTableHeader } from './AlignedTable';
 import { Abbreviation } from './Abbreviation';
 import { Concentration, type ConcentrationState } from './Concentration';
+import { Footnote } from './Footnote';
+import { LongForm } from './LongForm';
 
 const CONCENTRATION_OFF: ConcentrationState = {
   active: false,
@@ -69,6 +71,8 @@ export function editorExtensions(
     AssetImage,
     Drawing,
     MindMap,
+    Footnote,
+    LongForm,
     Abbreviation.configure({ resolve: resolveAbbreviations }),
     Concentration.configure({ resolve: resolveConcentration }),
   ];

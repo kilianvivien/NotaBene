@@ -6,11 +6,13 @@ import { notesToDocx } from '@/lib/export/docx';
 import type { Course, DocNode, Note, Tag } from '@/lib/schema';
 import { fail, ok, type CommandResult } from './types';
 import { zipFiles as compressFiles } from '@/lib/archive/zip';
+import type { ManuscriptExportOptions } from '@/lib/export/manuscript';
 
 export interface NoteExportOptions {
   format: NoteExportFormat;
   layout: 'combined' | 'separate';
   includeToc: boolean;
+  manuscript?: ManuscriptExportOptions;
   language?: string;
   /** Explicit output path for non-interactive callers such as MCP. When
    * omitted, the UI owns destination selection through the save panel. */
@@ -79,8 +81,8 @@ function markdownBody(
   note: Note,
   assetBlobs: ReadonlyMap<string, Blob>,
 ): { markdown: string; drawings: Map<string, Blob> } {
-  const chunks: string[] = [];
   const drawings = new Map<string, Blob>();
+  let markdown = docToMarkdown(note.doc);
   for (const [index, node] of note.doc.content.entries()) {
     // Drawings and mind maps both carry a rendered SVG. Writing it out as a
     // file and linking to it keeps the Markdown readable — the alternative is
@@ -94,17 +96,19 @@ function markdownBody(
       const path = `assets/${kind}-${slug(note.title, note.id)}-${index + 1}.svg`;
       drawings.set(path, new Blob([node.attrs.svg], { type: 'image/svg+xml' }));
       const label = node.type === 'mindMap' ? 'Mind map' : 'Drawing';
-      chunks.push(`![${String(node.attrs?.title ?? label)}](${path})`);
+      const stored = `\`\`\`notabene-${node.type === 'mindMap' ? 'mindmap' : 'drawing'}\n${JSON.stringify(node.attrs ?? {})}\n\`\`\``;
+      markdown = markdown.replace(
+        stored,
+        `![${String(node.attrs?.title ?? label)}](${path})`,
+      );
       continue;
     }
-    let markdown = docToMarkdown({ type: 'doc', content: [node] });
-    markdown = markdown.replaceAll(/asset:([a-zA-Z0-9]+)/g, (_match, id: string) => {
-      const blob = assetBlobs.get(id);
-      return `assets/${id}.${extensionFor(blob?.type ?? 'application/octet-stream')}`;
-    });
-    if (markdown) chunks.push(markdown);
   }
-  return { markdown: chunks.join('\n\n'), drawings };
+  markdown = markdown.replaceAll(/asset:([a-zA-Z0-9]+)/g, (_match, id: string) => {
+    const blob = assetBlobs.get(id);
+    return `assets/${id}.${extensionFor(blob?.type ?? 'application/octet-stream')}`;
+  });
+  return { markdown, drawings };
 }
 
 function frontmatter(note: Note, courses: Course[], tags: Tag[]): string {
@@ -175,6 +179,7 @@ export async function exportNotesCommand(
       const contents = await notesToPdf(notes, urls, metadata, {
         includeToc: options.includeToc,
         language: options.language,
+        manuscript: options.manuscript,
       });
       const name = `${baseName}.pdf`;
       const destination =
@@ -231,7 +236,7 @@ export async function exportNotesCommand(
         const body = notes
           .map(
             (note) =>
-              `<article class="note" id="note-${htmlText(note.id)}"><h1>${htmlText(note.title || 'Untitled note')}</h1>${docToSemanticHtml(note.doc, urls)}</article>`,
+              `<article class="note" id="note-${htmlText(note.id)}"><h1>${htmlText(note.title || 'Untitled note')}</h1>${docToSemanticHtml(note.doc, urls, { language: options.language, idPrefix: `${note.id}-` })}</article>`,
           )
           .join('');
         const toc =
@@ -258,7 +263,7 @@ export async function exportNotesCommand(
               [
                 completeHtmlDocument(
                   note.title,
-                  `<article><h1>${htmlText(note.title)}</h1>${docToSemanticHtml(note.doc, urls)}</article>`,
+                  `<article><h1>${htmlText(note.title)}</h1>${docToSemanticHtml(note.doc, urls, { language: options.language })}</article>`,
                   { language: options.language },
                 ),
               ],
@@ -276,10 +281,24 @@ export async function exportNotesCommand(
         });
       }
       if (options.layout === 'combined') {
-        files.set(`${baseName}.docx`, await notesToDocx(notes, data));
+        files.set(
+          `${baseName}.docx`,
+          await notesToDocx(notes, data, {
+            includeToc: options.includeToc,
+            language: options.language,
+            manuscript: options.manuscript,
+          }),
+        );
       } else {
         for (const note of notes) {
-          files.set(notePath(note, courses, 'docx'), await notesToDocx([note], data));
+          files.set(
+            notePath(note, courses, 'docx'),
+            await notesToDocx([note], data, {
+              includeToc: options.includeToc,
+              language: options.language,
+              manuscript: options.manuscript,
+            }),
+          );
         }
       }
     }

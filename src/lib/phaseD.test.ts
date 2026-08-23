@@ -3,7 +3,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { createBackupArchive, parseBackupArchive } from '@/lib/backup';
 import { assets } from '@/lib/adapters';
 import { notesToDocx } from '@/lib/export/docx';
-import { notesToPdf } from '@/lib/export/pdf';
+import { notesToPdf, pdfDocumentDefinition } from '@/lib/export/pdf';
 import { docToSemanticHtml } from '@/lib/export/render';
 import { retainedSnapshotIds } from '@/lib/history/retention';
 import { createNote, emptyLibrary, type NoteDoc } from '@/lib/schema';
@@ -24,6 +24,14 @@ const fullVocabulary: NoteDoc = {
       content: [
         { type: 'text', text: '<safe>' },
         { type: 'math', attrs: { latex: 'x^2' } },
+        {
+          type: 'footnote',
+          attrs: { id: 'source', kind: 'footnote', note: 'A source footnote' },
+        },
+        {
+          type: 'footnote',
+          attrs: { id: 'closing', kind: 'endnote', note: 'A closing endnote' },
+        },
       ],
     },
     {
@@ -197,9 +205,14 @@ describe('Phase D versions, backups, and exports', () => {
     expect(html).toContain('<svg');
     expect(html).toContain('katex');
     expect(html).toContain('notabene-pdf:attachment-1?page=7');
+    expect(html).toContain('A source footnote');
+    expect(html).toContain('A closing endnote');
+    expect(html).toContain('class="document-notes footnotes"');
     expect(docToMarkdown(fullVocabulary)).toContain(
       '[Source: research.pdf, p. 7](notabene-pdf:attachment-1?page=7)',
     );
+    expect(docToMarkdown(fullVocabulary)).toContain('[^fn-1]: A source footnote');
+    expect(docToMarkdown(fullVocabulary)).toContain('[^en-1]: A closing endnote');
   });
 
   it('builds a DOCX containing tables, math, drawings, and rich text', async () => {
@@ -209,6 +222,8 @@ describe('Phase D versions, backups, and exports', () => {
     const document = strFromU8(files['word/document.xml']!);
     const styles = strFromU8(files['word/styles.xml']!);
     const relationships = strFromU8(files['word/_rels/document.xml.rels']!);
+    const footnotes = strFromU8(files['word/footnotes.xml']!);
+    const endnotes = strFromU8(files['word/endnotes.xml']!);
 
     expect(document).toContain('<w:tbl>');
     expect(document).toContain('<m:oMath>');
@@ -219,6 +234,66 @@ describe('Phase D versions, backups, and exports', () => {
     expect(document).toContain('FAEFF3');
     expect(styles).toContain('Arial');
     expect(relationships).toContain('https://example.com');
+    expect(document).toContain('w:footnoteReference');
+    expect(document).toContain('w:endnoteReference');
+    expect(footnotes).toContain('A source footnote');
+    expect(endnotes).toContain('A closing endnote');
+  });
+
+  it('builds selected notes as numbered manuscript chapters with a TOC and running head', async () => {
+    const first = createNote({ title: 'Opening', doc: fullVocabulary });
+    const second = createNote({
+      title: 'Conclusion',
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'heading',
+            attrs: { level: 1 },
+            content: [{ type: 'text', text: 'Results' }],
+          },
+        ],
+      },
+    });
+    const manuscript = {
+      enabled: true,
+      title: 'Thesis',
+      subtitle: 'A local-first study',
+      author: 'Student Author',
+      runningHead: 'THESIS',
+      numberSections: true,
+      numberFigures: true,
+    };
+    const blob = await notesToDocx([first, second], new Map(), {
+      includeToc: true,
+      language: 'en',
+      manuscript,
+    });
+    const files = unzipSync(new Uint8Array(await bytes(blob)));
+    const document = strFromU8(files['word/document.xml']!);
+    const headers = Object.entries(files)
+      .filter(([path]) => /^word\/header\d+\.xml$/.test(path))
+      .map(([, bytes]) => strFromU8(bytes))
+      .join('');
+    expect(document).toContain('Thesis');
+    expect(document).toContain('1 Opening');
+    expect(document).toContain('2 Conclusion');
+    expect(document).toContain('2.1 ');
+    expect(document).toContain('Results');
+    expect(document).toContain('TOC');
+    expect(headers).toContain('THESIS');
+
+    const definition = pdfDocumentDefinition([first, second], new Map(), new Map(), {
+      includeToc: true,
+      language: 'en',
+      manuscript,
+    });
+    const content = JSON.stringify(definition.content);
+    expect(content).toContain('Thesis');
+    expect(content).toContain('1 Opening');
+    expect(content).toContain('2.1 ');
+    expect(content).toContain('Results');
+    expect(content).toContain('Contents');
   });
 
   /**
