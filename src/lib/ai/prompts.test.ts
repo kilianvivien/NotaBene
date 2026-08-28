@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { askPrompt, reformatPrompt, synthesisPrompt } from './prompts';
+import {
+  askPrompt,
+  diagramPrompt,
+  mermaidRepairPrompt,
+  reformatPrompt,
+  synthesisPrompt,
+} from './prompts';
 
 describe('Import reformatting prompt', () => {
   const prompt = reformatPrompt({
@@ -122,5 +128,62 @@ describe('Ask prompt scope rules', () => {
     });
     expect(windowed[0]?.content).toContain('marked truncated');
     expect(windowed[0]?.content).toContain('truncated="true"');
+  });
+});
+
+describe('Diagram prompt', () => {
+  const prompt = diagramPrompt({
+    title: 'Cellular respiration',
+    markdown: '# Glycolysis\n\nGlucose becomes pyruvate.',
+    language: 'en',
+  });
+
+  /**
+   * The constraint the whole feature rests on. Only these three convert to
+   * Excalidraw elements; anything else is rasterised into the scene and stops
+   * being editable, which is the reason for routing through Excalidraw at all.
+   */
+  it('confines the model to the kinds that stay editable', () => {
+    const content = prompt[0]?.content ?? '';
+    expect(content).toContain('"flowchart"');
+    expect(content).toContain('"sequence"');
+    expect(content).not.toContain('"class"');
+    expect(content).toContain('Use no other Mermaid diagram type');
+  });
+
+  it('asks for relations rather than the outline the student already has', () => {
+    const content = prompt[0]?.content ?? '';
+    expect(content).toContain('relations');
+    expect(content).toContain('A box per heading');
+  });
+
+  it('refuses a code fence, which would break the parser downstream', () => {
+    expect(prompt[0]?.content).toContain('Do not wrap it in a code fence');
+  });
+
+  it('passes the note through with its title', () => {
+    expect(prompt[1]?.content).toContain('<note title="Cellular respiration">');
+    expect(prompt[1]?.content).toContain('Glucose becomes pyruvate.');
+  });
+});
+
+describe('Mermaid repair prompt', () => {
+  const previous = diagramPrompt({ title: 'T', markdown: 'body', language: 'en' });
+  const repair = mermaidRepairPrompt(
+    previous,
+    '{"kind":"flowchart"}',
+    'Parse error on line 2',
+  );
+
+  it('keeps the original exchange so the model can see what it was asked', () => {
+    expect(repair.slice(0, previous.length)).toEqual(previous);
+  });
+
+  it('shows the model its own answer and names the parser error', () => {
+    expect(repair.at(-2)).toEqual({
+      role: 'assistant',
+      content: '{"kind":"flowchart"}',
+    });
+    expect(repair.at(-1)?.content).toContain('Parse error on line 2');
   });
 });

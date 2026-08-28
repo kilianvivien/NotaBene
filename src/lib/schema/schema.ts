@@ -587,6 +587,39 @@ export type AiFlashcardsResponse = z.infer<typeof AiFlashcardsResponseSchema>;
  * A second near-identical schema would only be somewhere for the two to drift.
  */
 export const AiMindMapResponseSchema = MindMapSchema;
+
+/**
+ * The Mermaid diagram types that survive as *drawings*.
+ *
+ * `mermaid-to-excalidraw` turns flowcharts and sequence diagrams into real
+ * Excalidraw elements; every other type it renders to a raster image and drops
+ * into the scene as a single `image` element. An image cannot be edited,
+ * rearranged or recoloured afterwards, which is the whole reason for going
+ * through Excalidraw rather than rendering Mermaid ourselves.
+ *
+ * Measured, not taken on trust: Excalidraw's own dialog claims class diagrams
+ * are supported, and in 2.2.2 they are not — a class diagram rasterises like a
+ * gantt chart. Verify against the converter before adding a type here.
+ *
+ * This enum is only the first guard. `mermaidToDrawing` checks the property
+ * that actually matters — that the scene came back editable — because a model
+ * can label a gantt chart "flowchart" and this would not notice.
+ */
+export const DIAGRAM_KINDS = ['flowchart', 'sequence'] as const;
+export type DiagramKind = (typeof DIAGRAM_KINDS)[number];
+
+/**
+ * Unlike a mind map, the model's answer here is not itself the artefact: the
+ * Mermaid source is an intermediate the converter still has to accept. This
+ * schema is the first of two gates — it checks the envelope, and
+ * `mermaidToDrawing` is the one that decides whether the diagram is real.
+ */
+export const AiDiagramResponseSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  kind: z.enum(DIAGRAM_KINDS),
+  mermaid: z.string().trim().min(1).max(8_000),
+});
+export type AiDiagramResponse = z.infer<typeof AiDiagramResponseSchema>;
 export const AiPodcastResponseSchema = PodcastScriptSchema;
 
 /**

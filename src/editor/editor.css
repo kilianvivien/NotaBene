@@ -754,6 +754,26 @@
   text-align: center;
 }
 
+/* Same treatment as the mind map preview, and for the same reason: the
+   exported SVG paints its own light paper, so a matching surface behind it
+   stops the diagram reading as a pasted screenshot in dark mode. */
+.nb-diagram-preview {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid var(--nb-divider);
+  border-radius: var(--nb-radius-sm);
+  background: #fbfaf8;
+}
+
+.nb-diagram-preview img {
+  display: block;
+  width: 100%;
+  max-height: 380px;
+  object-fit: contain;
+}
+
 .nb-mind-map-preview {
   position: relative;
   display: block;

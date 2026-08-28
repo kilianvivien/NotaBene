@@ -144,6 +144,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('ai.synthesize', t),
         separator,
         command('ai.mindMap', t),
+        command('ai.diagram', t),
         command('ai.flashcards', t),
         command('ai.podcast', t),
       ],

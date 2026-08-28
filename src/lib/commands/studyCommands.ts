@@ -26,15 +26,18 @@ import {
   type TtsVoice,
 } from '@/lib/adapters';
 import {
+  requestDiagram,
   requestFlashcards,
   requestMindMap,
   requestPodcastScript,
   type AiRunOptions,
+  type DiagramResult,
   type FlashcardStyle,
   type MindMapResult,
   type PodcastMode,
 } from '@/lib/ai';
 import { ankiFileName, deckToAnkiTsv } from '@/lib/export/anki';
+import { drawingNode } from '@/lib/diagram/mermaid';
 import { mindMapOutline } from '@/lib/mindmap/edit';
 import { concatWavOffThread, parseWav } from '@/lib/podcast/wav';
 import { encodeMp3OffThread } from '@/lib/podcast/mp3';
@@ -134,6 +137,47 @@ export async function insertMindMapCommand(
       attrs: { data: result.map, svg: result.svg, title: result.map.title },
     },
   ]);
+}
+
+// -- Diagram -----------------------------------------------------------------
+
+export async function proposeDiagramCommand(
+  noteId: string,
+  options: AiRunOptions = {},
+): Promise<CommandResult<DiagramResult>> {
+  const [note] = await loadNotes([noteId]);
+  if (!note) return fail('not_found', `no note ${noteId}`);
+
+  const lookup = await providerFor('diagram');
+  if (!lookup.ok) return fail('not_supported', lookup.reason);
+
+  try {
+    return ok(
+      await requestDiagram(
+        { provider: lookup.provider, source: note, language: language() },
+        options,
+      ),
+    );
+  } catch (error) {
+    return aiFailure(error, options.signal);
+  }
+}
+
+/**
+ * Put the diagram in the note, as a drawing.
+ *
+ * Not a new block type: a generated diagram *is* a drawing, and making it one
+ * means it opens in the same editor, exports through the same path, and can be
+ * pulled apart by hand the moment the student disagrees with it. The Mermaid
+ * that produced it is deliberately not kept — once a box has been moved, the
+ * source no longer describes what is on screen, and a stale source is worse
+ * than none.
+ */
+export async function insertDiagramCommand(
+  noteId: string,
+  result: DiagramResult,
+): Promise<CommandResult<Note>> {
+  return appendToNote(noteId, [drawingNode(result.scene, result.answer.title)]);
 }
 
 /** A title as a filename: no diacritics, no separators, nothing a shell or a

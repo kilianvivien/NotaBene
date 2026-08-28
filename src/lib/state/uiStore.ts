@@ -111,6 +111,7 @@ interface UiState {
   aiRewriteOpen: boolean;
   aiSynthesisOpen: boolean;
   aiMindMapOpen: boolean;
+  aiDiagramOpen: boolean;
   aiFlashcardsOpen: boolean;
   aiPodcastOpen: boolean;
   /** A deep link from an agent run to the exact before-version it created. */
@@ -169,6 +170,7 @@ interface UiState {
   setAiRewriteOpen(open: boolean): void;
   setAiSynthesisOpen(open: boolean): void;
   setAiMindMapOpen(open: boolean): void;
+  setAiDiagramOpen(open: boolean): void;
   setAiFlashcardsOpen(open: boolean): void;
   setAiPodcastOpen(open: boolean): void;
   requestVersionSnapshot(snapshotId: string | null): void;
@@ -211,6 +213,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiRewriteOpen ||
     state.aiSynthesisOpen ||
     state.aiMindMapOpen ||
+    state.aiDiagramOpen ||
     state.aiFlashcardsOpen ||
     state.aiPodcastOpen ||
     state.taskDraft !== null ||
@@ -260,6 +263,7 @@ export const useUiStore = create<UiState>()(
     aiRewriteOpen: false,
     aiSynthesisOpen: false,
     aiMindMapOpen: false,
+    aiDiagramOpen: false,
     aiFlashcardsOpen: false,
     aiPodcastOpen: false,
     requestedSnapshotId: null,
@@ -520,6 +524,12 @@ export const useUiStore = create<UiState>()(
     setAiSynthesisOpen(open) {
       set((state) => {
         state.aiSynthesisOpen = open;
+      });
+    },
+
+    setAiDiagramOpen(open) {
+      set((state) => {
+        state.aiDiagramOpen = open;
       });
     },
 

@@ -42,6 +42,7 @@ export type AiActivity =
   | 'synthesis'
   | 'ask'
   | 'mindMap'
+  | 'diagram'
   | 'flashcards'
   | 'podcast'
   | 'importFormat'

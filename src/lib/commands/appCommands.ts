@@ -64,6 +64,7 @@ export const APP_COMMAND_IDS = [
   'ai.synthesize',
   'ai.ask',
   'ai.mindMap',
+  'ai.diagram',
   'ai.flashcards',
   'ai.podcast',
   'ai.agent',
@@ -562,6 +563,18 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     landsIn: 'G',
     run: requireNote(() => {
       useUiStore.getState().setAiMindMapOpen(true);
+    }),
+  },
+  /** Beside the mind map, not instead of it: a map is the note's concepts as a
+   * tree, a diagram is what in the note causes, precedes or calls what. The
+   * same lecture has both readings and they are rarely the same picture. */
+  'ai.diagram': {
+    id: 'ai.diagram',
+    labelKey: 'ai.diagram',
+    accelerator: 'CmdOrCtrl+Shift+J',
+    landsIn: 'G',
+    run: requireNote(() => {
+      useUiStore.getState().setAiDiagramOpen(true);
     }),
   },
   'ai.flashcards': {

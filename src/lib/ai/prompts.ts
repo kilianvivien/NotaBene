@@ -293,6 +293,74 @@ ${JSON_ONLY} It must match:
   ];
 }
 
+// -- Diagram -----------------------------------------------------------------
+
+/**
+ * A diagram of the note, as Mermaid.
+ *
+ * Two rules carry this prompt. The first is the diagram *type*: only flowchart,
+ * sequence and class survive as editable Excalidraw elements, so the model
+ * picks among those three rather than reaching for the gantt or ER chart it
+ * would often prefer. The second is that a diagram is not a summary — asked
+ * loosely, a model returns one box per heading, which is the outline the
+ * student already has. Asking for the relation between things is what makes the
+ * picture worth more than the text.
+ */
+export function diagramPrompt(options: {
+  title: string;
+  markdown: string;
+  language: string;
+}): AiMessage[] {
+  return [
+    {
+      role: 'system',
+      content: `You are drawing a diagram of a student's class notes.
+
+${languageRule(options.language)}
+
+- Choose the one type that fits the material: "flowchart" for a process, a causal chain, a decision or a structure; "sequence" for messages between participants over time. Use no other Mermaid diagram type — a class, state, ER, gantt or pie diagram cannot be drawn here and will be rejected.
+- Diagram the *relations* in the note — what causes, precedes, contains or calls what. A box per heading is the note's outline redrawn, and is not worth a picture.
+- Stay under about 20 nodes. A diagram that does not fit on a screen is not one a student will look at twice.
+- Work only from the note. Do not invent steps, participants or classes it does not mention.
+- Node labels are short. Put no Markdown, no backticks and no HTML in them, and no characters Mermaid treats specially inside a label — write "and" rather than "&".
+- The "mermaid" value is the complete diagram source, starting with its type keyword. Do not wrap it in a code fence.
+
+${JSON_ONLY} It must match:
+{"title": "<short diagram title>", "kind": "flowchart" | "sequence", "mermaid": "<mermaid source>"}`,
+    },
+    {
+      role: 'user',
+      content: `<note title="${options.title.replace(/"/g, "'")}">\n${options.markdown}\n</note>`,
+    },
+  ];
+}
+
+/**
+ * The second gate's retry.
+ *
+ * `runStructured` already repairs answers that are not JSON; this repairs
+ * answers that are perfectly good JSON carrying Mermaid the parser refuses.
+ * That is a different failure with a different fix, and it is common enough to
+ * be worth one round trip: models write Mermaid from memory and reach for
+ * syntax their chosen diagram type does not have.
+ */
+export function mermaidRepairPrompt(
+  previous: AiMessage[],
+  answer: string,
+  problem: string,
+): AiMessage[] {
+  return [
+    ...previous,
+    { role: 'assistant', content: answer.slice(0, RAW_ECHO_LIMIT) },
+    {
+      role: 'user',
+      content: `Mermaid could not parse that diagram: ${problem}.
+
+Send the whole answer again in the same JSON shape, with the Mermaid fixed. Keep the same diagram type unless the type itself was the problem. Prefer plain labels over anything that needs escaping, and use only syntax that type of diagram actually has. ${JSON_ONLY}`,
+    },
+  ];
+}
+
 // -- Flashcards --------------------------------------------------------------
 
 export type FlashcardStyle = 'basic' | 'cloze' | 'mixed';

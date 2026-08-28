@@ -1,8 +1,5 @@
 import { useRef } from 'react';
-import {
-  Excalidraw,
-  exportToSvg,
-} from '@excalidraw/excalidraw';
+import { Excalidraw, exportToSvg } from '@excalidraw/excalidraw';
 import type {
   ExcalidrawInitialDataState,
   ExcalidrawProps,
@@ -20,9 +17,17 @@ interface DrawingEditorProps {
   onSave(data: DrawingData, svg: string): void;
 }
 
+/** Excalidraw ships its own translations but defaults to English unless it is
+ * told otherwise, so without this the canvas stayed English inside a French
+ * app — the drawing tools, the Library panel and the whole Mermaid dialog. Its
+ * codes are not ours: `fr` is `fr-FR` there, and anything unknown falls back to
+ * English on its side. */
+const EXCALIDRAW_LANGUAGES: Record<string, string> = { fr: 'fr-FR', en: 'en' };
+
 export default function DrawingEditor({ data, onCancel, onSave }: DrawingEditorProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const latest = useRef<Scene | null>(null);
+  const langCode = EXCALIDRAW_LANGUAGES[i18n.language.split('-')[0] ?? 'en'] ?? 'en';
 
   const handleChange: SceneChange = (elements, appState, files) => {
     latest.current = [elements, appState, files];
@@ -73,6 +78,7 @@ export default function DrawingEditor({ data, onCancel, onSave }: DrawingEditorP
           initialData={data}
           onChange={handleChange}
           theme={document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'}
+          langCode={langCode}
           UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false } }}
         />
       </div>

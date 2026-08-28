@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AiDiagramResponseSchema,
   createNote,
   emptyLibrary,
   MindMapSchema,
@@ -240,5 +241,43 @@ describe('mind map schema', () => {
     if (!parsed.success) {
       expect(parsed.error.issues[0]?.message).toMatch(/unknown node/);
     }
+  });
+});
+
+describe('AI diagram schema', () => {
+  const valid = {
+    title: 'Photosynthesis',
+    kind: 'flowchart',
+    mermaid: 'flowchart TD\n  A[Light] --> B[Glucose]',
+  };
+
+  it('accepts the kinds that convert to editable elements', () => {
+    for (const kind of ['flowchart', 'sequence']) {
+      expect(AiDiagramResponseSchema.safeParse({ ...valid, kind }).success).toBe(true);
+    }
+  });
+
+  /**
+   * The point of the enum. Each of these is valid Mermaid and the converter
+   * accepts every one — by rasterising it into the scene, which is the single
+   * outcome this feature exists to avoid. `class` is on the list because
+   * Excalidraw's own dialog claims it is supported and, measured, it is not.
+   */
+  it('rejects a diagram type that would arrive as a flat image', () => {
+    for (const kind of ['class', 'gantt', 'erDiagram', 'pie', 'stateDiagram']) {
+      expect(AiDiagramResponseSchema.safeParse({ ...valid, kind }).success).toBe(false);
+    }
+  });
+
+  it('rejects an empty diagram, whitespace included', () => {
+    expect(AiDiagramResponseSchema.safeParse({ ...valid, mermaid: '' }).success).toBe(
+      false,
+    );
+    expect(AiDiagramResponseSchema.safeParse({ ...valid, mermaid: '   ' }).success).toBe(
+      false,
+    );
+    expect(AiDiagramResponseSchema.safeParse({ ...valid, title: '  ' }).success).toBe(
+      false,
+    );
   });
 });

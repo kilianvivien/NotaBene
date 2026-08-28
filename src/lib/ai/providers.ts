@@ -188,6 +188,7 @@ export const AI_FEATURES = [
   'synthesis',
   'ask',
   'mindMap',
+  'diagram',
   'flashcards',
   'podcast',
   'importFormat',

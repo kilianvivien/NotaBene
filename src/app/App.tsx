@@ -22,6 +22,7 @@ import { ExportDialog } from './export/ExportDialog';
 import { MergeNotesDialog } from './shell/MergeNotesDialog';
 import { RewriteDialog } from './ai/RewriteDialog';
 import { SynthesisDialog } from './ai/SynthesisDialog';
+import { DiagramDialog } from './ai/DiagramDialog';
 import { MindMapDialog } from './ai/MindMapDialog';
 import { FlashcardsDialog } from './ai/FlashcardsDialog';
 import { PodcastDialog } from './ai/PodcastDialog';
@@ -207,6 +208,7 @@ export function App() {
       <RewriteDialog />
       <SynthesisDialog />
       <MindMapDialog />
+      <DiagramDialog />
       <FlashcardsDialog />
       <PodcastDialog />
       <TaskDialog />
