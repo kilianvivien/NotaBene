@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core';
 import {
   Bold,
+  BookMarked,
   CheckSquare,
   ChevronDown,
   Code2,
@@ -166,74 +167,118 @@ export function Toolbar({ editor, run }: ToolbarProps) {
     const close = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node)) setMoreOpen(false);
     };
+    // Escape closes it without moving the caret: the menu is opened mid-sentence
+    // and dismissing it should not cost the writer their place.
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMoreOpen(false);
+    };
     window.addEventListener('pointerdown', close);
-    return () => window.removeEventListener('pointerdown', close);
+    window.addEventListener('keydown', key);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', key);
+    };
   }, [moreOpen]);
 
-  const extraActions = [
+  /**
+   * The overflow menu is a labelled list, not a grid of clipped words: two
+   * columns at a fixed width truncated "Show document map" to "Show the ..."
+   * and made every long-form action unreadable. Grouping also gives the list a
+   * shape — lists, then blocks, then things you insert, then the view toggle —
+   * so the eye lands on a section rather than scanning fourteen equal rows.
+   */
+  const menuGroups: {
+    id: string;
+    items: {
+      label: string;
+      icon: typeof List;
+      action(): void;
+      active?: boolean;
+    }[];
+  }[] = [
     {
-      label: t(
-        documentMapVisible ? 'longForm.hideDocumentMap' : 'longForm.showDocumentMap',
-      ),
-      icon: ListTree,
-      action: toggleDocumentMap,
-      active: documentMapVisible,
+      id: 'lists',
+      items: [
+        {
+          label: t('editor.bulletList'),
+          icon: List,
+          action: () => editor.chain().focus().toggleBulletList().run(),
+          active: editor.isActive('bulletList'),
+        },
+        {
+          label: t('editor.orderedList'),
+          icon: ListOrdered,
+          action: () => editor.chain().focus().toggleOrderedList().run(),
+          active: editor.isActive('orderedList'),
+        },
+        {
+          label: t('editor.taskList'),
+          icon: CheckSquare,
+          action: () => editor.chain().focus().toggleTaskList().run(),
+          active: editor.isActive('taskList'),
+        },
+      ],
     },
     {
-      label: t('editor.bulletList'),
-      icon: List,
-      action: () => editor.chain().focus().toggleBulletList().run(),
-      active: editor.isActive('bulletList'),
+      id: 'blocks',
+      items: [
+        {
+          label: t('editor.quote'),
+          icon: Quote,
+          action: () => editor.chain().focus().toggleBlockquote().run(),
+          active: editor.isActive('blockquote'),
+        },
+        {
+          label: t('menu.callout'),
+          icon: MessageSquareWarning,
+          action: () => run('callout'),
+        },
+        {
+          label: t('menu.code'),
+          icon: Code2,
+          action: () => run('code'),
+          active: editor.isActive('code'),
+        },
+        { label: t('menu.math'), icon: Sigma, action: () => run('math') },
+        { label: t('menu.table'), icon: Table2, action: () => run('table') },
+      ],
     },
     {
-      label: t('editor.taskList'),
-      icon: CheckSquare,
-      action: () => editor.chain().focus().toggleTaskList().run(),
-      active: editor.isActive('taskList'),
+      id: 'insert',
+      items: [
+        {
+          label: t('menu.link'),
+          icon: Link2,
+          action: () => run('link'),
+          active: editor.isActive('link'),
+        },
+        { label: t('menu.image'), icon: Image, action: () => run('image') },
+        { label: t('menu.drawing'), icon: PencilRuler, action: () => run('drawing') },
+        {
+          label: t('longForm.footnote'),
+          icon: Superscript,
+          action: () => run('footnote'),
+        },
+        {
+          label: t('longForm.endnote'),
+          icon: BookMarked,
+          action: () => run('endnote'),
+        },
+      ],
     },
     {
-      label: t('menu.code'),
-      icon: Code2,
-      action: () => run('code'),
-      active: editor.isActive('code'),
+      id: 'view',
+      items: [
+        {
+          label: t(
+            documentMapVisible ? 'longForm.hideDocumentMap' : 'longForm.showDocumentMap',
+          ),
+          icon: ListTree,
+          action: toggleDocumentMap,
+          active: documentMapVisible,
+        },
+      ],
     },
-    {
-      label: t('menu.link'),
-      icon: Link2,
-      action: () => run('link'),
-      active: editor.isActive('link'),
-    },
-    {
-      label: t('editor.orderedList'),
-      icon: ListOrdered,
-      action: () => editor.chain().focus().toggleOrderedList().run(),
-      active: editor.isActive('orderedList'),
-    },
-    {
-      label: t('editor.quote'),
-      icon: Quote,
-      action: () => editor.chain().focus().toggleBlockquote().run(),
-      active: editor.isActive('blockquote'),
-    },
-    {
-      label: t('menu.callout'),
-      icon: MessageSquareWarning,
-      action: () => run('callout'),
-    },
-    { label: t('menu.math'), icon: Sigma, action: () => run('math') },
-    {
-      label: t('longForm.footnote'),
-      icon: Superscript,
-      action: () => run('footnote'),
-    },
-    {
-      label: t('longForm.endnote'),
-      icon: Superscript,
-      action: () => run('endnote'),
-    },
-    { label: t('menu.table'), icon: Table2, action: () => run('table') },
-    { label: t('menu.image'), icon: Image, action: () => run('image') },
-    { label: t('menu.drawing'), icon: PencilRuler, action: () => run('drawing') },
   ];
 
   return (
@@ -327,34 +372,51 @@ export function Toolbar({ editor, run }: ToolbarProps) {
 
       <span className="nb-toolbar-divider nb-toolbar-compact-hide" />
 
-      <ToolButton
-        label={t('editor.moreFormatting')}
-        active={moreOpen}
+      <button
+        type="button"
+        title={t('editor.moreFormatting')}
+        aria-label={t('editor.moreFormatting')}
+        aria-haspopup="menu"
+        aria-expanded={moreOpen}
+        onMouseDown={(event) => event.preventDefault()}
         onClick={() => setMoreOpen((open) => !open)}
+        className={cn('nb-editor-tool', moreOpen && 'is-active')}
       >
         <MoreHorizontal size={15} />
-      </ToolButton>
+      </button>
 
       <span className="nb-toolbar-divider" />
 
       <ReadAloudButton editor={editor} />
 
       {moreOpen && (
-        <div className="nb-format-menu">
-          {extraActions.map(({ label, icon: Icon, action, active }) => (
-            <button
-              type="button"
-              key={label}
-              aria-pressed={active || undefined}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                action();
-                setMoreOpen(false);
-              }}
-            >
-              <Icon size={14} />
-              <span>{label}</span>
-            </button>
+        <div
+          className="nb-format-menu"
+          role="menu"
+          aria-label={t('editor.moreFormatting')}
+        >
+          {menuGroups.map((group, groupIndex) => (
+            <div key={group.id} role="group" className="nb-format-menu-group">
+              {groupIndex > 0 && (
+                <span className="nb-format-menu-divider" role="separator" />
+              )}
+              {group.items.map(({ label, icon: Icon, action, active }) => (
+                <button
+                  type="button"
+                  key={label}
+                  role="menuitem"
+                  aria-pressed={active || undefined}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    action();
+                    setMoreOpen(false);
+                  }}
+                >
+                  <Icon size={14} aria-hidden />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}

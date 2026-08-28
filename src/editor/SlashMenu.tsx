@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core';
 import {
+  BookMarked,
   Heading2,
   Image,
   List,
@@ -107,7 +108,7 @@ export function SlashMenu({ editor, state, close, run }: SlashMenuProps) {
         {
           id: 'endnote',
           label: t('longForm.endnote'),
-          icon: Superscript,
+          icon: BookMarked,
           action: () => run('endnote'),
         },
         {

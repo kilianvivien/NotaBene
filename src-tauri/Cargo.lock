@@ -2760,7 +2760,7 @@ dependencies = [
 
 [[package]]
 name = "notabene"
-version = "0.8.0"
+version = "0.8.5"
 dependencies = [
  "anydoc",
  "axum",

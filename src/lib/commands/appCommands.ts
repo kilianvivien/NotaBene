@@ -53,9 +53,12 @@ export const APP_COMMAND_IDS = [
   'insert.callout',
   'insert.math',
   'insert.link',
+  'insert.footnote',
+  'insert.endnote',
   'note.readAloud',
   'view.toggleSidebar',
   'view.toggleInspector',
+  'view.documentMap',
   'view.focusMode',
   'ai.rewrite',
   'ai.synthesize',
@@ -384,6 +387,28 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     landsIn: 'B',
     run: editorAction('link'),
   },
+  /**
+   * Long-form notes reach the menu bar like everything else.
+   *
+   * Footnotes and endnotes shipped in the toolbar's overflow menu and the slash
+   * menu only, which put them behind two clicks and outside the one table the
+   * native menu is generated from. A writer working through a chapter reaches
+   * for the shortcut, not the "…" button.
+   */
+  'insert.footnote': {
+    id: 'insert.footnote',
+    labelKey: 'menu.footnote',
+    accelerator: 'CmdOrCtrl+Alt+E',
+    landsIn: 'B',
+    run: editorAction('footnote'),
+  },
+  'insert.endnote': {
+    id: 'insert.endnote',
+    labelKey: 'menu.endnote',
+    accelerator: 'CmdOrCtrl+Shift+Alt+E',
+    landsIn: 'B',
+    run: editorAction('endnote'),
+  },
 
   /**
    * Speak the open note.
@@ -474,6 +499,17 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     landsIn: 'A',
     run: () => {
       useUiStore.getState().toggleInspector();
+      return ok(undefined);
+    },
+  },
+  /** ⌥⌘D is the system's Dock toggle, so the document map takes O for outline. */
+  'view.documentMap': {
+    id: 'view.documentMap',
+    labelKey: 'menu.documentMap',
+    accelerator: 'CmdOrCtrl+Alt+O',
+    landsIn: 'B',
+    run: () => {
+      useUiStore.getState().toggleDocumentMap();
       return ok(undefined);
     },
   },

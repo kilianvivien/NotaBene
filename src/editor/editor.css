@@ -232,34 +232,50 @@
   white-space: nowrap;
 }
 
+/* One column, sized to its longest label. A two-column grid fitted into a
+   fixed 224px clipped every label worth reading — "Show document map" became
+   "Show the …" — and an icon beside three truncated words names nothing. */
 .nb-format-menu {
   position: absolute;
   z-index: 50;
   top: calc(100% + 6px);
   right: 0;
-  display: grid;
-  width: 224px;
+  display: flex;
+  max-height: min(70vh, 520px);
+  min-width: 200px;
   padding: 5px;
+  flex-direction: column;
   border: 1px solid var(--nb-control-border);
   border-radius: 9px;
   background: var(--nb-menu-surface);
   box-shadow: var(--nb-shadow-lg);
-  grid-template-columns: 1fr 1fr;
+  overflow-y: auto;
+}
+
+.nb-format-menu-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nb-format-menu-divider {
+  height: 1px;
+  margin: 5px 3px;
+  border-top: 1px solid var(--nb-divider);
 }
 
 .nb-format-menu button {
   display: flex;
-  min-width: 0;
-  height: 32px;
-  padding: 0 7px;
+  height: 30px;
+  padding: 0 9px 0 7px;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   border: 0;
   border-radius: 6px;
   color: var(--nb-text-2);
   background: transparent;
-  font-size: 12px;
+  font-size: 12.5px;
   text-align: left;
+  white-space: nowrap;
 }
 
 .nb-format-menu button:hover,
@@ -268,10 +284,8 @@
   background: var(--nb-active);
 }
 
-.nb-format-menu button span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.nb-format-menu button > svg {
+  flex: none;
 }
 
 /* Pinned to the active table in viewport coordinates — see TableControls.tsx
