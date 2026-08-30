@@ -4,6 +4,7 @@
  * disturbs the user's layout. */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import type { RewriteMode } from '@/lib/ai';
 import type { DocumentImportSource } from '@/lib/import/documentImport';
 import type { Attachment } from '@/lib/schema';
 
@@ -109,6 +110,11 @@ interface UiState {
   mergeOpen: boolean;
   documentImportSource: DocumentImportSource | null;
   aiRewriteOpen: boolean;
+  /** The mode the rewrite dialog should open in, when something opened it on
+   * the student's behalf. Import sets `'study'` here; the dialog reads it once
+   * and clears it, so reopening by hand goes back to the safe default rather
+   * than inheriting a mode nobody chose this time. */
+  pendingRewriteMode: RewriteMode | null;
   aiSynthesisOpen: boolean;
   aiMindMapOpen: boolean;
   aiDiagramOpen: boolean;
@@ -168,6 +174,7 @@ interface UiState {
   setMergeOpen(open: boolean): void;
   setDocumentImportSource(source: DocumentImportSource | null): void;
   setAiRewriteOpen(open: boolean): void;
+  setPendingRewriteMode(mode: RewriteMode | null): void;
   setAiSynthesisOpen(open: boolean): void;
   setAiMindMapOpen(open: boolean): void;
   setAiDiagramOpen(open: boolean): void;
@@ -261,6 +268,7 @@ export const useUiStore = create<UiState>()(
     mergeOpen: false,
     documentImportSource: null,
     aiRewriteOpen: false,
+    pendingRewriteMode: null,
     aiSynthesisOpen: false,
     aiMindMapOpen: false,
     aiDiagramOpen: false,
@@ -518,6 +526,12 @@ export const useUiStore = create<UiState>()(
     setAiRewriteOpen(open) {
       set((state) => {
         state.aiRewriteOpen = open;
+      });
+    },
+
+    setPendingRewriteMode(mode) {
+      set((state) => {
+        state.pendingRewriteMode = mode;
       });
     },
 

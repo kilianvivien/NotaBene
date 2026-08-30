@@ -4,6 +4,7 @@ import {
   diagramPrompt,
   mermaidRepairPrompt,
   reformatPrompt,
+  rewritePrompt,
   synthesisPrompt,
 } from './prompts';
 
@@ -28,6 +29,53 @@ describe('Import reformatting prompt', () => {
     const content = prompt[0]?.content ?? '';
     expect(content).toContain('Write it in the language the document is written in');
     expect(content).not.toContain('Answer in English');
+  });
+});
+
+describe('Rewrite study mode', () => {
+  function intent(mode: 'light' | 'full' | 'study'): string {
+    return (
+      rewritePrompt({
+        mode,
+        blocks: ['Photosynthesis', 'It happens in the leaf.'],
+        language: 'en',
+      })[1]?.content ?? ''
+    );
+  }
+
+  it('asks for revision notes rather than a tidier version of the same prose', () => {
+    const content = intent('study');
+    expect(content).toContain('revision notes');
+    expect(content).toContain('Compress freely');
+  });
+
+  it('forbids invention, which is the one thing that would make it useless', () => {
+    // A model asked to make something memorable reaches for a tidy example.
+    // An invented example in revision material is worse than no revision
+    // material, because it is indistinguishable from the real ones.
+    const content = intent('study');
+    expect(content).toContain('Invent nothing');
+    expect(content).toContain('no facts you happen to know about the subject');
+  });
+
+  it('still requires every fact in the source to survive', () => {
+    expect(intent('study')).toContain('must survive somewhere');
+  });
+
+  it('is a different instruction from a full rewrite, not a louder one', () => {
+    // The two are adjacent in the picker; if they asked for the same thing
+    // there would be no reason for the fourth segment to exist.
+    expect(intent('study')).not.toEqual(intent('full'));
+    expect(intent('full')).not.toContain('revision notes');
+  });
+
+  it('keeps the conservative system prompt every mode shares', () => {
+    // The per-block gate and the "these are someone's revision materials
+    // before an exam" framing are not relaxed for this mode.
+    const system =
+      rewritePrompt({ mode: 'study', blocks: ['A'], language: 'en' })[0]?.content ?? '';
+    expect(system).toContain('careful and conservative');
+    expect(system).toContain('Return only the blocks you want to change.');
   });
 });
 

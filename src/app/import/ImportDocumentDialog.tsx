@@ -97,6 +97,10 @@ export function ImportDocumentDialog() {
   const source = useUiStore((state) => state.documentImportSource);
   const setSource = useUiStore((state) => state.setDocumentImportSource);
   const availability = useAiAvailability('importFormat');
+  // The study pass runs as a rewrite, so it is the rewrite feature's
+  // configuration that decides whether to offer it — these can differ, since
+  // a model is choosable per feature.
+  const studyAvailability = useAiAvailability('rewrite');
   const formatting = useAiStore((state) => state.running) === 'importFormat';
   const [document, setDocument] = useState<ImportedDocument | null>(null);
   const [extracting, setExtracting] = useState(false);
@@ -109,6 +113,12 @@ export function ImportDocumentDialog() {
   /** The laid-out Markdown, kept beside the original rather than replacing it
    * so switching the toggle back off is instant and always possible. */
   const [formatted, setFormatted] = useState<string | null>(null);
+  /** Turn the imported document into revision notes, once it is a note.
+   *  Off by default and reset per document, like the layout pass. */
+  const [study, setStudy] = useState(false);
+  /** Set only once a note actually exists, so cancelling before that hands
+   *  nothing off. */
+  const [studyPending, setStudyPending] = useState(false);
   const [formatNote, setFormatNote] = useState('');
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
@@ -152,6 +162,8 @@ export function ImportDocumentDialog() {
     setReformat(false);
     setFormatted(null);
     setFormatNote('');
+    setStudy(false);
+    setStudyPending(false);
     setOcrNeeded(null);
     setOcrProgress(null);
     setOcrLanguage('');
@@ -179,11 +191,31 @@ export function ImportDocumentDialog() {
     };
   }, [source, t]);
 
+  /**
+   * Leave the dialog, handing off to the study pass if one was asked for.
+   *
+   * A hand-off rather than a stage in this pipeline: the note already exists
+   * and is open by the time this runs, so `RewriteDialog` works on it
+   * unchanged — with its per-block gate, and with the plain imported document
+   * in version history behind it. Rejecting every block leaves exactly the
+   * import.
+   */
+  function finish(handOff: boolean) {
+    if (handOff) {
+      const ui = useUiStore.getState();
+      ui.setPendingRewriteMode('study');
+      ui.setAiRewriteOpen(true);
+    }
+    setSource(null);
+  }
+
   function close() {
     if (creating) return;
     cancelRun('importFormat');
     ocrRun.current?.abort();
-    setSource(null);
+    // Closing after a completed import still owes the hand-off; closing
+    // before one has nothing to hand off.
+    finish(studyPending);
   }
 
   /**
@@ -303,6 +335,7 @@ export function ImportDocumentDialog() {
       setError(t('import.createFailed'));
       return;
     }
+    setStudyPending(study);
     const lost = result.value.warnings.filter((warning) =>
       warning.code.startsWith('asset'),
     );
@@ -324,7 +357,10 @@ export function ImportDocumentDialog() {
       );
       return;
     }
-    setSource(null);
+    // The flag is passed rather than read back: `setStudyPending` above has
+    // not reached state by this line, and it is only there for the warning
+    // path, where the student closes the dialog on a later render.
+    finish(study);
   }
 
   const preview = reformat && formatted !== null ? formatted : (document?.markdown ?? '');
@@ -466,6 +502,26 @@ export function ImportDocumentDialog() {
                 checked={reformat}
                 disabled={!availability.available || formatting || creating}
                 onChange={(next) => void toggleReformat(next)}
+              />
+            </FieldRow>
+            {/* Adjacent to the layout toggle and deliberately worded against
+                it: that one promises the wording is untouched, this one
+                changes it. The hint is the only thing standing between the
+                two, so it says so plainly rather than selling the feature. */}
+            <FieldRow
+              label={t('import.study')}
+              hint={
+                studyAvailability.available
+                  ? t('import.studyHint')
+                  : t('ai.notConfiguredHint')
+              }
+              align="end"
+            >
+              <FieldToggle
+                label={t('import.study')}
+                checked={study}
+                disabled={!studyAvailability.available || creating}
+                onChange={setStudy}
               />
             </FieldRow>
             {formatting && (

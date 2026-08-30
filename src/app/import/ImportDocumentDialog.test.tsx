@@ -48,6 +48,10 @@ beforeEach(async () => {
   // A provider with a key on file, so the toggle is live rather than disabled.
   await secrets.set('ai.anthropic.apiKey', 'test-key');
   await useAiStore.getState().refreshProviders();
+  // Reset before rendering rather than after: writing to the store while the
+  // dialog is still mounted is an unacted React update.
+  useUiStore.getState().setAiRewriteOpen(false);
+  useUiStore.getState().setPendingRewriteMode(null);
   useUiStore.getState().setDocumentImportSource({
     kind: 'path',
     path: '/tmp/lecture.pdf',
@@ -338,5 +342,87 @@ describe('ImportDocumentDialog scanned pages', () => {
     expect(
       screen.getByRole('button', { name: 'Stop reading the scanned pages' }),
     ).not.toBeNull();
+  });
+});
+
+describe('ImportDocumentDialog study hand-off', () => {
+  /** The study pass is a hand-off, not a stage in the import: the note exists
+   *  and is open by the time it runs, so `RewriteDialog` does the work. */
+  function handedOff(): boolean {
+    return (
+      useUiStore.getState().aiRewriteOpen &&
+      useUiStore.getState().pendingRewriteMode === 'study'
+    );
+  }
+
+  async function create() {
+    await userEvent.click(screen.getByRole('button', { name: 'Create note' }));
+  }
+
+  it('offers the study pass switched off', async () => {
+    // Reshaping a document is a decision, not a preference inherited from
+    // the last import — the same rule the layout pass follows.
+    await open();
+    expect(
+      screen.getByRole('switch', { name: 'Turn it into study notes' }),
+    ).toHaveProperty('ariaChecked', 'false');
+  });
+
+  it('hands nothing off when the toggle is left alone', async () => {
+    await open();
+    await create();
+    await waitFor(() => expect(createImportedNoteCommand).toHaveBeenCalled());
+    expect(handedOff()).toBe(false);
+  });
+
+  it('opens the rewrite dialog in study mode once the note exists', async () => {
+    await open();
+    await userEvent.click(
+      screen.getByRole('switch', { name: 'Turn it into study notes' }),
+    );
+    await create();
+
+    await waitFor(() => expect(handedOff()).toBe(true));
+    // The import dialog gets out of the way rather than stacking under it.
+    expect(useUiStore.getState().documentImportSource).toBeNull();
+  });
+
+  it('hands nothing off when the import is cancelled before a note exists', async () => {
+    await open();
+    await userEvent.click(
+      screen.getByRole('switch', { name: 'Turn it into study notes' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(createImportedNoteCommand).not.toHaveBeenCalled();
+    expect(handedOff()).toBe(false);
+  });
+
+  it('still hands off when a warning held the dialog open', async () => {
+    // The note was created; only the attachment failed. Closing that warning
+    // is the student finishing the import, and the pass they asked for is
+    // still owed.
+    createImportedNoteCommand.mockResolvedValue({
+      ok: true,
+      value: {
+        note: { id: 'n1' },
+        attachmentKept: false,
+        imagesKept: 0,
+        warnings: [],
+      },
+    });
+    await open();
+    await userEvent.click(
+      screen.getByRole('switch', { name: 'Turn it into study notes' }),
+    );
+    await create();
+
+    await waitFor(() =>
+      expect(screen.getByText(/could not attach the original file/)).not.toBeNull(),
+    );
+    expect(handedOff()).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(handedOff()).toBe(true);
   });
 });
