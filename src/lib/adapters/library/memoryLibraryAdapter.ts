@@ -322,6 +322,30 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     this.journal.delete(note.id);
   }
 
+  /**
+   * The batch write, in memory.
+   *
+   * Deliberately a loop over the single write rather than something faster.
+   * The SQLite adapter's version is one transaction because it has to be —
+   * cross-references resolve as each note lands — and this one exists so the
+   * command layer has the same shape to call. Making it clever here is how the
+   * memory adapter becomes a fast path that hides an N+1 in the real one.
+   */
+  async upsertNotes(notes: Note[]): Promise<void> {
+    for (const note of notes) {
+      await this.upsertNote(note);
+    }
+  }
+
+  async resolveWikiTitle(title: string): Promise<string | null> {
+    const wanted = fold(title.trim());
+    if (!wanted) return null;
+    // Case-insensitive, first match wins, trashed notes included — the same
+    // three choices the SQLite query makes, so a link resolves identically on
+    // both adapters.
+    return this.library.notes.find((note) => fold(note.title) === wanted)?.id ?? null;
+  }
+
   async upsertNoteIfUnchanged(note: Note, baseUpdatedAt: string): Promise<boolean> {
     const existing = this.library.notes.find((entry) => entry.id === note.id);
     if (!existing || existing.updatedAt !== baseUpdatedAt) return false;

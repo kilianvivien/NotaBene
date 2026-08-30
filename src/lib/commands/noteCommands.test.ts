@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { library } from '@/lib/adapters';
+import { useLibraryStore } from '@/lib/state/libraryStore';
 import {
   createNoteCommand,
+  createNotesCommand,
   fileNoteCommand,
   restoreSnapshotCommand,
   updateNoteCommand,
@@ -153,5 +155,141 @@ describe('restoreSnapshotCommand', () => {
 
     // The restore itself is undoable: the snapshot list only grew.
     expect((await library.listSnapshots(created.value.id)).length).toBeGreaterThan(1);
+  });
+});
+
+
+describe('createNotesCommand', () => {
+  /** Count refreshes of the note list, which is what a naive loop over the
+   *  single-note command would re-run once per note. */
+  function countRefreshes() {
+    return vi.spyOn(useLibraryStore.getState(), 'refreshCurrentView');
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('writes every note it was given', async () => {
+    const result = await createNotesCommand([
+      { title: 'One', doc: docOf('first') },
+      { title: 'Two', doc: docOf('second') },
+      { title: 'Three', doc: docOf('third') },
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(3);
+    expect(await library.countNotes({ scope: 'live' })).toBe(3);
+  });
+
+  it('refreshes the read caches once, not once per note', async () => {
+    // The entire reason this command exists. Looping `createNoteCommand`
+    // re-runs the note list's query — and every course, tag and count behind
+    // it — for each note written.
+    const refresh = countRefreshes();
+    await createNotesCommand(
+      Array.from({ length: 12 }, (_, index) => ({
+        title: `Note ${index}`,
+        doc: docOf(`body ${index}`),
+      })),
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports an invalid note by position, having written nothing', async () => {
+    // "note 2 is invalid" is actionable in a 900-note vault import where
+    // "invalid note input" is not — and the check runs before any write, so a
+    // bad note in the middle does not leave half a library behind.
+    const result = await createNotesCommand([
+      { title: 'Fine', doc: docOf('ok') },
+      { title: 'Also fine', doc: docOf('ok') },
+      { title: 'Broken', doc: { type: 'not-a-doc' } as unknown as NoteDoc },
+    ]);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('invalid_input');
+    expect(result.message).toContain('at 2');
+    expect(await library.countNotes({ scope: 'live' })).toBe(0);
+  });
+
+  it('chunks a large import rather than sending it as one payload', async () => {
+    const upsertNotes = vi.spyOn(library, 'upsertNotes');
+    await createNotesCommand(
+      Array.from({ length: 601 }, (_, index) => ({
+        title: `Note ${index}`,
+        doc: docOf(`body ${index}`),
+      })),
+    );
+
+    // 250 + 250 + 101, and still one refresh at the end.
+    expect(upsertNotes).toHaveBeenCalledTimes(3);
+    expect(upsertNotes.mock.calls[0]?.[0]).toHaveLength(250);
+    expect(upsertNotes.mock.calls[2]?.[0]).toHaveLength(101);
+    expect(await library.countNotes({ scope: 'live' })).toBe(601);
+  });
+
+  it('says how many notes landed when a write fails part-way', async () => {
+    // A large import commits chunk by chunk, so "storage failed" alone leaves
+    // someone unable to tell whether to retry it or clean up after it.
+    const upsertNotes = vi.spyOn(library, 'upsertNotes');
+    upsertNotes.mockImplementationOnce(async () => {});
+    upsertNotes.mockImplementationOnce(async () => {
+      throw new Error('disk full');
+    });
+
+    const result = await createNotesCommand(
+      Array.from({ length: 400 }, (_, index) => ({
+        title: `Note ${index}`,
+        doc: docOf(`body ${index}`),
+      })),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('storage_failed');
+    expect(result.details).toMatchObject({ written: 250 });
+  });
+
+  it('writes nothing and refreshes nothing for an empty batch', async () => {
+    const refresh = countRefreshes();
+    const result = await createNotesCommand([]);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual([]);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('wiki title resolution', () => {
+  /**
+   * These pin the same three choices the SQLite query makes, asserted here
+   * against the memory adapter. The Rust counterpart is
+   * `click_resolution_and_the_backlink_index_agree_by_construction` in
+   * `db/notes.rs`. Two adapters answering a link differently is a bug nobody
+   * would find until a vault was already imported.
+   */
+  it('matches a title case-insensitively', async () => {
+    const note = await createNoteCommand({ title: 'Damping', doc: docOf('body') });
+    expect(note.ok).toBe(true);
+    if (!note.ok) return;
+    expect(await library.resolveWikiTitle('damping')).toBe(note.value.id);
+    expect(await library.resolveWikiTitle('  DAMPING  ')).toBe(note.value.id);
+  });
+
+  it('answers null for a title nobody has, rather than throwing', async () => {
+    expect(await library.resolveWikiTitle('Nothing')).toBeNull();
+    expect(await library.resolveWikiTitle('   ')).toBeNull();
+  });
+
+  it('still resolves a trashed note, as the backlink index does', async () => {
+    // Trash is recoverable and the index keeps its row either way. Filtering
+    // here alone would make a link navigate somewhere the inspector does not
+    // list — the disagreement the shared lookup exists to prevent.
+    const note = await createNoteCommand({ title: 'Trashed', doc: docOf('body') });
+    expect(note.ok).toBe(true);
+    if (!note.ok) return;
+    await library.trashNote(note.value.id);
+    expect(await library.resolveWikiTitle('Trashed')).toBe(note.value.id);
   });
 });

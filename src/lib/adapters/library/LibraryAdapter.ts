@@ -112,6 +112,24 @@ export interface LibraryAdapter {
   searchNotes(query: NoteQuery): Promise<NoteMatch[]>;
   getNote(noteId: string): Promise<Note | null>;
   upsertNote(note: Note): Promise<void>;
+  /**
+   * Write a batch of notes atomically.
+   *
+   * Not a convenience over `upsertNote`: the notes in a batch may link to one
+   * another, and writing them together is what lets those links resolve in
+   * both directions whatever order they arrive in. One transaction also means
+   * a bad note rolls the batch back rather than leaving a half-imported
+   * library nobody can tell the shape of.
+   */
+  upsertNotes(notes: Note[]): Promise<void>;
+  /**
+   * The note a bare `[[Title]]` points at, or null.
+   *
+   * Shares its lookup with the backlink index, so a link never navigates
+   * somewhere the inspector does not list as a backlink. Case-insensitive,
+   * first match wins — duplicate titles are resolved before writing, not here.
+   */
+  resolveWikiTitle(title: string): Promise<string | null>;
   /** Atomic optimistic write for interactive/editor and MCP updates. */
   upsertNoteIfUnchanged(note: Note, baseUpdatedAt: string): Promise<boolean>;
   /** Soft delete: sets `trashedAt`. Hard removal is `purgeNote`. */

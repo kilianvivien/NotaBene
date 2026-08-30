@@ -102,37 +102,126 @@ export async function createNoteCommand(
   input: CreateNoteInput,
   context: CommandContext = USER,
 ): Promise<CommandResult<Note>> {
-  const cancelled = cancelledIfRequested<Note>(context);
-  if (cancelled) return cancelled;
-  const parsed = CreateNoteInput.safeParse(input);
-  if (!parsed.success) {
-    return fail('invalid_input', 'invalid note input', parsed.error.issues);
-  }
-
-  const doc: NoteDoc = parsed.data.doc ?? {
-    type: 'doc',
-    content: [{ type: 'paragraph' }],
-  };
-  const note = createNote({
-    ...parsed.data,
-    doc,
-    plainText: flattenDoc(doc),
-    title: parsed.data.title ?? deriveTitle(doc, ''),
-  });
-
-  try {
-    const stopped = cancelledIfRequested<Note>(context);
-    if (stopped) return stopped;
-    await library.upsertNote(note);
-  } catch (error) {
-    return fail('storage_failed', String(error));
-  }
-
+  const result = await applyNoteCreate(input, context);
+  if (!result.ok) return result;
   // The note is already durable. A stale read cache can repair itself on the
   // next query; reporting the creation as failed would invite a retry and a
   // duplicate note, and would hide the created id from whole-run undo.
   await refreshCurrentView().catch(() => {});
-  return ok(note);
+  return result;
+}
+
+/**
+ * `createNoteCommand` without the read-cache refresh.
+ *
+ * The counterpart to `applyNoteUpdate`, which this file has had all along —
+ * and for the same reason: a caller writing many notes refreshes once at the
+ * end, because looping the public command re-runs the note list's query, and
+ * every course, tag and count behind it, for each note written.
+ */
+export async function applyNoteCreate(
+  input: CreateNoteInput,
+  context: CommandContext = USER,
+): Promise<CommandResult<Note>> {
+  const cancelled = cancelledIfRequested<Note>(context);
+  if (cancelled) return cancelled;
+  const built = buildNote(input);
+  if (!built.ok) return built;
+
+  try {
+    const stopped = cancelledIfRequested<Note>(context);
+    if (stopped) return stopped;
+    await library.upsertNote(built.value);
+  } catch (error) {
+    return fail('storage_failed', String(error));
+  }
+  return ok(built.value);
+}
+
+/** Validate one input and turn it into the note that would be written. */
+function buildNote(input: CreateNoteInput): CommandResult<Note> {
+  const parsed = CreateNoteInput.safeParse(input);
+  if (!parsed.success) {
+    return fail('invalid_input', 'invalid note input', parsed.error.issues);
+  }
+  const doc: NoteDoc = parsed.data.doc ?? {
+    type: 'doc',
+    content: [{ type: 'paragraph' }],
+  };
+  return ok(
+    createNote({
+      ...parsed.data,
+      doc,
+      plainText: flattenDoc(doc),
+      title: parsed.data.title ?? deriveTitle(doc, ''),
+    }),
+  );
+}
+
+/**
+ * How many notes go into one `invoke`.
+ *
+ * A whole vault in a single call is one enormous serialised payload held three
+ * times over — in the webview, in the IPC buffer, and in Rust — before a byte
+ * of it reaches SQLite. Chunking is a payload decision and not a correctness
+ * one: each chunk is its own transaction and resolves its own cross-references,
+ * and the back-fill means links that span a chunk boundary still resolve when
+ * the later chunk lands.
+ */
+const WRITE_CHUNK = 250;
+
+/**
+ * Create many notes, refreshing the read caches once.
+ *
+ * Every note is validated before any is written, so a bad one in the middle of
+ * a vault import is reported by position rather than discovered halfway
+ * through. Nothing is partially applied within a chunk; a failure part-way
+ * through a large import leaves the chunks that already committed, which is
+ * why the failure names how many landed.
+ */
+export async function createNotesCommand(
+  inputs: CreateNoteInput[],
+  context: CommandContext = USER,
+): Promise<CommandResult<Note[]>> {
+  const cancelled = cancelledIfRequested<Note[]>(context);
+  if (cancelled) return cancelled;
+  if (!inputs.length) return ok([]);
+
+  const notes: Note[] = [];
+  for (const [index, input] of inputs.entries()) {
+    const built = buildNote(input);
+    // Reported with its position: "note 412 of 900 is invalid" is actionable
+    // where "invalid note input" is not.
+    if (!built.ok) {
+      return fail('invalid_input', `invalid note input at ${index}`, {
+        index,
+        issues: built.details,
+      });
+    }
+    notes.push(built.value);
+  }
+
+  let written = 0;
+  try {
+    for (let start = 0; start < notes.length; start += WRITE_CHUNK) {
+      const stopped = cancelledIfRequested<Note[]>(context);
+      if (stopped) {
+        await refreshCurrentView().catch(() => {});
+        return stopped;
+      }
+      const chunk = notes.slice(start, start + WRITE_CHUNK);
+      await library.upsertNotes(chunk);
+      written += chunk.length;
+    }
+  } catch (error) {
+    // Say what landed. An import that reports only "storage failed" leaves
+    // someone unable to tell whether to retry it or clean up after it.
+    await refreshCurrentView().catch(() => {});
+    return fail('storage_failed', String(error), { written });
+  }
+
+  await refreshCurrentView().catch(() => {});
+  return ok(notes);
 }
 
 export async function updateNoteCommand(

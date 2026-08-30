@@ -54,6 +54,9 @@ export const tauriLibraryAdapter: LibraryAdapter = {
   getNote: (noteId: string): Promise<Note | null> =>
     invoke('library_get_note', { noteId }),
   upsertNote: (note: Note) => invoke('library_upsert_note', { note }),
+  upsertNotes: (notes: Note[]) => invoke('library_upsert_notes', { notes }),
+  resolveWikiTitle: (title: string) =>
+    invoke<string | null>('library_resolve_wiki_title', { title }),
   upsertNoteIfUnchanged: (note: Note, baseUpdatedAt: string) =>
     invoke<boolean>('library_upsert_note_if_unchanged', { note, baseUpdatedAt }),
   trashNote: (noteId: string) => invoke('library_trash_note', { noteId }),

@@ -402,6 +402,26 @@ pub fn upsert(store: &Store, note: &Note) -> DbResult<()> {
     store.transact(|transaction| upsert_in(transaction, note))
 }
 
+/// Write a batch of notes in one transaction.
+///
+/// The point is not only speed. `upsert_in` back-fills the `[[Title]]` links
+/// that were waiting for each note as it lands, so a batch whose notes refer to
+/// one another resolves in both directions **whatever order they arrive in** --
+/// a note linking forwards to one not yet written gets a null target, and the
+/// back-fill repairs it when that note appears. No second pass, and no sorting
+/// the batch by dependency.
+///
+/// One transaction also means one failure mode: a bad note rolls the whole
+/// batch back rather than leaving a half-imported library behind.
+pub fn upsert_many(store: &Store, notes: &[Note]) -> DbResult<()> {
+    store.transact(|transaction| {
+        for note in notes {
+            upsert_in(transaction, note)?;
+        }
+        Ok(())
+    })
+}
+
 /// Atomically replace a note only if the durable row is still the version the
 /// caller read. Imports and recovery continue to use unconditional `upsert`.
 pub fn upsert_if_unchanged(store: &Store, note: &Note, base_updated_at: &str) -> DbResult<bool> {
@@ -600,18 +620,49 @@ fn wiki_targets(doc: &serde_json::Value) -> Vec<WikiTarget> {
     targets
 }
 
+/// The note a bare `[[Title]]` points at, or nothing.
+///
+/// One function rather than one query written twice, because two callers need
+/// the same answer for different reasons: the backlink index resolves titles
+/// when a note is saved, and the editor resolves one when a link is clicked.
+/// If those ever disagreed, a link would navigate somewhere the inspector does
+/// not list as a backlink -- so they share this by construction.
+///
+/// `LIMIT 1` on a case-insensitive match means duplicate titles resolve to
+/// whichever row SQLite reaches first. That is a real limitation rather than
+/// an oversight (see plan §8): the importers detect duplicates within a batch
+/// and disambiguate before writing, because guessing here would be worse.
+///
+/// Trashed notes are deliberately not excluded. Trash is recoverable, the
+/// backlink index keeps its row either way, and filtering here alone would
+/// reintroduce exactly the disagreement this function exists to prevent.
+pub(crate) fn resolve_wiki_title_in(
+    connection: &Connection,
+    title: &str,
+) -> DbResult<Option<String>> {
+    Ok(connection
+        .query_row(
+            "SELECT id FROM notes WHERE title = ? COLLATE NOCASE LIMIT 1",
+            [title],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?)
+}
+
+pub fn resolve_wiki_title(store: &Store, title: &str) -> DbResult<Option<String>> {
+    let title = title.trim().to_owned();
+    if title.is_empty() {
+        return Ok(None);
+    }
+    store.with(|connection| resolve_wiki_title_in(connection, &title))
+}
+
 fn rebuild_links(connection: &Connection, note: &Note) -> DbResult<()> {
     connection.execute("DELETE FROM note_links WHERE source_id = ?", [&note.id])?;
     for target in wiki_targets(&note.doc) {
         let target_id = match target.note_id {
             Some(id) => Some(id),
-            None => connection
-                .query_row(
-                    "SELECT id FROM notes WHERE title = ? COLLATE NOCASE LIMIT 1",
-                    [&target.title],
-                    |row| row.get::<_, String>(0),
-                )
-                .optional()?,
+            None => resolve_wiki_title_in(connection, &target.title)?,
         };
         connection.execute(
             "INSERT OR REPLACE INTO note_links (source_id, target_id, target_title)
@@ -911,11 +962,18 @@ mod tests {
     }
 
     fn temp_store() -> TempStore {
+        // A timestamp alone is not unique. The clock's real granularity is
+        // coarser than a nanosecond, so two tests starting in the same tick --
+        // which is routine, since these run in parallel -- got the same
+        // directory and quietly shared a database. The counter is what makes
+        // the name unique; the timestamp only keeps leftovers distinguishable.
+        static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock before the epoch")
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!("notabene-test-{unique}"));
+        let sequence = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let directory = std::env::temp_dir().join(format!("notabene-test-{unique}-{sequence}"));
         let path = directory.join("notabene.sqlite3");
         let store = Store::open(
             &path,
@@ -1016,6 +1074,137 @@ mod tests {
             updated_at: "2026-07-27T00:00:00.000Z".into(),
             order: 0,
         }
+    }
+
+    /// A note whose body carries one bare `[[title]]` wiki link.
+    fn note_linking_to(id: &str, title: &str, target: &str) -> Note {
+        let mut note = note_with(id, title, "see also");
+        note.doc = serde_json::json!({
+            "type": "doc",
+            "content": [{
+                "type": "paragraph",
+                "content": [
+                    { "type": "wikiLink", "attrs": { "title": target, "noteId": null } }
+                ]
+            }]
+        });
+        note
+    }
+
+    fn link_target(store: &Store, source: &str) -> Option<String> {
+        store
+            .with(|connection| {
+                Ok(connection
+                    .query_row(
+                        "SELECT target_id FROM note_links WHERE source_id = ?",
+                        [source],
+                        |row| row.get::<_, Option<String>>(0),
+                    )
+                    .optional()?
+                    .flatten())
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn a_batch_resolves_its_own_cross_references_in_both_directions() {
+        // The whole reason importers can write in any order. `first` links
+        // forwards to a note that does not exist yet and `last` links back to
+        // one that does; both must end up resolved, with no second pass.
+        let temporary = temp_store();
+        let store = &temporary.store;
+
+        let batch = vec![
+            note_linking_to("first", "First", "Last"),
+            note_linking_to("last", "Last", "First"),
+        ];
+        upsert_many(store, &batch).unwrap();
+
+        assert_eq!(link_target(store, "first").as_deref(), Some("last"));
+        assert_eq!(link_target(store, "last").as_deref(), Some("first"));
+    }
+
+    #[test]
+    fn a_hundred_notes_land_in_one_transaction_with_links_intact() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+
+        // Every note points at the one after it, so 0..98 all link forwards to
+        // a note written later in the same batch.
+        let batch: Vec<Note> = (0..100)
+            .map(|index| {
+                note_linking_to(
+                    &format!("n{index}"),
+                    &format!("Note {index}"),
+                    &format!("Note {}", index + 1),
+                )
+            })
+            .collect();
+        upsert_many(store, &batch).unwrap();
+
+        assert_eq!(count(store, &NoteQuery::default()).unwrap(), 100);
+        for index in 0..99 {
+            assert_eq!(
+                link_target(store, &format!("n{index}")).as_deref(),
+                Some(format!("n{}", index + 1).as_str()),
+                "note {index} lost its forward link"
+            );
+        }
+        // The last one points at a note nobody wrote: a dangling link is kept
+        // as a row with no target, ready for the day that note is created.
+        assert_eq!(link_target(store, "n99"), None);
+    }
+
+    #[test]
+    fn a_failed_batch_leaves_the_library_exactly_as_it_was() {
+        // One transaction means one failure mode. A half-imported vault is
+        // worse than a refused one, because nothing says which half arrived.
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert(store, &note_with("existing", "Existing", "kept")).unwrap();
+
+        let mut doomed = note_with("doomed", "Doomed", "never");
+        // A tag id with no row in `tags`: the join has a real foreign key.
+        doomed.tag_ids = vec!["tag-that-does-not-exist".into()];
+        let batch = vec![note_with("good", "Good", "also never"), doomed];
+
+        assert!(upsert_many(store, &batch).is_err());
+        assert_eq!(count(store, &NoteQuery::default()).unwrap(), 1);
+        assert!(get(store, "good").unwrap().is_none());
+    }
+
+    #[test]
+    fn click_resolution_and_the_backlink_index_agree_by_construction() {
+        // They share one query. If they ever diverged, a link would navigate
+        // somewhere the inspector does not list as a backlink.
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert(store, &note_with("target", "Damping", "body")).unwrap();
+        upsert(store, &note_linking_to("source", "Source", "damping")).unwrap();
+
+        // Case-insensitive, exactly as the index resolved it.
+        assert_eq!(
+            resolve_wiki_title(store, "damping").unwrap().as_deref(),
+            Some("target")
+        );
+        assert_eq!(link_target(store, "source").as_deref(), Some("target"));
+    }
+
+    #[test]
+    fn resolving_a_title_nobody_has_is_an_answer_rather_than_an_error() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        assert_eq!(resolve_wiki_title(store, "Nothing").unwrap(), None);
+        // A blank title never reaches SQLite: an empty `[[]]` is not a link.
+        assert_eq!(resolve_wiki_title(store, "   ").unwrap(), None);
+    }
+
+    #[test]
+    fn an_empty_batch_is_a_no_op_rather_than_a_failure() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert_many(store, &[]).unwrap();
+        assert_eq!(count(store, &NoteQuery::default()).unwrap(), 0);
     }
 
     #[test]

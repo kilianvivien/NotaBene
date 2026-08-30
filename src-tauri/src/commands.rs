@@ -98,6 +98,26 @@ pub fn library_upsert_note(store: State<'_, Store>, note: Note) -> DbResult<()> 
     notes::upsert(&store, &note)
 }
 
+/// Write a batch of notes in one transaction.
+///
+/// The webview chunks large imports before calling this; the whole point is
+/// that each chunk is atomic and resolves its own cross-references, so the
+/// chunk size is a payload decision rather than a correctness one.
+#[tauri::command]
+pub fn library_upsert_notes(store: State<'_, Store>, notes: Vec<Note>) -> DbResult<()> {
+    notes::upsert_many(&store, &notes)
+}
+
+/// The note a bare `[[Title]]` points at. Shares its query with the backlink
+/// index, so a link never navigates somewhere the inspector does not list.
+#[tauri::command]
+pub fn library_resolve_wiki_title(
+    store: State<'_, Store>,
+    title: String,
+) -> DbResult<Option<String>> {
+    notes::resolve_wiki_title(&store, &title)
+}
+
 #[tauri::command]
 pub fn library_upsert_note_if_unchanged(
     store: State<'_, Store>,

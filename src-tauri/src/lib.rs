@@ -137,6 +137,8 @@ pub fn run() {
             commands::library_search_notes,
             commands::library_get_note,
             commands::library_upsert_note,
+            commands::library_upsert_notes,
+            commands::library_resolve_wiki_title,
             commands::library_upsert_note_if_unchanged,
             commands::library_trash_note,
             commands::library_restore_note,
