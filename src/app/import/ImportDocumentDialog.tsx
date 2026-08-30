@@ -16,7 +16,7 @@ import {
   extractDocumentCommand,
   reformatDocumentCommand,
 } from '@/lib/commands';
-import type { ImportedDocument } from '@/lib/schema';
+import type { ImportedDocument, ImportWarning } from '@/lib/schema';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useUiStore } from '@/lib/state/uiStore';
 
@@ -24,6 +24,48 @@ function formatLabel(format: string): string {
   if (format === 'markdown') return 'Markdown';
   if (format === 'text') return 'Text';
   return format.toUpperCase();
+}
+
+/**
+ * Extraction failure code -> what to tell the student.
+ *
+ * The codes come from `extractDocumentCommand`, which flattens AnyDoc's typed
+ * errors. Anything absent falls back to `import.failed`, so an upstream
+ * variant we do not know about still says something true.
+ */
+const EXTRACTION_MESSAGES: Record<string, string> = {
+  ocr_required: 'import.ocrRequired',
+  unsupported_format: 'import.unsupported',
+  attachment_missing: 'import.attachmentMissing',
+  encrypted: 'import.encrypted',
+  too_large: 'import.tooLarge',
+  missing_part: 'import.missingPart',
+  malformed: 'import.malformed',
+};
+
+/**
+ * What the conversion could not carry, said plainly before the note is made.
+ *
+ * These arrive as codes with counts rather than sentences: Rust cannot build
+ * a message that exists in both locales. An unknown code is shown as a
+ * generic line rather than skipped, so a version skew never hides a loss.
+ */
+function ConversionNotes({ warnings }: { warnings: ImportWarning[] }) {
+  const { t } = useTranslation();
+  if (!warnings.length) return null;
+  return (
+    <FieldNote>
+      <ul className="list-disc space-y-0.5 pl-4">
+        {warnings.map((warning) => (
+          <li key={warning.code}>
+            {t([`import.warning.${warning.code}`, 'import.warning.unknown'], {
+              count: warning.count,
+            })}
+          </li>
+        ))}
+      </ul>
+    </FieldNote>
+  );
 }
 
 export function ImportDocumentDialog() {
@@ -66,15 +108,7 @@ export function ImportDocumentDialog() {
         setDocument(result.value);
         return;
       }
-      setError(
-        result.message === 'ocr_required'
-          ? t('import.ocrRequired')
-          : result.message === 'unsupported_format'
-            ? t('import.unsupported')
-            : result.message === 'attachment_missing'
-              ? t('import.attachmentMissing')
-              : t('import.failed'),
-      );
+      setError(t(EXTRACTION_MESSAGES[result.message] ?? 'import.failed'));
     });
     return () => {
       active = false;
@@ -161,9 +195,25 @@ export function ImportDocumentDialog() {
       setError(t('import.createFailed'));
       return;
     }
+    const lost = result.value.warnings.filter((warning) =>
+      warning.code.startsWith('asset'),
+    );
     if (keepOriginal && !result.value.attachmentKept) {
       setCompleted(true);
       setWarning(t('import.attachmentWarning'));
+      return;
+    }
+    if (lost.length) {
+      setCompleted(true);
+      setWarning(
+        lost
+          .map((warning) =>
+            t([`import.warning.${warning.code}`, 'import.warning.unknown'], {
+              count: warning.count,
+            }),
+          )
+          .join(' '),
+      );
       return;
     }
     setSource(null);
@@ -260,6 +310,7 @@ export function ImportDocumentDialog() {
               </FieldNote>
             )}
             {reformat && !formatting && formatNote && <FieldNote>{formatNote}</FieldNote>}
+            <ConversionNotes warnings={document.diagnostics.warnings} />
             <section>
               <h3 className="mb-2 text-[12px] font-semibold text-[var(--nb-text-2)]">
                 {t('import.preview')}

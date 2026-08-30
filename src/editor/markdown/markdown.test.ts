@@ -95,4 +95,30 @@ describe('editor Markdown', () => {
     };
     expect(markdownToDoc(docToMarkdown(doc))).toEqual(doc);
   });
+  /**
+   * AnyDoc 0.2 renders `Inline::Checkbox` as `[x]`, which reaches a table cell
+   * as `| [x] | [ ] Wall |`. The task branch requires a leading bullet, so a
+   * spreadsheet's checkbox column must stay a table rather than becoming a
+   * task list -- and a genuine bulleted checkbox must still become one.
+   */
+  it('reads a checkbox as a task only where a bullet makes it one', () => {
+    const table = markdownToDoc('| A | B |\n| --- | --- |\n| [x] | [ ] Wall |');
+    expect(table.content.some((node) => node.type === 'taskList')).toBe(false);
+
+    const list = markdownToDoc('- [x] done\n- [ ] todo');
+    const tasks = list.content.find((node) => node.type === 'taskList');
+    expect(tasks?.content?.map((item) => item.attrs?.checked)).toEqual([true, false]);
+  });
+  /**
+   * Widening the divider to accept a single column risked turning any
+   * paragraph that happens to contain a pipe into a table as soon as a
+   * horizontal rule followed it. Both outer pipes are required to stop that.
+   */
+  it('does not read a horizontal rule as a table divider', () => {
+    const doc = markdownToDoc('Use the | key\n\n---');
+    expect(doc.content.map((node) => node.type)).toEqual(['paragraph', 'horizontalRule']);
+
+    const table = markdownToDoc('| Mark |\n| --- |\n| 91 |');
+    expect(table.content[0]?.type).toBe('table');
+  });
 });

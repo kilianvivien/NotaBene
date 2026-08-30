@@ -6,7 +6,8 @@ import {
   pathFilename,
   type DocumentImportSource,
 } from '@/lib/import/documentImport';
-import type { ImportedDocument, Note } from '@/lib/schema';
+import { materialiseAssets } from '@/lib/import/importedAssets';
+import type { ImportedDocument, ImportWarning, Note } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { providerFor } from './aiCommands';
@@ -41,13 +42,56 @@ export function beginAttachmentImportCommand(source: DocumentImportSource): void
   useUiStore.getState().setDocumentImportSource(source);
 }
 
+/** The scanned pages AnyDoc refused, so OCR can read those and not the rest. */
+export interface OcrRequirement {
+  /** 1-indexed, as AnyDoc counts them. */
+  pages: number[];
+  pageCount: number;
+}
+
+/** `ocr_required:[1,5,7]/12:pages 1, 5, 7 of 12 need OCR` */
+const OCR_REQUIRED = /ocr_required:\[([\d,]*)\]\/(\d+):/;
+
+/**
+ * AnyDoc's typed errors, which reach us as `code:message` from
+ * `src-tauri/src/document_import.rs`.
+ *
+ * Each code keeps its own message so the dialog can say what actually went
+ * wrong; before 0.9 every one of these except OCR arrived as a single
+ * "could not be converted".
+ */
 function extractionFailure(error: unknown): CommandResult<never> {
   const message = error instanceof Error ? error.message : String(error);
+
+  const ocr = OCR_REQUIRED.exec(message);
+  const [, ocrPages, ocrCount] = ocr ?? [];
+  if (ocrPages !== undefined && ocrCount !== undefined) {
+    const pages = ocrPages
+      .split(',')
+      .filter(Boolean)
+      .map(Number)
+      .filter((page) => Number.isInteger(page) && page > 0);
+    return fail('not_supported', 'ocr_required', {
+      pages,
+      pageCount: Number(ocrCount),
+    } satisfies OcrRequirement);
+  }
   if (message.includes('ocr_required:')) {
+    // A page list that did not parse still means the document needs OCR; say
+    // so rather than reporting a generic failure for a known cause.
     return fail('not_supported', 'ocr_required', message);
   }
-  if (message.includes('unsupported_format:')) {
-    return fail('not_supported', 'unsupported_format', message);
+
+  for (const code of [
+    'unsupported_format',
+    'encrypted',
+    'too_large',
+    'missing_part',
+    'malformed',
+  ] as const) {
+    if (message.includes(`${code}:`)) {
+      return fail(code === 'unsupported_format' ? 'not_supported' : 'invalid_input', code, message);
+    }
   }
   return fail('invalid_input', 'conversion_failed', message);
 }
@@ -98,6 +142,11 @@ export async function reformatDocumentCommand(
 export interface ImportedNoteResult {
   note: Note;
   attachmentKept: boolean;
+  /** Embedded images stored, deduplicated by content hash. */
+  imagesKept: number;
+  /** The document's own warnings plus anything materialising the images
+   *  added, for the surface to translate and show. */
+  warnings: ImportWarning[];
 }
 
 /** Final pipeline stage: normal note creation plus optional source provenance.
@@ -117,14 +166,23 @@ export async function createImportedNoteCommand(
     view.kind === 'course'
       ? { courseId: view.courseId, sectionId: view.sectionId ?? null }
       : {};
-  const markdown = reformatted?.trim() ? reformatted : document.markdown;
+
+  // Store the embedded images and point the Markdown at them. This is the
+  // only place it happens: storing an asset is a write, so it belongs on the
+  // mutation path rather than in the dialog that previews the result.
+  const materialised = await materialiseAssets(document);
+  const extracted = materialised.markdown;
+
+  // Compared against the *materialised* text, not the raw extraction — the
+  // asset rewrite must not make a plain import look like a model wrote it.
+  const markdown = reformatted?.trim() ? reformatted : extracted;
   const created = await createNoteCommand(
     {
       ...location,
       title: document.metadata?.title || document.source.filename.replace(/\.[^.]+$/, ''),
       doc: markdownToDoc(markdown),
     },
-    markdown === document.markdown ? undefined : { source: 'ai' },
+    markdown === extracted ? undefined : { source: 'ai' },
   );
   if (!created.ok) return created;
 
@@ -148,5 +206,10 @@ export async function createImportedNoteCommand(
 
   useUiStore.getState().selectNote(created.value.id);
   await useEditorStore.getState().openNote(created.value.id);
-  return ok({ note: created.value, attachmentKept });
+  return ok({
+    note: created.value,
+    attachmentKept,
+    imagesKept: materialised.storedIds.length,
+    warnings: [...document.diagnostics.warnings, ...materialised.warnings],
+  });
 }
