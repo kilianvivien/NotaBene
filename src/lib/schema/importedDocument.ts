@@ -42,6 +42,19 @@ export const ImportWarningSchema = z.object({
   count: z.number().int().positive(),
 });
 
+/**
+ * One page as text recognition read it, crossing IPC from Vision.
+ *
+ * Parsed rather than trusted like everything else that crosses a boundary:
+ * `lines: 0` is the difference between "this scan was blank" and "something
+ * went wrong", and the surface says different things about each.
+ */
+export const OcrPageSchema = z.object({
+  text: z.string(),
+  lines: z.number().int().nonnegative(),
+  confidence: z.number(),
+});
+
 export const ImportedDocumentSchema = z.object({
   source: z.object({
     filename: z.string().min(1),
@@ -56,7 +69,7 @@ export const ImportedDocumentSchema = z.object({
     })
     .optional(),
   diagnostics: z.object({
-    parser: z.enum(['anydoc', 'plain-text']),
+    parser: z.enum(['anydoc', 'plain-text', 'ocr']),
     warnings: z.array(ImportWarningSchema),
     requiresOcr: z.boolean(),
   }),
@@ -66,3 +79,4 @@ export type ImportedDocument = z.infer<typeof ImportedDocumentSchema>;
 export type ImportedAsset = z.infer<typeof ImportedAssetSchema>;
 export type ImportWarning = z.infer<typeof ImportWarningSchema>;
 export type ImportedDocumentFormat = z.infer<typeof ImportedDocumentFormatSchema>;
+export type OcrPage = z.infer<typeof OcrPageSchema>;

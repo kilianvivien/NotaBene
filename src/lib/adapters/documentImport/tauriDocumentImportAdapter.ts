@@ -16,4 +16,13 @@ export const tauriDocumentImportAdapter: DocumentImportAdapter = {
       }),
     );
   },
+  async extractPdfWithOcr(bytes, filename, pages) {
+    return parse(
+      await invoke('document_import_pdf_ocr', {
+        data: await encodeBlobBase64(bytes),
+        filename,
+        pages,
+      }),
+    );
+  },
 };

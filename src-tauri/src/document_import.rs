@@ -3,11 +3,14 @@
 //! AnyDoc's model stays behind this module. The webview receives a small,
 //! NotaBene-owned contract so a parser upgrade cannot become an IPC migration.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anydoc::{ConvertError, Format};
 use base64::Engine;
 use serde::Serialize;
+
+use crate::ocr::OcrPageText;
 
 mod render;
 
@@ -24,6 +27,14 @@ const W_ASSET_BUDGET: &str = "assetBudget";
 /// An embedded object that is not a picture -- `Asset` also covers OLE
 /// payloads, and a spreadsheet welded into a slide is not an illustration.
 const W_ASSET_NOT_IMAGE: &str = "assetNotImage";
+
+/// A page was read and had no text on it. A blank scan is a real answer, not
+/// a failure -- but the note is shorter than the PDF, so say why.
+const W_OCR_PAGE_EMPTY: &str = "ocrPageEmpty";
+/// A page needed reading and no recognised text arrived for it: the student
+/// cancelled, or rasterising it failed. Its own text is unreliable by
+/// definition, so it is left out rather than emitted as garbage.
+const W_OCR_PAGE_MISSING: &str = "ocrPageMissing";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -253,6 +264,112 @@ fn convert(bytes: Vec<u8>, source_path: PathBuf) -> Result<ImportedDocument, Str
     })
 }
 
+/// The result of interleaving read pages with recognised ones.
+struct AssembledPages {
+    markdown: String,
+    /// Pages that were read and had nothing on them.
+    empty: u32,
+    /// Pages that needed reading and were never read.
+    missing: u32,
+}
+
+/// Put the recognised text back among the pages that did not need it.
+///
+/// Pure, and split out from the conversion for one reason: the page numbering
+/// is the only place this can go wrong, and it cannot go wrong quietly. A
+/// `PageMarkdown` counts from zero while every page number crossing IPC counts
+/// from one, so an off-by-one here would silently attach each page's OCR text
+/// to its neighbour -- output that still looks like a document.
+fn assemble_pages(
+    pages: &[pdf_inspector::PageMarkdown],
+    recognised: &[OcrPageText],
+) -> AssembledPages {
+    let text_by_page: BTreeMap<u32, &str> = recognised
+        .iter()
+        .map(|page| (page.page, page.text.trim()))
+        .collect();
+
+    let mut parts: Vec<&str> = Vec::with_capacity(pages.len());
+    let mut empty = 0u32;
+    let mut missing = 0u32;
+
+    for page in pages {
+        match text_by_page.get(&(page.page + 1)) {
+            Some(text) if !text.is_empty() => parts.push(text),
+            Some(_) => empty += 1,
+            // A page AnyDoc flagged and nobody read: the student cancelled, or
+            // rasterising it failed. Its own extracted text is unreliable by
+            // definition -- that is what flagged it -- so it is left out
+            // rather than emitted as garbage that reads like content.
+            None if page.needs_ocr => missing += 1,
+            None => {
+                let markdown = page.markdown.trim();
+                if !markdown.is_empty() {
+                    parts.push(markdown);
+                }
+            }
+        }
+    }
+
+    AssembledPages {
+        markdown: parts.join("\n\n"),
+        empty,
+        missing,
+    }
+}
+
+/// A PDF the webview has since read the scanned pages of.
+///
+/// AnyDoc cannot help here: a PDF has no document-model form, and one scanned
+/// page makes it refuse the whole file rather than return text with a silent
+/// hole in it. So this goes to the same parser AnyDoc uses, one page at a
+/// time, and puts the recognised text back where those pages were.
+///
+/// Page numbering is the trap. `ConvertError::NeedsOcr` and
+/// `PagesExtractionResult::pages_needing_ocr` are 1-indexed; `PageMarkdown.page`
+/// and the extraction filter are 0-indexed. The conversion happens here, once.
+fn convert_pdf_with_ocr(
+    bytes: Vec<u8>,
+    source_path: PathBuf,
+    recognised: Vec<OcrPageText>,
+) -> Result<ImportedDocument, String> {
+    let extraction = pdf_inspector::extract_pages_markdown_mem(&bytes, None)
+        .map_err(|error| format!("malformed:the PDF could not be read page by page: {error}"))?;
+
+    let assembled = assemble_pages(&extraction.pages, &recognised);
+    let markdown = assembled.markdown;
+    let (empty, missing) = (assembled.empty, assembled.missing);
+    if markdown.trim().is_empty() {
+        return Err("conversion_failed:no text could be read from this PDF".into());
+    }
+
+    let warnings = [(W_OCR_PAGE_EMPTY, empty), (W_OCR_PAGE_MISSING, missing)]
+        .into_iter()
+        .filter(|(_, count)| *count > 0)
+        .map(|(code, count)| ImportWarning {
+            code: code.to_string(),
+            count,
+        })
+        .collect();
+
+    Ok(ImportedDocument {
+        source: ImportedSource {
+            filename: filename(&source_path),
+            format: "pdf",
+        },
+        markdown,
+        assets: Vec::new(),
+        metadata: ImportedMetadata {
+            title: title(&source_path),
+        },
+        diagnostics: ImportDiagnostics {
+            parser: "ocr",
+            warnings,
+            requires_ocr: false,
+        },
+    })
+}
+
 #[tauri::command]
 pub async fn document_import_bytes(
     data: String,
@@ -263,6 +380,27 @@ pub async fn document_import_bytes(
             .decode(data)
             .map_err(|error| format!("read_failed:invalid document data: {error}"))?;
         convert(bytes, PathBuf::from(filename))
+    })
+    .await
+    .map_err(|error| format!("conversion_failed:{error}"))?
+}
+
+/// Re-convert a PDF with the scanned pages already read.
+///
+/// Separate from `document_import_bytes` rather than a flag on it: this one
+/// can only be reached after an `ocr_required` failure the student answered,
+/// and folding it in would put an optional page list on every import.
+#[tauri::command]
+pub async fn document_import_pdf_ocr(
+    data: String,
+    filename: String,
+    pages: Vec<OcrPageText>,
+) -> Result<ImportedDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .map_err(|error| format!("read_failed:invalid document data: {error}"))?;
+        convert_pdf_with_ocr(bytes, PathBuf::from(filename), pages)
     })
     .await
     .map_err(|error| format!("conversion_failed:{error}"))?
@@ -331,6 +469,114 @@ mod tests {
             conversion_error(ConvertError::Unsupported("nope".into()))
                 .starts_with("unsupported_format:")
         );
+    }
+
+    fn page(index: u32, markdown: &str, needs_ocr: bool) -> pdf_inspector::PageMarkdown {
+        pdf_inspector::PageMarkdown {
+            page: index,
+            markdown: markdown.into(),
+            needs_ocr,
+            ocr_reason: None,
+        }
+    }
+
+    fn read(page: u32, text: &str) -> OcrPageText {
+        OcrPageText {
+            page,
+            text: text.into(),
+        }
+    }
+
+    #[test]
+    fn puts_a_recognised_page_back_where_it_came_from() {
+        // The one number that matters: pdf-inspector counts pages from zero,
+        // the OCR payload counts from one. Page index 1 is page number 2.
+        let assembled = assemble_pages(
+            &[
+                page(0, "First page", false),
+                page(1, "", true),
+                page(2, "Third page", false),
+            ],
+            &[read(2, "Scanned middle")],
+        );
+        assert_eq!(assembled.markdown, "First page\n\nScanned middle\n\nThird page");
+        assert_eq!(assembled.empty, 0);
+        assert_eq!(assembled.missing, 0);
+    }
+
+    #[test]
+    fn never_shifts_recognised_text_onto_a_neighbouring_page() {
+        // The failure this guards is an off-by-one that still produces a
+        // plausible-looking document, so assert the whole order rather than
+        // that the text is merely present somewhere.
+        let assembled = assemble_pages(
+            &[page(0, "", true), page(1, "Readable", false)],
+            &[read(1, "Scanned first")],
+        );
+        assert_eq!(assembled.markdown, "Scanned first\n\nReadable");
+    }
+
+    #[test]
+    fn counts_a_page_that_was_read_and_had_nothing_on_it() {
+        let assembled = assemble_pages(
+            &[page(0, "Text", false), page(1, "", true)],
+            &[read(2, "   ")],
+        );
+        assert_eq!(assembled.markdown, "Text");
+        assert_eq!(assembled.empty, 1);
+        assert_eq!(assembled.missing, 0);
+    }
+
+    #[test]
+    fn leaves_out_an_unread_scanned_page_rather_than_emitting_its_garbage() {
+        // A flagged page's own extraction is unreliable by definition -- that
+        // is what flagged it. Cancelling halfway must shorten the note, not
+        // fill it with mojibake.
+        let assembled = assemble_pages(
+            &[page(0, "Real text", false), page(1, "\u{fffd}\u{fffd}\u{fffd}", true)],
+            &[],
+        );
+        assert_eq!(assembled.markdown, "Real text");
+        assert_eq!(assembled.missing, 1);
+    }
+
+    #[test]
+    fn keeps_the_readable_pages_a_scanned_one_would_otherwise_have_cost() {
+        // The reason this path exists at all: AnyDoc refuses the whole PDF
+        // over one scanned page, so without this the other pages are lost.
+        let pages: Vec<_> = (0..10)
+            .map(|index| page(index, &format!("Page {}", index + 1), index == 4))
+            .collect();
+        let assembled = assemble_pages(&pages, &[read(5, "Scanned")]);
+        assert_eq!(assembled.markdown.matches("Page ").count(), 9);
+        assert!(assembled.markdown.contains("Page 4\n\nScanned\n\nPage 6"));
+    }
+
+    /// The whole seam, against a real PDF: refusal names the scanned page,
+    /// and converting again with that page's text keeps the readable one.
+    /// `NB_PDF_PROBE=/path/to/mixed.pdf cargo test -- --ignored --nocapture`
+    #[test]
+    #[ignore = "needs NB_PDF_PROBE pointing at a mixed text/scanned PDF"]
+    fn probe_reads_a_mixed_pdf() {
+        let path = std::env::var("NB_PDF_PROBE").expect("NB_PDF_PROBE");
+        let bytes = std::fs::read(&path).expect("fixture");
+
+        let refusal = convert(bytes.clone(), path.clone().into()).unwrap_err();
+        println!("refusal: {refusal}");
+        assert!(refusal.starts_with("ocr_required:"), "{refusal}");
+
+        let imported = convert_pdf_with_ocr(
+            bytes,
+            path.into(),
+            vec![OcrPageText {
+                page: 2,
+                text: "Damping and Resonance".into(),
+            }],
+        )
+        .unwrap();
+        println!("parser={} markdown:\n{}", imported.diagnostics.parser, imported.markdown);
+        assert!(imported.markdown.contains("Oscillations"), "lost the readable page");
+        assert!(imported.markdown.contains("Damping"), "lost the scanned page");
     }
 
     #[test]

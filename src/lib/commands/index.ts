@@ -15,6 +15,7 @@ export * from './readCommands';
 export * from './retrievalCommands';
 export * from './onboardingCommands';
 export * from './importCommands';
+export * from './ocrCommands';
 export * from './agentCommands';
 export * from './storageCommands';
 export * from './pdfAnnotationCommands';

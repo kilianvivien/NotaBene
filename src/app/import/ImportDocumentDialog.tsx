@@ -1,5 +1,5 @@
-import { FileText, LockKeyhole } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { FileText, LockKeyhole, ScanText } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AiDialogStatus } from '@/app/ai/AiDisclosure';
 import { AiRichText } from '@/app/ai/AiRichText';
@@ -10,11 +10,16 @@ import {
   FieldRow,
   FieldToggle,
   GlassButton,
+  GlassSelect,
 } from '@/components/glass';
 import {
   createImportedNoteCommand,
   extractDocumentCommand,
+  ocrAvailableCommand,
+  ocrLanguagesCommand,
   reformatDocumentCommand,
+  runOcrCommand,
+  type OcrRequirement,
 } from '@/lib/commands';
 import type { ImportedDocument, ImportWarning } from '@/lib/schema';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
@@ -68,6 +73,25 @@ function ConversionNotes({ warnings }: { warnings: ImportWarning[] }) {
   );
 }
 
+/** A BCP-47 identifier as its own language's name — `Intl` already knows
+ *  every one Vision can return, so there is no list to translate. */
+function languageLabel(tag: string): string {
+  try {
+    return new Intl.DisplayNames([tag], { type: 'language' }).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
+}
+
+/** `details` crosses the command boundary as `unknown`. */
+function isOcrRequirement(details: unknown): details is OcrRequirement {
+  return (
+    typeof details === 'object' &&
+    details !== null &&
+    Array.isArray((details as OcrRequirement).pages)
+  );
+}
+
 export function ImportDocumentDialog() {
   const { t } = useTranslation();
   const source = useUiStore((state) => state.documentImportSource);
@@ -88,6 +112,34 @@ export function ImportDocumentDialog() {
   const [formatNote, setFormatNote] = useState('');
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
+  /** The scanned pages the conversion named, when it named any. Holding the
+   * requirement rather than a boolean is what lets the offer say how many
+   * pages, and lets the run read only those. */
+  const [ocrNeeded, setOcrNeeded] = useState<OcrRequirement | null>(null);
+  const [ocrReady, setOcrReady] = useState(false);
+  const [ocrLanguages, setOcrLanguages] = useState<string[]>([]);
+  const [ocrLanguage, setOcrLanguage] = useState('');
+  const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const ocrRun = useRef<AbortController | null>(null);
+
+  // Whether this build can read a page at all, asked once. The offer is
+  // hidden rather than shown-and-failing on a build without Vision.
+  useEffect(() => {
+    let active = true;
+    void ocrAvailableCommand().then((value) => {
+      if (!active) return;
+      setOcrReady(value);
+      if (!value) return;
+      void ocrLanguagesCommand().then((result) => {
+        if (active && result.ok) setOcrLanguages(result.value);
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!source) return;
@@ -100,12 +152,24 @@ export function ImportDocumentDialog() {
     setReformat(false);
     setFormatted(null);
     setFormatNote('');
+    setOcrNeeded(null);
+    setOcrProgress(null);
+    setOcrLanguage('');
     setExtracting(true);
     void extractDocumentCommand(source).then((result) => {
       if (!active) return;
       setExtracting(false);
       if (result.ok) {
         setDocument(result.value);
+        return;
+      }
+      // A scanned PDF is the one failure with something to offer rather than
+      // only something to report. It gets the offer panel and no error: a red
+      // line above a button asking to proceed reads as a refusal, not a
+      // choice. Whether this build can act on it is answered separately,
+      // because that answer can arrive after this one.
+      if (result.message === 'ocr_required' && isOcrRequirement(result.details)) {
+        setOcrNeeded(result.details);
         return;
       }
       setError(t(EXTRACTION_MESSAGES[result.message] ?? 'import.failed'));
@@ -118,7 +182,51 @@ export function ImportDocumentDialog() {
   function close() {
     if (creating) return;
     cancelRun('importFormat');
+    ocrRun.current?.abort();
     setSource(null);
+  }
+
+  /**
+   * Read the scanned pages and convert the PDF again with them.
+   *
+   * Cancelling is simply not starting the next page: nothing has been written
+   * at this point, so there is nothing to undo. The dialog goes back to
+   * offering the run rather than pretending it never happened.
+   */
+  async function readScannedPages() {
+    if (!source || !ocrNeeded) return;
+    const controller = new AbortController();
+    ocrRun.current = controller;
+    setError('');
+    setOcrProgress({ done: 0, total: ocrNeeded.pages.length });
+
+    const result = await runOcrCommand(source, ocrNeeded.pages, {
+      signal: controller.signal,
+      languages: ocrLanguage ? [ocrLanguage] : [],
+      onProgress: setOcrProgress,
+    });
+
+    ocrRun.current = null;
+    setOcrProgress(null);
+    if (controller.signal.aborted) return;
+    // Extraction of a second file can finish while this is still in the air.
+    if (useUiStore.getState().documentImportSource !== source) return;
+
+    if (!result.ok) {
+      setError(t(result.message === 'cancelled' ? 'import.failed' : 'import.ocrFailed'));
+      return;
+    }
+    setOcrNeeded(null);
+    setError('');
+    setDocument(result.value.document);
+    // A page that was read and turned out blank is a fact about the document,
+    // not a failure — say it plainly rather than leaving the note quietly
+    // shorter than the PDF.
+    setWarning(
+      result.value.blank
+        ? t('import.ocrBlankPages', { count: result.value.blank })
+        : '',
+    );
   }
 
   /**
@@ -267,6 +375,73 @@ export function ImportDocumentDialog() {
         {extracting && <FieldNote>{t('import.extracting')}</FieldNote>}
         {error && <FieldNote tone="danger">{error}</FieldNote>}
         {warning && <FieldNote tone="danger">{warning}</FieldNote>}
+
+        {ocrNeeded && !ocrReady && (
+          <FieldNote tone="danger">{t('import.ocrRequired')}</FieldNote>
+        )}
+
+        {ocrNeeded && ocrReady && !ocrProgress && (
+          <div className="flex flex-col gap-3 rounded-lg border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] px-3 py-3">
+            <div className="flex items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--nb-control-surface)] text-[var(--nb-text-3)]">
+                <ScanText size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-[var(--nb-text)]">
+                  {t('import.ocrOffer', {
+                    count: ocrNeeded.pages.length,
+                    total: ocrNeeded.pageCount,
+                  })}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[var(--nb-text-3)]">
+                  {t('import.ocrOfferHint')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              {/* Offered rather than assumed: a French page read as English
+                  comes back as nonsense, and the machine's own language is
+                  not evidence about the document's. */}
+              <GlassSelect
+                label={t('import.ocrLanguage')}
+                size="sm"
+                value={ocrLanguage}
+                onChange={(event) => setOcrLanguage(event.target.value)}
+              >
+                <option value="">{t('import.ocrLanguageAuto')}</option>
+                {ocrLanguages.map((language) => (
+                  <option key={language} value={language}>
+                    {languageLabel(language)}
+                  </option>
+                ))}
+              </GlassSelect>
+              <GlassButton
+                size="sm"
+                variant="accent"
+                onClick={() => void readScannedPages()}
+              >
+                {t('import.ocrRun')}
+              </GlassButton>
+            </div>
+          </div>
+        )}
+
+        {ocrProgress && (
+          <FieldNote>
+            {t('import.ocrRunning', {
+              done: ocrProgress.done,
+              total: ocrProgress.total,
+            })}{' '}
+            <button
+              type="button"
+              aria-label={t('import.ocrCancel')}
+              className="underline underline-offset-2"
+              onClick={() => ocrRun.current?.abort()}
+            >
+              {t('ai.cancel')}
+            </button>
+          </FieldNote>
+        )}
 
         {document && (
           <>

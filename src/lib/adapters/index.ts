@@ -46,6 +46,8 @@ import {
   tauriStorageAdapter,
   unavailableStorageAdapter,
 } from './storage/tauriStorageAdapter';
+import { tauriOcrAdapter } from './ocr/tauriOcrAdapter';
+import { unavailableOcrAdapter } from './ocr/memoryOcrAdapter';
 import { tauriDocumentImportAdapter } from './documentImport/tauriDocumentImportAdapter';
 import { memoryDocumentImportAdapter } from './documentImport/memoryDocumentImportAdapter';
 import { isTauri } from '@/lib/platform/runtime';
@@ -68,6 +70,7 @@ import type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 import type { WindowAdapter } from './window/WindowAdapter';
 import type { StorageAdapter } from './storage/StorageAdapter';
 import type { DocumentImportAdapter } from './documentImport/DocumentImportAdapter';
+import type { OcrAdapter } from './ocr/OcrAdapter';
 import type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
 
 export const library: LibraryAdapter = isTauri
@@ -102,6 +105,7 @@ export const storage: StorageAdapter = isTauri
 export const documentImporter: DocumentImportAdapter = isTauri
   ? tauriDocumentImportAdapter
   : memoryDocumentImportAdapter;
+export const ocr: OcrAdapter = isTauri ? tauriOcrAdapter : unavailableOcrAdapter;
 export const appLifecycle: AppLifecycleAdapter = isTauri
   ? tauriAppLifecycleAdapter
   : browserAppLifecycleAdapter;
@@ -202,5 +206,9 @@ export type {
   McpClientId,
   McpStatus,
 } from './mcp/McpAdapter';
-export type { DocumentImportAdapter } from './documentImport/DocumentImportAdapter';
+export type {
+  DocumentImportAdapter,
+  OcrPageText,
+} from './documentImport/DocumentImportAdapter';
+export type { OcrAdapter } from './ocr/OcrAdapter';
 export { MCP_CLIENTS } from './mcp/McpAdapter';

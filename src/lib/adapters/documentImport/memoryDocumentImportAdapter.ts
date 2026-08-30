@@ -22,4 +22,8 @@ async function extract(bytes: Blob, filename: string): Promise<ImportedDocument>
 
 export const memoryDocumentImportAdapter: DocumentImportAdapter = {
   extractBytes: extract,
+  async extractPdfWithOcr() {
+    // Reaching this means something offered OCR on a build that has none.
+    throw new Error('not_supported:PDF conversion requires the NotaBene desktop app');
+  },
 };

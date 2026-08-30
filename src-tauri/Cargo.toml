@@ -73,9 +73,40 @@ futures-util = "0.3"
 regex = "1"
 anydoc = "0.2"
 
+# The same PDF parser AnyDoc already runs, taken directly for one thing AnyDoc
+# does not expose: per-page Markdown. A scanned page makes AnyDoc refuse the
+# *whole* document, so recovering the readable pages after OCR means asking
+# page by page. This adds no parser to the process -- it is the crate AnyDoc
+# already depends on, at the version already in the lock (see plan §11).
+pdf-inspector = "1.17"
+
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"
 
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
 crispasr = { version = "=0.8.23", default-features = false, features = ["metal"] }
 crispasr-sys = { version = "=0.8.23", default-features = false, features = ["metal"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# Vision, for reading scanned PDF pages on the machine (plan §9.2). The
+# `objc2-*` 0.3.2 framework crates and `objc2` 0.6.4 are already in the lock
+# transitively through Tauri, so this is a dependency line rather than a
+# toolchain. Default features drag in CoreML, AVFoundation, CoreMedia,
+# CoreVideo and ImageIO bindings we never call; text recognition needs five
+# of the crate's per-class features and nothing else.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+    "NSArray",
+    "NSData",
+    "NSDictionary",
+    "NSString",
+] }
+objc2-vision = { version = "0.3", default-features = false, features = [
+    "std",
+    "VNRequest",
+    "VNRequestHandler",
+    "VNRecognizeTextRequest",
+    "VNObservation",
+    "VNTypes",
+    "objc2-core-foundation",
+] }

@@ -96,17 +96,35 @@ function extractionFailure(error: unknown): CommandResult<never> {
   return fail('invalid_input', 'conversion_failed', message);
 }
 
-export async function extractDocumentCommand(
+/**
+ * The bytes behind an import source, and the name to convert them under.
+ *
+ * Shared with the OCR pass, which needs the same file a second time: reading
+ * it twice through two different paths is how the two come to disagree about
+ * which document is being imported.
+ */
+export async function sourceBytesCommand(
   source: DocumentImportSource,
-): Promise<CommandResult<ImportedDocument>> {
+): Promise<CommandResult<{ bytes: Blob; filename: string }>> {
   try {
     if (source.kind === 'path') {
-      const bytes = await dialog.readFile(source.path);
-      return ok(await documentImporter.extractBytes(bytes, source.name));
+      return ok({ bytes: await dialog.readFile(source.path), filename: source.name });
     }
     const bytes = await assets.get(source.attachment.assetId);
     if (!bytes) return fail('not_found', 'attachment_missing');
-    return ok(await documentImporter.extractBytes(bytes, source.attachment.name));
+    return ok({ bytes, filename: source.attachment.name });
+  } catch (error) {
+    return extractionFailure(error);
+  }
+}
+
+export async function extractDocumentCommand(
+  source: DocumentImportSource,
+): Promise<CommandResult<ImportedDocument>> {
+  const read = await sourceBytesCommand(source);
+  if (!read.ok) return read;
+  try {
+    return ok(await documentImporter.extractBytes(read.value.bytes, read.value.filename));
   } catch (error) {
     return extractionFailure(error);
   }

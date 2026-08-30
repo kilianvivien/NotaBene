@@ -11,6 +11,7 @@ mod db;
 mod document_import;
 mod mcp;
 mod menu;
+mod ocr;
 mod settings;
 mod storage;
 mod tls;
@@ -183,6 +184,10 @@ pub fn run() {
             commands::library_import,
             commands::export_write,
             document_import::document_import_bytes,
+            document_import::document_import_pdf_ocr,
+            ocr::ocr_available,
+            ocr::ocr_languages,
+            ocr::ocr_recognize_page,
             settings::settings_load,
             settings::settings_save,
             settings::secrets_get,

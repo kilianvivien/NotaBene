@@ -20,22 +20,30 @@ const laidOut = '## Photosynthesis\n\nIt converts light into chemical energy.';
 const extractDocumentCommand = vi.fn();
 const reformatDocumentCommand = vi.fn();
 const createImportedNoteCommand = vi.fn();
+const ocrAvailableCommand = vi.fn();
+const ocrLanguagesCommand = vi.fn();
+const runOcrCommand = vi.fn();
 
 vi.mock('@/lib/commands', () => ({
   extractDocumentCommand: (...args: unknown[]) => extractDocumentCommand(...args),
   reformatDocumentCommand: (...args: unknown[]) => reformatDocumentCommand(...args),
   createImportedNoteCommand: (...args: unknown[]) => createImportedNoteCommand(...args),
+  ocrAvailableCommand: (...args: unknown[]) => ocrAvailableCommand(...args),
+  ocrLanguagesCommand: (...args: unknown[]) => ocrLanguagesCommand(...args),
+  runOcrCommand: (...args: unknown[]) => runOcrCommand(...args),
 }));
 
 beforeEach(async () => {
   extractDocumentCommand.mockResolvedValue({ ok: true, value: imported });
+  ocrAvailableCommand.mockResolvedValue(true);
+  ocrLanguagesCommand.mockResolvedValue({ ok: true, value: ['en-US', 'fr-FR'] });
   reformatDocumentCommand.mockResolvedValue({
     ok: true,
     value: { markdown: laidOut, applied: 1, rejected: 0 },
   });
   createImportedNoteCommand.mockResolvedValue({
     ok: true,
-    value: { note: { id: 'n1' }, attachmentKept: true },
+    value: { note: { id: 'n1' }, attachmentKept: true, imagesKept: 0, warnings: [] },
   });
   // A provider with a key on file, so the toggle is live rather than disabled.
   await secrets.set('ai.anthropic.apiKey', 'test-key');
@@ -193,5 +201,142 @@ describe('ImportDocumentDialog reformatting', () => {
 
     const control = await open();
     await waitFor(() => expect(control.hasAttribute('disabled')).toBe(true));
+  });
+});
+
+describe('ImportDocumentDialog scanned pages', () => {
+  /** The conversion failure a scanned PDF produces, with its page list. */
+  function needsOcr(pages: number[], pageCount: number) {
+    extractDocumentCommand.mockResolvedValue({
+      ok: false,
+      code: 'not_supported',
+      message: 'ocr_required',
+      details: { pages, pageCount },
+    });
+  }
+
+  /** Render and wait for the offer rather than the reformat toggle: with the
+   * conversion refused there is no document, so that switch never appears. */
+  async function openScanned(): Promise<HTMLElement> {
+    render(<ImportDocumentDialog />);
+    return waitFor(() => screen.getByRole('button', { name: 'Read the scanned pages' }));
+  }
+
+  it('offers to read the scanned pages, saying how many of how many', async () => {
+    needsOcr([1, 5, 7], 12);
+    await openScanned();
+    expect(screen.getByText(/3 of the 12 pages are scanned/)).not.toBeNull();
+  });
+
+  it('offers no red failure alongside the offer', async () => {
+    // A refusal and an invitation at the same time is the confusing state
+    // this replaced: the panel explains itself, so the error line stays away.
+    needsOcr([2], 4);
+    await openScanned();
+    expect(screen.queryByText(/cannot read them/)).toBeNull();
+  });
+
+  it('reads exactly the pages the conversion named', async () => {
+    needsOcr([1, 5, 7], 12);
+    runOcrCommand.mockResolvedValue({
+      ok: true,
+      value: { document: imported, read: 3, blank: 0 },
+    });
+    await openScanned();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Read the scanned pages' }));
+
+    await waitFor(() => expect(runOcrCommand).toHaveBeenCalled());
+    expect(runOcrCommand.mock.calls[0]?.[1]).toEqual([1, 5, 7]);
+  });
+
+  it('shows the converted document once the pages have been read', async () => {
+    needsOcr([1], 2);
+    runOcrCommand.mockResolvedValue({
+      ok: true,
+      value: { document: imported, read: 1, blank: 0 },
+    });
+    await openScanned();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Read the scanned pages' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/It converts light into chemical energy/),
+      ).not.toBeNull(),
+    );
+    // The offer is gone rather than merely disabled: there is nothing left to
+    // offer once the pages are read.
+    expect(
+      screen.queryByRole('button', { name: 'Read the scanned pages' }),
+    ).toBeNull();
+  });
+
+  it('says plainly when a page was read and turned out blank', async () => {
+    needsOcr([1, 2], 2);
+    runOcrCommand.mockResolvedValue({
+      ok: true,
+      value: { document: imported, read: 1, blank: 1 },
+    });
+    await openScanned();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Read the scanned pages' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/1 scanned page had no readable text on it/),
+      ).not.toBeNull(),
+    );
+  });
+
+  it('passes the chosen language, and none when the student leaves it automatic', async () => {
+    needsOcr([1], 1);
+    runOcrCommand.mockResolvedValue({
+      ok: true,
+      value: { document: imported, read: 1, blank: 0 },
+    });
+    await openScanned();
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Language of the scanned pages' }),
+      'fr-FR',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Read the scanned pages' }));
+
+    await waitFor(() => expect(runOcrCommand).toHaveBeenCalled());
+    expect(runOcrCommand.mock.calls[0]?.[2]).toMatchObject({ languages: ['fr-FR'] });
+  });
+
+  it('hides the offer and says so on a build that cannot read a page', async () => {
+    ocrAvailableCommand.mockResolvedValue(false);
+    needsOcr([1], 3);
+    render(<ImportDocumentDialog />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/cannot read them/)).not.toBeNull(),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Read the scanned pages' }),
+    ).toBeNull();
+  });
+
+  it('counts pages while it runs and offers a way out', async () => {
+    needsOcr([1, 2, 3], 3);
+    runOcrCommand.mockImplementation(
+      async (_source: unknown, _pages: unknown, options: { onProgress?: (p: unknown) => void }) => {
+        options.onProgress?.({ done: 2, total: 3 });
+        return new Promise(() => {});
+      },
+    );
+    await openScanned();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Read the scanned pages' }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Reading page 2 of 3/)).not.toBeNull(),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Stop reading the scanned pages' }),
+    ).not.toBeNull();
   });
 });
