@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.0"><img alt="Latest release: 0.8.0" src="https://img.shields.io/badge/release-0.8.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.5"><img alt="Latest release: 0.8.5" src="https://img.shields.io/badge/release-0.8.5-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,8 +24,8 @@
 
 ## Download
 
-Download **[NotaBene 0.8.0 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.8.0/NotaBene_0.8.0_aarch64.dmg)**.
+Download **[NotaBene 0.8.5 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.8.5/NotaBene_0.8.5_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
@@ -77,22 +77,38 @@ recordings, and e-books all live beside the note instead of in a folder
 somewhere else. Images, audio, video, PDF, DOCX, ODT, RTF, Markdown, and
 plain-text files open in an in-app viewer with zoom.
 
+For longer work, the **document map** lets you jump between headings and drag
+sections into order. Add footnotes and endnotes, set word-count targets for a
+note or section, and follow your progress in the status bar. Footnotes,
+endnotes, and the document map are also available through the native menu and
+keyboard shortcuts.
+
 ### Documents you were given, as notes you can edit
 
 **File → Convert a document to note** (⌘⇧O) turns a PDF, Word, PowerPoint,
 Excel, OpenDocument, EPUB, RTF, CSV, Markdown, or text file into a real
-NotaBene note: headings, paragraphs, lists, and tables in the editor, ready to
-annotate. Extraction runs inside the app on your own Mac — nothing is uploaded
-and no API key is involved. A file you have already attached can be converted
+NotaBene note: headings, paragraphs, lists, tables, embedded images, footnotes,
+and endnotes in the editor, ready to annotate. Extraction runs inside the app
+on your own Mac — nothing is uploaded and no API key is involved. A file you
+have already attached can be converted
 in place from the Attachments pane or its preview window, and the original can
 stay attached to the note it produced.
 
+Scanned PDFs can be read with **on-device OCR** using Apple's Vision framework.
+Only the pages that need recognition are processed, while text from readable
+pages is preserved. No model download or API key is needed for OCR.
+
 A converted PDF usually keeps the words and loses the shape, so the import
 dialog offers an optional second pass that asks your model to put the layout
-back. It is off by default, because it is the only part of the import that
-leaves your machine. It can add headings and lists but it cannot change your
+back. It is off by default and sends text to your configured provider or local
+model. It can add headings and lists but it cannot change your
 wording — every edit it proposes is checked against your text first, and any
 edit that rewrites something is thrown away rather than applied.
+
+A separate optional AI step turns the imported document into **revision
+notes**. You review the proposed changes in the rewrite dialog before accepting
+them. Batch imports also preserve links between notes regardless of their
+order by writing the batch in one transaction.
 
 ### Organization that matches a semester
 
@@ -146,6 +162,8 @@ With a provider configured, NotaBene can:
 - answer questions about a note — strictly from the note (**Note only**), or
   with outside knowledge that is clearly marked as such (**Note + AI**);
 - draw a mind map;
+- create an editable Excalidraw flowchart or sequence diagram, with a preview
+  before insertion;
 - write flashcards, review them in the app, and export them to Anki; and
 - read a note aloud as a podcast episode you can play, save as MP3, or keep
   attached to the note.
@@ -181,6 +199,11 @@ Export a note, a course, a folder, or a selection as:
 Drawings and mind maps are preserved in document exports, and secrets are never
 included in an export or backup.
 
+For longer documents, **manuscript export** adds a title page, table of contents,
+numbered sections, running heads, and figure and table numbering to PDF or
+DOCX. Selected notes become chapters in selection order. Footnotes and endnotes
+are preserved in Markdown, HTML, PDF, and DOCX exports.
+
 ### Agent-ready, without opening your library to the network
 
 NotaBene can let an AI assistant work with your notes through a local
@@ -211,16 +234,17 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 0.8.0** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.0).
+**NotaBene 0.8.5** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.5).
 Everything described above is built and working.
 
 Two things are deliberately not done yet: the app is **not** signed with an
 Apple Developer ID or notarized, and there are **no** automatic updates. Both
 are planned.
 
-See the [release notes](./RELEASE_NOTES.md) for what changed in each version,
-plus the [security policy](./SECURITY.md) and
+See the [0.8.5 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.5)
+and [earlier release notes](./RELEASE_NOTES.md), plus the
+[security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
 
 ## Getting started
