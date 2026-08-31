@@ -16,7 +16,7 @@
 import type { AiMessage } from './protocols';
 import type { AskScope } from './retrieval';
 
-export type RewriteMode = 'light' | 'full' | 'custom';
+export type RewriteMode = 'light' | 'full' | 'study' | 'custom';
 export type SynthesisStyle = 'summary' | 'revision' | 'qa' | 'glossary' | 'custom';
 export type AskMode = 'note' | 'knowledge';
 
@@ -79,6 +79,15 @@ const REWRITE_INTENT: Record<RewriteMode, string> = {
   light:
     "Fix spelling, grammar, punctuation and obvious transcription slips. Do not restructure, do not add information, and do not change the author's voice. Most blocks should come back untouched.",
   full: 'Rewrite for clarity: tighten sentences, fix grammar, and give shapeless runs of text real structure (headings, lists, callouts) where the content warrants it. Keep every fact, figure and definition the author wrote. Add nothing that was not already there.',
+  // The one mode that is meant to change the words. A textbook chapter or a
+  // converted lecture handout is written to be *complete*; revision notes are
+  // written to be *recalled*, and the difference is not a matter of tightening
+  // sentences. The prompt is explicit that nothing may be invented, because a
+  // model asked to make something more memorable will otherwise reach for a
+  // tidy example the author never gave — and an invented example in revision
+  // material is the worst possible failure here.
+  study:
+    'Turn this into revision notes. Lead with the point rather than building up to it, break dense paragraphs into short statements and lists, pull out definitions, formulas and named results so they can be found at a glance, and give long stretches headings. Compress freely: prose that exists to link ideas together can go. Every fact, figure, definition, formula and worked value in the source must survive somewhere. Invent nothing — no examples, no mnemonics, no explanations the author did not write, and no facts you happen to know about the subject.',
   custom: '',
 };
 

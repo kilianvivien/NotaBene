@@ -67,16 +67,36 @@ function paragraph(
   return content.length ? { type: 'paragraph', content } : { type: 'paragraph' };
 }
 
+/**
+ * The `| --- | --- |` line under a table's header.
+ *
+ * The first alternative is the fully-piped form, which is the only way a
+ * *single-column* table can be written — a spreadsheet with one column is an
+ * ordinary import. It requires both outer pipes on purpose: a bare `---` is a
+ * horizontal rule, and must not turn the paragraph above it into a table
+ * just because that paragraph happened to contain a pipe.
+ */
 function isTableDivider(line: string): boolean {
-  return /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/.test(line);
+  return (
+    /^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$/.test(line) ||
+    /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/.test(line)
+  );
 }
 
+/**
+ * A table row's cells.
+ *
+ * Splits on *unescaped* pipes: a pipe is the one character a cell cannot
+ * hold literally, so `\|` carries one through. Without this a pipe in the
+ * text silently gained the row a column — which document import made
+ * routine, since a spreadsheet cell may hold anything.
+ */
 function cells(line: string): string[] {
   return line
     .trim()
     .replace(/^\||\|$/g, '')
-    .split('|')
-    .map((cell) => cell.trim());
+    .split(/(?<!\\)\|/)
+    .map((cell) => cell.trim().replaceAll('\\|', '|'));
 }
 
 function tableCell(
@@ -456,7 +476,9 @@ function blockToMarkdown(
         (row.content ?? []).map((cell) =>
           (cell.content ?? [])
             .map((child) => blockToMarkdown(child, noteLabels))
-            .join(' '),
+            .join(' ')
+            // Paired with `cells()`, which splits on unescaped pipes only.
+            .replaceAll('|', '\\|'),
         ),
       );
       if (!values.length) return '';

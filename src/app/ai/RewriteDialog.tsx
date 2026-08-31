@@ -30,6 +30,8 @@ export function RewriteDialog() {
   const { t } = useTranslation();
   const open = useUiStore((state) => state.aiRewriteOpen);
   const setOpen = useUiStore((state) => state.setAiRewriteOpen);
+  const pendingMode = useUiStore((state) => state.pendingRewriteMode);
+  const setPendingMode = useUiStore((state) => state.setPendingRewriteMode);
   const note = useEditorStore((state) => state.note);
   const running = useAiStore((state) => state.running) === 'rewrite';
   const availability = useAiAvailability('rewrite');
@@ -47,6 +49,24 @@ export function RewriteDialog() {
     setResult(null);
     setAccepted(new Set());
     setError('');
+    if (!open) return;
+    // Read once and clear: something opened this dialog on the student's
+    // behalf — import, so far — and asked for a mode.
+    if (pendingMode) {
+      setMode(pendingMode);
+      setPendingMode(null);
+      return;
+    }
+    // Study mode is never inherited. Every other mode promises the author's
+    // words survive, so leaving one selected between opens is a convenience;
+    // this one rewrites them, and the menu item that opens this dialog says
+    // "Rewrite & correct". Someone arriving through it expects correction,
+    // and finding the note reshaped instead — because of a choice they made
+    // for a different note last week — is the surprise worth a second click.
+    setMode((current) => (current === 'study' ? 'light' : current));
+    // `pendingMode` is deliberately absent: this runs when the dialog opens or
+    // the note changes, and clearing the value inside it must not re-run it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note?.id, open]);
 
   async function run() {
@@ -196,9 +216,21 @@ export function RewriteDialog() {
           options={[
             { value: 'light', label: t('ai.modeLight') },
             { value: 'full', label: t('ai.modeFull') },
+            // Shown always, not only after an import. A student can decide to
+            // study-ify any note, and a segment that appears sometimes reads
+            // as a bug rather than as a feature they have not unlocked.
+            { value: 'study', label: t('ai.modeStudy') },
             { value: 'custom', label: t('ai.modeCustom') },
           ]}
         />
+        {/* The other three modes promise to keep the author's words. This one
+            does not, and that difference is the whole safety story — so it is
+            stated where the choice is made, not in a tooltip. */}
+        {mode === 'study' && (
+          <p className="text-[11px] leading-relaxed text-nb-text-3">
+            {t('ai.modeStudyHint')}
+          </p>
+        )}
         {mode === 'custom' && (
           <input
             data-autofocus
