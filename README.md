@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.5"><img alt="Latest release: 0.8.5" src="https://img.shields.io/badge/release-0.8.5-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.6"><img alt="Latest release: 0.8.6" src="https://img.shields.io/badge/release-0.8.6-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,8 +24,8 @@
 
 ## Download
 
-Download **[NotaBene 0.8.5 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.8.5/NotaBene_0.8.5_aarch64.dmg)**.
+Download **[NotaBene 0.8.6 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.8.6/NotaBene_0.8.6_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
@@ -121,7 +121,8 @@ Tasks live beside the notes they belong to. Give an assignment a deadline,
 priority, reminder, subtasks, and a course; link it to its source note or place
 it inline in your prose as a live status chip. Repeating tasks roll forward one
 occurrence at a time, and reminders missed while the app was closed arrive
-together the next time it opens.
+together the next time it opens. A task you bin goes to the same recoverable
+Trash a note does, subtasks and all, and comes back the same way.
 
 ### Work on a whole stack of notes
 
@@ -234,15 +235,15 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 0.8.5** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.5).
+**NotaBene 0.8.6** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.6).
 Everything described above is built and working.
 
 Two things are deliberately not done yet: the app is **not** signed with an
 Apple Developer ID or notarized, and there are **no** automatic updates. Both
 are planned.
 
-See the [0.8.5 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.5)
+See the [0.8.6 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.6)
 and [earlier release notes](./RELEASE_NOTES.md), plus the
 [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
