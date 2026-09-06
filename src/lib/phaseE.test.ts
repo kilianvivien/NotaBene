@@ -198,8 +198,11 @@ describe('provider catalogue', () => {
       models: expect.arrayContaining(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']),
     });
     expect(providerById('gemini')).toMatchObject({
-      defaultModel: 'gemini-3.7-flash',
-      models: expect.arrayContaining(['gemini-3.7-flash', 'gemini-3.5-flash-lite']),
+      defaultModel: 'gemini-3.8-flash',
+      models: expect.arrayContaining(['gemini-3.8-flash', 'gemini-3.5-flash-lite']),
+    });
+    expect(providerById('mistral')).toMatchObject({
+      models: expect.arrayContaining(['mistral-medium-latest', 'zai-glm-5-2']),
     });
   });
 });
