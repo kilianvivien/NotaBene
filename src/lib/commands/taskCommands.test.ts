@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import type { Recurrence } from '@/lib/schema';
+import { useLibraryStore } from '@/lib/state/libraryStore';
 import {
   completeTaskCommand,
   createTaskCommand,
   linkTaskToNoteCommand,
+  purgeTrashedTasksCommand,
   restoreTasksCommand,
   trashTasksCommand,
   updateTaskCommand,
@@ -15,7 +17,9 @@ const weekly: Recurrence = { freq: 'weekly', interval: 1, weekdays: [] };
 beforeEach(() => memoryLibraryAdapter.reset());
 
 /** Unwrap a command result, failing loudly with its message if it errored. */
-function value<T>(result: Awaited<ReturnType<typeof createTaskCommand>> | { ok: boolean }) {
+function value<T>(
+  result: Awaited<ReturnType<typeof createTaskCommand>> | { ok: boolean },
+) {
   if (!result.ok) throw new Error(`command failed: ${JSON.stringify(result)}`);
   return (result as { ok: true; value: T }).value;
 }
@@ -209,7 +213,12 @@ describe('completeTaskCommand', () => {
     const dueAt = new Date(Date.now() + 86_400_000).toISOString();
     const remindAt = new Date(Date.now() - 3_600_000).toISOString();
     const task = value<{ id: string }>(
-      await createTaskCommand({ title: 'Problem set', dueAt, remindAt, recurrence: weekly }),
+      await createTaskCommand({
+        title: 'Problem set',
+        dueAt,
+        remindAt,
+        recurrence: weekly,
+      }),
     );
     await updateTaskCommand({ taskId: task.id, remindedAt: new Date().toISOString() });
 
@@ -246,12 +255,49 @@ describe('trash and restore', () => {
     const result = await trashTasksCommand([]);
     expect(result.ok).toBe(false);
   });
+
+  it('leaves the trashed task where the Trash view reads it', async () => {
+    const task = value<{ id: string }>(await createTaskCommand({ title: 'Essay' }));
+
+    await trashTasksCommand([task.id]);
+
+    expect(useLibraryStore.getState().tasks).toHaveLength(0);
+    expect(useLibraryStore.getState().trashedTasks.map((entry) => entry.id)).toEqual([
+      task.id,
+    ]);
+
+    await restoreTasksCommand([task.id]);
+    expect(useLibraryStore.getState().trashedTasks).toHaveLength(0);
+    expect(useLibraryStore.getState().tasks).toHaveLength(1);
+  });
+});
+
+describe('purgeTrashedTasksCommand', () => {
+  it('keeps a task inside the retention window and removes it past the cutoff', async () => {
+    const task = value<{ id: string }>(await createTaskCommand({ title: 'Essay' }));
+    await trashTasksCommand([task.id]);
+
+    // The default retention is days, so a task binned a moment ago survives.
+    const kept = await purgeTrashedTasksCommand();
+    expect(kept.ok && kept.value).toBe(0);
+    expect(await memoryLibraryAdapter.getTask(task.id)).not.toBeNull();
+
+    // What Empty Trash passes: everything binned before now.
+    const emptied = await purgeTrashedTasksCommand(
+      new Date(Date.now() + 1000).toISOString(),
+    );
+    expect(emptied.ok && emptied.value).toBe(1);
+    expect(await memoryLibraryAdapter.getTask(task.id)).toBeNull();
+    expect(useLibraryStore.getState().trashedTasks).toHaveLength(0);
+  });
 });
 
 describe('linkTaskToNoteCommand', () => {
   it('attaches and detaches a manual link', async () => {
     const note = memoryLibraryAdapter.seedNote({ title: 'Lecture 4' });
-    const task = value<{ id: string }>(await createTaskCommand({ title: 'Read chapter 4' }));
+    const task = value<{ id: string }>(
+      await createTaskCommand({ title: 'Read chapter 4' }),
+    );
 
     await linkTaskToNoteCommand({ taskId: task.id, noteId: note.id });
     expect(await memoryLibraryAdapter.listTaskNoteLinks()).toHaveLength(1);
@@ -261,8 +307,13 @@ describe('linkTaskToNoteCommand', () => {
   });
 
   it('reports a missing note rather than storing a dangling link', async () => {
-    const task = value<{ id: string }>(await createTaskCommand({ title: 'Read chapter 4' }));
-    const result = await linkTaskToNoteCommand({ taskId: task.id, noteId: 'no-such-note' });
+    const task = value<{ id: string }>(
+      await createTaskCommand({ title: 'Read chapter 4' }),
+    );
+    const result = await linkTaskToNoteCommand({
+      taskId: task.id,
+      noteId: 'no-such-note',
+    });
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe('not_found');
@@ -271,7 +322,9 @@ describe('linkTaskToNoteCommand', () => {
 
 describe('inline mentions', () => {
   it('derives a link from a task chip in the note and drops it when removed', async () => {
-    const task = value<{ id: string }>(await createTaskCommand({ title: 'Read chapter 4' }));
+    const task = value<{ id: string }>(
+      await createTaskCommand({ title: 'Read chapter 4' }),
+    );
     const note = memoryLibraryAdapter.seedNote({ title: 'Lecture 4' });
 
     await memoryLibraryAdapter.upsertNote({
@@ -299,7 +352,9 @@ describe('inline mentions', () => {
   });
 
   it('keeps a manual link after the chip is deleted from the prose', async () => {
-    const task = value<{ id: string }>(await createTaskCommand({ title: 'Read chapter 4' }));
+    const task = value<{ id: string }>(
+      await createTaskCommand({ title: 'Read chapter 4' }),
+    );
     const note = memoryLibraryAdapter.seedNote({ title: 'Lecture 4' });
     await linkTaskToNoteCommand({ taskId: task.id, noteId: note.id });
 

@@ -51,6 +51,16 @@
     "moveToTrash": "Mettre à la corbeille",
     "restore": "Restaurer"
   },
+  "trash": {
+    "tabsLabel": "Contenu de la corbeille",
+    "notes": "Notes",
+    "tasks": "Tâches",
+    "tasksWithCount": "Tâches ({{count}})",
+    "trashedOn": "Mise à la corbeille le {{date}}",
+    "noTasks": "Aucune tâche dans la corbeille",
+    "noTasksHint": "Les tâches mises à la corbeille y restent jusqu’à ce qu’elle soit vidée",
+    "taskInTrash": "Cette tâche est dans la corbeille"
+  },
   "bulk": {
     "move": "Déplacer vers…",
     "moveHeader_one": "Déplacer {{count}} note",
@@ -333,7 +343,7 @@
     "merge": "Fusionner",
     "replace": "Remplacer la bibliothèque",
     "replaceConfirm": "Remplacer la bibliothèque actuelle par cette sauvegarde ? La bibliothèque actuelle sera supprimée.",
-    "emptyTrashConfirm": "Supprimer définitivement toutes les notes de la corbeille ? Cette action est irréversible.",
+    "emptyTrashConfirm": "Supprimer définitivement tout le contenu de la corbeille, notes comme tâches ? Cette action est irréversible.",
     "trashEmptied_one": "{{count}} note supprimée définitivement",
     "trashEmptied_other": "{{count}} notes supprimées définitivement",
     "scheduleSection": "Planification",

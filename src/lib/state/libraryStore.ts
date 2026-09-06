@@ -46,6 +46,12 @@ interface LibraryState {
    * showing one course, so a filtered cache would make the two disagree.
    */
   tasks: Task[];
+  /**
+   * The task half of Trash. Kept beside `tasks` rather than folded into it so
+   * every consumer that means "the workload" keeps meaning that without having
+   * to filter, and the Trash view still has something to show.
+   */
+  trashedTasks: Task[];
   taskNoteLinks: TaskNoteLink[];
   /** The query behind the Tasks view, remembered the way `lastQuery` is. */
   lastTaskQuery: TaskQuery;
@@ -70,6 +76,7 @@ interface LibraryState {
 
 const DEFAULT_QUERY: NoteQuery = { scope: 'live', sort: 'updated', limit: 200 };
 const DEFAULT_TASK_QUERY: TaskQuery = { scope: 'live', sort: 'due' };
+const TRASHED_TASK_QUERY: TaskQuery = { scope: 'trashed', sort: 'due' };
 let noteQueryGeneration = 0;
 
 export const useLibraryStore = create<LibraryState>()(
@@ -87,6 +94,7 @@ export const useLibraryStore = create<LibraryState>()(
     error: null,
     lastQuery: DEFAULT_QUERY,
     tasks: [],
+    trashedTasks: [],
     taskNoteLinks: [],
     lastTaskQuery: DEFAULT_TASK_QUERY,
 
@@ -160,12 +168,14 @@ export const useLibraryStore = create<LibraryState>()(
     },
 
     async refreshTasks() {
-      const [tasks, taskNoteLinks] = await Promise.all([
+      const [tasks, trashedTasks, taskNoteLinks] = await Promise.all([
         library.listTasks(DEFAULT_TASK_QUERY),
+        library.listTasks(TRASHED_TASK_QUERY),
         library.listTaskNoteLinks(),
       ]);
       set((state) => {
         state.tasks = tasks;
+        state.trashedTasks = trashedTasks;
         state.taskNoteLinks = taskNoteLinks;
       });
     },

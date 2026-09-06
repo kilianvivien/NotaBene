@@ -23,6 +23,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { SNAPSHOT_RETENTION_POLICIES } from '@/lib/history/retention';
+import { purgeTrashedTasksCommand } from './taskCommands';
 import {
   cancelledIfRequested,
   fail,
@@ -329,12 +330,16 @@ export async function applyNoteUpdate(
   return ok(updated);
 }
 
+/** Both halves of Trash on one cutoff. Notes and tasks share the bin, so they
+ * share the retention: a task that outlived its notes would be a bin the
+ * student cannot reason about. */
 export async function purgeExpiredTrashCommand(
   retentionDays = useSettingsStore.getState().settings.trashRetentionDays,
 ): Promise<CommandResult<number>> {
   const cutoff = new Date(Date.now() - Math.max(0, retentionDays) * 86_400_000);
   try {
     const removed = await library.purgeTrash(cutoff.toISOString());
+    await purgeTrashedTasksCommand(cutoff.toISOString());
     await collectAssetGarbageCommand();
     await refreshCurrentView();
     return ok(removed);
@@ -345,13 +350,15 @@ export async function purgeExpiredTrashCommand(
 
 export async function emptyTrashCommand(): Promise<CommandResult<number>> {
   try {
-    const removed = await library.purgeTrash(new Date().toISOString());
+    const now = new Date().toISOString();
+    const removed = await library.purgeTrash(now);
+    const tasks = await purgeTrashedTasksCommand(now);
     await collectAssetGarbageCommand();
     const editor = useEditorStore.getState();
     if (editor.note?.trashedAt) await editor.closeNote();
     useUiStore.getState().selectNote(null);
     await refreshCurrentView();
-    return ok(removed);
+    return ok(removed + (tasks.ok ? tasks.value : 0));
   } catch (error) {
     return fail('storage_failed', String(error));
   }

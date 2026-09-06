@@ -51,6 +51,16 @@
     "moveToTrash": "Move to Trash",
     "restore": "Restore"
   },
+  "trash": {
+    "tabsLabel": "What to show in Trash",
+    "notes": "Notes",
+    "tasks": "Tasks",
+    "tasksWithCount": "Tasks ({{count}})",
+    "trashedOn": "Binned {{date}}",
+    "noTasks": "No tasks in Trash",
+    "noTasksHint": "Tasks you bin are kept here until Trash is emptied",
+    "taskInTrash": "This task is in Trash"
+  },
   "bulk": {
     "move": "Move to…",
     "moveHeader_one": "Move {{count}} note",
@@ -333,7 +343,7 @@
     "merge": "Merge",
     "replace": "Replace library",
     "replaceConfirm": "Replace the current library with this backup? The current library will be removed.",
-    "emptyTrashConfirm": "Permanently delete every note in Trash? This cannot be undone.",
+    "emptyTrashConfirm": "Permanently delete everything in Trash? Notes and tasks alike. This cannot be undone.",
     "trashEmptied_one": "{{count}} note permanently deleted",
     "trashEmptied_other": "{{count}} notes permanently deleted",
     "scheduleSection": "Schedule",

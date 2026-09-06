@@ -38,7 +38,13 @@ export function TaskInspector() {
   const { t } = useTranslation();
   const selectedTaskId = useUiStore((state) => state.selectedTaskId);
   const tasks = useLibraryStore((state) => state.tasks);
-  const task = tasks.find((entry) => entry.id === selectedTaskId) ?? null;
+  const trashedTasks = useLibraryStore((state) => state.trashedTasks);
+  // Both halves, for the same reason `TaskDetail` reads both: Trash shows a
+  // task in the centre column and this pane is beside it.
+  const task =
+    tasks.find((entry) => entry.id === selectedTaskId) ??
+    trashedTasks.find((entry) => entry.id === selectedTaskId) ??
+    null;
 
   // The same sentence the centre column shows, rather than the note pane's
   // "select a note": two panes disagreeing about what is missing is what made

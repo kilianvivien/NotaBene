@@ -138,6 +138,12 @@ interface UiState {
   /** Which task the Tasks view's detail pane is showing. */
   selectedTaskId: string | null;
   /**
+   * Which half of Trash is on screen. Trash holds notes and tasks, and they do
+   * not share a row shape, so the column shows one at a time rather than
+   * pretending they are one list.
+   */
+  trashTab: 'notes' | 'tasks';
+  /**
    * The task dialog's request, or `null` when it is closed. A draft carries
    * what the dialog was opened *from* — a course row, a parent task, the note
    * on screen — so "new task for this note" needs no second step.
@@ -190,6 +196,7 @@ interface UiState {
   openPdfReader(attachment: Attachment, page?: number, annotationId?: string): void;
   closePdfReader(): void;
   selectTask(taskId: string | null): void;
+  setTrashTab(tab: 'notes' | 'tasks'): void;
   /** Open the Tasks view, optionally scoped to a course, on a given task. */
   openTasksView(options?: { courseId?: string; taskId?: string }): void;
   openTaskDialog(draft?: TaskDraft): void;
@@ -248,6 +255,7 @@ export const useUiStore = create<UiState>()(
     selectedNoteId: null,
     multiSelection: [],
     selectedTaskId: null,
+    trashTab: 'notes',
     taskDraft: null,
     taskPickerOpen: false,
     taskBreakdownFor: null,
@@ -290,7 +298,8 @@ export const useUiStore = create<UiState>()(
         state.multiSelection = [];
         // Leaving the Tasks view drops the detail pane's subject; coming back
         // should land on the list rather than on whatever was open last week.
-        if (view.kind !== 'tasks') state.selectedTaskId = null;
+        // Trash is the other view that can put a task in that pane.
+        if (view.kind !== 'tasks' && view.kind !== 'trash') state.selectedTaskId = null;
       });
     },
 
@@ -309,6 +318,15 @@ export const useUiStore = create<UiState>()(
     selectTask(taskId) {
       set((state) => {
         state.selectedTaskId = taskId;
+      });
+    },
+
+    setTrashTab(tab) {
+      set((state) => {
+        state.trashTab = tab;
+        // The two halves feed different panes; carrying a task selection into
+        // the notes half would leave the detail pane showing a stale subject.
+        state.selectedTaskId = null;
       });
     },
 

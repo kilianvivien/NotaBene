@@ -658,7 +658,7 @@ class MemoryLibraryAdapter implements LibraryAdapter {
 
   async purgeTrashedTasks(trashedBefore: string): Promise<number> {
     const doomed = this.library.tasks
-      .filter((task) => task.trashedAt && task.trashedAt < trashedBefore)
+      .filter((task) => task.trashedAt && task.trashedAt <= trashedBefore)
       .map((task) => task.id);
     if (!doomed.length) return 0;
     // `parent_id … ON DELETE CASCADE` in SQL; explicit here.

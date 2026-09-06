@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils/cn';
 import { HighlightedSnippet } from './HighlightedSnippet';
 import { NoteContextMenu } from './NoteContextMenu';
 import { SelectionBar } from './SelectionBar';
+import { TrashTabs } from './TrashTabs';
 import { endDrag, readDrag, startDrag } from './dnd';
 import type { NoteSummary } from '@/lib/schema';
 
@@ -135,7 +136,10 @@ export function NoteList() {
    * Only loaded rows can be reached: the list pages, and a range cannot span
    * notes that have not arrived.
    */
-  function onSelect(noteId: string, event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }) {
+  function onSelect(
+    noteId: string,
+    event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean },
+  ) {
     if (event.shiftKey && rangeAnchor.current && rangeAnchor.current !== noteId) {
       const ids = notes.map((note) => note.id);
       const from = ids.indexOf(rangeAnchor.current);
@@ -166,6 +170,11 @@ export function NoteList() {
 
   return (
     <div className="flex h-full w-full flex-col border-r border-[var(--nb-divider)] bg-[var(--nb-list-surface)]">
+      {view.kind === 'trash' && (
+        <div className="shrink-0 px-2 py-1.5">
+          <TrashTabs />
+        </div>
+      )}
       {/* The count yields before the sort control does: which order you are
           looking at is the thing you came here to read, and "12 notes" survives
           being clipped in a way "Dernière modification" does not. */}

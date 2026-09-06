@@ -40,6 +40,7 @@ import { ImportDocumentDialog } from './import/ImportDocumentDialog';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { PdfReader } from '@/editor/attachments/PdfReader';
 import { TaskList } from './tasks/TaskList';
+import { TrashedTaskList } from './tasks/TrashedTaskList';
 import { TaskDetail } from './tasks/TaskDetail';
 import { TaskDialog } from './tasks/TaskDialog';
 import { TaskCalendarDialog } from './tasks/TaskCalendarDialog';
@@ -68,9 +69,16 @@ export function App() {
   const inspectorVisible = useUiStore((state) => state.inspectorVisible);
   const focusMode = useUiStore((state) => state.focusMode);
   const pdfReading = useUiStore((state) => state.pdfReading);
-  // The one view whose columns are not notes. The sidebar, inspector and status
-  // bar are unchanged; only the middle two columns swap.
+  // The views whose columns are not notes. The sidebar, inspector and status
+  // bar are unchanged; only the middle two columns swap. Trash is one of them
+  // half the time: the bin holds tasks as well as notes, and its task half puts
+  // the same detail pane on screen so a binned task can be read before it is
+  // restored.
   const showingTasks = useUiStore((state) => state.view.kind === 'tasks');
+  const showingTrashedTasks = useUiStore(
+    (state) => state.view.kind === 'trash' && state.trashTab === 'tasks',
+  );
+  const taskPane = showingTasks || showingTrashedTasks;
   const chromeRevealed = useChromeRevealed();
   useFullscreenAttribute();
 
@@ -168,19 +176,25 @@ export function App() {
           <Sidebar />
         </CollapsiblePane>
         <CollapsiblePane open={noteListVisible} width={NOTE_LIST_WIDTH}>
-          {showingTasks ? <TaskList /> : <NoteList />}
+          {showingTrashedTasks ? (
+            <TrashedTaskList />
+          ) : showingTasks ? (
+            <TaskList />
+          ) : (
+            <NoteList />
+          )}
         </CollapsiblePane>
         {/* The typewriter look is scoped to this column, not to `html`: warm
             stock and softened ink belong to the page being written, and must
             not follow a peeked inspector or an open dialog around. */}
         <main
           className={
-            showingTasks
+            taskPane
               ? 'relative flex min-w-0 flex-1 flex-col bg-[var(--nb-surface)]'
               : 'nb-editor-surface relative flex min-w-0 flex-1 flex-col bg-[var(--nb-paper)]'
           }
         >
-          {showingTasks ? (
+          {taskPane ? (
             // No `ReadingControls`: nothing here is being read, and the warm
             // paper surface belongs to prose rather than to a form.
             <TaskDetail />

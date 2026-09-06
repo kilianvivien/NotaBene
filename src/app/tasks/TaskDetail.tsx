@@ -29,6 +29,7 @@ import {
   Plus,
   Quote,
   Repeat,
+  RotateCcw,
   Trash2,
   X,
   type LucideIcon,
@@ -45,6 +46,7 @@ import {
   checkTaskAgainstNotesCommand,
   completeTaskCommand,
   createTaskCommand,
+  restoreTasksCommand,
   trashTasksCommand,
   updateTaskCommand,
 } from '@/lib/commands';
@@ -69,12 +71,19 @@ export function TaskDetail() {
   const openTaskDialog = useUiStore((state) => state.openTaskDialog);
   const openTaskBreakdown = useUiStore((state) => state.openTaskBreakdown);
   const tasks = useLibraryStore((state) => state.tasks);
+  const trashedTasks = useLibraryStore((state) => state.trashedTasks);
   const courses = useLibraryStore((state) => state.courses);
   const links = useLibraryStore((state) => state.taskNoteLinks);
   const checking = useAiStore((state) => state.running) === 'taskCheck';
   const planAvailable = useAiAvailability('tasks').available;
 
-  const task = tasks.find((entry) => entry.id === selectedTaskId) ?? null;
+  // Trash puts a task in this pane too, so the subject is looked up in both
+  // halves. Everything below reads `pool` rather than `tasks` for the same
+  // reason: a binned parent's subtasks are binned with it.
+  const task =
+    tasks.find((entry) => entry.id === selectedTaskId) ??
+    trashedTasks.find((entry) => entry.id === selectedTaskId) ??
+    null;
 
   // Local mirrors for the two free-text fields, so typing is not fighting a
   // round trip through the store on every keystroke.
@@ -107,28 +116,32 @@ export function TaskDetail() {
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
         <ListTodo size={26} className="text-nb-text-3" aria-hidden />
         <p className="text-[13px] text-nb-text-3">{t('tasks.noSelection')}</p>
-        <GlassButton
-          size="sm"
-          onClick={() =>
-            openTaskDialog({
-              courseId: view.kind === 'tasks' ? view.courseId : undefined,
-            })
-          }
-        >
-          <Plus size={13} aria-hidden />
-          {t('tasks.new')}
-        </GlassButton>
+        {/* No way in from Trash: a task started there would be born live in a
+            view that only shows binned ones, and vanish as it was made. */}
+        {view.kind !== 'trash' && (
+          <GlassButton
+            size="sm"
+            onClick={() =>
+              openTaskDialog({
+                courseId: view.kind === 'tasks' ? view.courseId : undefined,
+              })
+            }
+          >
+            <Plus size={13} aria-hidden />
+            {t('tasks.new')}
+          </GlassButton>
+        )}
       </div>
     );
   }
 
+  const trashed = task.trashedAt !== null;
+  const pool = trashed ? trashedTasks : tasks;
   const parent = task.parentId
-    ? (tasks.find((entry) => entry.id === task.parentId) ?? null)
+    ? (pool.find((entry) => entry.id === task.parentId) ?? null)
     : null;
-  const children = tasks.filter(
-    (entry) => entry.parentId === task.id && !entry.trashedAt,
-  );
-  const progress = subtaskProgress(tasks, task.id);
+  const children = pool.filter((entry) => entry.parentId === task.id);
+  const progress = subtaskProgress(pool, task.id);
   const course = courses.find((entry) => entry.id === task.courseId) ?? null;
   const linkedNoteCount = links.filter((link) => link.taskId === task.id).length;
   const done = task.status === 'done';
@@ -176,6 +189,12 @@ export function TaskDetail() {
     if (result.ok) selectTask(null);
   };
 
+  /** Lifts the subtasks back with it, the way trashing took them. */
+  const restore = async (): Promise<void> => {
+    await restoreTasksCommand([task.id]);
+    selectTask(null);
+  };
+
   const check = async (): Promise<void> => {
     setCheckError('');
     setVerdict(null);
@@ -204,6 +223,22 @@ export function TaskDetail() {
   return (
     <GlassScrollArea className="flex-1 px-6 py-5" resetKey={task.id}>
       <div className="mx-auto max-w-[560px]">
+        {/* Said in words as well as by the icon in the corner: every field
+            below stays editable in Trash, exactly as a trashed note does in the
+            editor, and nothing else on the page says where you are. */}
+        {trashed && (
+          <div className="mb-3 flex items-center gap-2 rounded-nb-sm bg-[var(--nb-hover)] px-2.5 py-1.5 text-[11.5px] text-nb-text-2">
+            <Trash2 size={12} aria-hidden className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{t('trash.taskInTrash')}</span>
+            <button
+              type="button"
+              onClick={() => void restore()}
+              className="shrink-0 font-medium text-[var(--nb-accent)] hover:underline"
+            >
+              {t('tasks.restore')}
+            </button>
+          </div>
+        )}
         {parent && (
           <button
             type="button"
@@ -246,17 +281,28 @@ export function TaskDetail() {
           />
           {/* Ghost, not danger: the loud red read as the second thing to do on
               the page. It asks first — it sits a click from the title, and it
-              takes the subtasks with it. */}
-          <GlassIconButton
-            label={t('tasks.trash')}
-            className="mt-0.5 shrink-0"
-            onMouseDown={() => {
-              discardSubtask.current = true;
-            }}
-            onClick={() => void trash()}
-          >
-            <Trash2 size={14} />
-          </GlassIconButton>
+              takes the subtasks with it. In Trash it is the same button doing
+              the opposite thing, in the same place. */}
+          {trashed ? (
+            <GlassIconButton
+              label={t('tasks.restore')}
+              className="mt-0.5 shrink-0"
+              onClick={() => void restore()}
+            >
+              <RotateCcw size={14} />
+            </GlassIconButton>
+          ) : (
+            <GlassIconButton
+              label={t('tasks.trash')}
+              className="mt-0.5 shrink-0"
+              onMouseDown={() => {
+                discardSubtask.current = true;
+              }}
+              onClick={() => void trash()}
+            >
+              <Trash2 size={14} />
+            </GlassIconButton>
+          )}
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -404,45 +450,53 @@ export function TaskDetail() {
               {/* Typed in place rather than in the dialog: a subtask is a line,
                   and a modal for one line is what stops people writing them
                   down. The dialog is still where a subtask with a deadline of
-                  its own comes from. */}
-              <div className="mt-1 flex items-center gap-2 rounded-nb-xs px-2 py-1">
-                <Plus size={13} aria-hidden className="shrink-0 text-nb-text-3" />
-                <input
-                  value={subtaskTitle}
-                  onChange={(event) => setSubtaskTitle(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                      event.preventDefault();
+                  its own comes from.
+
+                  Not offered in Trash, and neither is the model's breakdown: a
+                  live subtask under a binned parent shows up in no list at all.
+                  Restore the task and the composer comes back with it. */}
+              {!trashed && (
+                <div className="mt-1 flex items-center gap-2 rounded-nb-xs px-2 py-1">
+                  <Plus size={13} aria-hidden className="shrink-0 text-nb-text-3" />
+                  <input
+                    value={subtaskTitle}
+                    onChange={(event) => setSubtaskTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                        event.preventDefault();
+                        void addSubtask();
+                      }
+                      if (event.key === 'Escape') setSubtaskTitle('');
+                    }}
+                    onBlur={() => {
+                      if (discardSubtask.current) {
+                        discardSubtask.current = false;
+                        setSubtaskTitle('');
+                        return;
+                      }
                       void addSubtask();
-                    }
-                    if (event.key === 'Escape') setSubtaskTitle('');
-                  }}
-                  onBlur={() => {
-                    if (discardSubtask.current) {
-                      discardSubtask.current = false;
-                      setSubtaskTitle('');
-                      return;
-                    }
-                    void addSubtask();
-                  }}
-                  placeholder={t('tasks.newSubtask')}
-                  aria-label={t('tasks.newSubtask')}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-nb-text placeholder:text-nb-text-3 focus-visible:outline-none"
-                />
-              </div>
+                    }}
+                    placeholder={t('tasks.newSubtask')}
+                    aria-label={t('tasks.newSubtask')}
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-nb-text placeholder:text-nb-text-3 focus-visible:outline-none"
+                  />
+                </div>
+              )}
               {/* Under the list, not above it: the student's own steps come
                   first, and the model is an offer rather than the way in. */}
-              <GlassButton
-                size="sm"
-                variant="ghost"
-                className="mt-1"
-                disabled={!planAvailable}
-                title={planAvailable ? undefined : t('ai.notConfiguredHint')}
-                onClick={() => openTaskBreakdown(task.id)}
-              >
-                <ListTree size={13} aria-hidden />
-                {t('tasks.breakDown')}
-              </GlassButton>
+              {!trashed && (
+                <GlassButton
+                  size="sm"
+                  variant="ghost"
+                  className="mt-1"
+                  disabled={!planAvailable}
+                  title={planAvailable ? undefined : t('ai.notConfiguredHint')}
+                  onClick={() => openTaskBreakdown(task.id)}
+                >
+                  <ListTree size={13} aria-hidden />
+                  {t('tasks.breakDown')}
+                </GlassButton>
+              )}
             </FieldSection>
           </div>
         )}

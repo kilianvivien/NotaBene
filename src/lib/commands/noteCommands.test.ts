@@ -5,14 +5,20 @@ import { useLibraryStore } from '@/lib/state/libraryStore';
 import {
   createNoteCommand,
   createNotesCommand,
+  emptyTrashCommand,
   fileNoteCommand,
   restoreSnapshotCommand,
+  trashNoteCommand,
   updateNoteCommand,
 } from './noteCommands';
+import { createTaskCommand, trashTasksCommand } from './taskCommands';
 import type { NoteDoc } from '@/lib/schema';
 
 function docOf(text: string): NoteDoc {
-  return { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] };
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  };
 }
 
 beforeEach(() => {
@@ -110,7 +116,10 @@ describe('fileNoteCommand', () => {
   });
 
   it('keeps the section when only the section is named', async () => {
-    const created = await createNoteCommand({ doc: docOf('week 4'), courseId: 'course-a' });
+    const created = await createNoteCommand({
+      doc: docOf('week 4'),
+      courseId: 'course-a',
+    });
     if (!created.ok) throw new Error(created.message);
 
     const moved = await fileNoteCommand(created.value.id, {
@@ -122,7 +131,10 @@ describe('fileNoteCommand', () => {
   });
 
   it('is a no-op when the note is dropped where it already lives', async () => {
-    const created = await createNoteCommand({ doc: docOf('week 5'), courseId: 'course-a' });
+    const created = await createNoteCommand({
+      doc: docOf('week 5'),
+      courseId: 'course-a',
+    });
     if (!created.ok) throw new Error(created.message);
 
     const moved = await fileNoteCommand(created.value.id, { courseId: 'course-a' });
@@ -157,7 +169,6 @@ describe('restoreSnapshotCommand', () => {
     expect((await library.listSnapshots(created.value.id)).length).toBeGreaterThan(1);
   });
 });
-
 
 describe('createNotesCommand', () => {
   /** Count refreshes of the note list, which is what a naive loop over the
@@ -291,5 +302,26 @@ describe('wiki title resolution', () => {
     if (!note.ok) return;
     await library.trashNote(note.value.id);
     expect(await library.resolveWikiTitle('Trashed')).toBe(note.value.id);
+  });
+});
+
+describe('emptyTrashCommand', () => {
+  it('empties both halves of the bin, not just the notes', async () => {
+    const note = await createNoteCommand({ title: 'Lecture 1' });
+    if (!note.ok) throw new Error('note not created');
+    await trashNoteCommand(note.value.id);
+
+    const task = await createTaskCommand({ title: 'Hand in essay' });
+    if (!task.ok) throw new Error('task not created');
+    await trashTasksCommand([task.value.id]);
+
+    const result = await emptyTrashCommand();
+
+    expect(result.ok).toBe(true);
+    // One note and one task: a count that only saw the notes would say 1.
+    if (result.ok) expect(result.value).toBe(2);
+    expect(await memoryLibraryAdapter.getNote(note.value.id)).toBeNull();
+    expect(await memoryLibraryAdapter.getTask(task.value.id)).toBeNull();
+    expect(useLibraryStore.getState().trashedTasks).toHaveLength(0);
   });
 });

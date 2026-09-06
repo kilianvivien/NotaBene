@@ -51,7 +51,13 @@ type VisibleTab = 'info' | 'versions' | 'links' | 'tasks' | 'ai';
 export function Inspector() {
   const { t } = useTranslation();
   const note = useEditorStore((state) => state.note);
-  const showingTasks = useUiStore((state) => state.view.kind === 'tasks');
+  // Trash's task half puts a task in the centre column, so the inspector beside
+  // it must be the task's, not an empty note's.
+  const showingTasks = useUiStore(
+    (state) =>
+      state.view.kind === 'tasks' ||
+      (state.view.kind === 'trash' && state.trashTab === 'tasks'),
+  );
   const tab = useUiStore((state) => state.inspectorTab);
   const setTab = useUiStore((state) => state.setInspectorTab);
   const agentMode = useAiStore((state) => state.agentMode);

@@ -399,13 +399,18 @@ pub fn restore(store: &Store, task_ids: &[String], updated_at: &str) -> DbResult
     })
 }
 
-/// Delete tasks trashed before `cutoff`. The only permanent delete in this
-/// module, and it is reachable from the app's Trash alone — never from MCP.
+/// Delete tasks trashed at or before `cutoff`. The only permanent delete in
+/// this module, and it is reachable from the app's Trash alone — never from MCP.
+///
+/// Inclusive, like `notes::purge_trash`: both halves of Trash are emptied by one
+/// call passing `now`, and a `<` here against a `<=` there would leave a task
+/// binned in that same millisecond sitting in a bin the student just emptied.
 pub fn purge_trashed(store: &Store, cutoff: &str) -> DbResult<i64> {
     store.transact(|transaction| {
         let rowids: Vec<i64> = {
-            let mut statement = transaction
-                .prepare("SELECT rowid FROM tasks WHERE trashed_at IS NOT NULL AND trashed_at < ?")?;
+            let mut statement = transaction.prepare(
+                "SELECT rowid FROM tasks WHERE trashed_at IS NOT NULL AND trashed_at <= ?",
+            )?;
             let rowids = statement
                 .query_map([cutoff], |row| row.get(0))?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -415,7 +420,7 @@ pub fn purge_trashed(store: &Store, cutoff: &str) -> DbResult<i64> {
             transaction.execute("DELETE FROM tasks_fts WHERE rowid = ?", [rowid])?;
         }
         let removed = transaction.execute(
-            "DELETE FROM tasks WHERE trashed_at IS NOT NULL AND trashed_at < ?",
+            "DELETE FROM tasks WHERE trashed_at IS NOT NULL AND trashed_at <= ?",
             [cutoff],
         )?;
         Ok(removed as i64)

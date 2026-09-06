@@ -22,6 +22,7 @@ import {
 } from '@/lib/schema';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { useUiStore } from '@/lib/state/uiStore';
 import { nextOccurrenceAfter, shiftReminder } from '@/lib/tasks/recurrence';
 import {
   cancelledIfRequested,
@@ -248,7 +249,11 @@ export async function completeTaskCommand(
   let updated: Task;
 
   if (parsed.data.done && existing.recurrence) {
-    const nextDueAt = nextOccurrenceAfter(existing.dueAt ?? now, existing.recurrence, now);
+    const nextDueAt = nextOccurrenceAfter(
+      existing.dueAt ?? now,
+      existing.recurrence,
+      now,
+    );
     updated = {
       ...existing,
       // Deliberately still `todo`: the occurrence was completed, the task was
@@ -342,12 +347,25 @@ export async function restoreTasksCommand(
 /**
  * Empty the task half of Trash, on the same retention the note half uses. Not
  * reachable from MCP — permanent deletion is the app's alone.
+ *
+ * `trashedBefore` is what lets Empty Trash pass `now` and take everything: the
+ * note half is emptied by the same one-cutoff call, so the two halves of one
+ * bin cannot end up on different rules.
  */
-export async function purgeTrashedTasksCommand(): Promise<CommandResult<number>> {
+export async function purgeTrashedTasksCommand(
+  trashedBefore?: string,
+): Promise<CommandResult<number>> {
   const { trashRetentionDays } = useSettingsStore.getState().settings;
-  const cutoff = new Date(Date.now() - trashRetentionDays * 86_400_000).toISOString();
+  const cutoff =
+    trashedBefore ??
+    new Date(Date.now() - Math.max(0, trashRetentionDays) * 86_400_000).toISOString();
   try {
     const removed = await library.purgeTrashedTasks(cutoff);
+    // A purged task can be the one the Tasks pane is showing.
+    const ui = useUiStore.getState();
+    if (ui.selectedTaskId && !(await library.getTask(ui.selectedTaskId))) {
+      ui.selectTask(null);
+    }
     await refreshTasks();
     return ok(removed);
   } catch (error) {
