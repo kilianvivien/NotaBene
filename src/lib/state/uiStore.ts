@@ -151,6 +151,10 @@ interface UiState {
   taskDraft: TaskDraft | null;
   /** Open while the editor is choosing a task to mention inline. */
   taskPickerOpen: boolean;
+  /** Open while the editor is searching Wikipedia for an article to link or
+   * keep. Chrome-level state rather than editor state, because the menu bar
+   * opens it and the menu bar does not know about the editor. */
+  wikipediaOpen: boolean;
   /**
    * The task the breakdown dialog is planning, or `null` when it is closed.
    * It carries its own id rather than reading `selectedTaskId`, so a plan
@@ -203,6 +207,8 @@ interface UiState {
   closeTaskDialog(): void;
   openTaskPicker(): void;
   closeTaskPicker(): void;
+  openWikipedia(): void;
+  closeWikipedia(): void;
   openTaskBreakdown(taskId: string): void;
   closeTaskBreakdown(): void;
   setTaskCalendarOpen(open: boolean): void;
@@ -232,6 +238,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiPodcastOpen ||
     state.taskDraft !== null ||
     state.taskPickerOpen ||
+    state.wikipediaOpen ||
     state.taskBreakdownFor !== null ||
     state.taskCalendarOpen
   );
@@ -258,6 +265,7 @@ export const useUiStore = create<UiState>()(
     trashTab: 'notes',
     taskDraft: null,
     taskPickerOpen: false,
+    wikipediaOpen: false,
     taskBreakdownFor: null,
     taskCalendarOpen: false,
     sidebarVisible: true,
@@ -359,6 +367,18 @@ export const useUiStore = create<UiState>()(
     closeTaskPicker() {
       set((state) => {
         state.taskPickerOpen = false;
+      });
+    },
+
+    openWikipedia() {
+      set((state) => {
+        state.wikipediaOpen = true;
+      });
+    },
+
+    closeWikipedia() {
+      set((state) => {
+        state.wikipediaOpen = false;
       });
     },
 

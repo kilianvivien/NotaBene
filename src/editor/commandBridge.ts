@@ -18,6 +18,7 @@ export type EditorCommand =
   | 'endnote'
   | 'link'
   | 'date'
+  | 'wikipedia'
   | 'find';
 
 type Runner = (command: EditorCommand) => boolean | Promise<boolean>;

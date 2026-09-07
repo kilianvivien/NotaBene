@@ -110,6 +110,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('insert.callout', t),
         command('insert.math', t),
         command('insert.date', t),
+        command('insert.wikipedia', t),
         separator,
         command('insert.footnote', t),
         command('insert.endnote', t),

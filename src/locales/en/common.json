@@ -213,6 +213,24 @@
     "editFootnote": "Edit footnote",
     "editEndnote": "Edit endnote"
   },
+  "wikipedia": {
+    "menu": "Wikipedia…",
+    "title": "Wikipedia",
+    "hint": "Search an article, then link to it or keep a copy on this note.",
+    "placeholder": "Search Wikipedia",
+    "language": "Language",
+    "searching": "Searching…",
+    "prompt": "Type to search Wikipedia.",
+    "noResults": "No article matched that.",
+    "insertLink": "Insert link",
+    "saveArticle": "Save article",
+    "saving": "Saving…",
+    "needsNote": "Open a note to keep a copy.",
+    "savedOffline": "A saved article is stored on this Mac and reads offline. Images are not saved with it.",
+    "unreachable": "Wikipedia could not be reached.",
+    "needsDesktop": "Searching Wikipedia needs the desktop app.",
+    "failed": "That search could not be completed."
+  },
   "pdf": {
     "loading": "Loading PDF…",
     "missingFile": "The PDF file is missing from the library.",

@@ -15,8 +15,27 @@ export interface FetchedPage {
   html: string;
 }
 
+/** One row of a Wikipedia search, as `web.rs` hands it over. Parsed through
+ * `WikipediaSearchSchema` before anything reads it. */
+export interface WikipediaHitPayload {
+  title: string;
+  url: string;
+  description?: string | null;
+  excerpt?: string | null;
+}
+
 export interface WebAdapter {
   /** Rejects with a `code:message` string — `refused_host`, `not_html`,
    * `too_large`, `http_error`, and so on — which the UI translates. */
   fetchPage(url: string): Promise<FetchedPage>;
+
+  /**
+   * Ask one Wikipedia language edition what it has on a phrase.
+   *
+   * Separate from `fetchPage` because it is a narrower door: the host is built
+   * in Rust from the language code, so this cannot be pointed anywhere else,
+   * and the article itself is still fetched through `fetchPage` afterwards
+   * like any other link.
+   */
+  searchWikipedia(language: string, query: string): Promise<WikipediaHitPayload[]>;
 }

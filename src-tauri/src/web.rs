@@ -191,6 +191,152 @@ pub async fn web_fetch_page(url: String) -> Result<FetchedPage, String> {
     fetch_page(&url).await
 }
 
+/// A Wikipedia search result, straight from the REST listing.
+///
+/// Deliberately not a page: the article itself is fetched afterwards by
+/// `fetch_page` like any other link, so a saved Wikipedia article travels the
+/// same extraction, storage and re-fetch path as everything else. This command
+/// exists only to turn "hatvp" into a list of titles worth choosing between.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WikipediaHit {
+    pub title: String,
+    /// The article address, assembled from a validated host so the webview
+    /// never builds a Wikipedia URL of its own — it only ever hands one back.
+    pub url: String,
+    /// Wikidata's one-line gloss ("French jurist"), when there is one.
+    pub description: Option<String>,
+    /// The matching sentence, with `<span class="searchmatch">` around the hit.
+    pub excerpt: Option<String>,
+}
+
+/// Wikipedia language editions are named by code, and the code becomes a
+/// hostname. Anything that is not a short alphanumeric tag is refused here
+/// rather than being concatenated into a URL and hoped about — `fr.wikipedia.org`
+/// is a destination, `evil.com#.wikipedia.org` is an attack.
+fn wikipedia_host(language: &str) -> Result<String, String> {
+    let ok = !language.is_empty()
+        && language.len() <= 12
+        && language
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    if !ok {
+        return Err("invalid_language:that is not a Wikipedia language code".into());
+    }
+    Ok(format!("{language}.wikipedia.org"))
+}
+
+/// The article address for a slug.
+///
+/// Built through `Url` rather than by formatting a string, because the slug
+/// arrives in a response body: `set_path` percent-encodes the characters that
+/// would otherwise end the path and start something else, so a key cannot bolt
+/// a query or a fragment onto the address. A literal slash it leaves alone, and
+/// that is correct — `AC/DC` really does live at `/wiki/AC/DC`, as do "2019/20
+/// season" and every other title with one in it.
+///
+/// It does *not* pin the path to `/wiki/`, because a slug carrying `..` can
+/// normalise its way out. That is deliberate rather than overlooked: the host
+/// is what matters, and it cannot move. Whatever address comes out of here is
+/// still fetched by `fetch_page`, which checks the destination again, refuses
+/// anything that is not HTML, caps the size, and hands the result to
+/// Readability — so the worst a strange key can do is save a Wikipedia page
+/// nobody wanted.
+fn wikipedia_article_url(host: &str, key: &str) -> Result<String, String> {
+    let mut url = reqwest::Url::parse(&format!("https://{host}/"))
+        .map_err(|error| format!("invalid_url:{error}"))?;
+    url.set_path(&format!("/wiki/{key}"));
+    Ok(url.to_string())
+}
+
+/// Ask a Wikipedia edition what it has on a phrase.
+///
+/// The host is built from a validated language code rather than accepted from
+/// the webview, so this is a narrower door than `fetch_page`: there is exactly
+/// one shape of address it can ever reach. `check_destination` still runs, for
+/// the same reason it runs everywhere else — a DNS answer is not ours to trust
+/// just because we wrote the name.
+#[tauri::command]
+pub async fn wikipedia_search(
+    language: String,
+    query: String,
+    limit: Option<u8>,
+) -> Result<Vec<WikipediaHit>, String> {
+    crate::tls::ensure_provider();
+
+    let query = query.trim();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let host = wikipedia_host(&language)?;
+    let mut url = reqwest::Url::parse(&format!("https://{host}/w/rest.php/v1/search/page"))
+        .map_err(|error| format!("invalid_url:{error}"))?;
+    url.query_pairs_mut()
+        .append_pair("q", query)
+        .append_pair("limit", &limit.unwrap_or(8).clamp(1, 20).to_string());
+
+    check_destination(&url).await?;
+
+    let client = reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        // No redirects at all: the search endpoint answers directly, and a
+        // redirect here would be a hop this function never checked.
+        .redirect(reqwest::redirect::Policy::none())
+        .user_agent(concat!("NotaBene/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|error| error.to_string())?;
+
+    let response = client
+        .get(url)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .await
+        .map_err(|error| format!("fetch_failed:{error}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!("http_error:{}", response.status().as_u16()));
+    }
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("fetch_failed:{error}"))?;
+    if bytes.len() > MAX_BYTES {
+        return Err("too_large:that search returned more than NotaBene will read".into());
+    }
+
+    // Only the fields the dialog draws. Wikipedia adds keys between releases,
+    // and a search that failed because of a new one would be a poor trade.
+    #[derive(serde::Deserialize)]
+    struct Listing {
+        pages: Vec<Page>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Page {
+        key: String,
+        title: String,
+        description: Option<String>,
+        excerpt: Option<String>,
+    }
+
+    let listing: Listing =
+        serde_json::from_slice(&bytes).map_err(|error| format!("bad_response:{error}"))?;
+
+    listing
+        .pages
+        .into_iter()
+        .map(|page| {
+            Ok(WikipediaHit {
+                url: wikipedia_article_url(&host, &page.key)?,
+                title: page.title,
+                description: page.description,
+                excerpt: page.excerpt,
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -237,6 +383,43 @@ mod tests {
     #[test]
     fn refuses_a_private_address_wearing_an_ipv6_hat() {
         assert!(refused("http://[::ffff:127.0.0.1]/").starts_with("refused_host"));
+    }
+
+    /// The language code becomes a hostname, so it is the one field an attacker
+    /// would reach for.
+    #[test]
+    fn refuses_a_language_code_that_is_really_a_hostname() {
+        for code in ["evil.com#", "fr/../..", "FR", "", "fr.evil.com", "fr:8080"] {
+            assert!(
+                wikipedia_host(code).is_err(),
+                "{code:?} should not have become a host"
+            );
+        }
+        assert_eq!(wikipedia_host("fr").unwrap(), "fr.wikipedia.org");
+        assert_eq!(wikipedia_host("zh-yue").unwrap(), "zh-yue.wikipedia.org");
+    }
+
+    /// The slug comes out of a response body, so what it must never be able to
+    /// change is the host — nor bolt a query or a fragment onto the address.
+    #[test]
+    fn keeps_a_slug_from_reshaping_the_url() {
+        // Wikipedia's own canonical form: a slash in a title stays a slash.
+        assert_eq!(
+            wikipedia_article_url("en.wikipedia.org", "AC/DC").unwrap(),
+            "https://en.wikipedia.org/wiki/AC/DC"
+        );
+
+        for slug in ["x?action=delete", "x#/../../y", "x y"] {
+            let raw = wikipedia_article_url("fr.wikipedia.org", slug).unwrap();
+            let url = reqwest::Url::parse(&raw).expect("failed to reparse");
+            assert_eq!(url.host_str(), Some("fr.wikipedia.org"), "{slug:?}");
+            assert_eq!(url.query(), None, "{slug:?} should not have added a query");
+            assert_eq!(
+                url.fragment(),
+                None,
+                "{slug:?} should not have added a fragment"
+            );
+        }
     }
 
     #[test]

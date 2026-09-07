@@ -8,6 +8,7 @@ import {
   safeImportLibrary,
   SCHEMA_VERSION,
   TaskSchema,
+  WikipediaHitSchema,
 } from './index';
 
 describe('library import', () => {
@@ -279,5 +280,38 @@ describe('AI diagram schema', () => {
     expect(AiDiagramResponseSchema.safeParse({ ...valid, title: '  ' }).success).toBe(
       false,
     );
+  });
+});
+
+describe('the Wikipedia search schema', () => {
+  const hit = {
+    title: 'HATVP',
+    url: 'https://fr.wikipedia.org/wiki/HATVP',
+  };
+
+  it('accepts an article on any language edition', () => {
+    for (const host of ['fr.wikipedia.org', 'zh-yue.wikipedia.org', 'wikipedia.org']) {
+      expect(
+        WikipediaHitSchema.safeParse({ ...hit, url: `https://${host}/wiki/X` }).success,
+      ).toBe(true);
+    }
+  });
+
+  /**
+   * The reason this schema does not use `z.string().url()`: that accepts every
+   * one of these, and one of the two things the dialog does with an address is
+   * write it into a note as an `href`, which never reaches Rust's guard.
+   */
+  it('refuses an address that is a URL but not an article', () => {
+    for (const url of [
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'http://fr.wikipedia.org/wiki/X',
+      'https://wikipedia.org.evil.com/wiki/X',
+      'https://evil.com/wiki/X',
+      'not a url at all',
+    ]) {
+      expect(WikipediaHitSchema.safeParse({ ...hit, url }).success, url).toBe(false);
+    }
   });
 });

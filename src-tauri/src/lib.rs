@@ -168,6 +168,7 @@ pub fn run() {
             commands::library_upsert_saved_search,
             commands::library_delete_saved_search,
             web::web_fetch_page,
+            web::wikipedia_search,
             commands::library_list_tasks,
             commands::library_get_task,
             commands::library_search_tasks,

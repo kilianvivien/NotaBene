@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core';
 import {
   BookMarked,
+  BookOpen,
   CalendarDays,
   Heading2,
   Image,
@@ -117,6 +118,12 @@ export function SlashMenu({ editor, state, close, run }: SlashMenuProps) {
           label: t('menu.date'),
           icon: CalendarDays,
           action: () => run('date'),
+        },
+        {
+          id: 'wikipedia',
+          label: t('wikipedia.menu'),
+          icon: BookOpen,
+          action: () => run('wikipedia'),
         },
         {
           id: 'table',

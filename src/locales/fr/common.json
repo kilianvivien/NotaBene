@@ -213,6 +213,24 @@
     "editFootnote": "Modifier la note de bas de page",
     "editEndnote": "Modifier la note de fin"
   },
+  "wikipedia": {
+    "menu": "Wikipédia…",
+    "title": "Wikipédia",
+    "hint": "Cherchez un article, puis liez-le ou gardez-en une copie sur cette note.",
+    "placeholder": "Rechercher sur Wikipédia",
+    "language": "Langue",
+    "searching": "Recherche…",
+    "prompt": "Saisissez un terme pour chercher sur Wikipédia.",
+    "noResults": "Aucun article ne correspond.",
+    "insertLink": "Insérer le lien",
+    "saveArticle": "Garder l'article",
+    "saving": "Enregistrement…",
+    "needsNote": "Ouvrez une note pour en garder une copie.",
+    "savedOffline": "Un article gardé est stocké sur ce Mac et se lit hors ligne. Les images ne sont pas enregistrées.",
+    "unreachable": "Wikipédia est injoignable.",
+    "needsDesktop": "La recherche Wikipédia nécessite l'application de bureau.",
+    "failed": "Cette recherche n'a pas abouti."
+  },
   "pdf": {
     "loading": "Chargement du PDF…",
     "missingFile": "Le fichier PDF est absent de la bibliothèque.",

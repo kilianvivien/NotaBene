@@ -22,3 +22,4 @@ export * from './pdfAnnotationCommands';
 export * from './taskCommands';
 export * from './taskAiCommands';
 export * from './webLinkCommands';
+export * from './wikipediaCommands';

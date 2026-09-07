@@ -56,6 +56,7 @@ export const APP_COMMAND_IDS = [
   'insert.footnote',
   'insert.endnote',
   'insert.date',
+  'insert.wikipedia',
   'note.readAloud',
   'view.toggleSidebar',
   'view.toggleInspector',
@@ -426,6 +427,22 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     accelerator: 'CmdOrCtrl+Alt+D',
     landsIn: 'B',
     run: editorAction('date'),
+  },
+
+  /**
+   * Wikipedia, searched by title rather than pasted as a URL.
+   *
+   * Under Insert with the other things that put words on the page, even though
+   * one of its two actions files an attachment instead: what the student is
+   * doing is reaching for a source, and which half of it they keep is a choice
+   * they make in the dialog.
+   */
+  'insert.wikipedia': {
+    id: 'insert.wikipedia',
+    labelKey: 'wikipedia.menu',
+    accelerator: 'CmdOrCtrl+Alt+W',
+    landsIn: 'B',
+    run: editorAction('wikipedia'),
   },
 
   /**

@@ -1,8 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { FetchedPage, WebAdapter } from './WebAdapter';
+import type { FetchedPage, WebAdapter, WikipediaHitPayload } from './WebAdapter';
 
 export const tauriWebAdapter: WebAdapter = {
   fetchPage: (url: string): Promise<FetchedPage> => invoke('web_fetch_page', { url }),
+  searchWikipedia: (language: string, query: string): Promise<WikipediaHitPayload[]> =>
+    invoke('wikipedia_search', { language, query }),
 };
 
 /**
@@ -15,5 +17,8 @@ export const tauriWebAdapter: WebAdapter = {
 export const unavailableWebAdapter: WebAdapter = {
   fetchPage: async () => {
     throw new Error('unsupported:saving a web page needs the desktop app');
+  },
+  searchWikipedia: async () => {
+    throw new Error('unsupported:searching Wikipedia needs the desktop app');
   },
 };

@@ -8,6 +8,7 @@ import { createNoteCommand } from '@/lib/commands';
 import { library } from '@/lib/adapters';
 import { buildPdfSourceHref, parsePdfSourceHref } from '@/lib/pdf/sourceLinks';
 import { TaskPicker } from '@/app/tasks/TaskPicker';
+import { WikipediaDialog } from './wikipedia/WikipediaDialog';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
@@ -53,6 +54,8 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   const [wikiLink, setWikiLink] = useState<WikiLinkState | null>(null);
   const taskPickerOpen = useUiStore((state) => state.taskPickerOpen);
   const closeTaskPicker = useUiStore((state) => state.closeTaskPicker);
+  const wikipediaOpen = useUiStore((state) => state.wikipediaOpen);
+  const closeWikipedia = useUiStore((state) => state.closeWikipedia);
   const [findOpen, setFindOpen] = useState(false);
   const [prompt, setPrompt] = useState<EditorPromptRequest | null>(null);
   const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
@@ -401,6 +404,12 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
             })
             .run();
         }
+        // Opened through `uiStore` rather than mounted by whatever ran the
+        // command: the menu bar has no editor to hand, and a dialog owned by
+        // the slash menu would unmount the moment focus left it.
+        case 'wikipedia':
+          useUiStore.getState().openWikipedia();
+          return true;
         case 'find':
           setFindOpen(true);
           return true;
@@ -570,6 +579,24 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
             .insertContent({
               type: 'taskRef',
               attrs: { taskId: task.id, label: task.title },
+            })
+            .run()
+        }
+      />
+      <WikipediaDialog
+        open={wikipediaOpen}
+        noteId={useEditorStore.getState().note?.id ?? null}
+        onClose={closeWikipedia}
+        onInsertLink={(hit) =>
+          editor
+            .chain()
+            .focus()
+            // The title as the link text, so the prose reads as a citation
+            // rather than as a URL someone dropped in mid-sentence.
+            .insertContent({
+              type: 'text',
+              text: hit.title,
+              marks: [{ type: 'link', attrs: { href: hit.url } }],
             })
             .run()
         }
