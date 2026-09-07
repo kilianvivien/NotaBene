@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core';
 import {
+  BookA,
   BookMarked,
   BookOpen,
   CalendarDays,
@@ -124,6 +125,12 @@ export function SlashMenu({ editor, state, close, run }: SlashMenuProps) {
           label: t('wikipedia.menu'),
           icon: BookOpen,
           action: () => run('wikipedia'),
+        },
+        {
+          id: 'define',
+          label: t('define.menu'),
+          icon: BookA,
+          action: () => run('define'),
         },
         {
           id: 'table',

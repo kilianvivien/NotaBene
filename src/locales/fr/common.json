@@ -231,6 +231,20 @@
     "needsDesktop": "La recherche Wikipédia nécessite l'application de bureau.",
     "failed": "Cette recherche n'a pas abouti."
   },
+  "define": {
+    "empty": "Sélectionnez un mot dans votre note, ou saisissez-en un ici.",
+    "hint": "Cherchez le mot sélectionné dans le sens qu’il a ici, puis ajoutez-le à la note dans un encadré.",
+    "insertCallout": "Ajouter en encadré",
+    "lookUp": "Chercher",
+    "lookUpAgain": "Chercher à nouveau",
+    "looking": "Recherche en cours…",
+    "menu": "Définir…",
+    "placeholder": "Un mot de votre note",
+    "term": "Mot à définir",
+    "title": "Définir un mot",
+    "tooLong": "Sélectionnez un mot ou une expression courte, pas un passage.",
+    "uncertain": "Le modèle n’est pas sûr de lui. Vérifiez avant de conserver cette définition."
+  },
   "pdf": {
     "loading": "Chargement du PDF…",
     "missingFile": "Le fichier PDF est absent de la bibliothèque.",

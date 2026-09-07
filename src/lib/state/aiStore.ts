@@ -43,6 +43,7 @@ export type AiActivity =
   | 'ask'
   | 'mindMap'
   | 'diagram'
+  | 'define'
   | 'flashcards'
   | 'podcast'
   | 'importFormat'

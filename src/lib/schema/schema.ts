@@ -620,6 +620,35 @@ export const AiDiagramResponseSchema = z.object({
   mermaid: z.string().trim().min(1).max(8_000),
 });
 export type AiDiagramResponse = z.infer<typeof AiDiagramResponseSchema>;
+
+/**
+ * A word from the note, defined.
+ *
+ * `term` comes back separately from what was selected because what was
+ * selected is rarely the headword: a student double-clicks "syllogismes" and
+ * wants the box to say "syllogisme". The model returns the lemma, and the
+ * callout is titled with it.
+ *
+ * `inContext` is the reason this is worth asking a model rather than a
+ * dictionary — the same word means different things in a maths lecture and a
+ * law one, and the note is what says which. It is optional because a term used
+ * in its ordinary sense has nothing to add, and a sentence written to fill the
+ * field would be a sentence the student has to read and discard.
+ *
+ * `uncertain` is first-class for the reason `AiTaskCheckResponseSchema` gives
+ * `unclear`: a model asked to define a term it does not know will invent one,
+ * and a made-up definition pasted into revision notes is the worst outcome
+ * this feature has. It defaults to `false` so a small model that omits the
+ * field still parses — the flag is a model's chance to warn, not a promise
+ * that an unflagged definition is right.
+ */
+export const AiDefinitionResponseSchema = z.object({
+  term: z.string().trim().min(1).max(120),
+  definition: z.string().trim().min(1).max(600),
+  inContext: z.string().trim().max(400).optional(),
+  uncertain: z.boolean().default(false),
+});
+export type AiDefinitionResponse = z.infer<typeof AiDefinitionResponseSchema>;
 export const AiPodcastResponseSchema = PodcastScriptSchema;
 
 /**

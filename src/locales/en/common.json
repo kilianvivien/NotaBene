@@ -231,6 +231,20 @@
     "needsDesktop": "Searching Wikipedia needs the desktop app.",
     "failed": "That search could not be completed."
   },
+  "define": {
+    "empty": "Select a word in your note, or type one here.",
+    "hint": "Look up the selected word in the sense this note uses it, then add it to the note as a callout.",
+    "insertCallout": "Add as callout",
+    "lookUp": "Look up",
+    "lookUpAgain": "Look up again",
+    "looking": "Looking it up…",
+    "menu": "Define…",
+    "placeholder": "A word from your note",
+    "term": "Word to define",
+    "title": "Define a word",
+    "tooLong": "Select a single word or short term, not a passage.",
+    "uncertain": "The model is not confident about this one. Check it before you keep it."
+  },
   "pdf": {
     "loading": "Loading PDF…",
     "missingFile": "The PDF file is missing from the library.",

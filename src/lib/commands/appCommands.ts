@@ -67,6 +67,7 @@ export const APP_COMMAND_IDS = [
   'ai.ask',
   'ai.mindMap',
   'ai.diagram',
+  'ai.define',
   'ai.flashcards',
   'ai.podcast',
   'ai.agent',
@@ -589,6 +590,24 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
       useAiStore.getState().setAgentMode(false);
       useUiStore.getState().setInspectorTab('ai');
     }),
+  },
+  /**
+   * Define the selected word, into a callout.
+   *
+   * Under AI rather than Insert, unlike Wikipedia: what is inserted is not
+   * something the student found and chose, it is something a model wrote, and
+   * grouping it with the other model-written blocks is what keeps that visible
+   * in the one place the whole feature set is listed.
+   *
+   * It runs through the editor because the selection is the argument — there is
+   * no useful version of this command that the menu bar could run on its own.
+   */
+  'ai.define': {
+    id: 'ai.define',
+    labelKey: 'define.menu',
+    accelerator: 'CmdOrCtrl+Shift+Alt+D',
+    landsIn: 'E',
+    run: editorAction('define'),
   },
   'ai.mindMap': {
     id: 'ai.mindMap',

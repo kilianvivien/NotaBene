@@ -197,6 +197,7 @@ export const AI_FEATURES = [
   'ask',
   'mindMap',
   'diagram',
+  'define',
   'flashcards',
   'podcast',
   'importFormat',

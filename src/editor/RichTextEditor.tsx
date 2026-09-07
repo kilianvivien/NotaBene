@@ -9,6 +9,9 @@ import { library } from '@/lib/adapters';
 import { buildPdfSourceHref, parsePdfSourceHref } from '@/lib/pdf/sourceLinks';
 import { TaskPicker } from '@/app/tasks/TaskPicker';
 import { WikipediaDialog } from './wikipedia/WikipediaDialog';
+import { DefineDialog } from './define/DefineDialog';
+import { definitionInsertPosition, selectedTerm } from './define/selectedTerm';
+import { definitionCallout } from '@/lib/notes/definitionCallout';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
@@ -56,6 +59,8 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   const closeTaskPicker = useUiStore((state) => state.closeTaskPicker);
   const wikipediaOpen = useUiStore((state) => state.wikipediaOpen);
   const closeWikipedia = useUiStore((state) => state.closeWikipedia);
+  const defineRequest = useUiStore((state) => state.defineRequest);
+  const closeDefine = useUiStore((state) => state.closeDefine);
   const [findOpen, setFindOpen] = useState(false);
   const [prompt, setPrompt] = useState<EditorPromptRequest | null>(null);
   const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
@@ -410,6 +415,18 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
         case 'wikipedia':
           useUiStore.getState().openWikipedia();
           return true;
+        /**
+         * Define the word under the caret.
+         *
+         * The selection is read here, at the moment the command runs, and
+         * travels to the dialog as a value. Nothing about it can be recovered
+         * once the dialog has focus and the student has clicked somewhere to
+         * think.
+         */
+        case 'define': {
+          useUiStore.getState().openDefine(selectedTerm(current));
+          return true;
+        }
         case 'find':
           setFindOpen(true);
           return true;
@@ -598,6 +615,21 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
               text: hit.title,
               marks: [{ type: 'link', attrs: { href: hit.url } }],
             })
+            .run()
+        }
+      />
+      <DefineDialog
+        request={defineRequest}
+        noteTitle={useEditorStore.getState().note?.title ?? ''}
+        onClose={closeDefine}
+        onInsert={(definition) =>
+          editor
+            .chain()
+            .focus()
+            .insertContentAt(
+              definitionInsertPosition(editor.state.selection),
+              definitionCallout(definition),
+            )
             .run()
         }
       />

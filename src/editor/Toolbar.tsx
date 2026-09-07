@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core';
 import {
   Bold,
+  BookA,
   BookMarked,
   BookOpen,
   CalendarDays,
@@ -256,6 +257,7 @@ export function Toolbar({ editor, run }: ToolbarProps) {
         },
         { label: t('menu.date'), icon: CalendarDays, action: () => run('date') },
         { label: t('wikipedia.menu'), icon: BookOpen, action: () => run('wikipedia') },
+        { label: t('define.menu'), icon: BookA, action: () => run('define') },
         { label: t('menu.image'), icon: Image, action: () => run('image') },
         { label: t('menu.drawing'), icon: PencilRuler, action: () => run('drawing') },
         {

@@ -156,6 +156,16 @@ interface UiState {
    * opens it and the menu bar does not know about the editor. */
   wikipediaOpen: boolean;
   /**
+   * The word the definition dialog is looking up, with the passage it came
+   * from, or `null` when it is closed.
+   *
+   * The payload travels with the open flag because only the editor knows what
+   * the caret was in, and by the time the dialog is on screen the student may
+   * have clicked elsewhere. Reading the selection when the dialog renders would
+   * define whatever the note happens to be showing then.
+   */
+  defineRequest: { term: string; context: string } | null;
+  /**
    * The task the breakdown dialog is planning, or `null` when it is closed.
    * It carries its own id rather than reading `selectedTaskId`, so a plan
    * cannot land on a different task than the one it was asked about.
@@ -209,6 +219,8 @@ interface UiState {
   closeTaskPicker(): void;
   openWikipedia(): void;
   closeWikipedia(): void;
+  openDefine(request: { term: string; context: string }): void;
+  closeDefine(): void;
   openTaskBreakdown(taskId: string): void;
   closeTaskBreakdown(): void;
   setTaskCalendarOpen(open: boolean): void;
@@ -239,6 +251,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.taskDraft !== null ||
     state.taskPickerOpen ||
     state.wikipediaOpen ||
+    state.defineRequest !== null ||
     state.taskBreakdownFor !== null ||
     state.taskCalendarOpen
   );
@@ -266,6 +279,7 @@ export const useUiStore = create<UiState>()(
     taskDraft: null,
     taskPickerOpen: false,
     wikipediaOpen: false,
+    defineRequest: null,
     taskBreakdownFor: null,
     taskCalendarOpen: false,
     sidebarVisible: true,
@@ -379,6 +393,18 @@ export const useUiStore = create<UiState>()(
     closeWikipedia() {
       set((state) => {
         state.wikipediaOpen = false;
+      });
+    },
+
+    openDefine(request) {
+      set((state) => {
+        state.defineRequest = request;
+      });
+    },
+
+    closeDefine() {
+      set((state) => {
+        state.defineRequest = null;
       });
     },
 

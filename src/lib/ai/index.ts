@@ -12,6 +12,7 @@ export * from './synthesis';
 export * from './ask';
 export * from './mindmap';
 export * from './diagram';
+export * from './define';
 export * from './flashcards';
 export * from './podcast';
 export * from './retrieval';

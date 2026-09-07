@@ -480,6 +480,58 @@ ${JSON_ONLY} It must match:
   ];
 }
 
+// -- Define ------------------------------------------------------------------
+
+/**
+ * Define one word, in the sense the note is using it.
+ *
+ * The whole reason this is a model call and not a dictionary lookup is the
+ * passage: "prime" in a number theory lecture, in a French economics one and
+ * in a contract law one are three different words that a dictionary hands back
+ * as one entry with six senses. So the surrounding block travels with the term
+ * and the prompt is explicit that it decides the sense — but equally explicit
+ * that it does not decide the *definition*, or the box ends up paraphrasing
+ * the sentence the student had already written.
+ *
+ * Short on purpose. This goes in a callout beside their own prose, where it has
+ * to be readable at a glance during a lecture; a model that writes four
+ * sentences has written something nobody rereads.
+ */
+export function definitionPrompt(options: {
+  term: string;
+  /** The block the word sits in, verbatim. May be empty — a term typed into
+   * the dialog rather than selected has no passage behind it. */
+  context: string;
+  noteTitle: string;
+  language: string;
+}): AiMessage[] {
+  const passage = options.context.trim();
+  return [
+    {
+      role: 'system',
+      content: `You are defining a term for a student, to go in a box beside their own class notes.
+
+${languageRule(options.language)}
+
+- "term" is the headword: the dictionary form of what was selected. Give "syllogisme" for "syllogismes", "ultra vires" for "ultra vires clauses". Correct an obvious misspelling in it. Never expand it into a phrase the student did not select.
+- "definition" is one or two sentences and no more. Lead with what the thing *is*; do not open with "This term refers to" and do not restate the word before defining it.
+- The passage decides which sense of the word is meant, and nothing else. Do not summarise the passage, do not quote it back, and do not define the word by what this particular note happens to claim about it.
+- "inContext" is one sentence on the sense this note is using, and only when the term is technical or ambiguous enough that the ordinary sense would mislead. Leave it out otherwise. Never use it to comment on the note or on the student's argument.
+- Set "uncertain" to true if you do not reliably know this term, if the passage leaves the sense genuinely ambiguous, or if the selection is not a term at all. An invented definition in someone's revision notes is worse than an admission. Give your best answer alongside it either way.
+- Plain text in every field: no Markdown, no bold, no bullets, no citations, no links.
+
+${JSON_ONLY} It must match:
+{"term": "<headword>", "definition": "<one or two sentences>", "inContext": "<one sentence, or omit>", "uncertain": true | false}`,
+    },
+    {
+      role: 'user',
+      content: passage
+        ? `<term>${options.term}</term>\n<note title="${options.noteTitle.replace(/"/g, "'")}">\n${passage}\n</note>`
+        : `<term>${options.term}</term>`,
+    },
+  ];
+}
+
 // -- Ask ---------------------------------------------------------------------
 
 /**

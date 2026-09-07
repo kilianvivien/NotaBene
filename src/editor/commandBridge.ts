@@ -19,6 +19,7 @@ export type EditorCommand =
   | 'link'
   | 'date'
   | 'wikipedia'
+  | 'define'
   | 'find';
 
 type Runner = (command: EditorCommand) => boolean | Promise<boolean>;
