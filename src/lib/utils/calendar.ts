@@ -107,3 +107,23 @@ export function atTime(day: Date, hours: number, minutes: number): string {
   copy.setHours(hours, minutes, 0, 0);
   return copy.toISOString();
 }
+
+/**
+ * Today, written the way the student would write it at the top of a page.
+ *
+ * Full weekday and month, because the point of stamping a date into a lecture
+ * note is to read it back in March and know which class it was — "07/09" does
+ * not do that, and it does not do it differently in EN and FR. The leading
+ * capital is applied here rather than left to `Intl`: French lowercases the
+ * weekday, which is right mid-sentence and wrong at the head of a line, so the
+ * caller says which case it is.
+ */
+export function longDateLabel(date: Date, locale: string, capitalize = false): string {
+  const label = date.toLocaleDateString(locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  return capitalize ? label.charAt(0).toLocaleUpperCase(locale) + label.slice(1) : label;
+}

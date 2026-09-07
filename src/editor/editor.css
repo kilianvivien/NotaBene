@@ -1226,15 +1226,20 @@ html[data-focus='true'] .nb-rich-editor[data-selection='text'] .nb-editor-bar {
   opacity: 1;
 }
 
-/* Fullscreen, the row gives up its space as well as its ink — the title bar has
-   already left the layout above it (`globals.css`), and stopping 56px short of
-   the top for a toolbar that is not on screen undoes half of that. It stays
-   sticky and simply has no height, so returning it overlays the page the way
-   the bars now do rather than shoving the paragraph you are writing. Both its
-   surfaces are opaque, which is what makes that legible. */
+/* Fullscreen, the row gives up part of its space but not all of it.
+ *
+ * It used to collapse to `height: 0` and overlay the page, on the theory that a
+ * hidden toolbar should not reserve 56px below a title bar that has already
+ * left the layout. What that actually bought was a toolbar that, the moment it
+ * came back, sat squarely on the note's first line — the one line you are most
+ * likely to be reading when you have just reached for the top edge. An opaque
+ * surface does not make covered text legible; it makes it absent.
+ *
+ * So the row keeps its height and gives up only the gap beneath it. Reserving
+ * real height rather than a fixed offset is also what survives the find bar
+ * opening, which wraps the row onto two lines. */
 html[data-focus='true'][data-fullscreen='true'] .nb-editor-bar {
-  height: 0;
-  margin-bottom: 0;
+  margin-bottom: 8px;
 }
 
 @media (prefers-reduced-motion: no-preference) {

@@ -29,6 +29,7 @@ import { SlashMenu, type SlashState } from './SlashMenu';
 import { WikiLinkMenu, type WikiLinkState } from './WikiLinkMenu';
 import { FindReplaceBar } from './FindReplaceBar';
 import { markdownToDoc } from './markdown';
+import { longDateLabel } from '@/lib/utils/calendar';
 import { newId } from '@/lib/schema';
 import './editor.css';
 
@@ -375,6 +376,30 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
           if (!href)
             return current.chain().focus().extendMarkRange('link').unsetLink().run();
           return current.chain().focus().extendMarkRange('link').setLink({ href }).run();
+        }
+        /**
+         * Today's date as plain text at the caret.
+         *
+         * Text, not a node: a date stamped at the head of a lecture note has to
+         * survive every export and stay editable afterwards — the student may
+         * append "(partiel)" to it — and a custom node would need a schema bump
+         * plus five export paths to earn nothing. It is capitalized only at the
+         * start of a block, because French lowercases the weekday and "lundi"
+         * mid-sentence is correct while "lundi" opening a line is not.
+         */
+        case 'date': {
+          const { locale } = useSettingsStore.getState().settings;
+          const atBlockStart = current.state.selection.$from.parentOffset === 0;
+          return current
+            .chain()
+            .focus()
+            // A text node rather than a bare string: `insertContent` parses a
+            // string as HTML, and note content should never take that route.
+            .insertContent({
+              type: 'text',
+              text: longDateLabel(new Date(), locale, atBlockStart),
+            })
+            .run();
         }
         case 'find':
           setFindOpen(true);

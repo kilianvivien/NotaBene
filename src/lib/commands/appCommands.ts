@@ -55,6 +55,7 @@ export const APP_COMMAND_IDS = [
   'insert.link',
   'insert.footnote',
   'insert.endnote',
+  'insert.date',
   'note.readAloud',
   'view.toggleSidebar',
   'view.toggleInspector',
@@ -409,6 +410,22 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     accelerator: 'CmdOrCtrl+Shift+Alt+E',
     landsIn: 'B',
     run: editorAction('endnote'),
+  },
+
+  /**
+   * Today's date, at the caret.
+   *
+   * Insert rather than Format because it puts words on the page, and a keyboard
+   * shortcut rather than only a slash-menu item because the gesture it replaces
+   * — typing the date at the top of a fresh page — happens once per lecture,
+   * before the note has any text for `/` to hang off.
+   */
+  'insert.date': {
+    id: 'insert.date',
+    labelKey: 'menu.date',
+    accelerator: 'CmdOrCtrl+Alt+D',
+    landsIn: 'B',
+    run: editorAction('date'),
   },
 
   /**

@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core';
 import {
   Bold,
   BookMarked,
+  CalendarDays,
   CheckSquare,
   ChevronDown,
   Code2,
@@ -252,6 +253,7 @@ export function Toolbar({ editor, run }: ToolbarProps) {
           action: () => run('link'),
           active: editor.isActive('link'),
         },
+        { label: t('menu.date'), icon: CalendarDays, action: () => run('date') },
         { label: t('menu.image'), icon: Image, action: () => run('image') },
         { label: t('menu.drawing'), icon: PencilRuler, action: () => run('drawing') },
         {

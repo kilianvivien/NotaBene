@@ -17,6 +17,7 @@ export type EditorCommand =
   | 'footnote'
   | 'endnote'
   | 'link'
+  | 'date'
   | 'find';
 
 type Runner = (command: EditorCommand) => boolean | Promise<boolean>;

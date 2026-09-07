@@ -3,6 +3,7 @@ import {
   addMonths,
   firstDayOfWeek,
   isSameDay,
+  longDateLabel,
   monthGrid,
   weekdayLabels,
 } from './calendar';
@@ -81,5 +82,22 @@ describe('monthGrid', () => {
     for (const cell of monthGrid(new Date(2026, 7, 1), 'en-GB').flat()) {
       expect([cell.getHours(), cell.getMinutes(), cell.getSeconds()]).toEqual([0, 0, 0]);
     }
+  });
+});
+
+describe('longDateLabel', () => {
+  const monday = new Date(2026, 8, 7);
+
+  it('names the weekday, so a note says which class it was', () => {
+    expect(longDateLabel(monday, 'en-GB')).toContain('Monday');
+    expect(longDateLabel(monday, 'fr')).toContain('lundi');
+  });
+
+  it('leaves the case alone unless asked, because French is lowercase mid-sentence', () => {
+    expect(longDateLabel(monday, 'fr')).toBe('lundi 7 septembre 2026');
+  });
+
+  it('capitalizes for the head of a line', () => {
+    expect(longDateLabel(monday, 'fr', true)).toBe('Lundi 7 septembre 2026');
   });
 });
