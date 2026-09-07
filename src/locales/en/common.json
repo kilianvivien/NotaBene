@@ -601,6 +601,7 @@
     "feature_agent": "Agent",
     "feature_ask": "Ask",
     "feature_default": "Default",
+    "feature_define": "Define",
     "feature_diagram": "Diagram",
     "feature_flashcards": "Flashcards",
     "feature_importFormat": "Document layout",

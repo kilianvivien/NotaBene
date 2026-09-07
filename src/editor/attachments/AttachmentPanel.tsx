@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Eye,
   File,
   Link2,
@@ -224,6 +225,21 @@ export function AttachmentPanel({
       >
         <Link2 size={14} />
         {t('editor.addLink')}
+      </button>
+      {/* Wikipedia sits with the other two because what it produces is an
+          attachment: `attachWikipediaArticleCommand` saves the article as the
+          same `.md` a web link becomes, and this is where a student comes
+          looking for it afterwards. The dialog itself lives with the editor,
+          which is where its other half — inserting a link into the prose —
+          has to be; opening it is a one-line request to the ui store. */}
+      <button
+        type="button"
+        className="nb-attachment-add"
+        disabled={busy}
+        onClick={() => useUiStore.getState().openWikipedia()}
+      >
+        <BookOpen size={14} />
+        {t('wikipedia.menu')}
       </button>
       <AddWebLinkDialog
         open={linkOpen}

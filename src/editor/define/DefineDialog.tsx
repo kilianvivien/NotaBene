@@ -16,7 +16,7 @@
  * in a dialog until a student decides it is right, which is the same gate every
  * other AI feature here puts in front of the note.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BookA, Loader2, Search, TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, FieldNote, GlassButton } from '@/components/glass';
@@ -100,10 +100,13 @@ export function DefineDialog({
     setResult(outcome.value);
   }
 
-  function close(): void {
+  // Stable, because `ModalOverlay` holds it for as long as the dialog is open
+  // and a dialog that hands it a new function every render is a dialog that
+  // makes it tear its focus handling down and set it up again every render.
+  const close = useCallback((): void => {
     cancelRun('define');
     onClose();
-  }
+  }, [onClose]);
 
   const open = request !== null;
   const canLook = Boolean(term.trim()) && availability.available && !running;
@@ -148,9 +151,13 @@ export function DefineDialog({
             <GlassButton
               size="sm"
               variant="accent"
+              // `close`, not `onClose`: a second lookup can still be in flight
+              // behind a result the student has decided to keep, and leaving it
+              // running would spend a request nobody is going to read — and
+              // leave the spinner claiming the feature is busy.
               onClick={() => {
                 onInsert(result);
-                onClose();
+                close();
               }}
             >
               <BookA size={12} aria-hidden />

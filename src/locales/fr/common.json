@@ -601,6 +601,7 @@
     "feature_agent": "Agent",
     "feature_ask": "Interroger",
     "feature_default": "Par défaut",
+    "feature_define": "Définir",
     "feature_diagram": "Schéma",
     "feature_flashcards": "Fiches",
     "feature_importFormat": "Mise en forme des documents",

@@ -35,6 +35,22 @@ export function ModalOverlay({
   const overlay = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
 
+  /**
+   * Escape and the focus trap read the *current* `onClose`, but the effect
+   * below must not re-run when its identity changes.
+   *
+   * A caller that closes over anything — `DefineDialog`'s `close`, which
+   * cancels the run first — hands us a new function on every render. Keying the
+   * effect on it made the cleanup fire on every render too, and that cleanup
+   * restores focus to whatever was focused when the modal opened. Opened from
+   * the editor, that is ProseMirror: focusing it dispatches a selection
+   * transaction, the editor re-renders on transactions, the dialog re-renders
+   * with it, and the effect runs again — an update loop React ends with
+   * "maximum update depth exceeded".
+   */
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
     if (open) {
       setMounted(true);
@@ -59,27 +75,35 @@ export function ModalOverlay({
   }, [open, mounted]);
 
   useEffect(() => {
-    if (!open) return;
+    // `mounted` and not just `open`: the panel is rendered by the *next* commit,
+    // so on the render where `open` first turns true `overlay.current` is still
+    // null and there is nothing here to focus. Keying on `mounted` runs this
+    // once the panel is in the DOM, which is the only moment the query below
+    // can find anything.
+    if (!open || !mounted) return;
     previousFocus.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    requestAnimationFrame(() => {
-      // "First focusable" is the wrong default when the first thing in the DOM
-      // is a status readout. Every AI dialog opened with its provider pill
-      // focused, so Return went to Settings instead of to what the dialog is
-      // for. A region can decline the honour with `data-modal-focus="skip"`,
-      // and anything that wants it can claim it outright.
-      const claimed = overlay.current?.querySelector<HTMLElement>('[data-autofocus]');
-      const first = [
-        ...(overlay.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
-      ].find((element) => !element.closest('[data-modal-focus="skip"]'));
-      (
-        claimed ??
-        first ??
-        overlay.current?.querySelector<HTMLElement>('[role="dialog"]')
-      )?.focus();
-    });
+    // Synchronously, now that the panel is in the DOM. It used to wait for an
+    // animation frame, which does not run at all in a hidden or background tab
+    // — the dialog opened there with focus still in whatever the student was
+    // typing in, so their next keystrokes went into the note.
+    //
+    // "First focusable" is the wrong default when the first thing in the DOM
+    // is a status readout. Every AI dialog opened with its provider pill
+    // focused, so Return went to Settings instead of to what the dialog is
+    // for. A region can decline the honour with `data-modal-focus="skip"`,
+    // and anything that wants it can claim it outright.
+    const claimed = overlay.current?.querySelector<HTMLElement>('[data-autofocus]');
+    const first = [
+      ...(overlay.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
+    ].find((element) => !element.closest('[data-modal-focus="skip"]'));
+    (
+      claimed ??
+      first ??
+      overlay.current?.querySelector<HTMLElement>('[role="dialog"]')
+    )?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') closeRef.current();
       if (event.key !== 'Tab') return;
       // The trap keeps every focusable in the cycle, including the ones the
       // opening focus skips: declining to be focused *first* is not the same as
@@ -103,7 +127,7 @@ export function ModalOverlay({
       window.removeEventListener('keydown', onKeyDown);
       previousFocus.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open, mounted]);
 
   if (!mounted) return null;
 
