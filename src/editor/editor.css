@@ -1242,6 +1242,29 @@ html[data-focus='true'][data-fullscreen='true'] .nb-editor-bar {
   margin-bottom: 8px;
 }
 
+/* ...and it parks below the title bar's band rather than in it.
+ *
+ * Fullscreen the title bar is an absolute overlay above everything (`z-index:
+ * 40`), so a row that sticks at 10px sticks *underneath* it: reach for the top
+ * edge and the one gesture that brings the toolbar back is also the one that
+ * covers it. Offsetting by the bar's own height is what the reading controls
+ * already do on the opposite corner, and it puts the two back on a line.
+ *
+ * Unconditional, not only while the chrome is out. The toolbar also returns on
+ * a selection, when nothing is above it — but a sticky `top` changes with no
+ * transition, so making it conditional would slide the toolbar 44px down under
+ * a pointer already on its way to it. */
+html[data-focus='true'][data-fullscreen='true'] .nb-editor-bar,
+html[data-focus='true'][data-fullscreen='true'] .nb-document-map {
+  top: calc(var(--nb-titlebar-height) + 8px);
+}
+
+/* The map is pinned by its top, so moving that down would push its foot into
+   the status bar's band. Give back what the offset took. */
+html[data-focus='true'][data-fullscreen='true'] .nb-document-map {
+  max-height: calc(100cqh - var(--nb-titlebar-height) - 36px);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .nb-editor-bar {
     transition:
