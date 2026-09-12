@@ -1045,6 +1045,16 @@
   background: var(--nb-surface);
   box-shadow: var(--nb-shadow-lg);
   flex-direction: column;
+  /* This is app chrome that happens to be mounted inside a note, so it must
+     not inherit the note's typography. Without the reset the bar rendered in
+     whatever serif and reading size the student had chosen for their prose,
+     which is how "Confirmer" ended up as a 19px Charter button. */
+  color: var(--nb-text);
+  font-family: var(--nb-font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: normal;
 }
 
 .nb-drawing-modal-bar {
@@ -1052,28 +1062,61 @@
   height: 44px;
   padding: 0 10px 0 14px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border-bottom: 1px solid var(--nb-divider);
+  background: var(--nb-chrome-surface);
 }
 
-.nb-drawing-modal-bar button {
-  height: 29px;
-  padding: 0 11px;
-  border: 1px solid var(--nb-control-border);
-  border-radius: 7px;
+.nb-drawing-modal-title {
   color: var(--nb-text);
-  background: var(--nb-control-surface);
-}
-
-.nb-drawing-modal-bar .nb-primary-action {
-  border-color: var(--nb-accent);
-  color: white;
-  background: var(--nb-accent);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .nb-excalidraw-shell {
   min-height: 0;
   flex: 1;
+}
+
+/* Excalidraw arrives with its own design language — the Assistant typeface and
+   an indigo accent — and left alone it reads as a second application embedded
+   in the first: our brown selection everywhere, theirs purple in this one
+   panel. All of its chrome is driven by custom properties on `.excalidraw`, so
+   pointing those at our tokens is the whole job.
+ *
+ * The canvas is deliberately not among them. Its dark theme is a CSS `filter`
+ * inversion over the drawing, so a surface colour underneath would be inverted
+ * with it and land somewhere neither theme asked for.
+ *
+ * Both classes are named on purpose. Excalidraw's own stylesheet is imported by
+ * the lazy chunk, so it lands after ours and wins every tie — and its dark
+ * theme sets these on `.excalidraw.theme--dark`, two classes, which is exactly
+ * what a `.nb-excalidraw-shell .excalidraw` descendant rule scores. The result
+ * was a panel that took our accent in light mode and stayed indigo in dark. */
+.nb-excalidraw-shell .excalidraw.excalidraw-container {
+  --ui-font: var(--nb-font-sans);
+  --color-primary: var(--nb-accent);
+  --color-primary-darker: var(--nb-accent-strong);
+  --color-primary-darkest: var(--nb-accent-strong);
+  --color-primary-hover: var(--nb-accent-strong);
+  --color-primary-light: var(--nb-accent-soft);
+  --color-primary-light-darker: var(--nb-accent-soft);
+  --color-surface-primary-container: var(--nb-accent-soft);
+  --color-on-primary-container: var(--nb-accent-strong);
+  --color-brand-hover: var(--nb-accent-strong);
+  --color-brand-active: var(--nb-accent-strong);
+  --color-selection: var(--nb-accent);
+  --focus-highlight-color: var(--nb-accent-ring);
+  --island-bg-color: var(--nb-surface);
+  --popup-bg-color: var(--nb-menu-surface);
+  --sidebar-bg-color: var(--nb-surface);
+  --input-bg-color: var(--nb-inset-surface);
+  --input-border-color: var(--nb-control-border);
+  --input-hover-bg-color: var(--nb-hover);
+  --button-hover-bg: var(--nb-hover);
+  --default-border-color: var(--nb-divider);
+  --sidebar-border-color: var(--nb-divider);
+  --dialog-border-color: var(--nb-divider);
 }
 
 .nb-slash-menu {
