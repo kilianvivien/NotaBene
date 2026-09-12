@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.6"><img alt="Latest release: 0.8.6" src="https://img.shields.io/badge/release-0.8.6-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.8"><img alt="Latest release: 0.8.8" src="https://img.shields.io/badge/release-0.8.8-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,8 +24,8 @@
 
 ## Download
 
-Download **[NotaBene 0.8.6 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.8.6/NotaBene_0.8.6_aarch64.dmg)**.
+Download **[NotaBene 0.8.8 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.8.8/NotaBene_0.8.8_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
@@ -64,8 +64,8 @@ and control over your own data. NotaBene is being built so you do not have to.
 
 Headings, lists, tasks, highlights, links, code, tables, collapsible sections,
 callouts, LaTeX maths, images, and drawings — with a slash menu, a formatting
-toolbar, find and replace, and the Mac shortcuts you already know. It keeps up
-with typing during a lecture.
+toolbar, find and replace, today's date on a keystroke, and the Mac shortcuts
+you already know. It keeps up with typing during a lecture.
 
 Define your own **abbreviations** in Settings and they expand while you write:
 type `tvi`, finish the word, and the note reads "théorème des valeurs
@@ -75,7 +75,12 @@ briefly tinted so you can see what happened.
 Notes also carry attachments — slide decks, spreadsheets, handouts, lecture
 recordings, and e-books all live beside the note instead of in a folder
 somewhere else. Images, audio, video, PDF, DOCX, ODT, RTF, Markdown, and
-plain-text files open in an in-app viewer with zoom.
+plain-text files open in an in-app viewer with zoom. A **web page** can be
+saved onto a note the same way, and reads offline afterwards.
+
+**Wikipedia** is one search box away (⌘⌥W). Search by title rather than pasting
+a URL, then either insert a link to the article or save the article itself as
+an attachment for a train with no signal.
 
 For longer work, the **document map** lets you jump between headings and drag
 sections into order. Add footnotes and endnotes, set word-count targets for a
@@ -162,6 +167,8 @@ With a provider configured, NotaBene can:
 - turn one or several notes into a summary, revision sheet, or glossary;
 - answer questions about a note — strictly from the note (**Note only**), or
   with outside knowledge that is clearly marked as such (**Note + AI**);
+- define a word in the sense the passage around it is using, as a callout you
+  can edit and export;
 - draw a mind map;
 - create an editable Excalidraw flowchart or sequence diagram, with a preview
   before insertion;
@@ -235,15 +242,15 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 0.8.6** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.6).
+**NotaBene 0.8.8** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.8).
 Everything described above is built and working.
 
 Two things are deliberately not done yet: the app is **not** signed with an
 Apple Developer ID or notarized, and there are **no** automatic updates. Both
 are planned.
 
-See the [0.8.6 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.6)
+See the [0.8.8 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.8)
 and [earlier release notes](./RELEASE_NOTES.md), plus the
 [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
