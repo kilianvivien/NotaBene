@@ -152,8 +152,10 @@
   gap: 1px;
   border: 1px solid var(--nb-control-border);
   border-radius: 8px;
-  background: var(--nb-toolbar-surface);
+  background: var(--nb-toolbar-float);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(var(--nb-blur-sm)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--nb-blur-sm)) saturate(140%);
 }
 
 .nb-editor-tool,
@@ -1154,8 +1156,28 @@
   flex-wrap: wrap;
   border: 1px solid var(--nb-control-border);
   border-radius: 8px;
-  background: var(--nb-toolbar-surface);
+  background: var(--nb-toolbar-float);
   box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+  backdrop-filter: blur(var(--nb-blur-sm)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--nb-blur-sm)) saturate(140%);
+}
+
+/* The sticky row floats over the document as soon as anything scrolls under
+   it, so it is the one surface in the app that is not flatly opaque: at rest,
+   with stock behind it, the translucency is invisible, and over text the blur
+   turns the covered words into a wash instead of leaving them half-readable
+   through the buttons.
+ *
+ * Where the reader has asked for less of that, the blur is dropped and the
+ * surface goes back to the opaque token — a milky panel with no blur behind it
+ * is the one result worse than either. */
+@media (prefers-reduced-transparency: reduce) {
+  .nb-editor-toolbar,
+  .nb-find-replace {
+    background: var(--nb-toolbar-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 .nb-find-replace input {

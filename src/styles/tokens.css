@@ -108,6 +108,12 @@ html[data-theme='light'] {
   --nb-paper: #fdfcf9;
   --nb-inset-surface: #f3f1ec;
   --nb-toolbar-surface: #f8f7f4;
+  /* The sticky editor row while it floats over scrolled text. Alpha alone
+     would leave the covered words readable *through* the controls, which is a
+     legibility bug rather than a lighter surface; the blur that goes with it
+     (`editor.css`) is what turns them into a wash. Dropped back to the opaque
+     colour under `prefers-reduced-transparency`. */
+  --nb-toolbar-float: rgb(248 247 244 / 50%);
   --nb-menu-surface: #fbfaf7;
   --nb-control-surface: #f6f5f2;
   --nb-control-border: #d5d1ca;
@@ -160,6 +166,7 @@ html[data-theme='dark'] {
   --nb-paper: #10100f;
   --nb-inset-surface: #171716;
   --nb-toolbar-surface: #161615;
+  --nb-toolbar-float: rgb(22 22 21 / 50%);
   --nb-menu-surface: #171716;
   --nb-control-surface: #171716;
   --nb-control-border: #32302d;
