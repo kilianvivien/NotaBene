@@ -307,13 +307,23 @@ ${JSON_ONLY} It must match:
 /**
  * A diagram of the note, as Mermaid.
  *
- * Two rules carry this prompt. The first is the diagram *type*: only flowchart,
- * sequence and class survive as editable Excalidraw elements, so the model
- * picks among those three rather than reaching for the gantt or ER chart it
+ * Three rules carry this prompt. The first is the diagram *type*: only
+ * flowchart and sequence survive as editable Excalidraw elements, so the model
+ * picks between those two rather than reaching for the gantt or ER chart it
  * would often prefer. The second is that a diagram is not a summary — asked
  * loosely, a model returns one box per heading, which is the outline the
  * student already has. Asking for the relation between things is what makes the
  * picture worth more than the text.
+ *
+ * The third is restraint, and it is the one that had to be spelled out. A model
+ * told to diagram a note will diagram *all* of it: every heading becomes a
+ * branch, every aside a cross-link, and the result is twenty boxes of long
+ * labels joined by arrows that sweep back across the canvas. It parses, so both
+ * gates pass it, and the student gets a picture that is harder to read than the
+ * notes it came from. So the budget is stated as a number, the branching and
+ * depth are capped, labels are capped, and edges that cross the structure have
+ * to earn their place. Under-drawing is the cheaper mistake: a sparse diagram
+ * is a diagram someone reads.
  */
 export function diagramPrompt(options: {
   title: string;
@@ -329,9 +339,12 @@ ${languageRule(options.language)}
 
 - Choose the one type that fits the material: "flowchart" for a process, a causal chain, a decision or a structure; "sequence" for messages between participants over time. Use no other Mermaid diagram type — a class, state, ER, gantt or pie diagram cannot be drawn here and will be rejected.
 - Diagram the *relations* in the note — what causes, precedes, contains or calls what. A box per heading is the note's outline redrawn, and is not worth a picture.
-- Stay under about 20 nodes. A diagram that does not fit on a screen is not one a student will look at twice.
+- Draw one idea, not the whole note. Choose the single structure that carries the material and leave the rest out; if the note holds two unrelated structures, diagram the more important one and ignore the other.
+- Aim for 6 to 12 nodes and never go past 15. Drawing too little is the safer mistake — a sparse diagram gets read, a crowded one gets glanced at.
+- Keep the shape simple: branch at most three ways from any one node, stay within three or four levels of depth, and give each node a single parent. Add a link across the structure only when that crossing is the point of the diagram — every other one is an arrow drawn over the picture.
+- Node labels are at most four words, and are names rather than sentences. Put no Markdown, no backticks and no HTML in them, and no characters Mermaid treats specially inside a label — write "and" rather than "&".
+- Label an edge only when the relation is not already obvious from the two boxes it joins.
 - Work only from the note. Do not invent steps, participants or classes it does not mention.
-- Node labels are short. Put no Markdown, no backticks and no HTML in them, and no characters Mermaid treats specially inside a label — write "and" rather than "&".
 - The "mermaid" value is the complete diagram source, starting with its type keyword. Do not wrap it in a code fence.
 
 ${JSON_ONLY} It must match:

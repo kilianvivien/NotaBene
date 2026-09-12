@@ -187,7 +187,7 @@ describe('Diagram prompt', () => {
   });
 
   /**
-   * The constraint the whole feature rests on. Only these three convert to
+   * The constraint the whole feature rests on. Only these two convert to
    * Excalidraw elements; anything else is rasterised into the scene and stops
    * being editable, which is the reason for routing through Excalidraw at all.
    */
@@ -203,6 +203,19 @@ describe('Diagram prompt', () => {
     const content = prompt[0]?.content ?? '';
     expect(content).toContain('relations');
     expect(content).toContain('A box per heading');
+  });
+
+  /**
+   * A diagram the model is proud of is not a diagram a student reads. Left to
+   * itself it draws every heading, every aside and every cross-reference; these
+   * are the caps that keep the picture to something worth looking at.
+   */
+  it('caps the size, the branching and the labels', () => {
+    const content = prompt[0]?.content ?? '';
+    expect(content).toContain('6 to 12 nodes');
+    expect(content).toContain('branch at most three ways');
+    expect(content).toContain('at most four words');
+    expect(content).toContain('Draw one idea, not the whole note');
   });
 
   it('refuses a code fence, which would break the parser downstream', () => {
