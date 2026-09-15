@@ -61,9 +61,9 @@
   /* Leading inset of the title bar's content, so the toolbar clears the
      native macOS traffic lights.
 
-     Let AppKit position and size the buttons: Tauri's custom traffic-light
-     inset resizes their native title-bar container, which can distort newer
-     macOS controls. Keep enough clearance for the OS-managed button group. */
+     Match the native inset in tauri.conf.json (x: 18, y: 25), keeping the
+     buttons aligned with the toolbar and clear of its first hit area.
+     Their shape and rendering are owned by AppKit. */
   --nb-titlebar-leading: 100px;
   --nb-titlebar-height: 44px;
 }
