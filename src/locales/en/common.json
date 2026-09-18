@@ -48,6 +48,7 @@
     "archive": "Archive",
     "unarchive": "Unarchive",
     "addTag": "Add tag “{{tag}}”",
+    "removeTag": "Remove tag “{{tag}}”",
     "moveToTrash": "Move to Trash",
     "restore": "Restore"
   },

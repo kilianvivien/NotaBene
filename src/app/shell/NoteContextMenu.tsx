@@ -44,12 +44,32 @@ export function NoteContextMenu({
   const multiSelection = useUiStore((state) => state.multiSelection);
   const openNote = useEditorStore((state) => state.openNote);
   const tags = useLibraryStore((state) => state.tags);
-  const availableTags = tags.filter((tag) => !note.tagIds.includes(tag.id));
+  const notes = useLibraryStore((state) => state.notes);
 
   // The row was already checked against the selection before this menu opened
   // (`NoteList` leaves a selection intact when you right-click inside it), so
   // a non-empty selection here is one this note belongs to.
   const selection = multiSelection.length ? multiSelection : null;
+
+  // For a selection, a tag is "on" when any selected note carries it, and it
+  // is offered for adding when any note lacks it — so a mixed selection can be
+  // brought to either state in one gesture, and a uniform one shows one side.
+  const applied = new Set(
+    selection
+      ? notes.filter((row) => selection.includes(row.id)).flatMap((row) => row.tagIds)
+      : note.tagIds,
+  );
+  const missing = new Set(
+    selection
+      ? notes
+          .filter((row) => selection.includes(row.id))
+          .flatMap((row) =>
+            tags.filter((tag) => !row.tagIds.includes(tag.id)).map((tag) => tag.id),
+          )
+      : tags.filter((tag) => !note.tagIds.includes(tag.id)).map((tag) => tag.id),
+  );
+  const availableTags = tags.filter((tag) => missing.has(tag.id));
+  const appliedTags = tags.filter((tag) => applied.has(tag.id));
 
   async function update(patch: {
     pinned?: boolean;
@@ -107,18 +127,21 @@ export function NoteContextMenu({
                 // Tags only, no course list: moving a selection is what
                 // dragging it onto the sidebar does, and the selection bar's
                 // Move button is where that lives as a click.
-                ...(availableTags.length
-                  ? [
-                      null,
-                      ...availableTags.map((tag) => ({
-                        id: `tag-${tag.id}`,
-                        label: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
-                        icon: Tag,
-                        swatch: tag.color,
-                        onSelect: () => void tagNotesCommand(selection, tag.id, 'add'),
-                      })),
-                    ]
-                  : []),
+                ...(availableTags.length || appliedTags.length ? [null] : []),
+                ...availableTags.map((tag) => ({
+                  id: `tag-${tag.id}`,
+                  label: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
+                  icon: Tag,
+                  swatch: tag.color,
+                  onSelect: () => void tagNotesCommand(selection, tag.id, 'add'),
+                })),
+                ...appliedTags.map((tag) => ({
+                  id: `untag-${tag.id}`,
+                  label: t('noteActions.removeTag', { tag: tagLabel(tag, t).full }),
+                  icon: Tag,
+                  swatch: tag.color,
+                  onSelect: () => void tagNotesCommand(selection, tag.id, 'remove'),
+                })),
                 null,
                 {
                   id: 'trash',
@@ -172,18 +195,22 @@ export function NoteContextMenu({
                 icon: Archive,
                 onSelect: () => void update({ archived: !note.archived }),
               },
-              ...(availableTags.length
-                ? [
-                    null,
-                    ...availableTags.map((tag) => ({
-                      id: `tag-${tag.id}`,
-                      label: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
-                      icon: Tag,
-                      swatch: tag.color,
-                      onSelect: () => void update({ tagIds: [...note.tagIds, tag.id] }),
-                    })),
-                  ]
-                : []),
+              ...(availableTags.length || appliedTags.length ? [null] : []),
+              ...availableTags.map((tag) => ({
+                id: `tag-${tag.id}`,
+                label: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
+                icon: Tag,
+                swatch: tag.color,
+                onSelect: () => void update({ tagIds: [...note.tagIds, tag.id] }),
+              })),
+              ...appliedTags.map((tag) => ({
+                id: `untag-${tag.id}`,
+                label: t('noteActions.removeTag', { tag: tagLabel(tag, t).full }),
+                icon: Tag,
+                swatch: tag.color,
+                onSelect: () =>
+                  void update({ tagIds: note.tagIds.filter((id) => id !== tag.id) }),
+              })),
               null,
               {
                 id: 'trash',

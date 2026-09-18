@@ -36,6 +36,7 @@ import {
   reorderCoursesCommand,
   reorderSectionsCommand,
   saveNoteAsTemplateCommand,
+  tagNotesCommand,
   trashNotesCommand,
   updateNoteCommand,
   updateSectionCommand,
@@ -352,48 +353,24 @@ export function Sidebar() {
           }
         >
           <ul className="flex flex-col gap-0.5">
-            {tags.map((tag) => {
-              const target: ViewKind = { kind: 'tag', tagId: tag.id };
-              const label = tagLabel(tag, t);
-              return (
-                <li key={tag.id}>
-                  <button
-                    type="button"
-                    className={cn(
-                      rowClass,
-                      sameView(view, target)
-                        ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
-                        : 'text-nb-text-2 hover:bg-[var(--nb-hover)]',
-                    )}
-                    onClick={() => setView(target)}
-                    onContextMenu={(event) =>
-                      openMenu(event, () => (
-                        <TagMenu
-                          tag={tag}
-                          point={{ x: event.clientX, y: event.clientY }}
-                          onClose={closeMenu}
-                          onManage={() => setTagManagerOpen(true)}
-                        />
-                      ))
-                    }
-                  >
-                    <span
-                      aria-hidden
-                      className="size-2.5 shrink-0 rounded-full border border-black/10"
-                      style={{ backgroundColor: tag.color }}
+            {tags.map((tag) => (
+              <TagRow
+                key={tag.id}
+                tag={tag}
+                current={view}
+                onSelect={() => setView({ kind: 'tag', tagId: tag.id })}
+                onContextMenu={(event) =>
+                  openMenu(event, () => (
+                    <TagMenu
+                      tag={tag}
+                      point={{ x: event.clientX, y: event.clientY }}
+                      onClose={closeMenu}
+                      onManage={() => setTagManagerOpen(true)}
                     />
-                    <span className="truncate" title={label.full}>
-                      {label.facet && (
-                        <span className="mr-1 text-[10.5px] uppercase tracking-wide text-nb-text-3">
-                          {label.facet}
-                        </span>
-                      )}
-                      {label.name}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
+                  ))
+                }
+              />
+            ))}
           </ul>
         </SidebarSection>
 
@@ -598,6 +575,62 @@ function SmartViewRow({
         <Icon size={14} className="shrink-0" />
         <span className="truncate">{t(smart.labelKey)}</span>
         {badge}
+      </button>
+    </li>
+  );
+}
+
+function TagRow({
+  tag,
+  current,
+  onSelect,
+  onContextMenu,
+}: {
+  tag: Tag;
+  current: ViewKind;
+  onSelect(): void;
+  onContextMenu(event: React.MouseEvent): void;
+}) {
+  const { t } = useTranslation();
+  const target: ViewKind = { kind: 'tag', tagId: tag.id };
+  const label = tagLabel(tag, t);
+  // Dropping adds the tag and never moves the note: a tag is a label, not a
+  // place, so the note keeps its course and every other tag it had.
+  const drop = useDropTarget({
+    accepts: ['note'],
+    onDrop: (_kind, noteId) => void tagNotesCommand(selectionFor(noteId), tag.id, 'add'),
+  });
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        onContextMenu={onContextMenu}
+        aria-current={sameView(current, target) ? 'page' : undefined}
+        {...drop.handlers}
+        className={cn(
+          rowClass,
+          drop.active
+            ? dropClass
+            : sameView(current, target)
+              ? 'bg-[var(--nb-accent-soft)] text-[var(--nb-accent)]'
+              : 'text-nb-text-2 hover:bg-[var(--nb-hover)]',
+        )}
+      >
+        <span
+          aria-hidden
+          className="size-2.5 shrink-0 rounded-full border border-black/10"
+          style={{ backgroundColor: tag.color }}
+        />
+        <span className="truncate" title={label.full}>
+          {label.facet && (
+            <span className="mr-1 text-[10.5px] uppercase tracking-wide text-nb-text-3">
+              {label.facet}
+            </span>
+          )}
+          {label.name}
+        </span>
       </button>
     </li>
   );

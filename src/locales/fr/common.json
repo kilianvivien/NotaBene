@@ -48,6 +48,7 @@
     "archive": "Archiver",
     "unarchive": "Désarchiver",
     "addTag": "Ajouter l’étiquette « {{tag}} »",
+    "removeTag": "Retirer l’étiquette « {{tag}} »",
     "moveToTrash": "Mettre à la corbeille",
     "restore": "Restaurer"
   },
