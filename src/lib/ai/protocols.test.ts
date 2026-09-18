@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRequest } from './protocols';
+import { buildRequest, parseResponse, parseStreamFrame } from './protocols';
 import type { AiCall, ResolvedProvider } from './protocols';
 import { providerById } from './providers';
 
@@ -74,5 +74,74 @@ describe('openAiRequest', () => {
       max_tokens: 256,
       temperature: 0.2,
     });
+  });
+});
+
+/**
+ * The shapes below are trimmed copies of real Mistral answers. A thinking
+ * model returns `content` as a list of typed chunks rather than as a string,
+ * which the whole-response reader used to discard entirely — the agent, the
+ * only feature that cannot stream, then failed on an HTTP 200.
+ */
+describe('parseResponse', () => {
+  const mistral = resolved('mistral', 'zai-glm-5-3');
+
+  it('reads a plain string answer', () => {
+    const body = JSON.stringify({
+      choices: [{ message: { role: 'assistant', content: '{"title":"T"}' } }],
+    });
+    expect(parseResponse(mistral, body)).toBe('{"title":"T"}');
+  });
+
+  it('reads a thinking model’s chunked answer and leaves the thinking behind', () => {
+    const body = JSON.stringify({
+      choices: [
+        {
+          finish_reason: 'stop',
+          message: {
+            role: 'assistant',
+            content: [
+              {
+                type: 'thinking',
+                thinking: [
+                  { type: 'text', text: 'The user wants a summary. {not: "the answer"}' },
+                ],
+              },
+              { type: 'text', text: '{"summary":"Résumé","steps":[]}' },
+            ],
+          },
+        },
+      ],
+    });
+    expect(parseResponse(mistral, body)).toBe('{"summary":"Résumé","steps":[]}');
+  });
+
+  it('still reports a body it genuinely cannot read', () => {
+    const body = JSON.stringify({ choices: [{ message: { role: 'assistant' } }] });
+    expect(() => parseResponse(mistral, body)).toThrow(/could not find text/);
+  });
+});
+
+describe('parseStreamFrame', () => {
+  const mistral = resolved('mistral', 'zai-glm-5-3');
+
+  function frame(content: unknown): string {
+    return JSON.stringify({ choices: [{ delta: { content } }] });
+  }
+
+  it('takes a string delta', () => {
+    expect(parseStreamFrame(mistral, frame('Paris.'))).toBe('Paris.');
+  });
+
+  it('takes the text of a chunked delta and skips the thinking', () => {
+    expect(parseStreamFrame(mistral, frame([{ type: 'text', text: 'Paris.' }]))).toBe(
+      'Paris.',
+    );
+    expect(
+      parseStreamFrame(
+        mistral,
+        frame([{ type: 'thinking', thinking: [{ type: 'text', text: 'The' }] }]),
+      ),
+    ).toBe('');
   });
 });

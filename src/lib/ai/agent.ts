@@ -32,7 +32,10 @@ export const DEFAULT_AGENT_BUDGET: AgentBudget = {
  * tight prose-sized ceiling therefore truncates the object, even though the
  * visible answer is only a few lines. */
 const DECISION_MAX_TOKENS = 8_192;
-const PLAN_MAX_TOKENS = 4_096;
+/** The same room as a decision. Planning is the first thing a thinking model
+ * does, and on a four-thousand ceiling it spent most of the allowance on
+ * thought before writing a five-step plan. */
+const PLAN_MAX_TOKENS = 8_192;
 const MAX_TOOL_RESULT_CHARS = 16_000;
 /** A long note is source material, not an activity preview. Keeping enough of
  * it for the next decision prevents the agent from summarising only the first

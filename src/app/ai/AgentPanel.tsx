@@ -44,6 +44,7 @@ import { AiDisclosureButton } from './AiDisclosure';
 import { AiModeSwitch } from './AiModeSwitch';
 import { AiStatusPill } from './AiStatusPill';
 import {
+  agentErrorText,
   callOutcome,
   limitsSentence,
   planStepTitles,
@@ -152,7 +153,7 @@ export function AgentPanel({
       setError(
         response.code === 'not_supported'
           ? t('ai.notConfiguredHint')
-          : (userFacingAgentText(response.message) ?? t('agent.errorFallback')),
+          : (agentErrorText(response.message) ?? t('agent.errorFallback')),
       );
     }
   }
@@ -164,7 +165,7 @@ export function AgentPanel({
     const response = await runAgentCommand(run.id, { signal });
     endRun('agent', signal);
     if (!response.ok && response.code !== 'cancelled') {
-      setError(userFacingAgentText(response.message) ?? t('agent.errorFallback'));
+      setError(agentErrorText(response.message) ?? t('agent.errorFallback'));
     }
   }
 
@@ -175,9 +176,8 @@ export function AgentPanel({
     const response = await undoAgentRunCommand(run.id);
     setUndoing(false);
     if (!response.ok) {
-      setError(userFacingAgentText(response.message) ?? t('agent.errorFallback'));
-    }
-    else await useLibraryStore.getState().refreshCurrentView();
+      setError(agentErrorText(response.message) ?? t('agent.errorFallback'));
+    } else await useLibraryStore.getState().refreshCurrentView();
   }
 
   /** Back to the composer. `keep` carries the wording over, which is what
@@ -405,11 +405,7 @@ function AgentComposer({
           onClick={() => (planning ? cancelRun('agent') : onSubmit())}
           className="size-7 shrink-0 rounded-full px-0"
         >
-          {planning ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <Send size={12} />
-          )}
+          {planning ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
         </GlassButton>
       </div>
     </div>
@@ -515,9 +511,7 @@ function RunView({
         <ol className="mt-2 space-y-1.5">
           {run.plan.steps.map((step, index) => {
             const titles = planStepTitles(run.plan, step);
-            const description = userFacingAgentText(
-              planText(run.plan, step.description),
-            );
+            const description = userFacingAgentText(planText(run.plan, step.description));
             return (
               <li key={index} className="flex gap-1.5 text-[11.5px] leading-relaxed">
                 <span className="mt-[3px] grid size-[15px] shrink-0 place-items-center rounded-full bg-[var(--nb-hover)] text-[9px] text-nb-text-3">
@@ -561,7 +555,7 @@ function RunView({
                 const outcome = callOutcome(call, run, t);
                 const rationale = userFacingAgentText(call.rationale);
                 const callError = call.error
-                  ? (userFacingAgentText(call.error) ?? t('agent.stepErrorFallback'))
+                  ? (agentErrorText(call.error) ?? t('agent.stepErrorFallback'))
                   : null;
                 return (
                   <li
@@ -616,7 +610,7 @@ function RunView({
           {run.error && (
             <p className="mt-1 flex items-start gap-1.5 text-[11px] leading-relaxed text-[var(--nb-danger)]">
               <AlertCircle size={11} className="mt-0.5 shrink-0" aria-hidden />
-              {userFacingAgentText(run.error) ?? t('agent.errorFallback')}
+              {agentErrorText(run.error) ?? t('agent.errorFallback')}
             </p>
           )}
           {run.touchedNotes.length > 0 && (

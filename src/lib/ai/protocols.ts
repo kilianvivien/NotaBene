@@ -239,8 +239,28 @@ function extractText(protocol: string, payload: unknown): string | null {
   if (!Array.isArray(choices)) return null;
   const first = choices[0];
   if (!isRecord(first) || !isRecord(first.message)) return null;
-  const content = first.message.content;
-  return typeof content === 'string' ? content : null;
+  return openAiText(first.message.content);
+}
+
+/**
+ * The `content` field of an OpenAI-compatible answer, which is a string from
+ * most servers and a list of typed chunks from a reasoning model: Mistral
+ * returns GLM's private thinking and its actual answer as separate chunks of
+ * one array. Reading only `typeof content === 'string'` therefore found no
+ * text at all on a thinking model, and the whole-response path — the one every
+ * structured call uses — failed on a perfectly good HTTP 200.
+ *
+ * Only `text` chunks are the answer. A model's private reasoning is not ours
+ * to read, and must never reach a parser, a note, or the student.
+ */
+function openAiText(content: unknown): string | null {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return null;
+  return content
+    .filter((chunk): chunk is Record<string, unknown> => isRecord(chunk))
+    .filter((chunk) => chunk.type === 'text')
+    .map((chunk) => (typeof chunk.text === 'string' ? chunk.text : ''))
+    .join('');
 }
 
 /**
@@ -278,8 +298,10 @@ export function parseStreamFrame(
       if (!Array.isArray(choices)) return null;
       const first = choices[0];
       if (!isRecord(first) || !isRecord(first.delta)) return null;
-      const content = first.delta.content;
-      return typeof content === 'string' ? content : null;
+      // Chunked here too: a thinking model interleaves `thinking` deltas with
+      // the `text` ones. Dropping a whole delta because it arrived as a list
+      // would silently shorten the streamed answer.
+      return openAiText(first.delta.content);
     }
   }
 }

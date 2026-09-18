@@ -49,6 +49,21 @@ export function userFacingAgentText(value: string): string | null {
   return technicalTerm.test(value) || internalSyntax.test(value) ? null : value;
 }
 
+/**
+ * An error string, which — unlike a summary or a rationale — the app wrote, not
+ * the model.
+ *
+ * It must not go through `userFacingAgentText`. That guard trips on a brace,
+ * on `snake_case`, and on the word JSON, all of which a real diagnosis
+ * contains: "the provider rejected the API key" survived it, but
+ * "could not find text in provider response: {…}" did not, and every failure
+ * worth acting on was replaced by "the task stopped before it could finish".
+ * Only an empty message falls back now.
+ */
+export function agentErrorText(value: string | undefined): string | null {
+  return value?.trim() ? value : null;
+}
+
 /** If the model kept a note reference properly structured but wrote a generic
  * sentence, show the trusted library title beside it. */
 export function planStepTitles(
