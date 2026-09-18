@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.8"><img alt="Latest release: 0.8.8" src="https://img.shields.io/badge/release-0.8.8-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.9.0"><img alt="Latest release: 0.9.0" src="https://img.shields.io/badge/release-0.9.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,8 +24,8 @@
 
 ## Download
 
-Download **[NotaBene 0.8.8 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.8.8/NotaBene_0.8.8_aarch64.dmg)**.
+Download **[NotaBene 0.9.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.9.0/NotaBene_0.9.0_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer.
 
 > [!IMPORTANT]
@@ -119,8 +119,11 @@ order by writing the batch in one transaction.
 
 Build a library from **courses → sections → notes**, then cut across that
 hierarchy with namespaced tags such as `topic:`, `prof:`, `semester:`, `exam:`,
-and `type:`. Templates make recurring note formats quick to start, while wiki
-links and backlinks connect ideas across classes.
+and `type:`. Tag a note by dropping it onto a tag in the sidebar — a tag is a
+label, not a place, so nothing else about the note moves — and add or remove
+tags from the note's own menu, for one note or a whole selection. Templates make
+recurring note formats quick to start, while wiki links and backlinks connect
+ideas across classes.
 
 Tasks live beside the notes they belong to. Give an assignment a deadline,
 priority, reminder, subtasks, and a course; link it to its source note or place
@@ -222,6 +225,14 @@ through exactly the same checks and version history as your own typing.
 The server never leaves your machine, requires a token to connect, logs what
 the assistant did, and has no way to permanently delete anything.
 
+The same tools are available to the **Agent panel** inside NotaBene, so you can
+hand it a multi-step job — tag this week's lectures by topic, file the loose
+notes into the right course, draft a revision sheet from the lot — and watch it
+work. It plans before it acts, shows you its call and token budget before it
+starts, and the whole run undoes as one step. It can fill the recoverable Trash
+but it cannot empty it, and every write it makes is versioned and scope-checked
+like your own.
+
 ## Privacy model
 
 No accounts, no cloud sync, no telemetry, no analytics, no ads. Taking notes
@@ -242,15 +253,15 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 0.8.8** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.8).
+**NotaBene 0.9.0** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.9.0).
 Everything described above is built and working.
 
 Two things are deliberately not done yet: the app is **not** signed with an
 Apple Developer ID or notarized, and there are **no** automatic updates. Both
 are planned.
 
-See the [0.8.8 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v0.8.8)
+See the [0.9.0 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v0.9.0)
 and [earlier release notes](./RELEASE_NOTES.md), plus the
 [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
