@@ -27,6 +27,7 @@ import {
   type CommandResult,
 } from '@/lib/commands';
 import {
+  archiveNotesCommand,
   mergeNotesCommand,
   restoreNotesCommand,
   trashNotesCommand,
@@ -177,20 +178,36 @@ const UpdateNoteArgs = z
     { message: 'delta body edits cannot be combined with markdown or doc' },
   );
 
-const ManageTagsArgs = z.object({
-  noteId: z.string().min(1),
-  baseUpdatedAt: z.string().datetime(),
-  add: z.array(z.string()).default([]),
-  remove: z.array(z.string()).default([]),
-  rename: z
-    .array(
-      z.object({
-        tagId: z.string().min(1),
-        name: z.string().trim().min(1).max(100),
-        namespace: z.enum(TAG_NAMESPACES).nullable(),
-      }),
-    )
-    .default([]),
+/** One note or a list of them. "Tag everything I still have to revise" is one
+ * instruction, and charging an agent a call and a round trip per note turned
+ * it into a run that hit its ceiling halfway down the list. The single-note
+ * form stays exactly as it was, because paired clients already send it. */
+const ManageTagsArgs = z
+  .object({
+    noteId: z.string().min(1).optional(),
+    baseUpdatedAt: z.string().datetime().optional(),
+    notes: z.array(VersionedNoteArgs).min(1).max(500).optional(),
+    add: z.array(z.string()).default([]),
+    remove: z.array(z.string()).default([]),
+    rename: z
+      .array(
+        z.object({
+          tagId: z.string().min(1),
+          name: z.string().trim().min(1).max(100),
+          namespace: z.enum(TAG_NAMESPACES).nullable(),
+        }),
+      )
+      .default([]),
+  })
+  .refine(
+    (value) =>
+      value.notes !== undefined ||
+      (value.noteId !== undefined && value.baseUpdatedAt !== undefined),
+    { message: 'pass notes, or noteId with baseUpdatedAt' },
+  );
+
+const ArchiveNotesArgs = VersionedNotesArgs.extend({
+  archived: z.boolean().default(true),
 });
 
 const CreateCourseArgs = z.object({
@@ -605,16 +622,19 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const parsed = ManageTagsArgs.safeParse(args);
     if (!parsed.success) return invalid(parsed.error.issues);
 
-    const note = await readNoteCommand(parsed.data.noteId);
-    if (!note.ok) return note;
-    if (note.value.updatedAt !== parsed.data.baseUpdatedAt) {
-      return fail('conflict', 'the note changed after it was read', {
-        expectedUpdatedAt: parsed.data.baseUpdatedAt,
-        actualUpdatedAt: note.value.updatedAt,
-      });
-    }
+    const single = parsed.data.notes === undefined;
+    const targets =
+      parsed.data.notes ??
+      (parsed.data.noteId && parsed.data.baseUpdatedAt
+        ? [{ noteId: parsed.data.noteId, baseUpdatedAt: parsed.data.baseUpdatedAt }]
+        : []);
+    // Every note is checked before any is written: a stale token in the tenth
+    // note should not leave the first nine tagged.
+    const checked = await validateVersionedNotes(targets, context, 'live');
+    if (!checked.ok) return checked;
 
-    const tagIds = new Set(note.value.tagIds);
+    // Tags are created and renamed once for the whole call, not once per note.
+    const added: string[] = [];
     for (const raw of parsed.data.add) {
       const stopped = cancelledIfRequested<unknown>(context);
       if (stopped) return stopped;
@@ -626,9 +646,8 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
         context,
       );
       if (!tag.ok) return tag;
-      tagIds.add(tag.value.id);
+      added.push(tag.value.id);
     }
-    for (const id of parsed.data.remove) tagIds.delete(id);
 
     const tags = await listTagsCommand();
     if (!tags.ok) return tags;
@@ -648,12 +667,35 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
       if (!renamed.ok) return renamed;
     }
 
-    return updateNoteCommand(
-      {
-        noteId: note.value.id,
-        baseUpdatedAt: parsed.data.baseUpdatedAt,
-        tagIds: [...tagIds],
-      },
+    const updated: Note[] = [];
+    for (const note of checked.value) {
+      const stopped = cancelledIfRequested<unknown>(context);
+      if (stopped) return stopped;
+      const tagIds = new Set(note.tagIds);
+      for (const id of added) tagIds.add(id);
+      for (const id of parsed.data.remove) tagIds.delete(id);
+      const result = await updateNoteCommand(
+        { noteId: note.id, baseUpdatedAt: note.updatedAt, tagIds: [...tagIds] },
+        context,
+      );
+      if (!result.ok) return result;
+      updated.push(result.value);
+    }
+
+    // The single-note form answers with the note, as it always has.
+    return single && updated[0] ? ok(updated[0]) : ok({ changed: updated.length });
+  },
+
+  async archive_notes(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = ArchiveNotesArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const checked = await validateVersionedNotes(parsed.data.notes, context, 'live');
+    if (!checked.ok) return checked;
+    return archiveNotesCommand(
+      parsed.data.notes.map((note) => note.noteId),
+      parsed.data.archived,
       context,
     );
   },

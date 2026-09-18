@@ -15,6 +15,7 @@ export const AGENT_TOOL_NAMES = [
   'merge_notes',
   'trash_notes',
   'restore_notes',
+  'archive_notes',
   'manage_tags',
   'create_course',
   'export_notes',

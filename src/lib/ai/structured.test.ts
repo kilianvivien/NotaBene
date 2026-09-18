@@ -22,6 +22,14 @@ const provider: ResolvedProvider = {
   model: 'qwen2.5',
 };
 
+/** The provider that asks for a JSON Schema on the wire. */
+const mistral: ResolvedProvider = {
+  definition: providerById('mistral')!,
+  baseUrl: 'https://api.mistral.ai/v1',
+  apiKey: 'test-key',
+  model: 'zai-glm-5-3',
+};
+
 const call = {
   provider,
   messages: [{ role: 'user' as const, content: 'summarise this' }],
@@ -76,6 +84,39 @@ describe('a structured call', () => {
     });
     expect(second.messages[2]?.content).toMatch(/valid JSON/);
     expect(second.temperature).toBe(0);
+  });
+
+  it('drops a rejected JSON Schema and asks again in plain JSON mode', async () => {
+    const { aiTransport } = await import('@/lib/adapters');
+    const request = vi
+      .spyOn(aiTransport, 'request')
+      .mockResolvedValueOnce({ status: 400, headers: {}, body: 'unsupported schema' })
+      .mockResolvedValueOnce(answered('{"title": "T"}'));
+
+    const schema = { name: 'answer', schema: { type: 'object' } };
+    await expect(
+      runStructured({ ...call, provider: mistral, jsonSchema: schema }, Simple),
+    ).resolves.toEqual({ title: 'T' });
+    expect(request).toHaveBeenCalledTimes(2);
+
+    const first = JSON.parse(String(request.mock.calls[0]?.[0].body)) as {
+      response_format?: { type: string };
+    };
+    const second = JSON.parse(String(request.mock.calls[1]?.[0].body)) as {
+      response_format?: { type: string };
+    };
+    expect(first.response_format?.type).toBe('json_schema');
+    expect(second.response_format?.type).toBe('json_object');
+  });
+
+  it('does not retry a rejection that has nothing to do with the schema', async () => {
+    const { aiTransport } = await import('@/lib/adapters');
+    const request = vi
+      .spyOn(aiTransport, 'request')
+      .mockResolvedValue({ status: 401, headers: {}, body: 'bad key' });
+
+    await expect(runStructured({ ...call, provider: mistral }, Simple)).rejects.toThrow();
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it('gives up after the second try, reporting what came back last', async () => {

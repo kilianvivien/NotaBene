@@ -803,7 +803,15 @@ async function noteAllowed(record: AgentRunRecord, noteId: string): Promise<bool
 }
 
 function referencedNoteIds(tool: AgentToolName, args: Record<string, unknown>): string[] {
-  if (tool === 'read_note' || tool === 'update_note' || tool === 'manage_tags') {
+  if (tool === 'manage_tags') {
+    // One note or a list of them, and a call may not smuggle a note past the
+    // scope check by using the form the other branch reads.
+    return [
+      ...(typeof args.noteId === 'string' ? [args.noteId] : []),
+      ...versionedNoteIds(args),
+    ];
+  }
+  if (tool === 'read_note' || tool === 'update_note') {
     return typeof args.noteId === 'string' ? [args.noteId] : [];
   }
   if (tool === 'export_notes') {
@@ -818,12 +826,13 @@ function referencedNoteIds(tool: AgentToolName, args: Record<string, unknown>): 
           .filter((id): id is string => typeof id === 'string')
       : [];
   }
-  if (tool === 'merge_notes' || tool === 'trash_notes' || tool === 'restore_notes') {
-    return Array.isArray(args.notes)
-      ? args.notes
-          .map((note) => (isObject(note) ? note.noteId : undefined))
-          .filter((id): id is string => typeof id === 'string')
-      : [];
+  if (
+    tool === 'merge_notes' ||
+    tool === 'trash_notes' ||
+    tool === 'restore_notes' ||
+    tool === 'archive_notes'
+  ) {
+    return versionedNoteIds(args);
   }
   if (tool === 'link_task_note' || tool === 'list_tasks') {
     return typeof args.noteId === 'string' ? [args.noteId] : [];
@@ -887,8 +896,17 @@ function writeNoteIds(tool: AgentToolName, args: Record<string, unknown>): strin
     'merge_notes',
     'trash_notes',
     'restore_notes',
+    'archive_notes',
   ].includes(tool)
     ? referencedNoteIds(tool, args)
+    : [];
+}
+
+function versionedNoteIds(args: Record<string, unknown>): string[] {
+  return Array.isArray(args.notes)
+    ? args.notes
+        .map((note) => (isObject(note) ? note.noteId : undefined))
+        .filter((id): id is string => typeof id === 'string')
     : [];
 }
 
@@ -898,16 +916,17 @@ interface ScopeDescription {
 }
 
 async function describeScope(scope: AgentScope): Promise<ScopeDescription> {
+  const vocabulary = await libraryVocabulary(scope);
   if (scope.kind === 'selection') {
     const notes = await Promise.all(scope.noteIds.map((id) => library.getNote(id)));
     const present = notes.filter((note): note is Note => note !== null);
     return {
-      context: present
+      context: `${present
         .map(
           (note) =>
             `${note.id} — ${note.title || 'Untitled'} — updated ${note.updatedAt}`,
         )
-        .join('\n'),
+        .join('\n')}\n\n${vocabulary}`,
       noteReferences: present.map(noteReference),
     };
   }
@@ -925,10 +944,50 @@ async function describeScope(scope: AgentScope): Promise<ScopeDescription> {
       .map(
         (note) => `${note.id} — ${note.title || 'Untitled'} — updated ${note.updatedAt}`,
       )
-      .join('\n')}`,
+      .join('\n')}\n\n${vocabulary}`,
     noteReferences: recent.map(noteReference),
   };
 }
+
+/**
+ * The destinations a plan is allowed to name, given to the planner rather than
+ * fetched by the run.
+ *
+ * Courses, sections and tags are a few hundred bytes and almost every run began
+ * by spending two of its tool calls asking for them. Naming them up front also
+ * stops a plan from inventing a course that does not exist, or a second
+ * `topic:revision` beside the one already in the taxonomy.
+ */
+async function libraryVocabulary(scope: AgentScope): Promise<string> {
+  const allCourses = await library.listCourses();
+  const courses =
+    scope.kind === 'course'
+      ? allCourses.filter((course) => course.id === scope.courseId)
+      : allCourses;
+  const lines = await Promise.all(
+    courses.map(async (course) => {
+      const sections = await library.listSections(course.id);
+      const named = sections
+        .map((section) => `${section.name} [${section.id}]`)
+        .join(', ');
+      return `- ${course.name} [${course.id}]${named ? ` — sections: ${named}` : ''}`;
+    }),
+  );
+  const tags = await library.listTags();
+  const shown = tags
+    .slice(0, MAX_VOCABULARY_TAGS)
+    .map((tag) => `${tag.namespace ? `${tag.namespace}:` : ''}${tag.name} [${tag.id}]`)
+    .join(', ');
+  const more = tags.length - Math.min(tags.length, MAX_VOCABULARY_TAGS);
+  return [
+    `Courses and sections:\n${lines.join('\n') || '- none'}`,
+    `Existing tags${more > 0 ? ` (${more} more not listed)` : ''}: ${shown || 'none'}`,
+  ].join('\n');
+}
+
+/** Enough of the taxonomy to reuse rather than duplicate, without turning the
+ * planning prompt into a tag dump. */
+const MAX_VOCABULARY_TAGS = 60;
 
 function noteReference(
   note: Pick<Note, 'id' | 'title'>,

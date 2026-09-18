@@ -228,6 +228,108 @@ describe('in-app agent loop', () => {
     ).resolves.toMatchObject({ outcomeAchieved: true });
   });
 
+  it('carries one copy of a note that was read twice', async () => {
+    const markdown = `${'Source paragraph. '.repeat(3_000)}THE LAST LINE`;
+    const reads = [
+      {
+        action: 'tool' as const,
+        tool: 'read_note' as const,
+        arguments: { noteId: 'note-1' },
+        rationale: 'Read it.',
+      },
+      {
+        action: 'tool' as const,
+        tool: 'read_note' as const,
+        arguments: { noteId: 'note-1' },
+        rationale: 'Read it again after the edit.',
+      },
+    ];
+    let turn = 0;
+    let carried = '';
+    const decisions: AgentLoopRuntime = {
+      decide: vi.fn(async (_request, transcript) => {
+        if (turn < reads.length) return reads[turn++]!;
+        carried = JSON.stringify(transcript);
+        return { action: 'done' as const, outcomeAchieved: true, summary: 'Done.' };
+      }),
+      now: () => 0,
+      newId: () => `read-${turn}`,
+    };
+
+    await expect(
+      runAgentLoop(
+        request({
+          executeTool: async () => ({
+            ok: true,
+            value: { id: 'note-1', title: 'Long note', updatedAt: 'now', markdown },
+          }),
+        }),
+        {},
+        decisions,
+      ),
+    ).resolves.toMatchObject({ outcomeAchieved: true });
+
+    // The newest read keeps its text; the superseded one becomes a stub that
+    // still names the note, so the model knows it can read it again.
+    expect(carried.split('THE LAST LINE')).toHaveLength(2);
+    expect(carried).toContain('bodyOmitted');
+    expect(carried).toContain('Long note');
+  });
+
+  it('drops whole rows from an oversized listing rather than slicing the JSON', async () => {
+    let carried: unknown;
+    const decisions: AgentLoopRuntime = {
+      decide: vi.fn(async (_request, transcript) => {
+        if (transcript.length === 0) {
+          return {
+            action: 'tool' as const,
+            tool: 'list_notes' as const,
+            arguments: {},
+            rationale: 'See what is there.',
+          };
+        }
+        carried = transcript[0];
+        return { action: 'done' as const, outcomeAchieved: true, summary: 'Done.' };
+      }),
+      now: () => 0,
+      newId: () => 'list',
+    };
+
+    const rows = Array.from({ length: 400 }, (_entry, index) => ({
+      id: `note-${index}`,
+      title: `Note ${index}`,
+      updatedAt: 'now',
+      tagIds: [],
+      snippet: 'x'.repeat(1_000),
+    }));
+
+    await expect(
+      runAgentLoop(
+        request({ executeTool: async () => ({ ok: true, value: rows }) }),
+        {},
+        decisions,
+      ),
+    ).resolves.toMatchObject({ outcomeAchieved: true });
+
+    const outcome = (
+      carried as { outcome: { value: { items: unknown[]; omitted: number } } }
+    ).outcome;
+    // Whatever survived is still parseable rows, and the count of what did not
+    // is reported rather than silently lost.
+    expect(Array.isArray(outcome.value.items)).toBe(true);
+    expect(outcome.value.items.length).toBeGreaterThan(0);
+    expect(outcome.value.items.length + outcome.value.omitted).toBe(400);
+    expect(JSON.parse(JSON.stringify(outcome.value.items[0]))).toMatchObject({
+      id: 'note-0',
+      title: 'Note 0',
+    });
+    // The snippet is an identification aid, so it is trimmed rather than kept
+    // whole for four hundred rows.
+    expect((outcome.value.items[0] as { snippet: string }).snippet.length).toBeLessThan(
+      250,
+    );
+  });
+
   it('enforces token and tool-call ceilings', async () => {
     await expect(
       runAgentLoop(

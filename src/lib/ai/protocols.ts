@@ -136,7 +136,7 @@ function openAiResponseFormat(call: AiCall): Record<string, unknown> {
         type: 'json_schema',
         json_schema: {
           name: call.jsonSchema.name,
-          strict: true,
+          strict: quirks.jsonSchemaStrict ?? true,
           schema: call.jsonSchema.schema,
         },
       },

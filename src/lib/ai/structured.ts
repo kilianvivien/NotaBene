@@ -14,7 +14,7 @@
  * second call happens only after a parse has already failed.
  */
 import type { z } from 'zod';
-import { runAi, type AiRunOptions } from './client';
+import { AiError, runAi, type AiRunOptions } from './client';
 import { AiParseError, parseModelJson } from './json';
 import { jsonRepairPrompt } from './prompts';
 import type { AiCall } from './protocols';
@@ -24,12 +24,33 @@ import type { AiCall } from './protocols';
  * the document is complete. */
 export type StructuredCall = Omit<AiCall, 'json' | 'stream'>;
 
+/**
+ * A provider that advertises JSON Schema support can still refuse one schema.
+ * A model hosted on someone else's platform need not implement every field
+ * that platform documents, and the refusal is a 400 about the request shape
+ * rather than anything the model said. Dropping the schema and asking again in
+ * plain JSON mode costs one call and keeps the feature working; `json.ts` and
+ * the repair retry below still have to read whatever comes back.
+ */
+async function runWithSchemaFallback(
+  call: StructuredCall,
+  options: AiRunOptions,
+): Promise<string> {
+  try {
+    return await runAi({ ...call, json: true, stream: false }, options);
+  } catch (error) {
+    const rejected = error instanceof AiError && error.status === 400;
+    if (!call.jsonSchema || !rejected || options.signal?.aborted) throw error;
+    return runAi({ ...call, jsonSchema: undefined, json: true, stream: false }, options);
+  }
+}
+
 export async function runStructured<S extends z.ZodTypeAny>(
   call: StructuredCall,
   schema: S,
   options: AiRunOptions = {},
 ): Promise<z.infer<S>> {
-  const raw = await runAi({ ...call, json: true, stream: false }, options);
+  const raw = await runWithSchemaFallback(call, options);
   try {
     return parseModelJson(schema, raw);
   } catch (error) {

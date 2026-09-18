@@ -129,6 +129,12 @@ export function callOutcome(
     case 'restore_notes':
       return t('agent.did_restore_notes', { count: versionedNoteCount(args) });
 
+    case 'archive_notes':
+      return t(
+        args.archived === false ? 'agent.did_unarchive_notes' : 'agent.did_archive_notes',
+        { count: versionedNoteCount(args) },
+      );
+
     case 'manage_tags':
       return t('agent.did_manage_tags');
     case 'create_course':

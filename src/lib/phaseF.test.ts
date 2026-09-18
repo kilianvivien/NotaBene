@@ -352,6 +352,75 @@ describe('Phase F MCP tool contracts', () => {
     expect((await library.listSnapshots(note.id)).at(0)?.cause).toBe('agent');
   });
 
+  it('tags many notes in one call and answers with the count', async () => {
+    const { note } = await createFixture();
+    const other = await call('create_note', { title: 'Lecture two' });
+    if (!other.ok) throw new Error('fixture failed');
+    const second = other.value as Note;
+
+    const result = await call('manage_tags', {
+      notes: [
+        { noteId: note.id, baseUpdatedAt: note.updatedAt },
+        { noteId: second.id, baseUpdatedAt: second.updatedAt },
+      ],
+      add: ['exam:midterm'],
+    });
+    expect(result).toMatchObject({ ok: true, value: { changed: 2 } });
+    const midterm = (await library.listTags()).find((tag) => tag.name === 'midterm');
+    expect(midterm).toBeDefined();
+    for (const id of [note.id, second.id]) {
+      expect((await library.getNote(id))?.tagIds).toContain(midterm?.id);
+    }
+  });
+
+  it('writes no note when one token in a bulk tag call is stale', async () => {
+    const { note } = await createFixture();
+    const other = await call('create_note', { title: 'Lecture two' });
+    if (!other.ok) throw new Error('fixture failed');
+    const second = other.value as Note;
+
+    const result = await call('manage_tags', {
+      notes: [
+        { noteId: note.id, baseUpdatedAt: note.updatedAt },
+        { noteId: second.id, baseUpdatedAt: '2020-01-01T00:00:00.000Z' },
+      ],
+      add: ['exam:midterm'],
+    });
+    expect(result).toMatchObject({ ok: false, code: 'conflict' });
+    expect((await library.getNote(note.id))?.tagIds).toEqual(note.tagIds);
+  });
+
+  it('refuses a tag call that names neither a note nor a list', async () => {
+    const result = await call('manage_tags', { add: ['revision'] });
+    expect(result).toMatchObject({ ok: false, code: 'invalid_input' });
+  });
+
+  it('archives and unarchives notes in one versioned call', async () => {
+    const { note } = await createFixture();
+    const archived = await call('archive_notes', {
+      notes: [{ noteId: note.id, baseUpdatedAt: note.updatedAt }],
+    });
+    expect(archived).toMatchObject({ ok: true, value: { changed: 1 } });
+    const after = await library.getNote(note.id);
+    expect(after?.archived).toBe(true);
+
+    const restored = await call('archive_notes', {
+      notes: [{ noteId: note.id, baseUpdatedAt: after?.updatedAt }],
+      archived: false,
+    });
+    expect(restored).toMatchObject({ ok: true });
+    expect((await library.getNote(note.id))?.archived).toBe(false);
+  });
+
+  it('refuses to archive against a stale version token', async () => {
+    const { note } = await createFixture();
+    const result = await call('archive_notes', {
+      notes: [{ noteId: note.id, baseUpdatedAt: '2020-01-01T00:00:00.000Z' }],
+    });
+    expect(result).toMatchObject({ ok: false, code: 'conflict' });
+    expect((await library.getNote(note.id))?.archived).toBe(false);
+  });
+
   it('validates course creation', async () => {
     const result = await call('create_course', { name: '' });
     expect(result).toMatchObject({ ok: false, code: 'invalid_input' });

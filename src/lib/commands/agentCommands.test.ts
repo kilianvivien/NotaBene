@@ -219,6 +219,72 @@ describe('agent command boundary', () => {
     ).resolves.toMatchObject({ ok: false, code: 'scope_denied' });
   });
 
+  it('checks every note in a bulk call against the scope, in either shape', async () => {
+    const inside = await createNoteCommand({ title: 'In scope' });
+    const outside = await createNoteCommand({ title: 'Outside' });
+    if (!inside.ok || !outside.ok) throw new Error('fixture failed');
+    const record = run({ kind: 'selection', noteIds: [inside.value.id] });
+    const signal = new AbortController().signal;
+
+    await expect(
+      executeAgentTool(
+        record,
+        'archive_notes',
+        {
+          notes: [
+            { noteId: inside.value.id, baseUpdatedAt: inside.value.updatedAt },
+            { noteId: outside.value.id, baseUpdatedAt: outside.value.updatedAt },
+          ],
+        },
+        signal,
+      ),
+    ).resolves.toMatchObject({ ok: false, code: 'scope_denied' });
+
+    // The list form of manage_tags must not be a way around the check the
+    // single-note form has always had.
+    await expect(
+      executeAgentTool(
+        record,
+        'manage_tags',
+        {
+          notes: [{ noteId: outside.value.id, baseUpdatedAt: outside.value.updatedAt }],
+          add: ['revision'],
+        },
+        signal,
+      ),
+    ).resolves.toMatchObject({ ok: false, code: 'scope_denied' });
+  });
+
+  it('journals every note of a bulk tag write, so one undo puts them all back', async () => {
+    const first = await createNoteCommand({ title: 'First' });
+    const second = await createNoteCommand({ title: 'Second' });
+    if (!first.ok || !second.ok) throw new Error('fixture failed');
+    const record = run({ kind: 'library' });
+
+    const tagged = await executeAgentTool(
+      record,
+      'manage_tags',
+      {
+        notes: [
+          { noteId: first.value.id, baseUpdatedAt: first.value.updatedAt },
+          { noteId: second.value.id, baseUpdatedAt: second.value.updatedAt },
+        ],
+        add: ['exam:final'],
+      },
+      new AbortController().signal,
+    );
+    expect(tagged).toMatchObject({ ok: true, value: { changed: 2 } });
+    expect((await library.getNote(first.value.id))?.tagIds).toHaveLength(1);
+    expect((await library.getNote(second.value.id))?.tagIds).toHaveLength(1);
+    expect(record.undoJournal.notesBefore).toHaveLength(2);
+
+    record.status = 'completed';
+    useAgentStore.getState().putRun(record);
+    expect((await undoAgentRunCommand(record.id)).ok).toBe(true);
+    expect((await library.getNote(first.value.id))?.tagIds).toEqual([]);
+    expect((await library.getNote(second.value.id))?.tagIds).toEqual([]);
+  });
+
   it('links the first pre-edit snapshot to the run and restores it as one undo', async () => {
     const created = await createNoteCommand({ title: 'Original', doc: emptyDoc() });
     if (!created.ok) throw new Error(created.message);

@@ -22,8 +22,8 @@ import type { ResolvedProvider } from './protocols';
 import { runStructured } from './structured';
 
 export const DEFAULT_AGENT_BUDGET: AgentBudget = {
-  tokenCeiling: 200_000,
-  toolCallCeiling: 32,
+  tokenCeiling: 300_000,
+  toolCallCeiling: 48,
   wallClockMs: 600_000,
 };
 
@@ -38,6 +38,16 @@ const MAX_TOOL_RESULT_CHARS = 16_000;
  * it for the next decision prevents the agent from summarising only the first
  * few pages. The overall input and run budgets still provide hard ceilings. */
 const MAX_READ_NOTE_RESULT_CHARS = 240_000;
+/** How much note body the whole transcript may still be carrying. Every turn
+ * resends the transcript, so one retained body costs its length once per
+ * remaining decision — the run budget is spent on re-reading rather than on
+ * working. Newest bodies are kept; older ones collapse to a stub that says the
+ * note is still there and can be read again. */
+const MAX_TRANSCRIPT_BODY_CHARS = 120_000;
+/** A listed note's snippet is an identification aid, not source text. */
+const MAX_ROW_SNIPPET_CHARS = 200;
+/** Listings whose rows are worth keeping whole rather than as sliced JSON. */
+const LIST_TOOLS = new Set<AgentToolName>(['list_notes', 'search_notes', 'list_tasks']);
 
 const AGENT_PLAN_JSON_SCHEMA = {
   name: 'notabene_agent_plan',
@@ -108,15 +118,16 @@ export const AGENT_TOOL_GUIDE = `
 - get_app_state {} — current note, view, selection, and the task open in the Tasks view
 - list_courses {} — courses and sections
 - list_tags {} — the library's existing tag taxonomy
-- list_notes { courseId?, scope?: "live"|"archived"|"trashed", limit?, offset? } — note summaries; use the trashed scope before restoring
-- search_notes { query, limit? } — app search syntax
+- list_notes { courseId?, scope?: "live"|"archived"|"trashed", limit?, offset? } — note summaries; use the trashed scope before restoring. Every summary already carries updatedAt and tagIds, so tagging, archiving, moving, merging or trashing a listed note needs no read_note first — read only when you need the text
+- search_notes { query, limit? } — app search syntax; summaries carry updatedAt and tagIds exactly as list_notes does
 - read_note { noteId, format?: "json"|"markdown"|"blocks"|"both" } — full note and updatedAt. Prefer "markdown" for reading, "blocks" for targeted edits, and "json" only when the document tree is necessary
 - create_note { title?, courseId?, sectionId?, markdown?|doc?, tags?, copyFrom?: { noteId, baseUpdatedAt }, prependMarkdown?, appendMarkdown? } — create a note. To duplicate a note, especially a long one, use copyFrom and optionally add only the new prefix or suffix; never reproduce unchanged source content in markdown or doc
 - update_note { noteId, baseUpdatedAt, title?, markdown?|doc?, prependMarkdown?, appendMarkdown?, patches?: [{ index, action: "insert"|"replace"|"remove", markdown? }], courseId?, sectionId?, archived? } — versioned update. Prefer prefixes, suffixes, or block patches to reproducing a long unchanged body; use full markdown/doc only for an intentional whole-note rewrite, and trash_notes for recoverable removal
 - merge_notes { notes: [{ noteId, baseUpdatedAt }], title?, sourceFate?: "keep"|"archive"|"trash" } — merge notes in the supplied order; Trash is recoverable and permanent deletion is unavailable
 - trash_notes { notes: [{ noteId, baseUpdatedAt }] } — move notes to recoverable Trash; never permanently delete
 - restore_notes { notes: [{ noteId, baseUpdatedAt }] } — restore notes from Trash
-- manage_tags { noteId, baseUpdatedAt, add?, remove?, rename? } — versioned tag update
+- archive_notes { notes: [{ noteId, baseUpdatedAt }], archived? } — archive many notes in one call, or bring them back with archived: false; prefer this to one update_note per note
+- manage_tags { notes: [{ noteId, baseUpdatedAt }], add?, remove?, rename? } — versioned tag update. Pass every note you are tagging or untagging in one call rather than one call per note; noteId with baseUpdatedAt still works for a single note
 - create_course { name, professor?, semester? } — create a course; whole-library scope only
 - export_notes { noteIds, format, fileName, layout?, includeToc? } — export into NotaBene's exports folder
 - organize { createSection?: { courseId, name }, moves?: [{ noteId, baseUpdatedAt, courseId: string|null, sectionId: string|null }] } — create a section and/or move notes. Every move must include both courseId and sectionId; use null explicitly for no course or no section
@@ -264,11 +275,12 @@ export async function runAgentLoop(
       if (controller.signal.aborted) throw abortReason(controller.signal);
       if (runtime.now() >= deadline) throw new AgentBudgetError('time');
 
-      const inputTokens = decisionInputTokens(request, transcript);
+      const view = transcriptForDecision(transcript);
+      const inputTokens = decisionInputTokens(request, view);
       if (tokensUsed + inputTokens + DECISION_MAX_TOKENS > request.budget.tokenCeiling) {
         throw new AgentBudgetError('tokens');
       }
-      const decision = await runtime.decide(request, transcript, {
+      const decision = await runtime.decide(request, view, {
         ...options,
         signal: controller.signal,
         timeoutMs: Math.max(1, deadline - runtime.now()),
@@ -383,11 +395,130 @@ function compactOutcome(
   const json = JSON.stringify(modelOutcome);
   const limit = tool === 'read_note' ? MAX_READ_NOTE_RESULT_CHARS : MAX_TOOL_RESULT_CHARS;
   if (json.length <= limit) return modelOutcome;
+  // A listing is rows, and half a row is worse than one row fewer: slicing the
+  // JSON text hands the next decision a document that does not parse. Drop
+  // whole rows and say how many went, so the model can page for the rest.
+  if (modelOutcome.ok && LIST_TOOLS.has(tool) && Array.isArray(modelOutcome.value)) {
+    return { ok: true, value: dropRows(modelOutcome.value, limit) };
+  }
   return {
     ok: outcome.ok,
     truncated: true,
     preview: json.slice(0, limit),
   };
+}
+
+function dropRows(rows: unknown[], limit: number): unknown {
+  const projected = rows.map(projectRow);
+  let used = '{"items":[],"omitted":000}'.length;
+  let kept = 0;
+  for (const row of projected) {
+    const size = JSON.stringify(row).length + 1;
+    if (used + size > limit) break;
+    used += size;
+    kept += 1;
+  }
+  if (kept === projected.length) return projected;
+  return { items: projected.slice(0, kept), omitted: projected.length - kept };
+}
+
+/** A row the agent has to choose between, not read. The snippet exists to tell
+ * two notes apart; the body is what `read_note` is for. */
+function projectRow(row: unknown): unknown {
+  if (!isRecord(row)) return row;
+  const { plainText: _plainText, doc: _doc, ...rest } = row;
+  if (typeof rest.snippet !== 'string' || rest.snippet.length <= MAX_ROW_SNIPPET_CHARS) {
+    return rest;
+  }
+  return { ...rest, snippet: `${rest.snippet.slice(0, MAX_ROW_SNIPPET_CHARS)}…` };
+}
+
+/**
+ * The transcript as the next decision should see it.
+ *
+ * Every turn resends the whole transcript, so a note body read on call two is
+ * paid for again on every call after it — a run that reads, edits and re-reads
+ * the same note carries three copies of it to the end. Only the most recent
+ * read of each note keeps its body, and once the retained bodies pass
+ * `MAX_TRANSCRIPT_BODY_CHARS` the older ones collapse too. A collapsed entry
+ * still names the note and its length, so the model knows the text exists and
+ * can read it again rather than believing the note is empty.
+ */
+export function transcriptForDecision(transcript: readonly unknown[]): unknown[] {
+  const superseded = new Set<string>();
+  let retained = 0;
+  const view: unknown[] = [];
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    const entry = transcript[index];
+    const body = readBody(entry);
+    if (!body) {
+      view.unshift(entry);
+      continue;
+    }
+    const stale = superseded.has(body.noteId);
+    superseded.add(body.noteId);
+    if (stale || retained + body.characters > MAX_TRANSCRIPT_BODY_CHARS) {
+      view.unshift(collapseRead(entry, body));
+    } else {
+      retained += body.characters;
+      view.unshift(entry);
+    }
+  }
+  return view;
+}
+
+interface ReadBody {
+  noteId: string;
+  characters: number;
+  stub: Record<string, unknown>;
+}
+
+/** A successful note read that is carrying a document, in any of the three
+ * representations `read_note` can return. */
+function readBody(entry: unknown): ReadBody | null {
+  if (!isRecord(entry) || entry.tool !== 'read_note') return null;
+  const outcome = entry.outcome;
+  if (!isRecord(outcome) || outcome.ok !== true) return null;
+  const value = outcome.value;
+  if (!isRecord(value) || typeof value.id !== 'string') return null;
+  if (
+    value.markdown === undefined &&
+    value.doc === undefined &&
+    value.blocks === undefined
+  ) {
+    return null;
+  }
+  return {
+    noteId: value.id,
+    characters: JSON.stringify(value).length,
+    stub: {
+      id: value.id,
+      title: value.title,
+      updatedAt: value.updatedAt,
+      courseId: value.courseId,
+      tagIds: value.tagIds,
+    },
+  };
+}
+
+function collapseRead(entry: unknown, body: ReadBody): unknown {
+  const base = isRecord(entry) ? entry : {};
+  return {
+    ...base,
+    outcome: {
+      ok: true,
+      value: {
+        ...body.stub,
+        bodyOmitted: true,
+        characters: body.characters,
+        hint: 'This note was read earlier in the run and its text was dropped from the record to save room. Read it again if you still need the text.',
+      },
+    },
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function abortReason(signal: AbortSignal): Error {

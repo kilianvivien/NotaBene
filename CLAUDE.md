@@ -109,11 +109,13 @@ Phases A–J are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
 server, the study features, bulk selection, and tasks. The MCP and in-app Agent
-share 20 tools: the original surface plus tag discovery, native merging,
-recoverable Trash/restore operations, and the five task tools. E adds the
-provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
-Studio, custom), Keychain key storage, rewrite-with-diff-gate, synthesis, and
-an Ask panel for questions about a note. F adds the authenticated MCP
+share 21 tools: the original surface plus tag discovery, native merging,
+recoverable Trash/restore operations, bulk archiving, and the five task tools.
+The tools that act on many notes take a `notes: [{ noteId, baseUpdatedAt }]`
+list — `manage_tags` accepts both that and the original single-note form.
+E adds the provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter,
+Ollama, LM Studio, custom), Keychain key storage, rewrite-with-diff-gate,
+synthesis, and an Ask panel for questions about a note. F adds the authenticated MCP
 surface, client setup, agent activity, versioned writes, and optimistic
 concurrency protection. G adds mind maps (a real editor block that survives
 every export), flashcards with Anki export, and note-to-podcast over macOS

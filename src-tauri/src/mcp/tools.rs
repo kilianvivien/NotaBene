@@ -163,17 +163,33 @@ pub struct MergeNotesParams {
 
 #[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ArchiveNotesParams {
+    /// Notes to archive, each with its concurrency token. Maximum 500.
+    pub notes: Vec<VersionedNoteParams>,
+    /// `false` brings the notes back out of the archive. Defaults to `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archived: Option<bool>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ManageTagsParams {
-    pub note_id: String,
+    /// A single note. Pass it with baseUpdatedAt, or pass `notes` instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_id: Option<String>,
     /// `updatedAt` returned by read/list/search.
-    pub base_updated_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_updated_at: Option<String>,
+    /// Several notes at once, each with its concurrency token. Maximum 500.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<Vec<VersionedNoteParams>>,
     /// Tags to add, as `name` or `namespace:name`. Created if new.
     #[serde(default)]
     pub add: Vec<String>,
     /// Tag ids to remove.
     #[serde(default)]
     pub remove: Vec<String>,
-    /// Rename global tags while managing this note.
+    /// Rename global tags while managing these notes.
     #[serde(default)]
     pub rename: Vec<RenameTagParams>,
 }
@@ -736,8 +752,28 @@ impl NotaBeneMcpServer {
     }
 
     #[tool(
+        name = "notabene_archive_notes",
+        description = "Archive one or more notes after checking each current updatedAt, or bring them back with archived=false. Archiving hides a note from the main lists without deleting anything."
+    )]
+    pub async fn archive_notes(
+        &self,
+        Parameters(params): Parameters<ArchiveNotesParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("archive_notes", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
         name = "notabene_manage_tags",
-        description = "Add, remove, or rename tags on a note. Pass the note's current updatedAt as baseUpdatedAt. Tags may be plain (`revision`) or namespaced (`topic:derivatives`, `type:summary`); namespaced tags power the faceted search filters."
+        description = "Add, remove, or rename tags. Pass one note as noteId with its current updatedAt as baseUpdatedAt, or many at once as notes: [{noteId, baseUpdatedAt}] — one call, not one per note. Tags may be plain (`revision`) or namespaced (`topic:derivatives`, `type:summary`); namespaced tags power the faceted search filters."
     )]
     pub async fn manage_tags(
         &self,

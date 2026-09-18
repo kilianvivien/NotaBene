@@ -51,6 +51,11 @@ export interface ProviderQuirks {
    * schema. Kept provider-specific so existing cloud request shapes do not
    * change merely because one local runtime needs stronger guidance. */
   jsonSchemaMode?: boolean;
+  /** Whether that schema may be sent as `strict`. Strict validation rejects
+   * schemas a permissive reader accepts — a union at the root, most of all —
+   * so a provider that enforces the strict subset gets the schema as guidance
+   * instead of as a contract. Defaults to true. */
+  jsonSchemaStrict?: boolean;
 }
 
 export const AI_PROVIDERS: ProviderDefinition[] = [
@@ -110,6 +115,11 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     // the one feature that lives on tool calls.
     featureDefaults: { agent: 'zai-glm-5-3' },
     keyUrl: 'https://console.mistral.ai/api-keys',
+    // Schemas are sent unstrict: the agent's decision schema is a union at the
+    // root, which the strict subset does not allow. A third-party model served
+    // here may also not implement the field at all, which `runStructured`
+    // recovers from by asking again in plain JSON mode.
+    quirks: { jsonSchemaMode: true, jsonSchemaStrict: false },
   },
   {
     id: 'gemini',

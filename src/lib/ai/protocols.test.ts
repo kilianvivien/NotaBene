@@ -46,7 +46,7 @@ describe('openAiRequest', () => {
     expect(bodyOf(resolved('lmstudio'), true)).not.toHaveProperty('response_format');
   });
 
-  it('sends an explicit JSON Schema only to LM Studio', () => {
+  it('sends an explicit JSON Schema only where the provider asked for one', () => {
     const jsonSchema = {
       name: 'answer',
       schema: { type: 'object', properties: { title: { type: 'string' } } },
@@ -55,7 +55,14 @@ describe('openAiRequest', () => {
       type: 'json_schema',
       json_schema: { ...jsonSchema, strict: true },
     });
+    // Mistral takes the schema as guidance rather than as a contract: strict
+    // validation rejects the agent's decision schema, which is a union at the
+    // root.
     expect(bodyOf(resolved('mistral'), true, jsonSchema).response_format).toEqual({
+      type: 'json_schema',
+      json_schema: { ...jsonSchema, strict: false },
+    });
+    expect(bodyOf(resolved('openai'), true, jsonSchema).response_format).toEqual({
       type: 'json_object',
     });
   });
