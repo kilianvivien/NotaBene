@@ -185,6 +185,9 @@ describe('provider catalogue', () => {
       if (provider.defaultModel) {
         expect(provider.models).toContain(provider.defaultModel);
       }
+      for (const model of Object.values(provider.featureDefaults ?? {})) {
+        expect(provider.models).toContain(model);
+      }
     }
   });
 
@@ -202,7 +205,12 @@ describe('provider catalogue', () => {
       models: expect.arrayContaining(['gemini-3.8-flash', 'gemini-3.5-flash-lite']),
     });
     expect(providerById('mistral')).toMatchObject({
-      models: expect.arrayContaining(['mistral-medium-latest', 'zai-glm-5-2']),
+      models: expect.arrayContaining([
+        'mistral-medium-latest',
+        'zai-glm-5-3',
+        'zai-glm-5-2',
+      ]),
+      featureDefaults: { agent: 'zai-glm-5-3' },
     });
   });
 });
@@ -375,6 +383,23 @@ describe('feature resolution', () => {
       expect(result.definition.id).toBe('mistral');
       expect(result.model).toBe('mistral-medium-latest');
     }
+  });
+
+  it('starts a feature on its own provider default when one is declared', () => {
+    const agent = resolveFeature('agent', settingsWith(), ['mistral']);
+    if (!agent.available) throw new Error('expected a provider');
+    expect(agent.model).toBe('zai-glm-5-3');
+
+    // The user's choice still outranks the table, on the agent row or the
+    // Default row it inherits from.
+    const chosen = settingsWith({
+      aiFeatureModels: {
+        default: { providerId: 'mistral', model: 'mistral-large-latest' },
+      },
+    });
+    const overridden = resolveFeature('agent', chosen, ['mistral']);
+    if (!overridden.available) throw new Error('expected a provider');
+    expect(overridden.model).toBe('mistral-large-latest');
   });
 
   it('does not carry a model across a provider it fell through', () => {

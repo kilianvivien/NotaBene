@@ -142,6 +142,7 @@ export function resolveFeature(
       : undefined
     )?.trim() ||
     detected?.[definition.id]?.loaded[0] ||
+    definition.featureDefaults?.[feature] ||
     definition.defaultModel ||
     modelsFor(definition, settings, detected)[0] ||
     '';

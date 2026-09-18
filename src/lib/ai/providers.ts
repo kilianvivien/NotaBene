@@ -27,6 +27,10 @@ export interface ProviderDefinition {
   editableBaseUrl: boolean;
   models: string[];
   defaultModel: string;
+  /** A feature that should start on a different model than `defaultModel`,
+   * because one provider's best all-rounder is not its best tool-caller. Only
+   * a starting point, like `defaultModel`: the user's own choice always wins. */
+  featureDefaults?: Partial<Record<AiFeature, string>>;
   /** Where to go and get a key. Opened in the system browser, never in-app. */
   keyUrl?: string;
   quirks?: ProviderQuirks;
@@ -98,9 +102,13 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
       'mistral-small-2603',
       // Z.ai's open-weight GLM, served by Mistral in Europe. Third-party, so
       // it carries no `-latest` alias and is pinned to the published id.
+      'zai-glm-5-3',
       'zai-glm-5-2',
     ],
     defaultModel: 'mistral-medium-latest',
+    // GLM is the stronger tool-caller of the two families, and the Agent is
+    // the one feature that lives on tool calls.
+    featureDefaults: { agent: 'zai-glm-5-3' },
     keyUrl: 'https://console.mistral.ai/api-keys',
   },
   {
