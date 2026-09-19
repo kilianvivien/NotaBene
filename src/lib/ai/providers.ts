@@ -27,6 +27,9 @@ export interface ProviderDefinition {
   editableBaseUrl: boolean;
   models: string[];
   defaultModel: string;
+  /** User-facing names for protocol-level model ids that are not meaningful
+   * outside the provider's API. The raw id remains the value sent on calls. */
+  modelLabels?: Record<string, string>;
   /** A feature that should start on a different model than `defaultModel`,
    * because one provider's best all-rounder is not its best tool-caller. Only
    * a starting point, like `defaultModel`: the user's own choice always wins. */
@@ -199,6 +202,7 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     editableBaseUrl: false,
     models: ['system'],
     defaultModel: 'system',
+    modelLabels: { system: 'Apple Intelligence (AFM 3)' },
     contextTokens: 8_192,
     charsPerToken: 5,
     // `fm serve` rejects json_object, honours json_schema, and streams when
@@ -221,6 +225,12 @@ const BY_ID = new Map(AI_PROVIDERS.map((provider) => [provider.id, provider]));
 
 export function providerById(id: string): ProviderDefinition | undefined {
   return BY_ID.get(id);
+}
+
+/** Keep transport identifiers out of user-facing model labels without ever
+ * changing the value sent to the provider. */
+export function modelDisplayName(definition: ProviderDefinition, model: string): string {
+  return definition.modelLabels?.[model] ?? model;
 }
 
 /** The Keychain account name a provider's key is stored under. Prefixed so a

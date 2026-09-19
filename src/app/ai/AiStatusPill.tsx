@@ -9,7 +9,7 @@
  */
 import { HardDrive, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { AiFeature } from '@/lib/ai';
+import { modelDisplayName, type AiFeature } from '@/lib/ai';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import { isLocalAvailability, useAiAvailability } from './useAiAvailability';
@@ -64,8 +64,13 @@ export function AiStatusPill({
     setSettingsOpen(true);
   }
 
+  const modelName = availability.available
+    ? modelDisplayName(availability.definition, availability.model)
+    : '';
   const full = availability.available
-    ? `${availability.definition.label} · ${availability.model}`
+    ? availability.definition.id === 'apple'
+      ? modelName
+      : `${availability.definition.label} · ${modelName}`
     : t(`ai.unavailable_${availability.reason}`);
 
   /**
@@ -128,9 +133,7 @@ export function AiStatusPill({
           aria-hidden
         />
       )}
-      {!glyphOnly && (
-        <span className="truncate">{named ? availability.model : full}</span>
-      )}
+      {!glyphOnly && <span className="truncate">{named ? modelName : full}</span>}
     </button>
   );
 }

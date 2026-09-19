@@ -42,6 +42,7 @@ import {
   isLoopbackUrl,
   isProviderUsable,
   loadProvider,
+  modelDisplayName,
   modelsFor,
   resolveFeature,
   runAi,
@@ -533,6 +534,7 @@ function FeatureRow({ feature, settings }: { feature: AiFeature; settings: AppSe
   const choice = settings.aiFeatureModels[feature];
   const definition = resolved.available ? resolved.definition : null;
   const model = resolved.available ? resolved.model : '';
+  const modelName = definition ? modelDisplayName(definition, model) : model;
   // The row is left empty on purpose when detection answered: the placeholder
   // already names the model that will run, and writing it into settings would
   // pin the feature to whatever happened to be loaded this afternoon.
@@ -605,9 +607,9 @@ function FeatureRow({ feature, settings }: { feature: AiFeature; settings: AppSe
         list={listId}
         spellCheck={false}
         aria-label={t('ai.model')}
-        title={fromRuntime ? t('ai.detectedHint', { model }) : undefined}
+        title={fromRuntime ? t('ai.detectedHint', { model: modelName }) : undefined}
         value={choice?.model ?? ''}
-        placeholder={model || t('ai.modelPlaceholder')}
+        placeholder={modelName || t('ai.modelPlaceholder')}
         onChange={(event) =>
           choose(choice?.providerId ?? definition?.id ?? '', event.target.value)
         }
