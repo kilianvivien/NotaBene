@@ -23,6 +23,10 @@ export function useAiAvailability(feature: AiFeature, enabled = true): AiAvailab
     if (!enabled) return;
     void refreshProviders();
     void refreshLocalModels(settings);
+    const probe = window.setInterval(() => {
+      void refreshLocalModels(useSettingsStore.getState().settings);
+    }, 20_000);
+    return () => window.clearInterval(probe);
   }, [enabled, refreshProviders, refreshLocalModels, settings]);
 
   return resolveFeature(feature, settings, configured, localModels);

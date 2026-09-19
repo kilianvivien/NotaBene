@@ -508,7 +508,22 @@
   },
   "ai": {
     "apple": {
-      "hint": "Ships with macOS 27. Run <command>fm serve</command> in Terminal once per session."
+      "checking": "Checking Apple Intelligence…",
+      "copyLicense": "Copy license command",
+      "enable": "Use Apple Intelligence on this Mac",
+      "hint": "Ships with macOS 27. NotaBene starts and stops it with the app.",
+      "intelligenceOff": "Turn on Apple Intelligence in System Settings.",
+      "licenseCommand": "An administrator must accept Apple's terms once. Run <command>sudo fm license</command> in Terminal.",
+      "needsLicense": "Apple's command-line model terms must be accepted once.",
+      "needsMacOs27": "Needs macOS 27.",
+      "notEligible": "Apple Intelligence requires an eligible Apple silicon Mac.",
+      "notReady": "The on-device model is still downloading.",
+      "retry": "Check again",
+      "running": "AFM 3 is running on this Mac.",
+      "startFailed": "The on-device model could not start: {{detail}}",
+      "starting": "Starting the on-device model…",
+      "unavailable": "The on-device model is unavailable.",
+      "unavailableDetail": "The on-device model is unavailable: {{detail}}"
     },
     "accept": "Accept",
     "acceptAll": "Accept all",
@@ -727,6 +742,7 @@
     "unavailable_context_too_small": "This model's context is too small for this feature",
     "unavailable_no_model": "Choose a model",
     "unavailable_no_provider": "Connect a provider",
+    "unavailable_provider_unavailable": "The selected provider is not available",
     "useDefault": "Default",
     "voice": "Voice",
     "writeScript": "Write script",

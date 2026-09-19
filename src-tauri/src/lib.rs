@@ -6,6 +6,7 @@
 //! AI orchestration — stays in TypeScript so the core remains web-ready.
 
 mod ai;
+mod apple_fm;
 mod commands;
 mod db;
 mod document_import;
@@ -110,6 +111,7 @@ pub fn run() {
             }
 
             ai::init(handle);
+            apple_fm::init(handle);
             app.manage(tts::VoxtralManager::new(handle).map_err(std::io::Error::other)?);
             app.manage(tts::KokoroManager::new(handle).map_err(std::io::Error::other)?);
             mcp::init(handle);
@@ -200,6 +202,11 @@ pub fn run() {
             ai::ai_request,
             ai::ai_stream,
             ai::ai_cancel,
+            apple_fm::apple_fm_preflight,
+            apple_fm::apple_fm_start,
+            apple_fm::apple_fm_stop,
+            apple_fm::apple_fm_status,
+            apple_fm::apple_fm_count_tokens,
             tts::tts_system_available,
             tts::tts_system_voices,
             tts::tts_system_synthesize,
@@ -224,6 +231,11 @@ pub fn run() {
             mcp::mcp_bridge_respond,
             mcp::mcp_write_client_config,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while building NotaBene");
+        .build(tauri::generate_context!())
+        .expect("error while building NotaBene")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                apple_fm::shutdown(app);
+            }
+        });
 }

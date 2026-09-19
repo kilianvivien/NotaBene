@@ -45,6 +45,7 @@ import { TaskDetail } from './tasks/TaskDetail';
 import { TaskDialog } from './tasks/TaskDialog';
 import { TaskCalendarDialog } from './tasks/TaskCalendarDialog';
 import { TaskBreakdownDialog } from './tasks/TaskBreakdownDialog';
+import { useAppleFmStore } from '@/lib/state/appleFmStore';
 
 /** Pane widths live here rather than in each pane's class list, because the
  * collapse animation has to know them. Each pane still owns everything else
@@ -109,6 +110,7 @@ export function App() {
     void (async () => {
       await Promise.all([loadSettings(), refreshLibraryAccess()]);
       setLocale(useSettingsStore.getState().settings.locale);
+      await useAppleFmStore.getState().initialize();
       await bootstrap();
       const readOnly = useLibraryAccessStore.getState().status?.readOnly === true;
       if (!readOnly) await runOnboardingCommand();

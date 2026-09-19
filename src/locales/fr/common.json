@@ -508,7 +508,22 @@
   },
   "ai": {
     "apple": {
-      "hint": "Inclus avec macOS 27. Exécutez <command>fm serve</command> dans Terminal une fois par session."
+      "checking": "Vérification d’Apple Intelligence…",
+      "copyLicense": "Copier la commande de licence",
+      "enable": "Utiliser Apple Intelligence sur ce Mac",
+      "hint": "Inclus avec macOS 27. NotaBene le démarre et l’arrête avec l’application.",
+      "intelligenceOff": "Activez Apple Intelligence dans Réglages Système.",
+      "licenseCommand": "Un administrateur doit accepter une fois les conditions d’Apple. Exécutez <command>sudo fm license</command> dans Terminal.",
+      "needsLicense": "Les conditions du modèle en ligne de commande d’Apple doivent être acceptées une fois.",
+      "needsMacOs27": "Nécessite macOS 27.",
+      "notEligible": "Apple Intelligence nécessite un Mac Apple silicon compatible.",
+      "notReady": "Le téléchargement du modèle embarqué est encore en cours.",
+      "retry": "Vérifier à nouveau",
+      "running": "AFM 3 s’exécute sur ce Mac.",
+      "startFailed": "Le modèle embarqué n’a pas pu démarrer : {{detail}}",
+      "starting": "Démarrage du modèle embarqué…",
+      "unavailable": "Le modèle embarqué est indisponible.",
+      "unavailableDetail": "Le modèle embarqué est indisponible : {{detail}}"
     },
     "accept": "Accepter",
     "acceptAll": "Tout accepter",
@@ -727,6 +742,7 @@
     "unavailable_context_too_small": "Le contexte de ce modèle est trop court pour cette fonction",
     "unavailable_no_model": "Choisir un modèle",
     "unavailable_no_provider": "Connecter un fournisseur",
+    "unavailable_provider_unavailable": "Le fournisseur sélectionné est indisponible",
     "useDefault": "Par défaut",
     "voice": "Voix",
     "writeScript": "Rédiger le script",

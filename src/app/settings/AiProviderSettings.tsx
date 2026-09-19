@@ -21,6 +21,7 @@
 import {
   Check,
   ChevronRight,
+  Copy,
   ExternalLink,
   HardDrive,
   Loader2,
@@ -29,9 +30,11 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { FieldSection, GlassButton, GlassSelect } from '@/components/glass';
 import { secrets } from '@/lib/adapters';
 import type { AppSettings } from '@/lib/adapters';
+import type { AppleFmPreflight, AppleFmStatus } from '@/lib/adapters';
 import {
   AI_FEATURES,
   AI_PROVIDERS,
@@ -49,6 +52,7 @@ import {
 } from '@/lib/ai';
 import { useAiStore } from '@/lib/state/aiStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { useAppleFmStore } from '@/lib/state/appleFmStore';
 import { cn } from '@/lib/utils/cn';
 
 export function AiProviderSettings() {
@@ -57,17 +61,24 @@ export function AiProviderSettings() {
   const configured = useAiStore((state) => state.configuredProviderIds);
   const refreshProviders = useAiStore((state) => state.refreshProviders);
   const refreshLocalModels = useAiStore((state) => state.refreshLocalModels);
+  const refreshAppleFm = useAppleFmStore((state) => state.refresh);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     void refreshProviders();
-    // Forced: this is the one screen where the user is looking straight at the
-    // answer, and a throttled probe would show them a runtime they just quit.
-    void refreshLocalModels(settings, true);
+    void (async () => {
+      // Keep the preflight snapshot ordered before the managed-server probe.
+      // Otherwise a slow licence check could overwrite the running status
+      // that `refreshLocalModels` just established.
+      await refreshAppleFm();
+      // Forced: this is the one screen where the user is looking straight at the
+      // answer, and a throttled probe would show them a runtime they just quit.
+      await refreshLocalModels(settings, true);
+    })();
     // Deliberately on mount only — `settings` changes on every keystroke in the
     // base-URL field, and each one would be a probe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshProviders, refreshLocalModels]);
+  }, [refreshProviders, refreshLocalModels, refreshAppleFm]);
 
   const connectedCount = AI_PROVIDERS.filter((definition) =>
     isProviderUsable(definition, settings, configured),
@@ -111,6 +122,35 @@ export function AiProviderSettings() {
   );
 }
 
+function appleFmStatusText(
+  t: TFunction,
+  preflight: AppleFmPreflight | null,
+  status: AppleFmStatus,
+  pending: boolean,
+  error: string | null,
+): string {
+  if (pending) return t('ai.apple.starting');
+  if (status.running) return t('ai.apple.running');
+  if (!preflight) {
+    return error
+      ? t('ai.apple.startFailed', { detail: error })
+      : t('ai.apple.checking');
+  }
+  if (!preflight.installed || !preflight.osOk) return t('ai.apple.needsMacOs27');
+  if (!preflight.licensed) return t('ai.apple.needsLicense');
+  if (preflight.model === 'not_eligible') return t('ai.apple.notEligible');
+  if (preflight.model === 'intelligence_off') return t('ai.apple.intelligenceOff');
+  if (preflight.model === 'not_ready') return t('ai.apple.notReady');
+  if (preflight.model === 'unknown') {
+    return preflight.detail
+      ? t('ai.apple.unavailableDetail', { detail: preflight.detail })
+      : t('ai.apple.unavailable');
+  }
+  return error
+    ? t('ai.apple.startFailed', { detail: error })
+    : t('ai.apple.unavailable');
+}
+
 function ProviderRow({
   definition,
   connected,
@@ -128,15 +168,22 @@ function ProviderRow({
   const refreshProviders = useAiStore((state) => state.refreshProviders);
   const refreshLocalModels = useAiStore((state) => state.refreshLocalModels);
   const detected = useAiStore((state) => state.localModels);
+  const applePreflight = useAppleFmStore((state) => state.preflight);
+  const appleStatus = useAppleFmStore((state) => state.status);
+  const applePending = useAppleFmStore((state) => state.pending);
+  const appleError = useAppleFmStore((state) => state.error);
+  const setAppleEnabled = useAppleFmStore((state) => state.setEnabled);
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+  const [licenseCopied, setLicenseCopied] = useState(false);
 
   const config = settings.aiProviders[definition.id];
   const baseUrl = config?.baseUrl ?? '';
   const enabled = config?.enabled === true;
   const detectable = supportsModelDetection(definition) && enabled;
   const found = detected[definition.id];
+  const isApple = definition.id === 'apple';
 
   async function patchProvider(patch: Partial<AppSettings['aiProviders'][string]>) {
     await update({
@@ -176,6 +223,20 @@ function ProviderRow({
     await refreshProviders();
     setBusy(false);
     setStatus(t('ai.keySaved'));
+  }
+
+  async function toggleLocal(next: boolean) {
+    if (!isApple) {
+      await patchProvider({ enabled: next });
+      return;
+    }
+    await setAppleEnabled(next);
+    await refreshLocalModels(useSettingsStore.getState().settings, true);
+  }
+
+  async function retryAppleFm() {
+    await useAppleFmStore.getState().ensureRunning();
+    await refreshLocalModels(useSettingsStore.getState().settings, true);
   }
 
   async function removeKey() {
@@ -222,7 +283,11 @@ function ProviderRow({
     setBusy(false);
   }
 
-  const usable = definition.requiresKey ? connected : enabled;
+  const usable = definition.requiresKey
+    ? connected
+    : isApple
+      ? enabled && appleStatus.running
+      : enabled;
   // Green rather than accent once it is usable *and* on this machine — the same
   // signal the status pill gives, so the two screens agree about what "local"
   // looks like.
@@ -257,6 +322,10 @@ function ProviderRow({
           >
             {local ? <HardDrive size={9} aria-hidden /> : <Check size={9} aria-hidden />}
             {local ? t('ai.local') : t('ai.connected')}
+          </span>
+        ) : enabled && isApple ? (
+          <span className="max-w-48 truncate text-[11px] text-nb-text-3">
+            {appleFmStatusText(t, applePreflight, appleStatus, applePending, appleError)}
           </span>
         ) : (
           <span className="shrink-0 text-[11px] text-nb-text-3">
@@ -306,10 +375,11 @@ function ProviderRow({
               <input
                 type="checkbox"
                 checked={enabled}
-                onChange={(event) => void patchProvider({ enabled: event.target.checked })}
+                disabled={isApple && applePending}
+                onChange={(event) => void toggleLocal(event.target.checked)}
                 className="size-4 accent-[var(--nb-accent)]"
               />
-              {t('ai.enableLocal')}
+              {isApple ? t('ai.apple.enable') : t('ai.enableLocal')}
             </label>
           )}
 
@@ -329,11 +399,17 @@ function ProviderRow({
             </label>
           )}
 
+          {isApple && !enabled && (
+            <p className="text-[11px] leading-relaxed text-nb-text-3">
+              {t('ai.apple.hint')}
+            </p>
+          )}
+
           {/* What the runtime is actually doing, in the pane where the user
               would otherwise be copying a model id out of another app's window.
               "Not running" is information too — it is the answer to why the AI
               buttons went quiet. */}
-          {detectable && (
+          {detectable && !isApple && (
             <div className="flex items-center gap-1.5 text-[11px]">
               {found?.loaded.length ? (
                 <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--nb-success)_14%,transparent)] px-1.5 py-0.5 text-[var(--nb-success)]">
@@ -361,22 +437,58 @@ function ProviderRow({
             </div>
           )}
 
-          {definition.id === 'apple' &&
-            detectable &&
-            found !== undefined &&
-            !found.loaded.length &&
-            !found.available.length && (
-              <p className="text-[11px] leading-relaxed text-nb-text-3">
-                <Trans
-                  i18nKey="ai.apple.hint"
-                  components={{
-                    command: (
-                      <code className="select-all rounded-nb-xs bg-[var(--nb-control-surface)] px-1 py-0.5 font-mono text-[10px] text-nb-text-2" />
-                    ),
-                  }}
-                />
+          {isApple && enabled && (
+            <div className="space-y-1.5 text-[11px] leading-relaxed text-nb-text-3">
+              <p>
+                {appleFmStatusText(
+                  t,
+                  applePreflight,
+                  appleStatus,
+                  applePending,
+                  appleError,
+                )}
               </p>
-            )}
+              {applePreflight?.installed && !applePreflight.licensed && (
+                <div className="flex items-center gap-1.5">
+                  <Trans
+                    i18nKey="ai.apple.licenseCommand"
+                    components={{
+                      command: (
+                        <code className="select-all rounded-nb-xs bg-[var(--nb-control-surface)] px-1 py-0.5 font-mono text-[10px] text-nb-text-2" />
+                      ),
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="grid size-5 shrink-0 place-items-center rounded-nb-xs hover:bg-[var(--nb-hover)] hover:text-nb-text-2"
+                    aria-label={t('ai.apple.copyLicense')}
+                    title={t('ai.apple.copyLicense')}
+                    onClick={() => {
+                      void navigator.clipboard.writeText('sudo fm license').then(() => {
+                        setLicenseCopied(true);
+                        window.setTimeout(() => setLicenseCopied(false), 1_500);
+                      });
+                    }}
+                  >
+                    {licenseCopied ? (
+                      <Check size={10} aria-hidden />
+                    ) : (
+                      <Copy size={10} aria-hidden />
+                    )}
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-nb-text-3 hover:text-nb-text-2"
+                onClick={() => void retryAppleFm()}
+                disabled={applePending}
+              >
+                <RefreshCw size={10} aria-hidden />
+                {t('ai.apple.retry')}
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <GlassButton

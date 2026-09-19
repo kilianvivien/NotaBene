@@ -2,11 +2,11 @@
 
 ## NotaBene 1.0.0
 
-- **Apple Intelligence as an on-device AI provider.** On macOS 27, start the
-  system `fm serve` service and enable Apple Intelligence in Settings to use
-  the model built into macOS without an API key or model download. NotaBene
-  detects the system model, uses Apple's supported JSON Schema mode, and keeps
-  all requests on loopback.
+- **Apple Intelligence as an on-device AI provider.** On macOS 27, accept the
+  command-line model terms once and enable Apple Intelligence in Settings.
+  NotaBene then starts and stops the system model with the app—no Terminal
+  command per session, API key, or model download. It detects the system model,
+  uses Apple's supported JSON Schema mode, and keeps all requests on loopback.
 - **Honest context limits.** The system model's 8,192-token window now informs
   request preflight, output limits, and Ask retrieval. Features that cannot fit
   that window—synthesis, podcasts, document layout, and the Agent—are disabled

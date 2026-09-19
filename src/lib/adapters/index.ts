@@ -48,6 +48,8 @@ import {
 } from './storage/tauriStorageAdapter';
 import { tauriOcrAdapter } from './ocr/tauriOcrAdapter';
 import { unavailableOcrAdapter } from './ocr/memoryOcrAdapter';
+import { tauriAppleFmAdapter } from './appleFm/tauriAppleFmAdapter';
+import { unavailableAppleFmAdapter } from './appleFm/unavailableAppleFmAdapter';
 import { tauriDocumentImportAdapter } from './documentImport/tauriDocumentImportAdapter';
 import { memoryDocumentImportAdapter } from './documentImport/memoryDocumentImportAdapter';
 import { isTauri } from '@/lib/platform/runtime';
@@ -72,6 +74,7 @@ import type { StorageAdapter } from './storage/StorageAdapter';
 import type { DocumentImportAdapter } from './documentImport/DocumentImportAdapter';
 import type { OcrAdapter } from './ocr/OcrAdapter';
 import type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
+import type { AppleFmAdapter } from './appleFm/AppleFmAdapter';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -106,6 +109,9 @@ export const documentImporter: DocumentImportAdapter = isTauri
   ? tauriDocumentImportAdapter
   : memoryDocumentImportAdapter;
 export const ocr: OcrAdapter = isTauri ? tauriOcrAdapter : unavailableOcrAdapter;
+export const appleFm: AppleFmAdapter = isTauri
+  ? tauriAppleFmAdapter
+  : unavailableAppleFmAdapter;
 export const appLifecycle: AppLifecycleAdapter = isTauri
   ? tauriAppLifecycleAdapter
   : browserAppLifecycleAdapter;
@@ -211,4 +217,10 @@ export type {
   OcrPageText,
 } from './documentImport/DocumentImportAdapter';
 export type { OcrAdapter } from './ocr/OcrAdapter';
+export type {
+  AppleFmAdapter,
+  AppleFmModelState,
+  AppleFmPreflight,
+  AppleFmStatus,
+} from './appleFm/AppleFmAdapter';
 export { MCP_CLIENTS } from './mcp/McpAdapter';

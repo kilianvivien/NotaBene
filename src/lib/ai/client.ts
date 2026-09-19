@@ -11,7 +11,7 @@
  * to be able to change their mind, and a spinner they cannot interrupt is worse
  * than no progress indicator at all.
  */
-import { aiTransport } from '@/lib/adapters';
+import { aiTransport, appleFm } from '@/lib/adapters';
 import {
   buildRequest,
   parseResponse,
@@ -77,13 +77,15 @@ export interface Preflight {
 
 export function preflight(
   call: Pick<AiCall, 'messages'> & Partial<Pick<AiCall, 'provider' | 'maxTokens'>>,
+  exactTokens?: number,
 ): Preflight {
   const characters = call.messages.reduce(
     (total, message) => total + message.content.length,
     0,
   );
   const definition = call.provider?.definition;
-  const estimatedTokens = Math.ceil(characters / (definition?.charsPerToken ?? 3.6));
+  const estimatedTokens =
+    exactTokens ?? Math.ceil(characters / (definition?.charsPerToken ?? 3.6));
   const contextTokens = definition?.contextTokens;
   const requestedOutput = Math.max(1, call.maxTokens ?? 1);
   const maxOutputTokens = contextTokens
@@ -103,7 +105,24 @@ export function preflight(
 }
 
 export async function runAi(call: AiCall, options: AiRunOptions = {}): Promise<string> {
-  const check = preflight(call);
+  let check = preflight(call);
+  const contextTokens = call.provider.definition.contextTokens;
+  if (
+    call.provider.definition.id === 'apple' &&
+    contextTokens &&
+    check.estimatedTokens >= contextTokens * 0.75 &&
+    check.estimatedTokens <= contextTokens * 1.25
+  ) {
+    try {
+      const exactTokens = await appleFm.countTokens(
+        call.messages.map((message) => message.content).join('\n\n'),
+      );
+      check = preflight(call, exactTokens);
+    } catch {
+      // The estimate is deliberately conservative. An unavailable tokenizer
+      // must not turn a usable provider call into a platform failure.
+    }
+  }
   if (!check.withinLimit) {
     throw new AiError(
       `input is about ${check.estimatedTokens} tokens, over the ${check.inputLimitTokens} limit`,

@@ -439,6 +439,17 @@ describe('feature resolution', () => {
     });
   });
 
+  it("does not offer Apple features when the managed server is unavailable", () => {
+    const settings = settingsWith({
+      aiProviders: { apple: { enabled: true, baseUrl: null, extraModels: [] } },
+    });
+    expect(
+      resolveFeature('define', settings, [], {
+        apple: { loaded: [], available: [] },
+      }),
+    ).toEqual({ available: false, reason: 'provider_unavailable' });
+  });
+
   it('prefixes secret names so a provider id cannot collide with another secret', () => {
     expect(secretKeyFor('mistral')).toBe('ai.mistral.apiKey');
   });
@@ -585,6 +596,29 @@ describe('the request engine', () => {
       max_tokens?: number;
     };
     expect(body.max_tokens).toBe(7_192);
+  });
+
+  it("uses Apple's exact tokenizer when an estimate is near the context limit", async () => {
+    const adapters = await import('@/lib/adapters');
+    const count = vi.spyOn(adapters.appleFm, 'countTokens').mockResolvedValue(5_000);
+    const request = vi.spyOn(adapters.aiTransport, 'request').mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: '{"choices":[{"message":{"content":"ok"}}]}',
+    });
+
+    await runAi({
+      ...call,
+      provider: resolved('apple', 'system'),
+      messages: [{ role: 'user', content: 'a'.repeat(32_000) }],
+      maxTokens: 4_000,
+    });
+
+    expect(count).toHaveBeenCalledOnce();
+    const body = JSON.parse(request.mock.calls[0]?.[0].body ?? '{}') as {
+      max_tokens?: number;
+    };
+    expect(body.max_tokens).toBe(3_192);
   });
 
   it('lets go of a call the transport cannot take back', async () => {

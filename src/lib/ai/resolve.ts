@@ -32,6 +32,7 @@ export type AiUnavailableReason =
   | 'no_provider'
   | 'no_model'
   | 'no_base_url'
+  | 'provider_unavailable'
   | 'context_too_small';
 
 export type AiAvailability =
@@ -140,6 +141,15 @@ export function resolveFeature(
     definition.contextTokens < minimumContext
   ) {
     return { available: false, reason: 'context_too_small' };
+  }
+
+  const detectedApple = detected?.apple;
+  if (
+    definition.id === 'apple' &&
+    detectedApple !== undefined &&
+    detectedApple.loaded.length === 0
+  ) {
+    return { available: false, reason: 'provider_unavailable' };
   }
 
   // The stored model only applies when it belongs to the provider we landed on;

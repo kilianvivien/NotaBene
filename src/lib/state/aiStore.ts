@@ -18,6 +18,8 @@ import {
 } from '@/lib/ai';
 import type { AskMode, AskScope, AskTurn, DetectedModels } from '@/lib/ai';
 import type { AppSettings } from '@/lib/adapters';
+import { useAppleFmStore } from './appleFmStore';
+import { useSettingsStore } from './settingsStore';
 
 /**
  * One thread per grounding mode *and* scope.
@@ -182,6 +184,11 @@ export const useAiStore = create<AiState>()(
           supportsModelDetection(definition) &&
           settings.aiProviders[definition.id]?.enabled === true,
       );
+
+      if (settings.aiProviders.apple?.enabled === true) {
+        await useAppleFmStore.getState().ensureRunning();
+        settings = useSettingsStore.getState().settings;
+      }
 
       probeInFlight = (async () => {
         const found = await Promise.all(

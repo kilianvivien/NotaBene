@@ -196,7 +196,7 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     protocol: 'openai',
     defaultBaseUrl: 'http://127.0.0.1:1976/v1',
     requiresKey: false,
-    editableBaseUrl: true,
+    editableBaseUrl: false,
     models: ['system'],
     defaultModel: 'system',
     contextTokens: 8_192,

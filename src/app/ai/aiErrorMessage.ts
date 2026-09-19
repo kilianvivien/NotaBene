@@ -23,9 +23,13 @@ export function aiErrorMessage(
     return t('ai.error_provider_refusal', { detail: result.message });
   }
   if (result.code === 'not_supported') {
-    return result.message === 'context_too_small'
-      ? t('ai.unavailable_context_too_small')
-      : t('ai.notConfiguredHint');
+    if (result.message === 'context_too_small') {
+      return t('ai.unavailable_context_too_small');
+    }
+    if (result.message === 'provider_unavailable') {
+      return t('ai.unavailable_provider_unavailable');
+    }
+    return t('ai.notConfiguredHint');
   }
   return result.message;
 }
