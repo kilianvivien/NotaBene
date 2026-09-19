@@ -17,6 +17,15 @@ export function aiErrorMessage(
 ): string {
   const limit = (result.details as { limit?: AiSourceLimit } | undefined)?.limit;
   if (limit) return t(`ai.limit_${limit}`, { max: MAX_AI_SOURCES });
-  if (result.code === 'not_supported') return t('ai.notConfiguredHint');
+  const aiReason = (result.details as { aiReason?: string } | undefined)?.aiReason;
+  if (aiReason === 'context_too_large') return t('ai.error_context_too_large');
+  if (aiReason === 'provider_refusal') {
+    return t('ai.error_provider_refusal', { detail: result.message });
+  }
+  if (result.code === 'not_supported') {
+    return result.message === 'context_too_small'
+      ? t('ai.unavailable_context_too_small')
+      : t('ai.notConfiguredHint');
+  }
   return result.message;
 }

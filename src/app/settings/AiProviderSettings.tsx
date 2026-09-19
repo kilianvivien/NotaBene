@@ -7,9 +7,9 @@
  * rather than failing.
  *
  * The list is an accordion, not eight stacked cards. A student uses one
- * provider, occasionally two; laying all eight out with a key field, a Save and
- * a Test each made a pane you had to scroll past seven irrelevant boxes to
- * reach the eighth. Collapsed, a row states the only thing that matters from
+ * provider, occasionally two; laying every provider out with a key field, a
+ * Save and a Test each made a pane full of irrelevant boxes. Collapsed, a row
+ * states the only thing that matters from
  * outside — connected or not — and expanding is the gesture that says "this is
  * the one I care about".
  *
@@ -28,7 +28,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { FieldSection, GlassButton, GlassSelect } from '@/components/glass';
 import { secrets } from '@/lib/adapters';
 import type { AppSettings } from '@/lib/adapters';
@@ -360,6 +360,23 @@ function ProviderRow({
               </button>
             </div>
           )}
+
+          {definition.id === 'apple' &&
+            detectable &&
+            found !== undefined &&
+            !found.loaded.length &&
+            !found.available.length && (
+              <p className="text-[11px] leading-relaxed text-nb-text-3">
+                <Trans
+                  i18nKey="ai.apple.hint"
+                  components={{
+                    command: (
+                      <code className="select-all rounded-nb-xs bg-[var(--nb-control-surface)] px-1 py-0.5 font-mono text-[10px] text-nb-text-2" />
+                    ),
+                  }}
+                />
+              </p>
+            )}
 
           <div className="flex items-center gap-2">
             <GlassButton

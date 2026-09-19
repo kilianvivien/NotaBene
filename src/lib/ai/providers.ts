@@ -33,6 +33,12 @@ export interface ProviderDefinition {
   featureDefaults?: Partial<Record<AiFeature, string>>;
   /** Where to go and get a key. Opened in the system browser, never in-app. */
   keyUrl?: string;
+  /** Hard context window shared by input and output. Unset means the global
+   * input ceiling is the only limit NotaBene needs to enforce. */
+  contextTokens?: number;
+  /** Provider-specific estimator calibration. Defaults to the conservative
+   * English/French average used for hosted models. */
+  charsPerToken?: number;
   quirks?: ProviderQuirks;
 }
 
@@ -56,6 +62,9 @@ export interface ProviderQuirks {
    * so a provider that enforces the strict subset gets the schema as guidance
    * instead of as a contract. Defaults to true. */
   jsonSchemaStrict?: boolean;
+  /** Some compatible servers stream when this field is omitted, even on a
+   * whole-response request. */
+  explicitStream?: boolean;
 }
 
 export const AI_PROVIDERS: ProviderDefinition[] = [
@@ -182,6 +191,21 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     quirks: { jsonMode: false, jsonSchemaMode: true },
   },
   {
+    id: 'apple',
+    label: 'Apple Intelligence (on-device)',
+    protocol: 'openai',
+    defaultBaseUrl: 'http://127.0.0.1:1976/v1',
+    requiresKey: false,
+    editableBaseUrl: true,
+    models: ['system'],
+    defaultModel: 'system',
+    contextTokens: 8_192,
+    charsPerToken: 5,
+    // `fm serve` rejects json_object, honours json_schema, and streams when
+    // the stream field is absent rather than false.
+    quirks: { jsonMode: false, jsonSchemaMode: true, explicitStream: true },
+  },
+  {
     id: 'custom',
     label: 'OpenAI-compatible',
     protocol: 'openai',
@@ -223,3 +247,11 @@ export const AI_FEATURES = [
   'tasks',
 ] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
+
+/** The smallest context in which a feature can deliver what its UI promises. */
+export const AI_FEATURE_MIN_CONTEXT: Partial<Record<AiFeature, number>> = {
+  synthesis: 32_000,
+  podcast: 32_000,
+  importFormat: 32_000,
+  agent: 64_000,
+};

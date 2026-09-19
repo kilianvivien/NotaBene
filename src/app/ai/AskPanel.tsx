@@ -39,6 +39,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import { AiDisclosureButton } from './AiDisclosure';
+import { aiErrorMessage } from './aiErrorMessage';
 import { AiModeSwitch } from './AiModeSwitch';
 import { AiStatusPill } from './AiStatusPill';
 import { AiRichText } from './AiRichText';
@@ -145,9 +146,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
       store.discardStreaming(noteId, requestKey);
     }
     if (result.code === 'cancelled') return;
-    setError(
-      result.code === 'not_supported' ? t('ai.notConfiguredHint') : result.message,
-    );
+    setError(aiErrorMessage(result, t));
   }
 
   /** A citation is a way back into the note, which is the point of showing it. */

@@ -187,8 +187,13 @@ and its code fences, and a model that mangles one is shown what it wrote and
 asked again. Whatever comes back is validated before it can reach a note.
 
 You can connect Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama, LM
-Studio, or any OpenAI-compatible endpoint. Keys are stored in the macOS
-Keychain, never in your notes.
+Studio, **Apple Intelligence**, or any OpenAI-compatible endpoint. On macOS 27,
+run `fm serve` in Terminal and enable Apple Intelligence in Settings ▸ AI
+providers to use the system model entirely on-device, with no key or model
+download. Its 8,192-token context is suited to short notes and selections;
+NotaBene disables synthesis, podcasts, document layout, and the Agent for this
+provider rather than starting work the model cannot finish. Keys for other
+providers are stored in the macOS Keychain, never in your notes.
 
 Read aloud and spoken episodes use a voice you choose. **macOS system voices**
 work offline and are the default. Two better-sounding **neural voices** —

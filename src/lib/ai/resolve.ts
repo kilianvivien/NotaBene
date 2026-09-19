@@ -14,6 +14,7 @@ import type { LocalModels } from './localModels';
 import type { ResolvedProvider } from './protocols';
 import {
   AI_PROVIDERS,
+  AI_FEATURE_MIN_CONTEXT,
   providerById,
   secretKeyFor,
   type AiFeature,
@@ -27,7 +28,11 @@ export type DetectedModels = Record<string, LocalModels>;
 
 /** Why a feature cannot run. Each maps to one sentence in the UI — never to a
  * disabled button with no explanation. */
-export type AiUnavailableReason = 'no_provider' | 'no_model' | 'no_base_url';
+export type AiUnavailableReason =
+  | 'no_provider'
+  | 'no_model'
+  | 'no_base_url'
+  | 'context_too_small';
 
 export type AiAvailability =
   | {
@@ -126,6 +131,15 @@ export function resolveFeature(
         !baseUrlFor(provider, settings),
     );
     return { available: false, reason: keyedButAddressless ? 'no_base_url' : 'no_provider' };
+  }
+
+  const minimumContext = AI_FEATURE_MIN_CONTEXT[feature];
+  if (
+    minimumContext !== undefined &&
+    definition.contextTokens !== undefined &&
+    definition.contextTokens < minimumContext
+  ) {
+    return { available: false, reason: 'context_too_small' };
   }
 
   // The stored model only applies when it belongs to the provider we landed on;

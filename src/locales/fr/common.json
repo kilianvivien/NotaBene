@@ -507,6 +507,9 @@
     "error": "Enregistrement impossible"
   },
   "ai": {
+    "apple": {
+      "hint": "Inclus avec macOS 27. Exécutez <command>fm serve</command> dans Terminal une fois par session."
+    },
     "accept": "Accepter",
     "acceptAll": "Tout accepter",
     "acceptedCount_one": "{{count}} sur {{total}} acceptée",
@@ -593,6 +596,8 @@
     "disclosure": "Comment NotaBene utilise l’IA",
     "editCards": "Modifier les fiches",
     "enableLocal": "Utiliser ce moteur local",
+    "error_context_too_large": "Ce contenu est trop long pour le modèle embarqué. Sélectionnez une section plus courte.",
+    "error_provider_refusal": "Le modèle a refusé cette demande : {{detail}} Essayez une sélection plus courte ou plus précise.",
     "episodeLength": "{{minutes}} min",
     "estimatedLength": "environ {{minutes}} min",
     "excluded": "Exclue",
@@ -719,6 +724,7 @@
     "testOk": "Le fournisseur a répondu.",
     "testing": "Test en cours…",
     "unavailable_no_base_url": "Indiquer l'URL du service",
+    "unavailable_context_too_small": "Le contexte de ce modèle est trop court pour cette fonction",
     "unavailable_no_model": "Choisir un modèle",
     "unavailable_no_provider": "Connecter un fournisseur",
     "useDefault": "Par défaut",

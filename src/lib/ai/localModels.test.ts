@@ -63,6 +63,7 @@ describe('isLoopbackUrl', () => {
 describe('detectLocalModels', () => {
   const lmstudio = providerById('lmstudio')!;
   const ollama = providerById('ollama')!;
+  const apple = providerById('apple')!;
 
   it('reads LM Studio’s loaded model out of its own listing', async () => {
     serve({
@@ -119,6 +120,15 @@ describe('detectLocalModels', () => {
     ).resolves.toEqual({ loaded: [], available: ['phi-4'] });
   });
 
+  it("reads Apple's single system model from its OpenAI listing", async () => {
+    const spy = serve({ '/v1/models': { data: [{ id: 'system', owned_by: 'Apple' }] } });
+
+    await expect(
+      detectLocalModels(apple, 'http://127.0.0.1:1976/v1'),
+    ).resolves.toEqual({ loaded: ['system'], available: ['system'] });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
   it('is silent when nothing is listening', async () => {
     vi.spyOn(aiTransport, 'request').mockRejectedValue(new Error('connection refused'));
 
@@ -133,6 +143,7 @@ describe('detectLocalModels', () => {
     expect(supportsModelDetection(providerById('custom')!)).toBe(false);
     expect(supportsModelDetection(providerById('openai')!)).toBe(false);
     expect(supportsModelDetection(lmstudio)).toBe(true);
+    expect(supportsModelDetection(apple)).toBe(true);
   });
 });
 

@@ -41,6 +41,7 @@ import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import { AiDisclosureButton } from './AiDisclosure';
+import { aiErrorMessage } from './aiErrorMessage';
 import { AiModeSwitch } from './AiModeSwitch';
 import { AiStatusPill } from './AiStatusPill';
 import {
@@ -152,7 +153,7 @@ export function AgentPanel({
       }
       setError(
         response.code === 'not_supported'
-          ? t('ai.notConfiguredHint')
+          ? aiErrorMessage(response, t)
           : (agentErrorText(response.message) ?? t('agent.errorFallback')),
       );
     }

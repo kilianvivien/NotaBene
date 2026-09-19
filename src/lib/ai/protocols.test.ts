@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildRequest, parseResponse, parseStreamFrame } from './protocols';
+import {
+  buildRequest,
+  parseResponse,
+  parseStreamError,
+  parseStreamFrame,
+} from './protocols';
 import type { AiCall, ResolvedProvider } from './protocols';
 import { providerById } from './providers';
 
@@ -75,6 +80,20 @@ describe('openAiRequest', () => {
       temperature: 0.2,
     });
   });
+
+  it('uses JSON Schema and an explicit stream flag for Apple', () => {
+    const jsonSchema = {
+      name: 'answer',
+      schema: { type: 'object', properties: { title: { type: 'string' } } },
+    };
+    const body = bodyOf(resolved('apple', 'system'), true, jsonSchema);
+    expect(body.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: { ...jsonSchema, strict: true },
+    });
+    expect(body.response_format).not.toEqual({ type: 'json_object' });
+    expect(body.stream).toBe(false);
+  });
 });
 
 /**
@@ -119,6 +138,22 @@ describe('parseResponse', () => {
   it('still reports a body it genuinely cannot read', () => {
     const body = JSON.stringify({ choices: [{ message: { role: 'assistant' } }] });
     expect(() => parseResponse(mistral, body)).toThrow(/could not find text/);
+  });
+
+  it("surfaces an OpenAI-compatible provider's refusal in its own words", () => {
+    const body = JSON.stringify({
+      choices: [{ message: { role: 'assistant', content: null, refusal: 'I cannot do that.' } }],
+    });
+    expect(() => parseResponse(resolved('apple', 'system'), body)).toThrow(
+      'I cannot do that.',
+    );
+  });
+});
+
+describe('parseStreamError', () => {
+  it("reads Apple's in-stream context error frame", () => {
+    const message = "The session's transcript exceeded the model's context size.";
+    expect(parseStreamError(JSON.stringify({ error: { message } }))).toBe(message);
   });
 });
 

@@ -20,6 +20,7 @@ import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { AiDialogStatus } from './AiDisclosure';
+import { aiErrorMessage } from './aiErrorMessage';
 import { useAiAvailability } from './useAiAvailability';
 
 export function DiagramDialog() {
@@ -48,9 +49,7 @@ export function DiagramDialog() {
 
     if (!outcome.ok) {
       if (outcome.code !== 'cancelled') {
-        setError(
-          outcome.code === 'not_supported' ? t('ai.notConfiguredHint') : outcome.message,
-        );
+        setError(aiErrorMessage(outcome, t));
       }
       return;
     }

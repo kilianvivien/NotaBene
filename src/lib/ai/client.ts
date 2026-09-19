@@ -12,7 +12,13 @@
  * than no progress indicator at all.
  */
 import { aiTransport } from '@/lib/adapters';
-import { buildRequest, parseResponse, parseStreamError, parseStreamFrame } from './protocols';
+import {
+  buildRequest,
+  parseResponse,
+  parseStreamError,
+  parseStreamFrame,
+  ProviderRefusalError,
+} from './protocols';
 import type { AiCall } from './protocols';
 
 /** Default ceiling for one call. Generous because a local model on a laptop is
@@ -37,6 +43,7 @@ export class AiError extends Error {
     message: string,
     readonly status?: number,
     readonly retryable = false,
+    readonly code?: 'context_too_large' | 'provider_refusal',
   ) {
     super(message);
     this.name = 'AiError';
@@ -51,8 +58,8 @@ export class AiError extends Error {
  * ~3.6 characters per token splits the difference between English and French;
  * French runs longer per token, and half this app's users write in it.
  */
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 3.6);
+export function estimateTokens(text: string, charsPerToken = 3.6): number {
+  return Math.ceil(text.length / charsPerToken);
 }
 
 /** Refuse rather than send. The number is well under every current model's
@@ -63,19 +70,35 @@ export const MAX_INPUT_TOKENS = 150_000;
 export interface Preflight {
   characters: number;
   estimatedTokens: number;
+  inputLimitTokens: number;
+  maxOutputTokens: number;
   withinLimit: boolean;
 }
 
-export function preflight(call: Pick<AiCall, 'messages'>): Preflight {
+export function preflight(
+  call: Pick<AiCall, 'messages'> & Partial<Pick<AiCall, 'provider' | 'maxTokens'>>,
+): Preflight {
   const characters = call.messages.reduce(
     (total, message) => total + message.content.length,
     0,
   );
-  const estimatedTokens = Math.ceil(characters / 3.6);
+  const definition = call.provider?.definition;
+  const estimatedTokens = Math.ceil(characters / (definition?.charsPerToken ?? 3.6));
+  const contextTokens = definition?.contextTokens;
+  const requestedOutput = Math.max(1, call.maxTokens ?? 1);
+  const maxOutputTokens = contextTokens
+    ? Math.min(requestedOutput, Math.max(0, contextTokens - estimatedTokens))
+    : requestedOutput;
+  const inputLimitTokens = Math.min(
+    MAX_INPUT_TOKENS,
+    contextTokens ? Math.max(0, contextTokens - maxOutputTokens) : MAX_INPUT_TOKENS,
+  );
   return {
     characters,
     estimatedTokens,
-    withinLimit: estimatedTokens <= MAX_INPUT_TOKENS,
+    inputLimitTokens,
+    maxOutputTokens,
+    withinLimit: estimatedTokens <= inputLimitTokens && maxOutputTokens > 0,
   };
 }
 
@@ -83,14 +106,22 @@ export async function runAi(call: AiCall, options: AiRunOptions = {}): Promise<s
   const check = preflight(call);
   if (!check.withinLimit) {
     throw new AiError(
-      `input is about ${check.estimatedTokens} tokens, over the ${MAX_INPUT_TOKENS} limit`,
+      `input is about ${check.estimatedTokens} tokens, over the ${check.inputLimitTokens} limit`,
+      undefined,
+      false,
+      call.provider.definition.contextTokens ? 'context_too_large' : undefined,
     );
   }
+
+  const prepared =
+    check.maxOutputTokens < call.maxTokens
+      ? { ...call, maxTokens: check.maxOutputTokens }
+      : call;
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
-      return await attemptCall(call, options);
+      return await attemptCall(prepared, options);
     } catch (error) {
       lastError = error;
       const retryable = error instanceof AiError && error.retryable;
@@ -157,6 +188,10 @@ async function readWhole(
 ): Promise<string> {
   const response = await untilAborted(aiTransport.request(request), signal);
   if (response.status >= 400) {
+    const detail = extractMessage(response.body);
+    if (isContextOverflow(detail)) {
+      throw new AiError(detail, response.status, false, 'context_too_large');
+    }
     throw new AiError(
       describeStatus(response.status, response.body),
       response.status,
@@ -174,7 +209,14 @@ async function readStream(
   let text = '';
   for await (const payload of aiTransport.stream(request)) {
     const failure = parseStreamError(payload);
-    if (failure) throw new AiError(failure);
+    if (failure) {
+      throw new AiError(
+        failure,
+        undefined,
+        false,
+        isContextOverflow(failure) ? 'context_too_large' : undefined,
+      );
+    }
 
     const delta = parseStreamFrame(call.provider, payload);
     if (delta) {
@@ -189,6 +231,9 @@ async function readStream(
 /** Turn transport-level failures into something a person can act on. */
 function asAiError(error: unknown): AiError {
   if (error instanceof AiError) return error;
+  if (error instanceof ProviderRefusalError) {
+    return new AiError(error.detail, undefined, false, 'provider_refusal');
+  }
   if (error instanceof DOMException && error.name === 'AbortError') {
     return new AiError('cancelled');
   }
@@ -202,6 +247,10 @@ function asAiError(error: unknown): AiError {
   // path.
   const status = Number(/^(\d{3})\b/.exec(message)?.[1] ?? NaN);
   if (Number.isFinite(status)) {
+    const detail = extractMessage(message.slice(4));
+    if (isContextOverflow(detail)) {
+      return new AiError(detail, status, false, 'context_too_large');
+    }
     return new AiError(
       describeStatus(status, message.slice(4)),
       status,
@@ -213,6 +262,10 @@ function asAiError(error: unknown): AiError {
   // message ("Failed to fetch", "error sending request") tells a student
   // nothing at all, so it gets the endpoint named back at them.
   return new AiError(`could not reach the provider (${message})`, undefined, true);
+}
+
+function isContextOverflow(message: string): boolean {
+  return message.toLowerCase().includes("exceeded the model's context size");
 }
 
 function describeStatus(status: number, body: string): string {

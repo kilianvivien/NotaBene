@@ -425,6 +425,20 @@ describe('feature resolution', () => {
     expect(result.model).toBe('mistral-large-latest');
   });
 
+  it("gates features that cannot fit Apple's context window", () => {
+    const settings = settingsWith({
+      aiProviders: { apple: { enabled: true, baseUrl: null, extraModels: [] } },
+    });
+    expect(resolveFeature('podcast', settings, [])).toEqual({
+      available: false,
+      reason: 'context_too_small',
+    });
+    expect(resolveFeature('define', settings, [])).toMatchObject({
+      available: true,
+      model: 'system',
+    });
+  });
+
   it('prefixes secret names so a provider id cannot collide with another secret', () => {
     expect(secretKeyFor('mistral')).toBe('ai.mistral.apiKey');
   });
@@ -433,6 +447,7 @@ describe('feature resolution', () => {
 describe('preflight', () => {
   it('estimates in the right order of magnitude', () => {
     expect(estimateTokens('a'.repeat(360))).toBe(100);
+    expect(estimateTokens('a'.repeat(500), 5)).toBe(100);
   });
 
   it('refuses an oversized payload before anything leaves the machine', async () => {
@@ -455,6 +470,22 @@ describe('preflight', () => {
     ).rejects.toThrow(/limit/);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+
+  it("refuses a note that cannot fit Apple's window before sending it", async () => {
+    const transport = await import('@/lib/adapters');
+    const spy = vi.spyOn(transport.aiTransport, 'request');
+    await expect(
+      runAi({
+        provider: resolved('apple', 'system'),
+        messages: [{ role: 'user', content: 'x'.repeat(8_192 * 5) }],
+        maxTokens: 8_000,
+        temperature: 0,
+        json: false,
+        stream: false,
+      }),
+    ).rejects.toThrow(/limit/);
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 
@@ -500,6 +531,60 @@ describe('the request engine', () => {
     });
     await expect(runAi(call)).rejects.toThrow(/rejected the API key/);
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry Apple's context overflow response", async () => {
+    const transport = await import('@/lib/adapters');
+    const request = vi.spyOn(transport.aiTransport, 'request').mockResolvedValue({
+      status: 500,
+      headers: {},
+      body: JSON.stringify({
+        error: { message: "The session's transcript exceeded the model's context size." },
+      }),
+    });
+
+    await expect(runAi({ ...call, provider: resolved('apple', 'system') })).rejects.toThrow(
+      /exceeded the model's context size/,
+    );
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws Apple's in-stream context error instead of returning a partial answer", async () => {
+    const transport = await import('@/lib/adapters');
+    vi.spyOn(transport.aiTransport, 'stream').mockImplementation(async function* () {
+      yield JSON.stringify({
+        error: { message: "The session's transcript exceeded the model's context size." },
+      });
+    });
+
+    await expect(
+      runAi(
+        { ...call, provider: resolved('apple', 'system') },
+        { onToken: vi.fn() },
+      ),
+    ).rejects.toThrow(/exceeded the model's context size/);
+  });
+
+  it("clamps Apple's requested output to the context left after input", async () => {
+    const transport = await import('@/lib/adapters');
+    const request = vi.spyOn(transport.aiTransport, 'request').mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: '{"choices":[{"message":{"content":"ok"}}]}',
+    });
+
+    await expect(
+      runAi({
+        ...call,
+        provider: resolved('apple', 'system'),
+        messages: [{ role: 'user', content: 'a'.repeat(5_000) }],
+        maxTokens: 8_000,
+      }),
+    ).resolves.toBe('ok');
+    const body = JSON.parse(request.mock.calls[0]?.[0].body ?? '{}') as {
+      max_tokens?: number;
+    };
+    expect(body.max_tokens).toBe(7_192);
   });
 
   it('lets go of a call the transport cannot take back', async () => {

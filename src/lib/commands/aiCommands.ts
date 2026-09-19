@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { markdownToDoc } from '@/editor/markdown';
 import { library } from '@/lib/adapters';
 import {
+  AiError,
   applyProposal,
   checkSourceLimits,
   estimateTokens,
@@ -118,7 +119,11 @@ export function aiFailure<T>(error: unknown, signal?: AbortSignal): CommandResul
   if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
     return fail('cancelled', 'cancelled');
   }
-  return fail('invalid_input', message);
+  return fail(
+    'invalid_input',
+    message,
+    error instanceof AiError && error.code ? { aiReason: error.code } : undefined,
+  );
 }
 
 // -- Rewrite -----------------------------------------------------------------
@@ -317,6 +322,9 @@ export async function askAboutNotesCommand(
 ): Promise<CommandResult<AskAnswer>> {
   await useEditorStore.getState().flush();
 
+  const lookup = await providerFor('ask');
+  if (!lookup.ok) return fail('not_supported', lookup.reason);
+
   const scope = input.scope ?? 'note';
   let sources: (Pick<Note, 'title' | 'doc'> & {
     noteId: string;
@@ -349,6 +357,7 @@ export async function askAboutNotesCommand(
       priorQuestions: input.history
         .filter((turn) => turn.role === 'user')
         .map((turn) => turn.content),
+      provider: lookup.provider.definition,
     });
     if (!gathered.ok) return gathered;
     sources = gathered.value.sources.map((source) => ({
@@ -360,9 +369,6 @@ export async function askAboutNotesCommand(
     }));
     droppedCount = gathered.value.droppedCount;
   }
-
-  const lookup = await providerFor('ask');
-  if (!lookup.ok) return fail('not_supported', lookup.reason);
 
   try {
     const answer = await requestAnswer(

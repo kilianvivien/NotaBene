@@ -23,6 +23,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import { AiDialogStatus } from './AiDisclosure';
+import { aiErrorMessage } from './aiErrorMessage';
 import { AiRichText } from './AiRichText';
 import { useAiAvailability } from './useAiAvailability';
 
@@ -84,11 +85,7 @@ export function RewriteDialog() {
       // A cancel is not a failure: the student pressed the button and knows
       // what happened.
       if (response.code !== 'cancelled') {
-        setError(
-          response.code === 'not_supported'
-            ? t('ai.notConfiguredHint')
-            : response.message,
-        );
+        setError(aiErrorMessage(response, t));
       }
       return;
     }

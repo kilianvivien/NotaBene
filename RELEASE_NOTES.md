@@ -1,5 +1,23 @@
 # Release notes
 
+## NotaBene 1.0.0
+
+- **Apple Intelligence as an on-device AI provider.** On macOS 27, start the
+  system `fm serve` service and enable Apple Intelligence in Settings to use
+  the model built into macOS without an API key or model download. NotaBene
+  detects the system model, uses Apple's supported JSON Schema mode, and keeps
+  all requests on loopback.
+- **Honest context limits.** The system model's 8,192-token window now informs
+  request preflight, output limits, and Ask retrieval. Features that cannot fit
+  that window—synthesis, podcasts, document layout, and the Agent—are disabled
+  with an explanation, while an oversized rewrite is refused before it leaves
+  the app.
+- **Clearer provider failures.** Context-overflow responses are not retried,
+  streamed overflow errors are surfaced instead of returning truncated text,
+  and model refusals preserve the provider's explanation.
+
+Nothing here changes the library schema.
+
 ## NotaBene 0.8.0
 
 - **Tasks and to-dos.** A Tasks view in the sidebar with deadlines, priorities,

@@ -507,6 +507,9 @@
     "error": "Could not save"
   },
   "ai": {
+    "apple": {
+      "hint": "Ships with macOS 27. Run <command>fm serve</command> in Terminal once per session."
+    },
     "accept": "Accept",
     "acceptAll": "Accept all",
     "acceptedCount_one": "{{count}} of {{total}} accepted",
@@ -593,6 +596,8 @@
     "disclosure": "How NotaBene uses AI",
     "editCards": "Edit cards",
     "enableLocal": "Use this local runtime",
+    "error_context_too_large": "This content is too long for the on-device model. Select a shorter section.",
+    "error_provider_refusal": "The model declined this request: {{detail}} Try a shorter or more focused selection.",
     "episodeLength": "{{minutes}} min",
     "estimatedLength": "about {{minutes}} min",
     "excluded": "Excluded",
@@ -719,6 +724,7 @@
     "testOk": "The provider answered.",
     "testing": "Testing…",
     "unavailable_no_base_url": "Set the endpoint URL",
+    "unavailable_context_too_small": "This model's context is too small for this feature",
     "unavailable_no_model": "Choose a model",
     "unavailable_no_provider": "Connect a provider",
     "useDefault": "Default",

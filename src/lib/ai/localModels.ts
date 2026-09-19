@@ -74,7 +74,11 @@ export function isLoopbackUrl(url: string): boolean {
  * here: it may be a vLLM box or a university gateway, and guessing at LM
  * Studio's routes on someone else's server is a stray request, not a feature. */
 export function supportsModelDetection(definition: ProviderDefinition): boolean {
-  return definition.id === 'lmstudio' || definition.id === 'ollama';
+  return (
+    definition.id === 'lmstudio' ||
+    definition.id === 'ollama' ||
+    definition.id === 'apple'
+  );
 }
 
 /**
@@ -101,7 +105,12 @@ export async function detectLocalModels(
   if (native.available.length) return native;
 
   const available = await openAiModels(baseUrl);
-  return { loaded: native.loaded, available };
+  // Apple's system model is managed and kept resident by macOS; an available
+  // entry in its only listing is therefore also the model that will answer.
+  return {
+    loaded: definition.id === 'apple' ? available : native.loaded,
+    available,
+  };
 }
 
 async function lmStudioModels(baseUrl: string): Promise<LocalModels> {

@@ -22,6 +22,7 @@ import {
   type RetrievalResult,
   type RetrievedSource,
 } from '@/lib/ai/retrieval';
+import type { ProviderDefinition } from '@/lib/ai/providers';
 import type { DocNode, Note, NoteDoc } from '@/lib/schema';
 import { deriveTurnKeywords } from '@/lib/search/keywords';
 import { queryNotesCommand, rankNotesCommand, readNoteCommand } from './readCommands';
@@ -36,6 +37,9 @@ export interface AskSourcesInput {
   priorQuestions?: string[];
   /** Everything else already destined for the prompt, for budgeting. */
   spokenContext?: string;
+  /** The resolved provider determines both the available context and the
+   * estimator calibration used while packing. */
+  provider?: Pick<ProviderDefinition, 'contextTokens' | 'charsPerToken'>;
 }
 
 /** How many ranked candidates to consider before fusing and packing. */
@@ -87,6 +91,7 @@ export async function gatherAskSourcesCommand(
   const keywords = deriveTurnKeywords(input.question, input.priorQuestions ?? []);
   const budget = sourceBudget(
     `${input.spokenContext ?? ''}\n${(input.priorQuestions ?? []).join('\n')}\n${input.question}`,
+    input.provider,
   );
 
   const candidates = keywords.length
@@ -127,6 +132,7 @@ export async function gatherAskSourcesCommand(
     withDocs,
     keywords,
     budget,
+    input.provider?.charsPerToken,
   );
 
   return ok({

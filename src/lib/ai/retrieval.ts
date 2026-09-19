@@ -21,6 +21,7 @@ import { docToMarkdown } from '@/editor/markdown';
 import type { DocNode, NoteDoc } from '@/lib/schema';
 import { fold } from '@/lib/search/fold';
 import { estimateTokens, MAX_INPUT_TOKENS } from './client';
+import type { ProviderDefinition } from './providers';
 
 /** How wide a question is allowed to look. */
 export type AskScope = 'note' | 'course' | 'library';
@@ -114,6 +115,10 @@ export interface AnchorNote {
  */
 export const ASK_SOURCE_BUDGET_TOKENS = 32_000;
 
+/** Room kept for the answer rather than letting retrieval consume the entire
+ * context window before the model writes its first token. */
+export const ASK_RESPONSE_BUDGET_TOKENS = 2_000;
+
 export const MAX_SOURCES = 12;
 
 /** Below this a source contributes noise rather than context. */
@@ -134,13 +139,17 @@ const RECENCY_HALF_LIFE_DAYS = 90;
  * A long conversation shrinks the context rather than pushing the request over
  * the limit and failing outright.
  */
-export function sourceBudget(historyAndQuestion: string): number {
-  const spoken = estimateTokens(historyAndQuestion);
+export function sourceBudget(
+  historyAndQuestion: string,
+  provider?: Pick<ProviderDefinition, 'contextTokens' | 'charsPerToken'>,
+): number {
+  const spoken = estimateTokens(historyAndQuestion, provider?.charsPerToken);
+  const inputCeiling = Math.min(MAX_INPUT_TOKENS, provider?.contextTokens ?? Infinity);
   return Math.max(
-    MIN_SOURCE_TOKENS,
+    0,
     Math.min(
       ASK_SOURCE_BUDGET_TOKENS,
-      MAX_INPUT_TOKENS - spoken - PROMPT_OVERHEAD_TOKENS,
+      inputCeiling - spoken - PROMPT_OVERHEAD_TOKENS - ASK_RESPONSE_BUDGET_TOKENS,
     ),
   );
 }
@@ -217,6 +226,7 @@ export function packSources(
   }[],
   keywords: string[],
   budgetTokens: number,
+  charsPerToken?: number,
 ): { sources: RetrievedSource[]; droppedCount: number } {
   const sources: RetrievedSource[] = [
     {
@@ -241,7 +251,8 @@ export function packSources(
   ];
 
   // The anchor is not optional, so it is spent before the budget is consulted.
-  let remaining = budgetTokens - estimateTokens(docToMarkdown(anchor.doc));
+  let remaining =
+    budgetTokens - estimateTokens(docToMarkdown(anchor.doc), charsPerToken);
   let dropped = 0;
 
   for (const entry of ranked) {
@@ -250,7 +261,7 @@ export function packSources(
       continue;
     }
 
-    const whole = estimateTokens(docToMarkdown(entry.doc));
+    const whole = estimateTokens(docToMarkdown(entry.doc), charsPerToken);
     if (whole <= remaining) {
       sources.push({
         noteId: entry.candidate.noteId,
@@ -266,7 +277,7 @@ export function packSources(
       continue;
     }
 
-    const window = headingSectionWindow(entry.doc, keywords, remaining);
+    const window = headingSectionWindow(entry.doc, keywords, remaining, charsPerToken);
     if (!window) {
       dropped += 1;
       continue;
@@ -285,7 +296,7 @@ export function packSources(
         endBlock: window.endBlock,
       }),
     });
-    remaining -= estimateTokens(docToMarkdown(window.doc));
+    remaining -= estimateTokens(docToMarkdown(window.doc), charsPerToken);
   }
 
   return { sources, droppedCount: dropped };
@@ -319,8 +330,9 @@ export function headingSectionWindow(
   doc: NoteDoc,
   keywords: string[],
   budgetTokens: number,
+  charsPerToken?: number,
 ): HeadingSectionWindow | null {
-  const sections = headingSections(doc);
+  const sections = headingSections(doc, charsPerToken);
   if (!sections.length) return null;
 
   const best = bestSectionIndex(sections, keywords);
@@ -355,7 +367,7 @@ export function headingSectionWindow(
   };
 }
 
-function headingSections(doc: NoteDoc): HeadingSection[] {
+function headingSections(doc: NoteDoc, charsPerToken?: number): HeadingSection[] {
   if (!doc.content.length) return [];
   const starts = [0];
   for (let index = 1; index < doc.content.length; index += 1) {
@@ -373,7 +385,7 @@ function headingSections(doc: NoteDoc): HeadingSection[] {
       startBlock,
       endBlock,
       markdown,
-      tokens: estimateTokens(markdown),
+      tokens: estimateTokens(markdown, charsPerToken),
     };
   });
 }

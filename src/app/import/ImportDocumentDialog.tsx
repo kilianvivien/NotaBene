@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AiDialogStatus } from '@/app/ai/AiDisclosure';
 import { AiRichText } from '@/app/ai/AiRichText';
+import { aiErrorMessage } from '@/app/ai/aiErrorMessage';
 import { useAiAvailability } from '@/app/ai/useAiAvailability';
 import {
   Dialog,
@@ -296,7 +297,7 @@ export function ImportDocumentDialog() {
       setReformat(false);
       setError(
         result.code === 'not_supported'
-          ? t('ai.notConfiguredHint')
+          ? aiErrorMessage(result, t)
           : t('import.formatFailed'),
       );
       return;

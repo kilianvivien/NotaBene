@@ -21,7 +21,7 @@ import { docToMarkdown } from '@/editor/markdown';
 import type { Note } from '@/lib/schema';
 import { runAi, type AiRunOptions } from './client';
 import { askPrompt, type AskMode } from './prompts';
-import type { AskScope } from './retrieval';
+import { ASK_RESPONSE_BUDGET_TOKENS, type AskScope } from './retrieval';
 import type { AiMessage, ResolvedProvider } from './protocols';
 
 /** One exchange. Kept in the store, never persisted: a question you asked
@@ -73,7 +73,7 @@ export async function requestAnswer(
         question,
         language: request.language,
       }),
-      maxTokens: 2_000,
+      maxTokens: ASK_RESPONSE_BUDGET_TOKENS,
       temperature: 0.2,
       json: false,
       stream: true,

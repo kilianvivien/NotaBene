@@ -122,7 +122,7 @@ function openAiRequest(call: AiCall): AiRequest {
       [tokenField]: call.maxTokens,
       ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
       ...openAiResponseFormat(call),
-      ...(call.stream ? { stream: true } : {}),
+      ...(call.stream || quirks.explicitStream ? { stream: call.stream } : {}),
     }),
   };
 }
@@ -198,6 +198,13 @@ export function parseResponse(provider: ResolvedProvider, body: string): string 
   return text;
 }
 
+export class ProviderRefusalError extends Error {
+  constructor(readonly detail: string) {
+    super(detail);
+    this.name = 'ProviderRefusalError';
+  }
+}
+
 function providerError(payload: unknown): string | null {
   if (!isRecord(payload)) return null;
   const error = payload.error;
@@ -239,6 +246,9 @@ function extractText(protocol: string, payload: unknown): string | null {
   if (!Array.isArray(choices)) return null;
   const first = choices[0];
   if (!isRecord(first) || !isRecord(first.message)) return null;
+  if (typeof first.message.refusal === 'string' && first.message.refusal.trim()) {
+    throw new ProviderRefusalError(first.message.refusal.trim());
+  }
   return openAiText(first.message.content);
 }
 
