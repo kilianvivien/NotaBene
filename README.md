@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v0.9.0"><img alt="Latest release: 0.9.0" src="https://img.shields.io/badge/release-0.9.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.0.0"><img alt="Latest release: 1.0.0" src="https://img.shields.io/badge/release-1.0.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,9 +24,10 @@
 
 ## Download
 
-Download **[NotaBene 0.9.0 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v0.9.0/NotaBene_0.9.0_aarch64.dmg)**.
-Requires macOS 13 Ventura or newer.
+Download **[NotaBene 1.0.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v1.0.0/NotaBene_1.0.0_aarch64.dmg)**.
+Requires macOS 13 Ventura or newer. Apple Intelligence as an AI provider needs
+macOS 27 on a Mac eligible for it; every other feature does not.
 
 > [!IMPORTANT]
 > The DMG is ad-hoc signed only, so macOS Gatekeeper may warn or block it.
@@ -41,8 +42,9 @@ and control over your own data. NotaBene is being built so you do not have to.
   your Mac.
 - **Made for classes.** Courses, sections, tags, backlinks, maths, drawings,
   and fast search are the point, not add-ons.
-- **AI on your terms.** Bring your own key, run a local model, or use no AI at
-  all. Nothing a model suggests reaches a note before you have seen it.
+- **AI on your terms.** Use Apple Intelligence on-device, bring your own key,
+  run a local model, or use no AI at all. Nothing a model suggests reaches a
+  note before you have seen it.
 - **No account.** There is no NotaBene cloud, no sign-up, and no subscription
   between you and your notes.
 
@@ -247,7 +249,9 @@ your own machine.
 
 NotaBene reaches the network in four situations, all of which you start:
 
-1. an AI request, to the provider or local model you configured;
+1. an AI request, to the provider you configured — Apple Intelligence and a
+   local runtime answer on your own machine, over loopback, and never leave
+   it;
 2. reading text aloud, if you picked a hosted voice over the offline macOS ones;
 3. a one-time download, if you choose to install an on-device voice — after
    which it works offline; and
@@ -259,15 +263,20 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 0.9.0** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v0.9.0).
+**NotaBene 1.0.0** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v1.0.0).
 Everything described above is built and working.
+
+1.0 is the version where the app finally does the whole job end to end —
+write, organize, study, export — and where the AI half of it can run with no
+key, no account, and no request leaving the Mac, on Apple's own on-device
+model.
 
 Two things are deliberately not done yet: the app is **not** signed with an
 Apple Developer ID or notarized, and there are **no** automatic updates. Both
 are planned.
 
-See the [0.9.0 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v0.9.0)
+See the [1.0.0 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.0.0)
 and [earlier release notes](./RELEASE_NOTES.md), plus the
 [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
