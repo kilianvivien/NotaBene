@@ -46,6 +46,8 @@ export type AiActivity =
   | 'mindMap'
   | 'diagram'
   | 'define'
+  | 'vocabulary'
+  | 'proofread'
   | 'flashcards'
   | 'podcast'
   | 'importFormat'

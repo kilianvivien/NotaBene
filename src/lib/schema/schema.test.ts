@@ -161,6 +161,32 @@ describe('library import', () => {
       expect(result.library.schemaVersion).toBe(SCHEMA_VERSION);
     }
   });
+
+  it('gives a v7 library an empty course vocabulary', () => {
+    const { courseTerms: _terms, ...v7 } = emptyLibrary();
+    const result = safeImportLibrary({ ...v7, schemaVersion: 7 });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.library.courseTerms).toEqual([]);
+      expect(result.library.schemaVersion).toBe(SCHEMA_VERSION);
+    }
+  });
+
+  it('refuses a course term that is not a term', () => {
+    const library = emptyLibrary();
+    const result = safeImportLibrary({
+      ...library,
+      courseTerms: [
+        {
+          id: 'term-1',
+          courseId: 'course-1',
+          term: 'x'.repeat(200),
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+    expect(result.ok).toBe(false);
+  });
 });
 
 describe('task schema', () => {

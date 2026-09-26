@@ -52,7 +52,13 @@ import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils/cn';
-import type { AccentColor, AppSettings, FocusSettings } from '@/lib/adapters';
+import {
+  COMPLETION_MIN_PREFIX,
+  type AccentColor,
+  type AppSettings,
+  type CompletionSettings,
+  type FocusSettings,
+} from '@/lib/adapters';
 import { EDITOR_FONT_SIZES, EDITOR_MEASURES } from '@/app/shell/readingScale';
 import { AbbreviationSettings } from './AbbreviationSettings';
 import { BackupSettings } from './BackupSettings';
@@ -127,6 +133,10 @@ export function SettingsWindow() {
    * changing — `update` merges at the top level only. */
   function setFocus(patch: Partial<FocusSettings>): void {
     void update({ focus: { ...settings.focus, ...patch } });
+  }
+
+  function setCompletion(patch: Partial<CompletionSettings>): void {
+    void update({ completion: { ...settings.completion, ...patch } });
   }
 
   return (
@@ -323,6 +333,35 @@ export function SettingsWindow() {
                       range={EDITOR_MEASURES}
                       value={settings.editorMeasure}
                       onChange={(value) => set('editorMeasure', value)}
+                    />
+                  </FieldRow>
+                </FieldSection>
+
+                <FieldSection
+                  title={t('settings.completionSection')}
+                  description={t('settings.completionSectionHint')}
+                >
+                  <FieldRow
+                    label={t('settings.completionEnabled')}
+                    hint={t('settings.completionEnabledHint')}
+                    align="end"
+                  >
+                    <FieldToggle
+                      label={t('settings.completionEnabled')}
+                      checked={settings.completion.enabled}
+                      onChange={(enabled) => setCompletion({ enabled })}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.completionMinPrefix')}
+                    hint={t('settings.completionMinPrefixHint')}
+                    align="end"
+                  >
+                    <SizeSlider
+                      label={t('settings.completionMinPrefix')}
+                      range={COMPLETION_MIN_PREFIX}
+                      value={settings.completion.minPrefix}
+                      onChange={(minPrefix) => setCompletion({ minPrefix })}
                     />
                   </FieldRow>
                 </FieldSection>

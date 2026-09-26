@@ -142,6 +142,7 @@ export type {
   LibraryAdapter,
   NoteMatch,
   NoteQuery,
+  NoteText,
   SnapshotRetentionPolicy,
   TaskQuery,
 } from './library/LibraryAdapter';
@@ -156,13 +157,14 @@ export type {
   AccentColor,
   AiProviderSettings,
   AppSettings,
+  CompletionSettings,
   FocusSettings,
   PodcastSettings,
   SpeechSettings,
   SecretsAdapter,
   SettingsAdapter,
 } from './settings/SettingsAdapter';
-export { DEFAULT_SETTINGS } from './settings/SettingsAdapter';
+export { COMPLETION_MIN_PREFIX, DEFAULT_SETTINGS } from './settings/SettingsAdapter';
 export {
   LOCAL_MODEL_REVISIONS,
   localTtsModels,

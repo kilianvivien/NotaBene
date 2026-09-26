@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   Archive,
+  BookText,
   ChevronDown,
   ChevronRight,
   FilePlus2,
@@ -732,6 +733,12 @@ function CourseRow({
                     icon: ListTodo,
                     onSelect: () =>
                       useUiStore.getState().openTasksView({ courseId: course.id }),
+                  },
+                  {
+                    id: 'vocabulary',
+                    label: t('menu.courseVocabulary'),
+                    icon: BookText,
+                    onSelect: () => useUiStore.getState().openVocabulary(course.id),
                   },
                   null,
                   {

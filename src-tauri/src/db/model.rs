@@ -258,6 +258,32 @@ pub struct TaskQuery {
     pub offset: Option<i64>,
 }
 
+/// A word a student has told NotaBene about, for one course: one to suggest
+/// while they type, or one never to suggest again.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseTerm {
+    pub id: String,
+    pub course_id: String,
+    pub term: String,
+    /// `accepted` or `rejected`.
+    pub status: String,
+    /// `user` or `ai` — who put it on the list, never who typed it.
+    pub source: String,
+    pub created_at: String,
+}
+
+/// The text of one note, for building a course's vocabulary. Deliberately not
+/// a `Note`: the document JSON is the expensive half of a row and the harvest
+/// never reads it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteText {
+    pub id: String,
+    pub title: String,
+    pub plain_text: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Library {
@@ -275,6 +301,9 @@ pub struct Library {
     pub templates: Vec<NoteTemplate>,
     pub tasks: Vec<Task>,
     pub task_note_links: Vec<TaskNoteLink>,
+    /// Absent from libraries written before v8, which had no vocabulary.
+    #[serde(default)]
+    pub course_terms: Vec<CourseTerm>,
 }
 
 /// Mirrors `NoteQuery` in `LibraryAdapter.ts`. Every field is optional, and

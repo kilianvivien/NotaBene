@@ -545,6 +545,102 @@ ${JSON_ONLY} It must match:
   ];
 }
 
+// -- Course vocabulary -------------------------------------------------------
+
+/**
+ * Review the words a course's notes are built from.
+ *
+ * The model sees words and one short excerpt each, never the notes: this is a
+ * spelling and terminology pass, and sending whole lectures would cost a
+ * student on a metered key hundreds of times more for no better answer.
+ *
+ * The rules lean hard towards saying nothing. Every proposal is a checkbox a
+ * student has to read, and a review that "corrects" correct technical terms
+ * into commoner words is worse than no review at all.
+ */
+export function vocabularyPrompt(options: {
+  courseName: string;
+  candidates: { term: string; count: number; context: string }[];
+  material: string;
+  language: string;
+}): AiMessage[] {
+  const words = options.candidates
+    .map(
+      (candidate) =>
+        `- ${candidate.term} (×${candidate.count})${candidate.context ? `: "${candidate.context.replace(/"/g, "'")}"` : ''}`,
+    )
+    .join('\n');
+  const material = options.material.trim();
+  return [
+    {
+      role: 'system',
+      content: `You are reviewing the vocabulary of a student's course notes, to improve the word completion in their note-taking app.
+
+${languageRule(options.language)} Keep every term in the language it is written in.
+
+- "corrections": a word from the list that is misspelled — a missing or wrong accent, a transposed letter, a recurring typo. "from" is the word exactly as listed, "to" the correct spelling. Only propose one when you are sure; a technical term, a proper name or a correct variant spelling you do not recognise is not a mistake. Never replace a word with a different word.
+- "terms": words or short fixed expressions (at most four words) that this course clearly needs and that are not in the list. Take them from the course material when there is some. Without course material, return at most ten, and only terms central to the subject the list shows. Never include common words.
+- "acronyms": abbreviations used in the list or the material, with their expansion as this subject uses it. Only when the expansion is certain.
+- Leave any list empty rather than guess. Plain text in every field.
+
+${JSON_ONLY} It must match:
+{"corrections": [{"from": "<word>", "to": "<correct spelling>", "reason": "<short, optional>"}], "terms": [{"term": "<term>"}], "acronyms": [{"acronym": "<ABC>", "expansion": "<full form>"}]}`,
+    },
+    {
+      role: 'user',
+      content: `<course name="${options.courseName.replace(/"/g, "'")}">
+<words>
+${words || '(none yet)'}
+</words>${material ? `\n<material>\n${material}\n</material>` : ''}
+</course>`,
+    },
+  ];
+}
+
+// -- Proofread ---------------------------------------------------------------
+
+/**
+ * Check one paragraph for the mistakes a dictionary cannot see.
+ *
+ * On request only, and one paragraph at a time: a model reading along while
+ * the student types would send every sentence of every lecture to a provider,
+ * and would be too slow to be useful anyway.
+ *
+ * The course vocabulary travels with it so the model does not "correct" the
+ * course's own terms — the failure that would make a student stop trusting
+ * the feature after one use.
+ */
+export function proofreadPrompt(options: {
+  paragraph: string;
+  vocabulary: string[];
+  language: string;
+}): AiMessage[] {
+  const vocabulary = options.vocabulary.join(', ');
+  return [
+    {
+      role: 'system',
+      content: `You are proofreading one paragraph of a student's class notes.
+
+${languageRule(options.language)} Write each correction in the paragraph's own language.
+
+- Report spelling mistakes, wrong-word errors (a real word used in place of another, like "their" for "there" or "a" for "à"), agreement and conjugation errors, and missing accents.
+- Do not rephrase, restyle, shorten or complete anything. Notes are allowed to be terse: fragments, abbreviations, arrows and missing articles are the student's style, not mistakes.
+- "original" is the exact span from the paragraph, copied character for character, as short as possible while still unique in the paragraph. "replacement" is what it should be.
+- The course vocabulary lists terms that are spelled correctly as they are. Never correct them.
+- An empty list is the right answer for a correct paragraph.
+
+${JSON_ONLY} It must match:
+{"corrections": [{"original": "<exact span>", "replacement": "<corrected span>", "reason": "<a few words, optional>"}]}`,
+    },
+    {
+      role: 'user',
+      content: `${vocabulary ? `<vocabulary>${vocabulary}</vocabulary>\n` : ''}<paragraph>
+${options.paragraph}
+</paragraph>`,
+    },
+  ];
+}
+
 // -- Ask ---------------------------------------------------------------------
 
 /**

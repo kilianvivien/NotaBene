@@ -4,7 +4,7 @@ import type { Editor } from '@tiptap/core';
 import { useTranslation } from 'react-i18next';
 import type { NoteDoc } from '@/lib/schema';
 import { storeAssetCommand } from '@/lib/commands';
-import { createNoteCommand } from '@/lib/commands';
+import { createNoteCommand, setCourseTermCommand } from '@/lib/commands';
 import { library } from '@/lib/adapters';
 import { buildPdfSourceHref, parsePdfSourceHref } from '@/lib/pdf/sourceLinks';
 import { TaskPicker } from '@/app/tasks/TaskPicker';
@@ -20,6 +20,19 @@ import {
   concentrationPluginKey,
   type ConcentrationState,
 } from './extensions/Concentration';
+import {
+  currentCompletion,
+  dismissWordCompletion,
+  type WordCompletionOptions,
+} from './extensions/WordCompletion';
+import { ProofreadDialog, type AcceptedCorrection } from './proofread/ProofreadDialog';
+import { paragraphText, rangeFor } from './proofread/paragraphText';
+import { closeHistory } from '@tiptap/pm/history';
+import {
+  OPEN_REFRESH_MS,
+  completionIndexFor,
+  ensureCompletionIndex,
+} from '@/lib/vocabulary/cache';
 import {
   registerEditorCommandRunner,
   registerPdfExcerptInserter,
@@ -61,6 +74,8 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   const closeWikipedia = useUiStore((state) => state.closeWikipedia);
   const defineRequest = useUiStore((state) => state.defineRequest);
   const closeDefine = useUiStore((state) => state.closeDefine);
+  const proofreadRequest = useUiStore((state) => state.proofreadRequest);
+  const closeProofread = useUiStore((state) => state.closeProofread);
   const [findOpen, setFindOpen] = useState(false);
   const [prompt, setPrompt] = useState<EditorPromptRequest | null>(null);
   const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
@@ -80,15 +95,42 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
       typewriterScrolling: focus.typewriterScrolling,
     };
   }, []);
+  // The course is read from the store at each keystroke rather than captured:
+  // this editor instance outlives the note it was created for.
+  const completion = useMemo(
+    (): WordCompletionOptions => ({
+      resolve: () => {
+        const note = useEditorStore.getState().note;
+        return note ? completionIndexFor(note.courseId) : null;
+      },
+      settings: () => useSettingsStore.getState().settings.completion,
+      triggers: resolveAbbreviations,
+    }),
+    [resolveAbbreviations],
+  );
   const extensions = useMemo(
     () =>
       editorExtensions(
         t('editor.bodyPlaceholder'),
         resolveAbbreviations,
         resolveConcentration,
+        completion,
       ),
-    [resolveAbbreviations, resolveConcentration, t],
+    [resolveAbbreviations, resolveConcentration, completion, t],
   );
+  const noteId = useEditorStore((state) => state.note?.id);
+  const noteCourseId = useEditorStore((state) => state.note?.courseId);
+  const completionEnabled = useSettingsStore(
+    (state) => state.settings.completion.enabled,
+  );
+
+  // Start building the course's vocabulary as soon as a note of it opens, so
+  // it is usually ready before the first word is finished. Idle-scheduled
+  // inside the cache; nothing here waits on it.
+  useEffect(() => {
+    if (!editable || !completionEnabled || noteCourseId === undefined) return;
+    void ensureCompletionIndex(noteCourseId, OPEN_REFRESH_MS).catch(() => undefined);
+  }, [editable, completionEnabled, noteId, noteCourseId]);
 
   const insertImages = useCallback(async (files: File[]) => {
     const editor = editorRef.current;
@@ -427,6 +469,70 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
           useUiStore.getState().openDefine(selectedTerm(current));
           return true;
         }
+        /**
+         * Put a word on the course's list, or take it off for good.
+         *
+         * "Never suggest" prefers the word on screen as a suggestion over the
+         * word under the caret: the moment a student reaches for it is the
+         * moment a wrong suggestion has just appeared.
+         */
+        case 'vocabularyAdd':
+        case 'vocabularyIgnore': {
+          const notice = useUiStore.getState().showStatusNotice;
+          const suggestion = currentCompletion(current.state);
+          const word =
+            command === 'vocabularyIgnore' && suggestion
+              ? suggestion.term
+              : selectedTerm(current).term;
+          if (!word.trim()) {
+            notice(t('vocabulary.noWord'));
+            return false;
+          }
+          const courseId = useEditorStore.getState().note?.courseId;
+          if (!courseId) {
+            notice(t('vocabulary.noCourse'));
+            return false;
+          }
+          const status = command === 'vocabularyAdd' ? 'accepted' : 'rejected';
+          const result = await setCourseTermCommand({ courseId, term: word, status });
+          if (!result.ok) {
+            notice(
+              result.code === 'invalid_input'
+                ? t('vocabulary.notATerm')
+                : t('vocabulary.saveFailed'),
+            );
+            return false;
+          }
+          if (status === 'rejected') dismissWordCompletion(current.view);
+          notice(
+            t(status === 'accepted' ? 'vocabulary.added' : 'vocabulary.ignored', {
+              term: result.value.term,
+            }),
+          );
+          return true;
+        }
+        /**
+         * Proofread the paragraph the caret is in.
+         *
+         * The textblock, not the top-level block: a list is many paragraphs,
+         * and "this paragraph" is the line the student is looking at.
+         */
+        case 'proofread': {
+          const { $from } = current.state.selection;
+          const block = $from.parent;
+          const text =
+            block.isTextblock && !block.type.spec.code ? paragraphText(block).text : '';
+          if (!text.trim()) {
+            useUiStore.getState().showStatusNotice(t('proofread.noParagraph'));
+            return false;
+          }
+          useUiStore.getState().openProofread({
+            paragraph: text,
+            from: $from.start(),
+            to: $from.end(),
+          });
+          return true;
+        }
         case 'find':
           setFindOpen(true);
           return true;
@@ -434,6 +540,46 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
     },
     [ask, t],
   );
+
+  /**
+   * Apply the corrections the student ticked, as one undoable edit.
+   *
+   * Refused if the paragraph changed while the model was reading it: the
+   * offsets were computed for the text that was sent, and applying them to
+   * different text would rewrite the wrong words.
+   */
+  const applyCorrections = useCallback((corrections: AcceptedCorrection[]): boolean => {
+    const current = editorRef.current;
+    const request = useUiStore.getState().proofreadRequest;
+    if (!current || !request) return false;
+    const { doc } = current.state;
+    if (request.from < 0 || request.to > doc.content.size) return false;
+    const $start = doc.resolve(request.from);
+    const block = $start.parent;
+    if ($start.start() !== request.from || !block.isTextblock) return false;
+    const mapped = paragraphText(block);
+    if (mapped.text !== request.paragraph) return false;
+
+    const tr = closeHistory(current.state.tr);
+    // From the end backwards, so an earlier replacement cannot shift the
+    // positions of a later one.
+    for (const correction of [...corrections].sort((a, b) => b.index - a.index)) {
+      const range = rangeFor(
+        mapped,
+        request.from,
+        correction.index,
+        correction.original.length,
+      );
+      if (!range) continue;
+      if (correction.replacement)
+        tr.insertText(correction.replacement, range.from, range.to);
+      else tr.delete(range.from, range.to);
+    }
+    if (!tr.docChanged) return false;
+    current.view.dispatch(tr);
+    current.commands.focus();
+    return true;
+  }, []);
 
   useEffect(() => registerEditorCommandRunner(run), [run]);
 
@@ -632,6 +778,12 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
             )
             .run()
         }
+      />
+      <ProofreadDialog
+        request={proofreadRequest}
+        courseId={useEditorStore.getState().note?.courseId ?? null}
+        onClose={closeProofread}
+        onApply={applyCorrections}
       />
       <EditorPromptDialog request={prompt} onResolve={resolvePrompt} />
     </div>

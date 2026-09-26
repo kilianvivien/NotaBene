@@ -485,14 +485,28 @@
 /* An abbreviation that just expanded. The accent tint says "the app wrote
    this", and it fades on its own so the note is never left decorated. Reduced
    motion gets the same tint, held for the same beat, without the fade. */
-.nb-prosemirror .nb-abbr-flash {
+/* The rest of a word the vocabulary expects, after the caret. Muted rather
+   than italic: italic is a mark the student can apply, and ghost text that
+   looked like formatting would read as part of the note. Never selectable,
+   never hit-testable — a click lands in the text beneath it. */
+.nb-prosemirror .nb-completion-ghost {
+  color: var(--nb-text-3);
+  opacity: 0.75;
+  pointer-events: none;
+  user-select: none;
+  white-space: pre;
+}
+
+.nb-prosemirror .nb-abbr-flash,
+.nb-prosemirror .nb-completion-flash {
   border-radius: 2px;
   background: var(--nb-accent-soft);
   box-shadow: 0 0 0 1px var(--nb-accent-soft);
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .nb-prosemirror .nb-abbr-flash {
+  .nb-prosemirror .nb-abbr-flash,
+  .nb-prosemirror .nb-completion-flash {
     animation: nb-abbr-flash 900ms var(--nb-ease-out) forwards;
   }
 

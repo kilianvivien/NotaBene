@@ -18,6 +18,7 @@ import {
   type Note,
 } from '@/lib/schema';
 import { useLibraryStore } from '@/lib/state/libraryStore';
+import { invalidateVocabulary } from '@/lib/vocabulary/cache';
 import {
   cancelledIfRequested,
   fail,
@@ -88,6 +89,9 @@ export async function deleteCourseCommand(
   _context: CommandContext = USER,
 ): Promise<CommandResult<void>> {
   await library.deleteCourse(courseId);
+  // Its curated terms went with it, and its notes now complete from the
+  // library-wide vocabulary instead.
+  invalidateVocabulary(courseId);
   const store = useLibraryStore.getState();
   await store.refreshCourses();
   await store.refreshCurrentView();

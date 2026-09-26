@@ -24,3 +24,4 @@ export * from './taskAiCommands';
 export * from './webLinkCommands';
 export * from './wikipediaCommands';
 export * from './defineCommands';
+export * from './vocabularyCommands';

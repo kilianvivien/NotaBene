@@ -131,5 +131,6 @@ export function emptyLibrary(appVersion = APP_VERSION): Library {
     templates: [],
     tasks: [],
     taskNoteLinks: [],
+    courseTerms: [],
   };
 }

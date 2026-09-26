@@ -15,6 +15,7 @@ pub mod notes;
 pub mod organization;
 pub mod tasks;
 pub mod transfer;
+pub mod vocabulary;
 
 use std::path::PathBuf;
 use std::sync::{
