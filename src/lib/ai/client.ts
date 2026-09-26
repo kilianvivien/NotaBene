@@ -247,16 +247,28 @@ async function readStream(
   return text;
 }
 
+/**
+ * Matched by name, not `instanceof DOMException`: an abort reason can come from
+ * another realm's `DOMException` (an `AbortController` from a different global,
+ * as jsdom under Vitest 4 hands out), and a cancel misread as "could not reach
+ * the provider" is exactly the message a student should never get.
+ */
+function errorNamed(error: unknown, name: string): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { name?: unknown }).name === name
+  );
+}
+
 /** Turn transport-level failures into something a person can act on. */
 function asAiError(error: unknown): AiError {
   if (error instanceof AiError) return error;
   if (error instanceof ProviderRefusalError) {
     return new AiError(error.detail, undefined, false, 'provider_refusal');
   }
-  if (error instanceof DOMException && error.name === 'AbortError') {
+  if (errorNamed(error, 'AbortError')) {
     return new AiError('cancelled');
   }
-  if (error instanceof DOMException && error.name === 'TimeoutError') {
+  if (errorNamed(error, 'TimeoutError')) {
     return new AiError('the provider did not answer in time', undefined, true);
   }
 

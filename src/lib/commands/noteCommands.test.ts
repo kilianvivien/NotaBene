@@ -174,7 +174,12 @@ describe('createNotesCommand', () => {
   /** Count refreshes of the note list, which is what a naive loop over the
    *  single-note command would re-run once per note. */
   function countRefreshes() {
-    return vi.spyOn(useLibraryStore.getState(), 'refreshCurrentView');
+    // Cleared on creation: the store swaps its state object on every write, so
+    // the spy an earlier test installed can still be the function on the new
+    // one, and Vitest 4's `spyOn` reuses an existing spy, calls included.
+    const spy = vi.spyOn(useLibraryStore.getState(), 'refreshCurrentView');
+    spy.mockClear();
+    return spy;
   }
 
   afterEach(() => {
