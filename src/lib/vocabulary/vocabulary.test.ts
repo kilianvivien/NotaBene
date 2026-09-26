@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { NoteText } from '@/lib/adapters';
-import { buildCompletionIndex } from './completionIndex';
+import { buildCompletionIndex, rankCompletions } from './completionIndex';
+import { buildNoteIndex } from './noteWords';
+import { PRESENCE_PROFILES } from './presence';
 import { createHarvester, harvestVocabulary } from './harvest';
 import { adaptCase, codePointLength, foldKey, wordAtEnd, wordsIn } from './text';
 
@@ -173,5 +175,51 @@ describe('completion index', () => {
     for (let round = 0; round < 1_000; round += 1) index.complete('vocab');
     const perLookup = (performance.now() - started) / 1_000;
     expect(perLookup).toBeLessThan(0.5);
+  });
+});
+
+describe('ranking across sources', () => {
+  const course = buildCompletionIndex(
+    harvestVocabulary([
+      note('1', 'cellule cellule cellulaire'),
+      note('2', 'cellule cellulaire'),
+    ]),
+    [{ term: 'celluloïd', status: 'rejected' }],
+  );
+
+  it('lets the open note lift a word the course ranks lower', () => {
+    const noteIndex = buildNoteIndex(
+      'cellulaire cellulaire cellulaire',
+      PRESENCE_PROFILES.balanced,
+    );
+    expect(rankCompletions({ course }, 'cell', 3)[0]?.term).toBe('cellule');
+    expect(rankCompletions({ course, note: noteIndex }, 'cell', 3)[0]?.term).toBe(
+      'cellulaire',
+    );
+  });
+
+  it('offers a word only the note knows, unless the course silenced it', () => {
+    const noteIndex = buildNoteIndex('celluloïd cytoplasme', PRESENCE_PROFILES.balanced);
+    expect(rankCompletions({ course, note: noteIndex }, 'cyto', 3)[0]?.term).toBe(
+      'cytoplasme',
+    );
+    expect(
+      rankCompletions({ course, note: noteIndex }, 'cell', 5).map((entry) => entry.term),
+    ).not.toContain('celluloïd');
+  });
+
+  it('ranks up what the student accepted before', () => {
+    const learned = (key: string) => (key === 'cellulaire' ? 3 : 0);
+    expect(rankCompletions({ course, learned }, 'cell', 3)[0]?.term).toBe('cellulaire');
+  });
+
+  it('harvests more eagerly the more present the student wants it', () => {
+    const sources = [note('1', 'enzyme catalyse'), note('2', 'protéine')];
+    const quiet = harvestVocabulary(sources, PRESENCE_PROFILES.quiet.course);
+    const eager = harvestVocabulary(sources, PRESENCE_PROFILES.eager.course);
+    expect(quiet).toHaveLength(0);
+    expect(eager.map((term) => term.term)).toEqual(
+      expect.arrayContaining(['enzyme', 'catalyse', 'protéine']),
+    );
   });
 });

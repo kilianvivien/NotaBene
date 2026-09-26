@@ -9,6 +9,8 @@ import {
   DEFAULT_SETTINGS,
   LOCAL_MODEL_REVISIONS,
   type AppSettings,
+  type CompletionHint,
+  type CompletionPresence,
   type TtsEngineId,
 } from '@/lib/adapters';
 import { normalizeAbbreviations } from '@/lib/notes/abbreviations';
@@ -68,12 +70,22 @@ function normalizeCompletion(value: unknown): AppSettings['completion'] {
           ),
         )
       : DEFAULT_SETTINGS.completion.minPrefix;
+  const defaults = DEFAULT_SETTINGS.completion;
+  const flag = (value: unknown, fallback: boolean): boolean =>
+    typeof value === 'boolean' ? value : fallback;
   return {
-    enabled:
-      typeof stored.enabled === 'boolean'
-        ? stored.enabled
-        : DEFAULT_SETTINGS.completion.enabled,
+    enabled: flag(stored.enabled, defaults.enabled),
     minPrefix,
+    presence: (['quiet', 'balanced', 'eager'] as const).includes(
+      stored.presence as CompletionPresence,
+    )
+      ? (stored.presence as CompletionPresence)
+      : defaults.presence,
+    fromCurrentNote: flag(stored.fromCurrentNote, defaults.fromCurrentNote),
+    learn: flag(stored.learn, defaults.learn),
+    hint: (['auto', 'always', 'never'] as const).includes(stored.hint as CompletionHint)
+      ? (stored.hint as CompletionHint)
+      : defaults.hint,
   };
 }
 

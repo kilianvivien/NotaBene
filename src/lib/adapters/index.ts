@@ -157,6 +157,8 @@ export type {
   AccentColor,
   AiProviderSettings,
   AppSettings,
+  CompletionHint,
+  CompletionPresence,
   CompletionSettings,
   FocusSettings,
   PodcastSettings,

@@ -33,7 +33,14 @@ const CONCENTRATION_OFF: ConcentrationState = {
 
 const COMPLETION_OFF: WordCompletionOptions = {
   resolve: () => null,
-  settings: () => ({ enabled: false, minPrefix: 3 }),
+  settings: () => ({
+    enabled: false,
+    minPrefix: 3,
+    presence: 'balanced',
+    fromCurrentNote: false,
+    learn: false,
+    hint: 'never',
+  }),
   triggers: () => [],
 };
 

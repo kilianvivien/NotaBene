@@ -1,7 +1,7 @@
 /**
  * A course's vocabulary, where the student can see and steer it.
  *
- * Four views of one list. "Your words" and "Never suggested" are what the
+ * Four views of one list, the found words drawn as a cloud by default. "Your words" and "Never suggested" are what the
  * student decided, and the only part of the vocabulary that is library data.
  * "Found in notes" is what the completer derived on its own, shown so a
  * student can promote a word or silence one without waiting for it to be
@@ -9,7 +9,7 @@
  * missing terms, and writes nothing until the student ticks what to keep.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Check, Loader2, Plus, Sparkles, Undo2, X } from 'lucide-react';
+import { Ban, Check, Cloud, List, Loader2, Plus, Sparkles, Undo2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -35,15 +35,36 @@ import {
 } from '@/lib/schema';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
-import { foldKey, loadCourseVocabulary, type CourseVocabulary } from '@/lib/vocabulary';
+import {
+  configureVocabulary,
+  foldKey,
+  loadCourseVocabulary,
+  type CourseVocabulary,
+} from '@/lib/vocabulary';
+import { WordCloud, type CloudWord } from './WordCloud';
 
 type Tab = 'accepted' | 'found' | 'rejected' | 'review';
 
 /** How much of the harvest to list. The rest still completes; this is a
  * window onto the words that matter most, not an inventory. */
 const FOUND_LIMIT = 200;
+/** Fewer in the cloud: past this the smallest words are specks, and the
+ * cloud stops answering "what is this course about?". */
+const CLOUD_LIMIT = 120;
+
+type FoundView = 'cloud' | 'list';
+const VIEW_KEY = 'notabene.vocabulary-view';
+
+function storedView(): FoundView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'cloud';
+  } catch {
+    return 'cloud';
+  }
+}
 
 const INPUT_CLASS =
   'h-8 w-full min-w-0 rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2.5 text-[13px] text-nb-text focus:outline-none focus:ring-2 focus:ring-[var(--nb-accent-ring)]';
@@ -80,14 +101,27 @@ function VocabularyDialogBody({
   const [newWord, setNewWord] = useState('');
   const [filter, setFilter] = useState('');
   const [error, setError] = useState('');
+  const [view, setView] = useState<FoundView>(storedView);
+  const presence = useSettingsStore((state) => state.settings.completion.presence);
+
+  function changeView(next: FoundView): void {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // A remembered view is a convenience; the cloud is a fine default.
+    }
+  }
 
   const reload = useCallback(async () => {
+    // The dialog shows what the completer uses, with the same thresholds.
+    configureVocabulary(presence);
     try {
       setVocabulary(await loadCourseVocabulary(courseId));
     } catch {
       setError(t('vocabulary.loadFailed'));
     }
-  }, [courseId, t]);
+  }, [courseId, presence, t]);
 
   useEffect(() => {
     void reload();
@@ -111,6 +145,31 @@ function VocabularyDialogBody({
       )
       .slice(0, FOUND_LIMIT);
   }, [vocabulary, filter]);
+
+  // The student's own words sit in the cloud too, tinted, sized by how much
+  // the notes use them — a kept word no note uses yet is drawn smallest.
+  const cloud = useMemo((): CloudWord[] => {
+    if (!vocabulary) return [];
+    const needle = foldKey(filter.trim());
+    const counts = new Map(vocabulary.harvested.map((entry) => [entry.key, entry]));
+    const own = accepted
+      .map((entry): CloudWord => {
+        const key = foldKey(entry.term);
+        const harvested = counts.get(key);
+        return {
+          key,
+          term: entry.term,
+          count: harvested?.count ?? 0,
+          notes: harvested?.notes ?? 0,
+          accepted: true,
+        };
+      })
+      .filter((word) => !needle || word.key.includes(needle));
+    const rest = found
+      .slice(0, Math.max(0, CLOUD_LIMIT - own.length))
+      .map((entry): CloudWord => ({ ...entry, accepted: false }));
+    return [...own, ...rest];
+  }, [vocabulary, accepted, found, filter]);
 
   async function decide(term: string, status: CourseTermStatus): Promise<void> {
     setError('');
@@ -255,18 +314,42 @@ function VocabularyDialogBody({
 
         {tab === 'found' && (
           <>
-            <input
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder={t('vocabulary.filter')}
-              aria-label={t('vocabulary.filter')}
-              className={INPUT_CLASS}
-            />
+            <div className="flex gap-2">
+              <input
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                placeholder={t('vocabulary.filter')}
+                aria-label={t('vocabulary.filter')}
+                className={INPUT_CLASS}
+              />
+              <GlassSegmentedControl<FoundView>
+                iconOnly
+                label={t('vocabulary.view')}
+                value={view}
+                onChange={changeView}
+                options={[
+                  { value: 'cloud', label: t('vocabulary.viewCloud'), icon: Cloud },
+                  { value: 'list', label: t('vocabulary.viewList'), icon: List },
+                ]}
+              />
+            </div>
             <GlassScrollArea className="mt-2 max-h-[340px]">
               {!vocabulary ? (
                 <Loading />
-              ) : found.length === 0 ? (
+              ) : (view === 'cloud' ? cloud.length === 0 : found.length === 0) ? (
                 <Empty text={t('vocabulary.emptyFound')} />
+              ) : view === 'cloud' ? (
+                <WordCloud
+                  words={cloud}
+                  onKeep={(word) => void decide(word.term, 'accepted')}
+                  onNever={(word) => void decide(word.term, 'rejected')}
+                  onRemove={(word) => {
+                    const term = accepted.find(
+                      (entry) => foldKey(entry.term) === word.key,
+                    );
+                    if (term) void remove(term);
+                  }}
+                />
               ) : (
                 <ul className="divide-y divide-[var(--nb-divider)]">
                   {found.map((entry) => (
@@ -275,7 +358,10 @@ function VocabularyDialogBody({
                         {entry.term}
                       </span>
                       <span className="shrink-0 text-[11px] tabular-nums text-nb-text-3">
-                        {t('vocabulary.usage', { count: entry.count })}
+                        {t('vocabulary.usage', {
+                          uses: entry.count,
+                          count: entry.notes,
+                        })}
                       </span>
                       <RowButton
                         label={t('vocabulary.keep')}
@@ -295,7 +381,9 @@ function VocabularyDialogBody({
                 </ul>
               )}
             </GlassScrollArea>
-            <FieldNote>{t('vocabulary.foundHint')}</FieldNote>
+            <FieldNote>
+              {t(view === 'cloud' ? 'vocabulary.cloudHint' : 'vocabulary.foundHint')}
+            </FieldNote>
           </>
         )}
 

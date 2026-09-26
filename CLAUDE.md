@@ -214,6 +214,11 @@ Phase K notes worth knowing before touching it:
   composes accents. `WordCompletion.test.ts` holds those lines.
 - The harvest runs in slices of under a frame (`cache.ts`), never on a
   keystroke; the keystroke path is a binary search.
+- Completion draws on three sources, merged in `rankCompletions`: the course
+  index (cache), an index of the open note rebuilt in the plugin's `view`
+  after a typing pause, and learned boosts from `learned.ts` (`localStorage`,
+  never library data). `presence.ts` turns the Settings choice into every
+  threshold at once; `configureVocabulary` invalidates the cache on change.
 - Proofreading is a read like Define: corrections go back to the editor,
   which applies them as one transaction and refuses if the paragraph changed
   since it was sent.

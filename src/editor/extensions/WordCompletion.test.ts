@@ -7,8 +7,8 @@
  * autosave. Those are the ways a completer degrades the editor around it.
  */
 import { Editor } from '@tiptap/core';
-import { afterEach, describe, expect, it } from 'vitest';
-import type { Abbreviation } from '@/lib/adapters';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Abbreviation, CompletionSettings } from '@/lib/adapters';
 import {
   buildCompletionIndex,
   type CompletionIndex,
@@ -22,26 +22,42 @@ const INDEX: CompletionIndex = buildCompletionIndex(
     { term: 'mitochondrie', status: 'accepted' },
     { term: 'théorème', status: 'accepted' },
     { term: 'Schrödinger', status: 'accepted' },
+    { term: 'cellule', status: 'accepted' },
+    { term: 'cellulaire', status: 'accepted' },
   ],
 );
 
 let editor: Editor | undefined;
 let enabled = true;
 let triggers: Abbreviation[] = [];
+let overrides: Partial<CompletionSettings> = {};
+let accepted: string[] = [];
 
 afterEach(() => {
   editor?.destroy();
   editor = undefined;
   enabled = true;
   triggers = [];
+  overrides = {};
+  accepted = [];
+  vi.useRealTimers();
 });
 
 function open(html: string): Editor {
   editor = new Editor({
     extensions: editorExtensions('Write…', () => triggers, undefined, {
       resolve: () => INDEX,
-      settings: () => ({ enabled, minPrefix: 3 }),
+      settings: () => ({
+        enabled,
+        minPrefix: 3,
+        presence: 'balanced',
+        fromCurrentNote: false,
+        learn: true,
+        hint: 'never',
+        ...overrides,
+      }),
       triggers: () => triggers,
+      onAccept: (key) => accepted.push(key),
     }),
     content: html,
   });
@@ -55,8 +71,17 @@ function type(current: Editor, text: string): void {
   }
 }
 
-function press(current: Editor, key: string): { handled: boolean; stopped: boolean } {
-  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+function press(
+  current: Editor,
+  key: string,
+  modifiers: KeyboardEventInit = {},
+): { handled: boolean; stopped: boolean } {
+  const event = new KeyboardEvent('keydown', {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...modifiers,
+  });
   let stopped = false;
   const stop = event.stopPropagation.bind(event);
   event.stopPropagation = () => {
@@ -239,5 +264,83 @@ describe('word completion', () => {
     type(current, 'mito');
     expect(currentCompletion(current.state)).toBeNull();
     expect(press(current, 'Tab').handled).toBe(false);
+  });
+
+  it('keeps suggesting while the word is corrected with Backspace', () => {
+    const current = open('<p></p>');
+    type(current, 'mitx');
+    expect(currentCompletion(current.state)).toBeNull();
+    current.commands.deleteRange({
+      from: current.state.selection.head - 1,
+      to: current.state.selection.head,
+    });
+    expect(currentCompletion(current.state)?.term).toBe('mitochondrie');
+  });
+
+  it('steps through alternatives with Option-Tab and accepts the one shown', () => {
+    const current = open('<p></p>');
+    type(current, 'cell');
+    expect(currentCompletion(current.state)?.term).toBe('cellule');
+    expect(currentCompletion(current.state)?.candidates).toHaveLength(2);
+
+    expect(press(current, 'Tab', { altKey: true }).handled).toBe(true);
+    expect(currentCompletion(current.state)?.term).toBe('cellulaire');
+    expect(current.view.dom.querySelector('.nb-completion-count')?.textContent).toBe(
+      '2/2',
+    );
+    // Cycling is not an edit.
+    expect(text(current)).toBe('cell');
+
+    press(current, 'Tab', { altKey: true, shiftKey: true });
+    expect(currentCompletion(current.state)?.term).toBe('cellule');
+    press(current, 'ArrowDown', { altKey: true });
+    press(current, 'Tab');
+    expect(text(current)).toBe('cellulaire');
+    expect(accepted).toEqual(['cellulaire']);
+  });
+
+  it('leaves Option-Tab alone when there is only one word on offer', () => {
+    const current = open('<p></p>');
+    type(current, 'mito');
+    expect(press(current, 'Tab', { altKey: true }).handled).toBe(false);
+  });
+
+  it('completes a word from the open note before the course knows it', () => {
+    vi.useFakeTimers();
+    overrides = { fromCurrentNote: true };
+    const current = open('<p>La photosynthèse produit du glucose. </p>');
+    caretAtEnd(current);
+    vi.advanceTimersByTime(1_000);
+    type(current, 'photo');
+    expect(currentCompletion(current.state)?.term).toBe('photosynthèse');
+  });
+
+  it('does not offer back the half word the student paused on', () => {
+    vi.useFakeTimers();
+    overrides = { fromCurrentNote: true };
+    const current = open('<p></p>');
+    type(current, 'glycoly');
+    vi.advanceTimersByTime(1_000);
+    type(current, ' glyc');
+    expect(currentCompletion(current.state)).toBeNull();
+  });
+
+  it('skips a completion that would add too little for the presence chosen', () => {
+    overrides = { presence: 'quiet' };
+    const current = open('<p></p>');
+    type(current, 'cellul');
+    // "cellule" would add one letter; quiet wants three, so the longer word.
+    expect(currentCompletion(current.state)?.term).toBe('cellulaire');
+  });
+
+  it('draws the Tab keycap only when asked to', () => {
+    overrides = { hint: 'always' };
+    const current = open('<p></p>');
+    type(current, 'mito');
+    expect(current.view.dom.querySelector('.nb-completion-hint kbd')?.textContent).toBe(
+      'tab',
+    );
+    // Beside the ghost text, never in the note.
+    expect(text(current)).toBe('mito');
   });
 });

@@ -81,16 +81,33 @@ export interface FocusSettings {
 }
 
 /**
+ * How readily completion offers a word. One choice rather than a matrix of
+ * thresholds: the student decides how present the feature is, and the app
+ * keeps what that means (`src/lib/vocabulary/presence.ts`) coherent.
+ */
+export type CompletionPresence = 'quiet' | 'balanced' | 'eager';
+
+/** When the Tab keycap is drawn beside a suggestion. `auto` shows it until
+ * the gesture has been used a few times, then retires it. */
+export type CompletionHint = 'auto' | 'always' | 'never';
+
+/**
  * Word completion from the course's vocabulary.
  *
- * Only the two knobs a student would reach for. Everything else — the
- * thresholds that decide what counts as vocabulary — is the app's to get
+ * Only knobs a student would reach for — how present it is, and where its
+ * words come from. The thresholds behind `presence` are the app's to get
  * right, not a settings matrix to tune.
  */
 export interface CompletionSettings {
   enabled: boolean;
   /** Letters typed before a suggestion appears. */
   minPrefix: number;
+  presence: CompletionPresence;
+  /** Words already in the open note complete at once, before they recur. */
+  fromCurrentNote: boolean;
+  /** Words accepted with Tab rank higher next time, per course. */
+  learn: boolean;
+  hint: CompletionHint;
 }
 
 export const COMPLETION_MIN_PREFIX = { min: 2, max: 6 } as const;
@@ -233,6 +250,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   completion: {
     enabled: true,
     minPrefix: 3,
+    presence: 'balanced',
+    fromCurrentNote: true,
+    learn: true,
+    hint: 'auto',
   },
   trashRetentionDays: 30,
   taskRemindersEnabled: true,

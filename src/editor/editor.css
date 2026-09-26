@@ -497,6 +497,36 @@
   white-space: pre;
 }
 
+/* The keycap and the "2/3" ride after the ghost text, smaller and in the UI
+   face, so they read as chrome about the suggestion rather than part of it. */
+.nb-prosemirror .nb-completion-hint {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: 6px;
+  font-family: var(--nb-font-sans);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1;
+  vertical-align: 0.15em;
+  letter-spacing: 0.02em;
+}
+
+.nb-prosemirror .nb-completion-hint kbd {
+  padding: 1px 4px 2px;
+  border: 1px solid var(--nb-divider);
+  border-radius: 4px;
+  background: var(--nb-inset-surface);
+  color: var(--nb-text-2);
+  font: inherit;
+}
+
+.nb-prosemirror .nb-completion-count {
+  color: var(--nb-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
 .nb-prosemirror .nb-abbr-flash,
 .nb-prosemirror .nb-completion-flash {
   border-radius: 2px;

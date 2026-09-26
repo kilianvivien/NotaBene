@@ -118,3 +118,18 @@
     -webkit-backdrop-filter: none !important;
   }
 }
+
+/* The vocabulary cloud settles in word by word, heaviest first from the
+   middle; `both` keeps each word hidden until its own delay has passed. */
+@media (prefers-reduced-motion: no-preference) {
+  .nb-cloud-word {
+    animation: nb-cloud-in 320ms var(--nb-ease-out) both;
+  }
+
+  @keyframes nb-cloud-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px) scale(0.96);
+    }
+  }
+}

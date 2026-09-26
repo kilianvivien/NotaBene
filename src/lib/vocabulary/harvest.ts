@@ -45,10 +45,13 @@ export interface HarvestedTerm {
   score: number;
 }
 
+/** The balanced profile (see `presence.ts`): five letters saves typing once
+ * a prefix of three is typed, and twice anywhere in the course is enough to
+ * count — a single use is still left out as a possible typo. */
 export const HARVEST_DEFAULTS = {
-  minLength: 6,
+  minLength: 5,
   minNotes: 2,
-  minCount: 3,
+  minCount: 2,
   limit: 5_000,
 } as const;
 
@@ -57,7 +60,7 @@ export const HARVEST_DEFAULTS = {
 export const LIBRARY_HARVEST = {
   minLength: 6,
   minNotes: 3,
-  minCount: 5,
+  minCount: 4,
   limit: 5_000,
 } as const;
 

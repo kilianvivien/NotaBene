@@ -18,13 +18,9 @@
 import { library } from '@/lib/adapters';
 import type { CourseTerm } from '@/lib/schema';
 import { buildCompletionIndex, type CompletionIndex } from './completionIndex';
-import {
-  HARVEST_DEFAULTS,
-  LIBRARY_HARVEST,
-  createHarvester,
-  type HarvestOptions,
-  type HarvestedTerm,
-} from './harvest';
+import type { CompletionPresence } from '@/lib/adapters';
+import { createHarvester, type HarvestOptions, type HarvestedTerm } from './harvest';
+import { presenceProfile } from './presence';
 
 export const STALE_AFTER_MS = 2 * 60_000;
 
@@ -47,6 +43,18 @@ const entries = new Map<string, Entry>();
 /** Bumped by `resetVocabularyCache` so a build that started before a reset
  * does not write its result into the fresh cache. */
 let generation = 0;
+/** Set from the settings by `configureVocabulary`; decides the thresholds. */
+let presence: CompletionPresence = 'balanced';
+
+/**
+ * Adopt the student's completion presence. A change re-harvests every course
+ * on its next read, since each threshold is different.
+ */
+export function configureVocabulary(next: CompletionPresence): void {
+  if (next === presence) return;
+  presence = next;
+  invalidateVocabulary();
+}
 
 function scopeKey(courseId: string | null): string {
   return courseId ?? LIBRARY_SCOPE;
@@ -74,13 +82,14 @@ export interface CourseVocabulary {
 export async function loadCourseVocabulary(
   courseId: string | null,
 ): Promise<CourseVocabulary> {
+  const profile = presenceProfile(presence);
   const [texts, curated, tags] = await Promise.all([
     library.listNoteTexts(courseId),
     library.listCourseTerms(courseId),
     library.listTags(),
   ]);
   const harvested = await harvestInSlices(texts, {
-    ...(courseId ? HARVEST_DEFAULTS : LIBRARY_HARVEST),
+    ...(courseId ? profile.course : profile.library),
     keyTerms: tags.map((tag) => tag.name),
   });
   return { harvested, curated };
@@ -199,4 +208,5 @@ export function invalidateVocabulary(courseId?: string | null): void {
 export function resetVocabularyCache(): void {
   generation += 1;
   entries.clear();
+  presence = 'balanced';
 }

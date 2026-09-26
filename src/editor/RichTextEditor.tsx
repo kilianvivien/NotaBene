@@ -31,8 +31,18 @@ import { closeHistory } from '@tiptap/pm/history';
 import {
   OPEN_REFRESH_MS,
   completionIndexFor,
+  configureVocabulary,
   ensureCompletionIndex,
 } from '@/lib/vocabulary/cache';
+import {
+  acceptedCompletions,
+  learnedCount,
+  learnedScope,
+  recordAcceptedCompletion,
+} from '@/lib/vocabulary/learned';
+
+/** Accepted completions after which the `auto` Tab hint retires. */
+const HINT_LESSONS = 5;
 import {
   registerEditorCommandRunner,
   registerPdfExcerptInserter,
@@ -97,17 +107,23 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   }, []);
   // The course is read from the store at each keystroke rather than captured:
   // this editor instance outlives the note it was created for.
-  const completion = useMemo(
-    (): WordCompletionOptions => ({
+  const completion = useMemo((): WordCompletionOptions => {
+    const scope = () => learnedScope(useEditorStore.getState().note?.courseId ?? null);
+    return {
       resolve: () => {
         const note = useEditorStore.getState().note;
         return note ? completionIndexFor(note.courseId) : null;
       },
       settings: () => useSettingsStore.getState().settings.completion,
       triggers: resolveAbbreviations,
-    }),
-    [resolveAbbreviations],
-  );
+      learned: (key) => learnedCount(scope(), key),
+      onAccept: (key) => {
+        const learn = useSettingsStore.getState().settings.completion.learn;
+        recordAcceptedCompletion(scope(), learn && key ? key : null);
+      },
+      hintWanted: () => acceptedCompletions() < HINT_LESSONS,
+    };
+  }, [resolveAbbreviations]);
   const extensions = useMemo(
     () =>
       editorExtensions(
@@ -123,6 +139,10 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   const completionEnabled = useSettingsStore(
     (state) => state.settings.completion.enabled,
   );
+  const completionPresence = useSettingsStore(
+    (state) => state.settings.completion.presence,
+  );
+  useEffect(() => configureVocabulary(completionPresence), [completionPresence]);
 
   // Start building the course's vocabulary as soon as a note of it opens, so
   // it is usually ready before the first word is finished. Idle-scheduled
@@ -130,7 +150,7 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   useEffect(() => {
     if (!editable || !completionEnabled || noteCourseId === undefined) return;
     void ensureCompletionIndex(noteCourseId, OPEN_REFRESH_MS).catch(() => undefined);
-  }, [editable, completionEnabled, noteId, noteCourseId]);
+  }, [editable, completionEnabled, completionPresence, noteId, noteCourseId]);
 
   const insertImages = useCallback(async (files: File[]) => {
     const editor = editorRef.current;
@@ -440,16 +460,18 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
         case 'date': {
           const { locale } = useSettingsStore.getState().settings;
           const atBlockStart = current.state.selection.$from.parentOffset === 0;
-          return current
-            .chain()
-            .focus()
-            // A text node rather than a bare string: `insertContent` parses a
-            // string as HTML, and note content should never take that route.
-            .insertContent({
-              type: 'text',
-              text: longDateLabel(new Date(), locale, atBlockStart),
-            })
-            .run();
+          return (
+            current
+              .chain()
+              .focus()
+              // A text node rather than a bare string: `insertContent` parses a
+              // string as HTML, and note content should never take that route.
+              .insertContent({
+                type: 'text',
+                text: longDateLabel(new Date(), locale, atBlockStart),
+              })
+              .run()
+          );
         }
         // Opened through `uiStore` rather than mounted by whatever ran the
         // command: the menu bar has no editor to hand, and a dialog owned by

@@ -33,10 +33,12 @@ import {
   Replace,
   SlidersHorizontal,
   Sparkles,
+  TextCursorInput,
   Type,
   Volume2,
   type LucideIcon,
 } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   FieldRow,
@@ -59,6 +61,7 @@ import {
   type CompletionSettings,
   type FocusSettings,
 } from '@/lib/adapters';
+import { forgetLearnedCompletions } from '@/lib/vocabulary/learned';
 import { EDITOR_FONT_SIZES, EDITOR_MEASURES } from '@/app/shell/readingScale';
 import { AbbreviationSettings } from './AbbreviationSettings';
 import { BackupSettings } from './BackupSettings';
@@ -82,6 +85,7 @@ const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
       { id: 'general', icon: SlidersHorizontal },
       { id: 'appearance', icon: Palette },
       { id: 'editor', icon: Type },
+      { id: 'completion', icon: TextCursorInput },
       { id: 'abbreviations', icon: Replace },
     ],
   },
@@ -134,6 +138,8 @@ export function SettingsWindow() {
   function setFocus(patch: Partial<FocusSettings>): void {
     void update({ focus: { ...settings.focus, ...patch } });
   }
+
+  const [learnedForgotten, setLearnedForgotten] = useState(false);
 
   function setCompletion(patch: Partial<CompletionSettings>): void {
     void update({ completion: { ...settings.completion, ...patch } });
@@ -338,35 +344,6 @@ export function SettingsWindow() {
                 </FieldSection>
 
                 <FieldSection
-                  title={t('settings.completionSection')}
-                  description={t('settings.completionSectionHint')}
-                >
-                  <FieldRow
-                    label={t('settings.completionEnabled')}
-                    hint={t('settings.completionEnabledHint')}
-                    align="end"
-                  >
-                    <FieldToggle
-                      label={t('settings.completionEnabled')}
-                      checked={settings.completion.enabled}
-                      onChange={(enabled) => setCompletion({ enabled })}
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.completionMinPrefix')}
-                    hint={t('settings.completionMinPrefixHint')}
-                    align="end"
-                  >
-                    <SizeSlider
-                      label={t('settings.completionMinPrefix')}
-                      range={COMPLETION_MIN_PREFIX}
-                      value={settings.completion.minPrefix}
-                      onChange={(minPrefix) => setCompletion({ minPrefix })}
-                    />
-                  </FieldRow>
-                </FieldSection>
-
-                <FieldSection
                   title={t('settings.focusSection')}
                   description={t('settings.focusSectionHint')}
                 >
@@ -454,6 +431,139 @@ export function SettingsWindow() {
                     {t('settings.fontPreview')}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {tab === 'completion' && (
+              <div className="space-y-6">
+                <FieldSection title={t('settings.completionSuggestions')}>
+                  <FieldRow
+                    label={t('settings.completionEnabled')}
+                    hint={t('settings.completionEnabledHint')}
+                    align="end"
+                  >
+                    <FieldToggle
+                      label={t('settings.completionEnabled')}
+                      checked={settings.completion.enabled}
+                      onChange={(enabled) => setCompletion({ enabled })}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.completionPresence')}
+                    hint={t(
+                      `settings.completionPresenceHint_${settings.completion.presence}`,
+                    )}
+                  >
+                    <GlassSegmentedControl<CompletionSettings['presence']>
+                      fill
+                      label={t('settings.completionPresence')}
+                      value={settings.completion.presence}
+                      onChange={(presence) => setCompletion({ presence })}
+                      disabled={!settings.completion.enabled}
+                      options={[
+                        { value: 'quiet', label: t('settings.completionPresenceQuiet') },
+                        {
+                          value: 'balanced',
+                          label: t('settings.completionPresenceBalanced'),
+                        },
+                        { value: 'eager', label: t('settings.completionPresenceEager') },
+                      ]}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.completionMinPrefix')}
+                    hint={t('settings.completionMinPrefixHint')}
+                    align="end"
+                  >
+                    <SizeSlider
+                      label={t('settings.completionMinPrefix')}
+                      range={COMPLETION_MIN_PREFIX}
+                      value={settings.completion.minPrefix}
+                      onChange={(minPrefix) => setCompletion({ minPrefix })}
+                    />
+                  </FieldRow>
+                </FieldSection>
+                <FieldSection title={t('settings.completionSources')}>
+                  <FieldRow
+                    label={t('settings.completionFromNote')}
+                    hint={t('settings.completionFromNoteHint')}
+                    align="end"
+                  >
+                    <FieldToggle
+                      label={t('settings.completionFromNote')}
+                      checked={settings.completion.fromCurrentNote}
+                      disabled={!settings.completion.enabled}
+                      onChange={(fromCurrentNote) => setCompletion({ fromCurrentNote })}
+                    />
+                  </FieldRow>
+                  <FieldRow
+                    label={t('settings.completionLearn')}
+                    hint={t('settings.completionLearnHint')}
+                    align="end"
+                  >
+                    <div className="flex items-center gap-2">
+                      <GlassButton
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          forgetLearnedCompletions();
+                          setLearnedForgotten(true);
+                        }}
+                        disabled={learnedForgotten}
+                      >
+                        {learnedForgotten
+                          ? t('settings.completionForgotten')
+                          : t('settings.completionForget')}
+                      </GlassButton>
+                      <FieldToggle
+                        label={t('settings.completionLearn')}
+                        checked={settings.completion.learn}
+                        disabled={!settings.completion.enabled}
+                        onChange={(learn) => setCompletion({ learn })}
+                      />
+                    </div>
+                  </FieldRow>
+                </FieldSection>
+                <FieldSection title={t('settings.completionKeyboard')}>
+                  <FieldRow
+                    label={t('settings.completionHint')}
+                    hint={t('settings.completionHintHint')}
+                  >
+                    <GlassSegmentedControl<CompletionSettings['hint']>
+                      fill
+                      label={t('settings.completionHint')}
+                      value={settings.completion.hint}
+                      onChange={(hint) => setCompletion({ hint })}
+                      disabled={!settings.completion.enabled}
+                      options={[
+                        { value: 'auto', label: t('settings.completionHintAuto') },
+                        { value: 'always', label: t('settings.completionHintAlways') },
+                        { value: 'never', label: t('settings.completionHintNever') },
+                      ]}
+                    />
+                  </FieldRow>
+                </FieldSection>
+                <FieldSection title={t('settings.completionKeys')}>
+                  <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 py-2 text-[12.5px]">
+                    {(
+                      [
+                        ['⇥', 'settings.completionKeyAccept'],
+                        ['⌥ ⇥', 'settings.completionKeyNext'],
+                        ['⌥ ⇧ ⇥', 'settings.completionKeyPrevious'],
+                        ['esc', 'settings.completionKeyDismiss'],
+                      ] as const
+                    ).map(([keys, label]) => (
+                      <Fragment key={label}>
+                        <dt>
+                          <kbd className="inline-block min-w-[44px] rounded-nb-xs border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] px-1.5 py-0.5 text-center font-[family-name:var(--nb-font-sans)] text-[11px] text-nb-text-2">
+                            {keys}
+                          </kbd>
+                        </dt>
+                        <dd className="text-nb-text-2">{t(label)}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                </FieldSection>
               </div>
             )}
 

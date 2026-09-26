@@ -41,6 +41,7 @@ export type SettingsTab =
   | 'general'
   | 'appearance'
   | 'editor'
+  | 'completion'
   | 'abbreviations'
   | 'speech'
   | 'dataStorage'
