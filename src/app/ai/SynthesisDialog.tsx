@@ -1,14 +1,24 @@
 /**
  * Synthesis.
  *
- * Four output styles and a brief of the student's own, over the current note or
+ * Five output styles and a brief of the student's own, over the current note or
  * the whole multi-selection. The result is a new note, so there is no diff to
  * gate — the worst case is a note you delete, not an edit you have to unpick.
  */
-import { Loader2 } from 'lucide-react';
+import {
+  AlignLeft,
+  BookA,
+  GraduationCap,
+  ListTree,
+  Loader2,
+  MessageCircleQuestion,
+  MessageSquareText,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dialog, FieldNote, GlassButton } from '@/components/glass';
+import { ChoiceGroup, Dialog, FieldNote, GlassButton } from '@/components/glass';
 import { MAX_AI_SOURCES, type SynthesisStyle } from '@/lib/ai';
 import { synthesizeNotesCommand } from '@/lib/commands';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
@@ -17,13 +27,30 @@ import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import { aiErrorMessage } from './aiErrorMessage';
+import { Sources } from './Sources';
 import { AiDialogStatus } from './AiDisclosure';
 import { useAiAvailability } from './useAiAvailability';
 
-/** Four shapes somebody guessed would be wanted, and the one that admits they
+/** Five shapes somebody guessed would be wanted, and the one that admits they
  * might want something else. `custom` sits last because it is the answer to
- * "none of these", which is a thing you conclude after reading the four. */
-const STYLES: SynthesisStyle[] = ['summary', 'revision', 'qa', 'glossary', 'custom'];
+ * "none of these", which is a thing you conclude after reading the five. */
+const STYLES: SynthesisStyle[] = [
+  'summary',
+  'revision',
+  'outline',
+  'qa',
+  'glossary',
+  'custom',
+];
+
+const STYLE_ICONS: Record<SynthesisStyle, LucideIcon> = {
+  summary: AlignLeft,
+  revision: GraduationCap,
+  outline: ListTree,
+  qa: MessageCircleQuestion,
+  glossary: BookA,
+  custom: MessageSquareText,
+};
 
 export function SynthesisDialog() {
   const { t } = useTranslation();
@@ -101,7 +128,8 @@ export function SynthesisDialog() {
       open={open}
       onClose={close}
       title={t('ai.synthesis')}
-      size="md"
+      description={t('ai.synthesisIntro')}
+      size="lg"
       headerAction={<AiDialogStatus feature="synthesis" onLeave={close} />}
       footer={
         <>
@@ -122,37 +150,30 @@ export function SynthesisDialog() {
             }
             onClick={() => void run()}
           >
-            {running && <Loader2 size={12} className="animate-spin" />}
+            {running ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Sparkles size={12} aria-hidden />
+            )}
             {running ? t('ai.running') : t('ai.createNote')}
           </GlassButton>
         </>
       }
     >
-      <fieldset className="flex flex-col gap-1">
-        <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-nb-text-3">
-          {t('ai.synthesisStyle')}
-        </legend>
-        {STYLES.map((entry) => (
-          <label
-            key={entry}
-            className="flex cursor-pointer items-start gap-2 rounded-nb-xs p-1.5 hover:bg-[var(--nb-hover)]"
-          >
-            <input
-              type="radio"
-              name="nb-synthesis-style"
-              checked={style === entry}
-              onChange={() => setStyle(entry)}
-              className="mt-0.5 shrink-0 accent-[var(--nb-accent)]"
-            />
-            <span className="min-w-0">
-              <span className="block text-[13px]">{t(`ai.style_${entry}`)}</span>
-              <span className="block text-[11px] text-nb-text-3">
-                {t(`ai.styleHint_${entry}`)}
-              </span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
+      <Sources count={noteIds.length} titles={titles} />
+
+      <ChoiceGroup<SynthesisStyle>
+        label={t('ai.synthesisStyle')}
+        value={style}
+        onChange={setStyle}
+        disabled={running}
+        options={STYLES.map((entry) => ({
+          value: entry,
+          icon: STYLE_ICONS[entry],
+          title: t(`ai.style_${entry}`),
+          description: t(`ai.styleHint_${entry}`),
+        }))}
+      />
 
       {/* Under the option it belongs to, and only then: a text box that does
           nothing until a radio above it is chosen is a box people type into
@@ -174,12 +195,6 @@ export function SynthesisDialog() {
         />
       )}
 
-      <FieldNote>
-        {t('ai.sourceCount', { count: noteIds.length })}
-        {titles.length > 0 && (
-          <span className="block truncate">{titles.join(' · ')}</span>
-        )}
-      </FieldNote>
       {tooMany && (
         <FieldNote tone="danger">
           {t('ai.limit_too_many_notes', { max: MAX_AI_SOURCES })}

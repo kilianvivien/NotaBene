@@ -20,11 +20,10 @@ import { ReadingControls } from './shell/ReadingControls';
 import { TemplatePicker } from './organization/TemplatePicker';
 import { ExportDialog } from './export/ExportDialog';
 import { MergeNotesDialog } from './shell/MergeNotesDialog';
-import { RewriteDialog } from './ai/RewriteDialog';
+import { CheckDialog } from './ai/CheckDialog';
 import { CourseVocabularyDialog } from './vocabulary/CourseVocabularyDialog';
 import { SynthesisDialog } from './ai/SynthesisDialog';
-import { DiagramDialog } from './ai/DiagramDialog';
-import { MindMapDialog } from './ai/MindMapDialog';
+import { VisualizeDialog } from './ai/VisualizeDialog';
 import { FlashcardsDialog } from './ai/FlashcardsDialog';
 import { PodcastDialog } from './ai/PodcastDialog';
 import {
@@ -222,10 +221,9 @@ export function App() {
       <ExportDialog />
       <MergeNotesDialog />
       <ImportDocumentDialog />
-      <RewriteDialog />
+      <CheckDialog />
       <SynthesisDialog />
-      <MindMapDialog />
-      <DiagramDialog />
+      <VisualizeDialog />
       <FlashcardsDialog />
       <PodcastDialog />
       <TaskDialog />

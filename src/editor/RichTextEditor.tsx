@@ -25,7 +25,6 @@ import {
   dismissWordCompletion,
   type WordCompletionOptions,
 } from './extensions/WordCompletion';
-import { ProofreadDialog, type AcceptedCorrection } from './proofread/ProofreadDialog';
 import { paragraphText, rangeFor } from './proofread/paragraphText';
 import { closeHistory } from '@tiptap/pm/history';
 import {
@@ -45,6 +44,9 @@ import {
 const HINT_LESSONS = 5;
 import {
   registerEditorCommandRunner,
+  registerParagraphChecker,
+  type AcceptedCorrection,
+  type ParagraphTarget,
   registerPdfExcerptInserter,
   type EditorCommand,
 } from './commandBridge';
@@ -84,8 +86,6 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   const closeWikipedia = useUiStore((state) => state.closeWikipedia);
   const defineRequest = useUiStore((state) => state.defineRequest);
   const closeDefine = useUiStore((state) => state.closeDefine);
-  const proofreadRequest = useUiStore((state) => state.proofreadRequest);
-  const closeProofread = useUiStore((state) => state.closeProofread);
   const [findOpen, setFindOpen] = useState(false);
   const [prompt, setPrompt] = useState<EditorPromptRequest | null>(null);
   const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
@@ -540,19 +540,12 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
          * and "this paragraph" is the line the student is looking at.
          */
         case 'proofread': {
-          const { $from } = current.state.selection;
-          const block = $from.parent;
-          const text =
-            block.isTextblock && !block.type.spec.code ? paragraphText(block).text : '';
-          if (!text.trim()) {
+          const target = paragraphTarget(current);
+          if (!target) {
             useUiStore.getState().showStatusNotice(t('proofread.noParagraph'));
             return false;
           }
-          useUiStore.getState().openProofread({
-            paragraph: text,
-            from: $from.start(),
-            to: $from.end(),
-          });
+          useUiStore.getState().openProofread(target);
           return true;
         }
         case 'find':
@@ -563,45 +556,19 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
     [ask, t],
   );
 
-  /**
-   * Apply the corrections the student ticked, as one undoable edit.
-   *
-   * Refused if the paragraph changed while the model was reading it: the
-   * offsets were computed for the text that was sent, and applying them to
-   * different text would rewrite the wrong words.
-   */
-  const applyCorrections = useCallback((corrections: AcceptedCorrection[]): boolean => {
-    const current = editorRef.current;
-    const request = useUiStore.getState().proofreadRequest;
-    if (!current || !request) return false;
-    const { doc } = current.state;
-    if (request.from < 0 || request.to > doc.content.size) return false;
-    const $start = doc.resolve(request.from);
-    const block = $start.parent;
-    if ($start.start() !== request.from || !block.isTextblock) return false;
-    const mapped = paragraphText(block);
-    if (mapped.text !== request.paragraph) return false;
-
-    const tr = closeHistory(current.state.tr);
-    // From the end backwards, so an earlier replacement cannot shift the
-    // positions of a later one.
-    for (const correction of [...corrections].sort((a, b) => b.index - a.index)) {
-      const range = rangeFor(
-        mapped,
-        request.from,
-        correction.index,
-        correction.original.length,
-      );
-      if (!range) continue;
-      if (correction.replacement)
-        tr.insertText(correction.replacement, range.from, range.to);
-      else tr.delete(range.from, range.to);
-    }
-    if (!tr.docChanged) return false;
-    current.view.dispatch(tr);
-    current.commands.focus();
-    return true;
-  }, []);
+  // The check dialog lives with the other AI dialogs; this is how it finds
+  // the paragraph at the caret and hands corrections back.
+  useEffect(
+    () =>
+      registerParagraphChecker({
+        current: () => (editorRef.current ? paragraphTarget(editorRef.current) : null),
+        apply: (target, corrections) =>
+          editorRef.current
+            ? applyCorrections(editorRef.current, target, corrections)
+            : false,
+      }),
+    [],
+  );
 
   useEffect(() => registerEditorCommandRunner(run), [run]);
 
@@ -801,13 +768,61 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
             .run()
         }
       />
-      <ProofreadDialog
-        request={proofreadRequest}
-        courseId={useEditorStore.getState().note?.courseId ?? null}
-        onClose={closeProofread}
-        onApply={applyCorrections}
-      />
       <EditorPromptDialog request={prompt} onResolve={resolvePrompt} />
     </div>
   );
+}
+
+/**
+ * The paragraph the caret is in: the textblock, not the top-level block — a
+ * list is many paragraphs, and "this paragraph" is the line being looked at.
+ */
+function paragraphTarget(editor: Editor): ParagraphTarget | null {
+  const { $from } = editor.state.selection;
+  const block = $from.parent;
+  const text =
+    block.isTextblock && !block.type.spec.code ? paragraphText(block).text : '';
+  if (!text.trim()) return null;
+  return { paragraph: text, from: $from.start(), to: $from.end() };
+}
+
+/**
+ * Apply the corrections the student ticked, as one undoable edit.
+ *
+ * Refused if the paragraph changed while the model was reading it: the
+ * offsets were computed for the text that was sent, and applying them to
+ * different text would rewrite the wrong words.
+ */
+function applyCorrections(
+  editor: Editor,
+  target: ParagraphTarget,
+  corrections: AcceptedCorrection[],
+): boolean {
+  const { doc } = editor.state;
+  if (target.from < 0 || target.to > doc.content.size) return false;
+  const $start = doc.resolve(target.from);
+  const block = $start.parent;
+  if ($start.start() !== target.from || !block.isTextblock) return false;
+  const mapped = paragraphText(block);
+  if (mapped.text !== target.paragraph) return false;
+
+  const tr = closeHistory(editor.state.tr);
+  // From the end backwards, so an earlier replacement cannot shift the
+  // positions of a later one.
+  for (const correction of [...corrections].sort((a, b) => b.index - a.index)) {
+    const range = rangeFor(
+      mapped,
+      target.from,
+      correction.index,
+      correction.original.length,
+    );
+    if (!range) continue;
+    if (correction.replacement)
+      tr.insertText(correction.replacement, range.from, range.to);
+    else tr.delete(range.from, range.to);
+  }
+  if (!tr.docChanged) return false;
+  editor.view.dispatch(tr);
+  editor.commands.focus();
+  return true;
 }

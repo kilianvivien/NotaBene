@@ -347,7 +347,7 @@ describe('ImportDocumentDialog scanned pages', () => {
 
 describe('ImportDocumentDialog study hand-off', () => {
   /** The study pass is a hand-off, not a stage in the import: the note exists
-   *  and is open by the time it runs, so `RewriteDialog` does the work. */
+   *  and is open by the time it runs, so `CheckDialog` does the work. */
   function handedOff(): boolean {
     return (
       useUiStore.getState().aiRewriteOpen &&

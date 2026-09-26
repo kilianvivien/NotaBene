@@ -13,7 +13,12 @@
  * deck survive closing this dialog. Neither is the "real" one.
  */
 import {
+  Brackets,
   ChevronLeft,
+  Layers,
+  Shuffle,
+  Sparkles,
+  type LucideIcon,
   ChevronRight,
   Loader2,
   Play,
@@ -23,7 +28,13 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dialog, FieldNote, GlassButton, GlassSelect } from '@/components/glass';
+import {
+  ChoiceGroup,
+  Dialog,
+  FieldNote,
+  GlassButton,
+  GlassSegmentedControl,
+} from '@/components/glass';
 import { MAX_AI_SOURCES, type FlashcardStyle } from '@/lib/ai';
 import {
   exportFlashcardsCommand,
@@ -37,10 +48,17 @@ import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { aiErrorMessage } from './aiErrorMessage';
 import { AiDialogStatus } from './AiDisclosure';
+import { Sources } from './Sources';
 import { useAiAvailability } from './useAiAvailability';
 
 const STYLES: FlashcardStyle[] = ['basic', 'cloze', 'mixed'];
 const COUNTS = [10, 15, 20, 30];
+
+const STYLE_ICONS: Record<FlashcardStyle, LucideIcon> = {
+  basic: Layers,
+  cloze: Brackets,
+  mixed: Shuffle,
+};
 
 export function FlashcardsDialog() {
   const { t } = useTranslation();
@@ -68,6 +86,10 @@ export function FlashcardsDialog() {
       ? [selectedNoteId]
       : [];
   const tooMany = noteIds.length > MAX_AI_SOURCES;
+  const libraryNotes = useLibraryStore((state) => state.notes);
+  const sourceTitles = libraryNotes
+    .filter((entry) => noteIds.includes(entry.id))
+    .map((entry) => entry.title || t('noteList.untitled'));
 
   useEffect(() => {
     setDeck(null);
@@ -197,15 +219,15 @@ export function FlashcardsDialog() {
           <GlassButton
             size="sm"
             variant={deck ? 'ghost' : 'accent'}
-            disabled={
-              !noteIds.length || tooMany || !availability.available || running
-            }
+            disabled={!noteIds.length || tooMany || !availability.available || running}
             onClick={() => void generate()}
           >
             {running ? (
               <Loader2 size={12} className="animate-spin" />
+            ) : deck ? (
+              <RefreshCw size={12} />
             ) : (
-              deck && <RefreshCw size={12} />
+              <Sparkles size={12} aria-hidden />
             )}
             {running ? t('ai.running') : deck ? t('ai.regenerate') : t('ai.generate')}
           </GlassButton>
@@ -240,37 +262,34 @@ export function FlashcardsDialog() {
       }
     >
       {!deck && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <GlassSelect
-              label={t('ai.cardStyle')}
-              size="sm"
-              value={style}
-              onChange={(event) => setStyle(event.target.value as FlashcardStyle)}
-            >
-              {STYLES.map((entry) => (
-                <option key={entry} value={entry}>
-                  {t(`ai.cardStyle_${entry}`)}
-                </option>
-              ))}
-            </GlassSelect>
-            <GlassSelect
+        <div className="flex flex-col gap-4">
+          <Sources count={noteIds.length} titles={sourceTitles} />
+          <ChoiceGroup<FlashcardStyle>
+            label={t('ai.cardStyle')}
+            value={style}
+            onChange={setStyle}
+            disabled={running}
+            columns={3}
+            options={STYLES.map((entry) => ({
+              value: entry,
+              icon: STYLE_ICONS[entry],
+              title: t(`ai.cardStyle_${entry}`),
+              description: t(`ai.cardStyleHint_${entry}`),
+            }))}
+          />
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[12.5px] text-nb-text-2">{t('ai.cardCount')}</span>
+            <GlassSegmentedControl<string>
               label={t('ai.cardCount')}
-              size="sm"
               value={String(count)}
-              onChange={(event) => setCount(Number(event.target.value))}
-            >
-              {COUNTS.map((entry) => (
-                <option key={entry} value={entry}>
-                  {t('ai.cardCountValue', { count: entry })}
-                </option>
-              ))}
-            </GlassSelect>
+              onChange={(next) => setCount(Number(next))}
+              disabled={running}
+              options={COUNTS.map((entry) => ({
+                value: String(entry),
+                label: t('ai.cardCountShort', { count: entry }),
+              }))}
+            />
           </div>
-          <p className="text-[12px] leading-snug text-nb-text-3">
-            {t(`ai.cardStyleHint_${style}`)}
-          </p>
-          <FieldNote>{t('ai.sourceCount', { count: noteIds.length })}</FieldNote>
           {tooMany && (
             <FieldNote tone="danger">
               {t('ai.limit_too_many_notes', { max: MAX_AI_SOURCES })}

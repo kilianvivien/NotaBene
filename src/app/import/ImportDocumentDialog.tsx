@@ -196,7 +196,7 @@ export function ImportDocumentDialog() {
    * Leave the dialog, handing off to the study pass if one was asked for.
    *
    * A hand-off rather than a stage in this pipeline: the note already exists
-   * and is open by the time this runs, so `RewriteDialog` works on it
+   * and is open by the time this runs, so `CheckDialog` works on it
    * unchanged — with its per-block gate, and with the plain imported document
    * in version history behind it. Rejecting every block leaves exactly the
    * import.

@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
-import { RewriteDialog } from './RewriteDialog';
+import { registerParagraphChecker } from '@/editor/commandBridge';
+import { CheckDialog } from './CheckDialog';
 
 vi.mock('./useAiAvailability', () => ({
   useAiAvailability: () => ({
@@ -21,7 +22,10 @@ const applyRewriteCommand = vi.fn();
 vi.mock('@/lib/commands', () => ({
   proposeRewriteCommand: (...args: unknown[]) => proposeRewriteCommand(...args),
   applyRewriteCommand: (...args: unknown[]) => applyRewriteCommand(...args),
+  proofreadCommand: (...args: unknown[]) => proofreadCommand(...args),
 }));
+
+const proofreadCommand = vi.fn();
 
 beforeEach(() => {
   proposeRewriteCommand.mockResolvedValue({
@@ -52,16 +56,16 @@ function selected(name: string): boolean {
   return segment(name).getAttribute('aria-checked') === 'true';
 }
 
-describe('RewriteDialog study mode', () => {
+describe('CheckDialog study mode', () => {
   it('offers study notes as a fourth mode, always', async () => {
     // Unconditional on purpose: a segment that appears only after an import
     // reads as a bug rather than as something not yet unlocked.
-    render(<RewriteDialog />);
+    render(<CheckDialog />);
     expect(segment('Study notes')).not.toBeNull();
   });
 
   it('starts on the safe mode when nothing asked for another', () => {
-    render(<RewriteDialog />);
+    render(<CheckDialog />);
     expect(selected('Light cleanup')).toBe(true);
     expect(selected('Study notes')).toBe(false);
   });
@@ -69,7 +73,7 @@ describe('RewriteDialog study mode', () => {
   it('says plainly that this mode changes the wording', async () => {
     // The other three promise the author's words survive. This one does not,
     // and that sentence is the only thing between two adjacent choices.
-    render(<RewriteDialog />);
+    render(<CheckDialog />);
     expect(screen.queryByText(/changes the wording/)).toBeNull();
 
     await userEvent.click(segment('Study notes'));
@@ -80,7 +84,7 @@ describe('RewriteDialog study mode', () => {
   it('opens in study mode when the import handed it off', async () => {
     useUiStore.getState().setAiRewriteOpen(false);
     useUiStore.getState().setPendingRewriteMode('study');
-    render(<RewriteDialog />);
+    render(<CheckDialog />);
     useUiStore.getState().setAiRewriteOpen(true);
 
     await waitFor(() => expect(selected('Study notes')).toBe(true));
@@ -89,7 +93,7 @@ describe('RewriteDialog study mode', () => {
   it('clears the handed-off mode, so opening it by hand is light again', async () => {
     useUiStore.getState().setAiRewriteOpen(false);
     useUiStore.getState().setPendingRewriteMode('study');
-    render(<RewriteDialog />);
+    render(<CheckDialog />);
 
     useUiStore.getState().setAiRewriteOpen(true);
     await waitFor(() => expect(selected('Study notes')).toBe(true));
@@ -109,7 +113,7 @@ describe('RewriteDialog study mode', () => {
   });
 
   it('proposes in the mode that is selected', async () => {
-    render(<RewriteDialog />);
+    render(<CheckDialog />);
     await userEvent.click(segment('Study notes'));
     await userEvent.click(screen.getByRole('button', { name: 'Propose changes' }));
 
@@ -118,5 +122,66 @@ describe('RewriteDialog study mode', () => {
       noteId: 'n1',
       mode: 'study',
     });
+  });
+});
+
+describe('CheckDialog paragraph check', () => {
+  const target = { paragraph: 'La mitochondire produit', from: 1, to: 24 };
+
+  beforeEach(() => {
+    useUiStore.getState().setAiRewriteOpen(false);
+    proofreadCommand.mockResolvedValue({
+      ok: true,
+      value: [{ index: 3, original: 'mitochondire', replacement: 'mitochondrie' }],
+    });
+  });
+
+  afterEach(() => {
+    useUiStore.getState().closeProofread();
+  });
+
+  it('checks at once when opened from the paragraph, and applies through the editor', async () => {
+    const apply = vi.fn(() => true);
+    const unregister = registerParagraphChecker({ current: () => target, apply });
+    render(<CheckDialog />);
+    await act(async () => {
+      useUiStore.getState().openProofread(target);
+    });
+
+    await screen.findByText('mitochondrie');
+    expect(proofreadCommand.mock.calls[0]?.[0]).toMatchObject({
+      paragraph: target.paragraph,
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Apply 1 correction/ }));
+    expect(apply).toHaveBeenCalledWith(target, [
+      expect.objectContaining({ original: 'mitochondire', replacement: 'mitochondrie' }),
+    ]);
+    expect(useUiStore.getState().proofreadRequest).toBeNull();
+    unregister();
+  });
+
+  it('offers the paragraph at the caret alongside the whole-note options', async () => {
+    const unregister = registerParagraphChecker({
+      current: () => target,
+      apply: () => true,
+    });
+    render(<CheckDialog />);
+    await act(async () => {
+      useUiStore.getState().setAiRewriteOpen(true);
+    });
+
+    const card = segment('Spelling & grammar');
+    expect((card as HTMLButtonElement).disabled).toBe(false);
+    await userEvent.click(card);
+    await userEvent.click(screen.getByRole('button', { name: 'Check paragraph' }));
+    await waitFor(() => expect(proofreadCommand).toHaveBeenCalled());
+    unregister();
+  });
+
+  it('says why the paragraph option is unavailable when the caret is in none', () => {
+    useUiStore.getState().setAiRewriteOpen(true);
+    render(<CheckDialog />);
+    expect((segment('Spelling & grammar') as HTMLButtonElement).disabled).toBe(true);
   });
 });

@@ -62,3 +62,49 @@ export function registerPdfExcerptInserter(next: PdfExcerptInserter): () => void
 export function insertPdfExcerpt(input: PdfExcerptInput): boolean {
   return pdfExcerptInserter?.(input) ?? false;
 }
+
+/** The paragraph the caret is in, as the check dialog sends it to a model. */
+export interface ParagraphTarget {
+  paragraph: string;
+  from: number;
+  to: number;
+}
+
+/** A correction the student kept, with its offset into `ParagraphTarget`. */
+export interface AcceptedCorrection {
+  index: number;
+  original: string;
+  replacement: string;
+}
+
+/**
+ * How the check dialog, which lives with the other AI dialogs outside the
+ * editor, reaches the paragraph: it asks which one the caret is in when it
+ * opens, and hands corrections back to be applied as one editor transaction —
+ * so they autosave, version and undo like anything typed.
+ */
+export interface ParagraphChecker {
+  current(): ParagraphTarget | null;
+  /** False when the paragraph changed since it was sent, and nothing was applied. */
+  apply(target: ParagraphTarget, corrections: AcceptedCorrection[]): boolean;
+}
+
+let paragraphChecker: ParagraphChecker | null = null;
+
+export function registerParagraphChecker(next: ParagraphChecker): () => void {
+  paragraphChecker = next;
+  return () => {
+    if (paragraphChecker === next) paragraphChecker = null;
+  };
+}
+
+export function paragraphAtCaret(): ParagraphTarget | null {
+  return paragraphChecker?.current() ?? null;
+}
+
+export function applyParagraphCorrections(
+  target: ParagraphTarget,
+  corrections: AcceptedCorrection[],
+): boolean {
+  return paragraphChecker?.apply(target, corrections) ?? false;
+}

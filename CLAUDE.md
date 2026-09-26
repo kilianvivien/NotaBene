@@ -80,6 +80,9 @@ Four rules carry most of the weight:
   cache), `editorStore` (open note + autosave), `settingsStore`.
   `libraryStore` is a cache of reads, never a source of truth; after any write,
   call `refreshCurrentView()`.
+- AI dialogs ask their question with `ChoiceGroup` (cards that each say what
+  they do) rather than segmented controls or dropdowns, and show the sources
+  with `Sources`. Check & correct and Visualize are the reference.
 - Put every user-facing string in both `src/locales/en` and `src/locales/fr`,
   including error messages.
 - Shell layout lives in `src/app/shell/`; the view → query mapping is

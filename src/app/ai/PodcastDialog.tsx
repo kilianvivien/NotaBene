@@ -19,16 +19,25 @@ import {
   Download,
   FileText,
   Loader2,
+  Mic,
   Paperclip,
   Pause,
   Play,
   RefreshCw,
   Sparkles,
+  Users,
   Volume2,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dialog, FieldNote, GlassButton, GlassSelect } from '@/components/glass';
+import {
+  ChoiceGroup,
+  Dialog,
+  FieldNote,
+  GlassButton,
+  GlassSegmentedControl,
+  GlassSelect,
+} from '@/components/glass';
 import type { TtsVoice } from '@/lib/adapters';
 import { estimateSpokenMinutes, MAX_AI_SOURCES, type PodcastMode } from '@/lib/ai';
 import {
@@ -452,7 +461,7 @@ export function PodcastDialog() {
                 disabled={!noteIds.length || tooMany || !availability.available}
                 onClick={() => void writeScript()}
               >
-                {script && <Sparkles size={12} />}
+                <Sparkles size={12} aria-hidden />
                 {script ? t('ai.regenerateScript') : t('ai.writeScript')}
               </GlassButton>
               {script && !segments.length && (
@@ -485,47 +494,55 @@ export function PodcastDialog() {
         {/* Every control keeps its own name above it. As a bare row of
             dropdowns, "6 min" and "1.0×" gave no clue which was the length of
             the episode and which the speed it is read at. */}
-        <div className="flex flex-wrap items-end gap-2">
-          <Labelled label={t('ai.podcastMode')}>
-            <GlassSelect
-              label={t('ai.podcastMode')}
-              size="sm"
-              value={podcast.mode}
-              onChange={(event) =>
-                void updateSettings({
-                  podcast: { ...podcast, mode: event.target.value as PodcastMode },
-                })
-              }
-            >
-              {MODES.map((mode) => (
-                <option key={mode} value={mode}>
-                  {t(`ai.podcastMode_${mode}`)}
-                </option>
-              ))}
-            </GlassSelect>
-          </Labelled>
+        {/* The format is the choice that shapes the whole script, so before
+            there is one it gets the space to explain itself. Afterwards it is
+            one more control in the row, for the next regeneration. */}
+        {!script && (
+          <ChoiceGroup<PodcastMode>
+            label={t('ai.podcastMode')}
+            value={podcast.mode}
+            onChange={(mode) => void updateSettings({ podcast: { ...podcast, mode } })}
+            disabled={writing}
+            options={MODES.map((mode) => ({
+              value: mode,
+              icon: mode === 'narrator' ? Mic : Users,
+              title: t(`ai.podcastMode_${mode}`),
+              description: t(`ai.podcastModeHint_${mode}`),
+            }))}
+          />
+        )}
+        <div className="flex flex-wrap items-start gap-3">
+          {script && (
+            <Labelled label={t('ai.podcastMode')}>
+              <GlassSegmentedControl<PodcastMode>
+                label={t('ai.podcastMode')}
+                value={podcast.mode}
+                onChange={(mode) =>
+                  void updateSettings({ podcast: { ...podcast, mode } })
+                }
+                options={MODES.map((mode) => ({
+                  value: mode,
+                  label: t(`ai.podcastMode_${mode}`),
+                }))}
+              />
+            </Labelled>
+          )}
           <Labelled label={t('ai.podcastLength')}>
-            <GlassSelect
+            <GlassSegmentedControl<string>
               label={t('ai.podcastLength')}
-              size="sm"
               value={String(podcast.minutes)}
-              onChange={(event) =>
-                void updateSettings({
-                  podcast: { ...podcast, minutes: Number(event.target.value) },
-                })
+              onChange={(minutes) =>
+                void updateSettings({ podcast: { ...podcast, minutes: Number(minutes) } })
               }
-            >
-              {LENGTHS.map((minutes) => (
-                <option key={minutes} value={minutes}>
-                  {t('ai.podcastMinutes', { count: minutes })}
-                </option>
-              ))}
-            </GlassSelect>
+              options={LENGTHS.map((minutes) => ({
+                value: String(minutes),
+                label: t('ai.podcastMinutes', { count: minutes }),
+              }))}
+            />
           </Labelled>
           <Labelled label={t('ai.voice')}>
             <GlassSelect
               label={t('ai.voice')}
-              size="sm"
               value={voiceId ?? ''}
               disabled={!voices.length}
               onChange={(event) =>
@@ -554,7 +571,6 @@ export function PodcastDialog() {
           <Labelled label={t('ai.speechRate')}>
             <GlassSelect
               label={t('ai.speechRate')}
-              size="sm"
               value={String(speech.playbackRate)}
               onChange={(event) =>
                 void updateSettings({

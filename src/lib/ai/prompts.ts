@@ -17,7 +17,8 @@ import type { AiMessage } from './protocols';
 import type { AskScope } from './retrieval';
 
 export type RewriteMode = 'light' | 'full' | 'study' | 'custom';
-export type SynthesisStyle = 'summary' | 'revision' | 'qa' | 'glossary' | 'custom';
+export type SynthesisStyle =
+  'summary' | 'revision' | 'outline' | 'qa' | 'glossary' | 'custom';
 export type AskMode = 'note' | 'knowledge';
 
 const DIALECT = `The note is written in a Markdown dialect with a few additions:
@@ -198,10 +199,15 @@ const SYNTHESIS_INTENT: Record<SynthesisStyle, string> = {
     'Write an executive summary: what this material is about, the handful of claims that matter, and what a reader should walk away knowing. Prose, not bullets, except where a list is genuinely the clearest form.',
   revision:
     'Write a revision sheet: the key definitions, formulae, dates and distinctions, organised under headings, dense enough to revise from the night before an exam. Use callouts for the things most often got wrong.',
+  // The shape an essay or an oral exam is built on — a "plan détaillé" in
+  // French teaching. Numbered, nested, and made of claims rather than topics,
+  // because "II. Causes" is a heading and not something to argue.
+  outline:
+    'Write a detailed outline of the material: a numbered, nested plan (parts, sub-parts, then points) where every line states a claim or an idea in a short sentence rather than naming a topic, with the supporting evidence, examples or figures from the sources as sub-points. Give each part a one-line statement of what it establishes, and end with the conclusion the plan leads to.',
   qa: 'Write a self-test: questions that probe understanding rather than recall of wording, each followed by its answer inside a collapsible toggle so the reader can cover it up.',
   glossary:
     'Write a glossary: every term of art that appears in the material, defined in one or two sentences, in alphabetical order, as a definition list of bold term followed by its definition.',
-  // Replaced wholesale by what the student typed. The four above are shapes
+  // Replaced wholesale by what the student typed. The five above are shapes
   // somebody guessed would be wanted; this is the one that admits they might
   // want something else.
   custom: '',
