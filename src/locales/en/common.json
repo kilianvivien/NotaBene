@@ -607,8 +607,6 @@
     "detectedIdle_one": "Running — {{count}} model available, none loaded",
     "detectedIdle_other": "Running — {{count}} models available, none loaded",
     "diagram": "Diagram",
-    "diagramEmpty": "Generate a diagram of this note's process, sequence or structure. You will see it before it goes anywhere near the note.",
-    "diagramIntro": "A diagram of how the things in this note relate. Nothing is written until you insert it.",
     "diagramKind_flowchart": "Flowchart",
     "diagramKind_sequence": "Sequence diagram",
     "disclosure": "How NotaBene uses AI",
@@ -655,8 +653,6 @@
     "local": "Local",
     "localHint": "Runs on this Mac — nothing is sent to a provider.",
     "mindMap": "Mind map",
-    "mindMapEmpty": "Generate a map of this note's concepts. You will see it before it goes anywhere near the note.",
-    "mindMapIntro": "A tree of the concepts in this note. Nothing is written until you insert it.",
     "mindMapNodes_one": "{{count}} node",
     "mindMapNodes_other": "{{count}} nodes",
     "mindMapZoom": "View the map full size",
@@ -706,8 +702,6 @@
     "reviewCards": "Review",
     "reviewProgress": "{{current}} of {{total}}",
     "rewrite": "Check & Correct…",
-    "rewriteIntro": "Choose how much to change, then propose. Nothing is written until you apply.",
-    "rewriteMode": "How much to change",
     "running": "Working…",
     "saveAsNote": "Save as note",
     "saveAudio": "Save MP3…",
@@ -1224,6 +1218,9 @@
     "addToVocabulary": "Add Word to Course Vocabulary",
     "neverSuggest": "Never Suggest This Word",
     "courseVocabulary": "Course Vocabulary…",
+    "synthesize": "Summarize…",
+    "flashcards": "Flashcards…",
+    "podcast": "Listen…",
     "vocabularyReview": "Review Course Vocabulary…"
   },
   "import": {
@@ -1493,6 +1490,7 @@
     "next": "Next match"
   },
   "visualize": {
+    "menu": "Visualize…",
     "title": "Visualize this note",
     "intro": "Turn the note into a picture you can revise from. Pick a style — you will see it before anything goes into the note.",
     "what": "Style of picture",
@@ -1523,14 +1521,10 @@
     "reading": "Reading the note…"
   },
   "proofread": {
-    "menu": "Check Paragraph…",
-    "title": "Check this paragraph",
-    "hint": "Spelling, missing accents and wrong-word mistakes in the paragraph the caret is in. Nothing changes until you apply it.",
     "checkAgain": "Check again",
     "apply_one": "Apply {{count}} correction",
     "apply_other": "Apply {{count}} corrections",
     "checking": "Reading the paragraph…",
-    "empty": "Put the caret in a paragraph and check it.",
     "clean": "Nothing to correct in this paragraph.",
     "remove": "(remove)",
     "changed": "The paragraph changed while it was being checked. Check it again before applying.",

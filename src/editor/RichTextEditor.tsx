@@ -533,21 +533,6 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
           );
           return true;
         }
-        /**
-         * Proofread the paragraph the caret is in.
-         *
-         * The textblock, not the top-level block: a list is many paragraphs,
-         * and "this paragraph" is the line the student is looking at.
-         */
-        case 'proofread': {
-          const target = paragraphTarget(current);
-          if (!target) {
-            useUiStore.getState().showStatusNotice(t('proofread.noParagraph'));
-            return false;
-          }
-          useUiStore.getState().openProofread(target);
-          return true;
-        }
         case 'find':
           setFindOpen(true);
           return true;

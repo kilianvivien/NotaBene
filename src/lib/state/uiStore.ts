@@ -67,15 +67,6 @@ export interface TaskDraft {
   noteIds?: string[];
 }
 
-/** The paragraph a proofread was asked about. `from`/`to` bound the
- * textblock's content, so the corrections can be applied to exactly the text
- * that was sent — and refused if that text has changed since. */
-export interface ProofreadRequest {
-  paragraph: string;
-  from: number;
-  to: number;
-}
-
 /** A sitting at the desk. `startWords` is the note's word count on entry, so
  * the status bar can report what *this* session produced rather than how long
  * the note is. */
@@ -126,8 +117,8 @@ interface UiState {
    * than inheriting a mode nobody chose this time. */
   pendingRewriteMode: RewriteMode | null;
   aiSynthesisOpen: boolean;
-  aiMindMapOpen: boolean;
-  aiDiagramOpen: boolean;
+  /** Mind map or diagram — the dialog remembers which was chosen last. */
+  aiVisualizeOpen: boolean;
   aiFlashcardsOpen: boolean;
   aiPodcastOpen: boolean;
   /** A deep link from an agent run to the exact before-version it created. */
@@ -188,7 +179,6 @@ interface UiState {
    * on the AI review rather than the word list, for the AI menu's entry.
    */
   vocabularyRequest: { courseId: string; review: boolean } | null;
-  proofreadRequest: ProofreadRequest | null;
   /**
    * A one-line confirmation in the status bar — "Added to the course
    * vocabulary" — for commands that change nothing visible in the note.
@@ -218,8 +208,7 @@ interface UiState {
   setAiRewriteOpen(open: boolean): void;
   setPendingRewriteMode(mode: RewriteMode | null): void;
   setAiSynthesisOpen(open: boolean): void;
-  setAiMindMapOpen(open: boolean): void;
-  setAiDiagramOpen(open: boolean): void;
+  setAiVisualizeOpen(open: boolean): void;
   setAiFlashcardsOpen(open: boolean): void;
   setAiPodcastOpen(open: boolean): void;
   requestVersionSnapshot(snapshotId: string | null): void;
@@ -248,8 +237,6 @@ interface UiState {
   setTaskCalendarOpen(open: boolean): void;
   openVocabulary(courseId: string, review?: boolean): void;
   closeVocabulary(): void;
-  openProofread(request: ProofreadRequest): void;
-  closeProofread(): void;
   showStatusNotice(message: string): void;
 }
 
@@ -271,8 +258,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.settingsOpen ||
     state.aiRewriteOpen ||
     state.aiSynthesisOpen ||
-    state.aiMindMapOpen ||
-    state.aiDiagramOpen ||
+    state.aiVisualizeOpen ||
     state.aiFlashcardsOpen ||
     state.aiPodcastOpen ||
     state.taskDraft !== null ||
@@ -281,8 +267,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.defineRequest !== null ||
     state.taskBreakdownFor !== null ||
     state.taskCalendarOpen ||
-    state.vocabularyRequest !== null ||
-    state.proofreadRequest !== null
+    state.vocabularyRequest !== null
   );
 }
 
@@ -317,7 +302,6 @@ export const useUiStore = create<UiState>()(
     taskBreakdownFor: null,
     taskCalendarOpen: false,
     vocabularyRequest: null,
-    proofreadRequest: null,
     statusNotice: null,
     sidebarVisible: true,
     noteListVisible: true,
@@ -337,8 +321,7 @@ export const useUiStore = create<UiState>()(
     aiRewriteOpen: false,
     pendingRewriteMode: null,
     aiSynthesisOpen: false,
-    aiMindMapOpen: false,
-    aiDiagramOpen: false,
+    aiVisualizeOpen: false,
     aiFlashcardsOpen: false,
     aiPodcastOpen: false,
     requestedSnapshotId: null,
@@ -454,18 +437,6 @@ export const useUiStore = create<UiState>()(
     closeVocabulary() {
       set((state) => {
         state.vocabularyRequest = null;
-      });
-    },
-
-    openProofread(request) {
-      set((state) => {
-        state.proofreadRequest = request;
-      });
-    },
-
-    closeProofread() {
-      set((state) => {
-        state.proofreadRequest = null;
       });
     },
 
@@ -681,15 +652,9 @@ export const useUiStore = create<UiState>()(
       });
     },
 
-    setAiDiagramOpen(open) {
+    setAiVisualizeOpen(open) {
       set((state) => {
-        state.aiDiagramOpen = open;
-      });
-    },
-
-    setAiMindMapOpen(open) {
-      set((state) => {
-        state.aiMindMapOpen = open;
+        state.aiVisualizeOpen = open;
       });
     },
 

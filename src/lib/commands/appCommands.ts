@@ -69,10 +69,8 @@ export const APP_COMMAND_IDS = [
   'ai.rewrite',
   'ai.synthesize',
   'ai.ask',
-  'ai.mindMap',
-  'ai.diagram',
+  'ai.visualize',
   'ai.define',
-  'ai.proofread',
   'ai.vocabularyReview',
   'ai.flashcards',
   'ai.podcast',
@@ -644,7 +642,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   },
   'ai.synthesize': {
     id: 'ai.synthesize',
-    labelKey: 'ai.synthesis',
+    labelKey: 'menu.synthesize',
     accelerator: 'CmdOrCtrl+Shift+S',
     landsIn: 'E',
     run: requireNote(() => {
@@ -682,20 +680,6 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     landsIn: 'E',
     run: editorAction('define'),
   },
-  /**
-   * Check the paragraph under the caret, on request.
-   *
-   * Beside Define because it has the same shape: the argument is where the
-   * caret is, the answer sits in a dialog until the student accepts it, and
-   * what lands in the note arrives through the editor.
-   */
-  'ai.proofread': {
-    id: 'ai.proofread',
-    labelKey: 'proofread.menu',
-    accelerator: 'CmdOrCtrl+Shift+Alt+P',
-    landsIn: 'K',
-    run: editorAction('proofread'),
-  },
   'ai.vocabularyReview': {
     id: 'ai.vocabularyReview',
     labelKey: 'menu.vocabularyReview',
@@ -703,30 +687,24 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     landsIn: 'K',
     run: openVocabulary(true),
   },
-  'ai.mindMap': {
-    id: 'ai.mindMap',
-    labelKey: 'ai.mindMap',
+  /**
+   * Mind map or diagram, chosen in the dialog. One entry for both: a map is
+   * the note's concepts as a tree, a diagram is what causes, precedes or calls
+   * what, and the dialog shows the two side by side so the difference is seen
+   * rather than guessed from a menu label. It opens on the one chosen last.
+   */
+  'ai.visualize': {
+    id: 'ai.visualize',
+    labelKey: 'visualize.menu',
     accelerator: 'CmdOrCtrl+Shift+G',
     landsIn: 'G',
     run: requireNote(() => {
-      useUiStore.getState().setAiMindMapOpen(true);
-    }),
-  },
-  /** Beside the mind map, not instead of it: a map is the note's concepts as a
-   * tree, a diagram is what in the note causes, precedes or calls what. The
-   * same lecture has both readings and they are rarely the same picture. */
-  'ai.diagram': {
-    id: 'ai.diagram',
-    labelKey: 'ai.diagram',
-    accelerator: 'CmdOrCtrl+Shift+J',
-    landsIn: 'G',
-    run: requireNote(() => {
-      useUiStore.getState().setAiDiagramOpen(true);
+      useUiStore.getState().setAiVisualizeOpen(true);
     }),
   },
   'ai.flashcards': {
     id: 'ai.flashcards',
-    labelKey: 'ai.flashcards',
+    labelKey: 'menu.flashcards',
     accelerator: 'CmdOrCtrl+Alt+F',
     landsIn: 'G',
     run: requireNote(() => {
@@ -735,7 +713,7 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
   },
   'ai.podcast': {
     id: 'ai.podcast',
-    labelKey: 'ai.podcast',
+    labelKey: 'menu.podcast',
     accelerator: 'CmdOrCtrl+Alt+P',
     landsIn: 'G',
     run: requireNote(() => {

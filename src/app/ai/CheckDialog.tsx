@@ -86,14 +86,14 @@ export function CheckDialog() {
   const setRewriteOpen = useUiStore((state) => state.setAiRewriteOpen);
   const pendingMode = useUiStore((state) => state.pendingRewriteMode);
   const setPendingMode = useUiStore((state) => state.setPendingRewriteMode);
-  const proofreadRequest = useUiStore((state) => state.proofreadRequest);
-  const closeProofread = useUiStore((state) => state.closeProofread);
   const note = useEditorStore((state) => state.note);
   const running = useAiStore((state) => state.running);
 
-  const open = rewriteOpen || proofreadRequest !== null;
+  const open = rewriteOpen;
 
-  const [task, setTask] = useState<Task>('light');
+  // The paragraph first, when there is one: it is the check a student reaches
+  // for most, and the one that touches the least.
+  const [task, setTask] = useState<Task>('paragraph');
   const [paragraph, setParagraph] = useState<ParagraphTarget | null>(null);
   const [instruction, setInstruction] = useState('');
   const [error, setError] = useState('');
@@ -128,17 +128,10 @@ export function CheckDialog() {
     }
     const firstOpen = !opened.current;
     opened.current = true;
-
-    // "Check paragraph" from the menu or the editor: the student already said
-    // which paragraph by putting the caret in it, so it runs straight away.
-    if (proofreadRequest) {
-      setParagraph(proofreadRequest);
-      setTask('paragraph');
-      void check(proofreadRequest);
-      return;
-    }
     if (!firstOpen) return;
-    setParagraph(paragraphAtCaret());
+
+    const target = paragraphAtCaret();
+    setParagraph(target);
     // Read once and clear: something opened this dialog on the student's
     // behalf — import, so far — and asked for a mode.
     if (pendingMode) {
@@ -146,20 +139,25 @@ export function CheckDialog() {
       setPendingMode(null);
       return;
     }
-    // Study mode is never inherited. Every other mode promises the author's
-    // words survive, so leaving one selected between opens is a convenience;
-    // this one rewrites them. Someone arriving through "Check & correct"
-    // expects correction, and finding the note reshaped instead — because of
-    // a choice made for a different note last week — is the surprise worth a
-    // second click. A paragraph from last time is gone with its caret.
+    // Otherwise the last choice, with two exceptions. Study mode is never
+    // inherited: every other mode promises the author's words survive, and
+    // finding the note reshaped because of a choice made for a different note
+    // last week is the surprise worth a second click. And the paragraph check
+    // needs a paragraph: with the caret in one it is offered first, without
+    // one Light cleanup stands in for it — which is also why Light cleanup
+    // gives way to the paragraph again once there is one to check.
     setTask((current) =>
-      current === 'study' || current === 'paragraph' ? 'light' : current,
+      current === 'study' || current === 'paragraph' || (target && current === 'light')
+        ? target
+          ? 'paragraph'
+          : 'light'
+        : current,
     );
-    // `pendingMode` and `check` are deliberately absent: this runs when the
-    // dialog opens or the note changes, and clearing the pending mode inside
-    // it must not re-run it.
+    // `pendingMode` is deliberately absent: this runs when the dialog opens
+    // or the note changes, and clearing the pending mode inside it must not
+    // re-run it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [note?.id, open, proofreadRequest]);
+  }, [note?.id, open]);
 
   function choose(next: Task): void {
     if (next === task) return;
@@ -229,7 +227,6 @@ export function CheckDialog() {
     cancelRun('rewrite');
     cancelRun('proofread');
     setRewriteOpen(false);
-    closeProofread();
   }
 
   async function applyRewrite(): Promise<void> {

@@ -22,7 +22,6 @@ export type EditorCommand =
   | 'define'
   | 'vocabularyAdd'
   | 'vocabularyIgnore'
-  | 'proofread'
   | 'find';
 
 type Runner = (command: EditorCommand) => boolean | Promise<boolean>;

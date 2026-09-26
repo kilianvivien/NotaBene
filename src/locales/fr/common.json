@@ -607,8 +607,6 @@
     "detectedIdle_one": "En cours — {{count}} modèle disponible, aucun chargé",
     "detectedIdle_other": "En cours — {{count}} modèles disponibles, aucun chargé",
     "diagram": "Schéma",
-    "diagramEmpty": "Générez un schéma du processus, de la séquence ou de la structure de cette note. Vous le verrez avant qu’il n’approche la note.",
-    "diagramIntro": "Un schéma des liens entre les éléments de cette note. Rien n’est écrit tant que vous ne l’insérez pas.",
     "diagramKind_flowchart": "Organigramme",
     "diagramKind_sequence": "Diagramme de séquence",
     "disclosure": "Comment NotaBene utilise l’IA",
@@ -655,8 +653,6 @@
     "local": "Local",
     "localHint": "S'exécute sur ce Mac — rien n'est envoyé à un fournisseur.",
     "mindMap": "Carte mentale",
-    "mindMapEmpty": "Générez une carte des concepts de cette note. Vous la verrez avant qu'elle n'approche la note.",
-    "mindMapIntro": "Une arborescence des concepts de cette note. Rien n'est écrit avant l'insertion.",
     "mindMapNodes_one": "{{count}} nœud",
     "mindMapNodes_other": "{{count}} nœuds",
     "mindMapZoom": "Afficher la carte en grand",
@@ -706,8 +702,6 @@
     "reviewCards": "Réviser",
     "reviewProgress": "{{current}} sur {{total}}",
     "rewrite": "Vérifier et corriger…",
-    "rewriteIntro": "Choisissez l'ampleur des modifications, puis lancez la proposition. Rien n'est écrit tant que vous n'appliquez pas.",
-    "rewriteMode": "Ampleur des modifications",
     "running": "En cours…",
     "saveAsNote": "Enregistrer comme note",
     "saveAudio": "Enregistrer le MP3…",
@@ -1224,6 +1218,9 @@
     "addToVocabulary": "Ajouter le mot au vocabulaire du cours",
     "neverSuggest": "Ne plus suggérer ce mot",
     "courseVocabulary": "Vocabulaire du cours…",
+    "synthesize": "Résumer…",
+    "flashcards": "Fiches de révision…",
+    "podcast": "Écouter…",
     "vocabularyReview": "Réviser le vocabulaire du cours…"
   },
   "import": {
@@ -1493,6 +1490,7 @@
     "next": "Occurrence suivante"
   },
   "visualize": {
+    "menu": "Visualiser…",
     "title": "Visualiser la note",
     "intro": "Transformez la note en image pour réviser. Choisissez un style : vous le verrez avant que quoi que ce soit n’entre dans la note.",
     "what": "Style d’image",
@@ -1523,14 +1521,10 @@
     "reading": "Lecture de la note…"
   },
   "proofread": {
-    "menu": "Vérifier le paragraphe…",
-    "title": "Vérifier ce paragraphe",
-    "hint": "Fautes d’orthographe, accents manquants et mots employés à tort dans le paragraphe où se trouve le curseur. Rien ne change avant que vous appliquiez.",
     "checkAgain": "Vérifier à nouveau",
     "apply_one": "Appliquer {{count}} correction",
     "apply_other": "Appliquer {{count}} corrections",
     "checking": "Lecture du paragraphe…",
-    "empty": "Placez le curseur dans un paragraphe pour le vérifier.",
     "clean": "Rien à corriger dans ce paragraphe.",
     "remove": "(supprimer)",
     "changed": "Le paragraphe a changé pendant la vérification. Vérifiez-le à nouveau avant d’appliquer.",

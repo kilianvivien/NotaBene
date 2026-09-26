@@ -47,14 +47,11 @@ type Kind = 'mindMap' | 'diagram';
 
 export function VisualizeDialog() {
   const { t } = useTranslation();
-  const mindMapOpen = useUiStore((state) => state.aiMindMapOpen);
-  const diagramOpen = useUiStore((state) => state.aiDiagramOpen);
-  const setMindMapOpen = useUiStore((state) => state.setAiMindMapOpen);
-  const setDiagramOpen = useUiStore((state) => state.setAiDiagramOpen);
+  const open = useUiStore((state) => state.aiVisualizeOpen);
+  const setOpen = useUiStore((state) => state.setAiVisualizeOpen);
   const noteId = useEditorStore((state) => state.note?.id ?? null);
   const running = useAiStore((state) => state.running);
 
-  const open = mindMapOpen || diagramOpen;
   const [kind, setKind] = useState<Kind>('mindMap');
   const [mindMap, setMindMap] = useState<MindMapResult | null>(null);
   const [diagram, setDiagram] = useState<DiagramResult | null>(null);
@@ -72,13 +69,12 @@ export function VisualizeDialog() {
     setError('');
   }
 
-  // Each menu item opens on its own output; either way the other is a click
-  // away. A picture of the note you were on is not a picture of this one.
+  // A picture of the note you were on is not a picture of this one. The
+  // style stays as it was left: the dialog stays mounted, so it reopens on
+  // whichever of the two was chosen last.
   useEffect(() => {
     reset();
-    if (mindMapOpen) setKind('mindMap');
-    else if (diagramOpen) setKind('diagram');
-  }, [noteId, mindMapOpen, diagramOpen]);
+  }, [noteId, open]);
 
   function choose(next: Kind): void {
     setKind(next);
@@ -125,8 +121,7 @@ export function VisualizeDialog() {
   function close(): void {
     cancelRun('mindMap');
     cancelRun('diagram');
-    setMindMapOpen(false);
-    setDiagramOpen(false);
+    setOpen(false);
     reset();
   }
 

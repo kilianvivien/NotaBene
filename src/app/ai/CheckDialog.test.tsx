@@ -136,17 +136,18 @@ describe('CheckDialog paragraph check', () => {
     });
   });
 
-  afterEach(() => {
-    useUiStore.getState().closeProofread();
-  });
-
-  it('checks at once when opened from the paragraph, and applies through the editor', async () => {
+  it('offers the paragraph at the caret first, checks it, and applies through the editor', async () => {
     const apply = vi.fn(() => true);
     const unregister = registerParagraphChecker({ current: () => target, apply });
     render(<CheckDialog />);
     await act(async () => {
-      useUiStore.getState().openProofread(target);
+      useUiStore.getState().setAiRewriteOpen(true);
     });
+
+    // One entry in the menu for every kind of check: with the caret in a
+    // paragraph, that paragraph is the choice already made.
+    expect(selected('Spelling & grammar')).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Check paragraph' }));
 
     await screen.findByText('mitochondrie');
     expect(proofreadCommand.mock.calls[0]?.[0]).toMatchObject({
@@ -157,25 +158,7 @@ describe('CheckDialog paragraph check', () => {
     expect(apply).toHaveBeenCalledWith(target, [
       expect.objectContaining({ original: 'mitochondire', replacement: 'mitochondrie' }),
     ]);
-    expect(useUiStore.getState().proofreadRequest).toBeNull();
-    unregister();
-  });
-
-  it('offers the paragraph at the caret alongside the whole-note options', async () => {
-    const unregister = registerParagraphChecker({
-      current: () => target,
-      apply: () => true,
-    });
-    render(<CheckDialog />);
-    await act(async () => {
-      useUiStore.getState().setAiRewriteOpen(true);
-    });
-
-    const card = segment('Spelling & grammar');
-    expect((card as HTMLButtonElement).disabled).toBe(false);
-    await userEvent.click(card);
-    await userEvent.click(screen.getByRole('button', { name: 'Check paragraph' }));
-    await waitFor(() => expect(proofreadCommand).toHaveBeenCalled());
+    expect(useUiStore.getState().aiRewriteOpen).toBe(false);
     unregister();
   });
 

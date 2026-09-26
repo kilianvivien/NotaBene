@@ -48,8 +48,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
-  useUiStore.getState().setAiMindMapOpen(false);
-  useUiStore.getState().setAiDiagramOpen(false);
+  useUiStore.getState().setAiVisualizeOpen(false);
 });
 
 function checked(name: string): boolean {
@@ -57,16 +56,20 @@ function checked(name: string): boolean {
 }
 
 describe('VisualizeDialog', () => {
-  it('opens on the style its menu item names', async () => {
+  it('opens on a mind map, then on whichever style was chosen last', async () => {
     render(<VisualizeDialog />);
-    await act(async () => useUiStore.getState().setAiDiagramOpen(true));
+    await act(async () => useUiStore.getState().setAiVisualizeOpen(true));
+    expect(checked('Mind map')).toBe(true);
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Diagram' }));
+    await act(async () => useUiStore.getState().setAiVisualizeOpen(false));
+    await act(async () => useUiStore.getState().setAiVisualizeOpen(true));
     expect(checked('Diagram')).toBe(true);
-    expect(checked('Mind map')).toBe(false);
   });
 
   it('generates and inserts a mind map through the mind map commands', async () => {
     render(<VisualizeDialog />);
-    await act(async () => useUiStore.getState().setAiMindMapOpen(true));
+    await act(async () => useUiStore.getState().setAiVisualizeOpen(true));
 
     await userEvent.click(screen.getByRole('button', { name: /Generate mind map/ }));
     await screen.findByText(/Cell · 2 nodes/);
@@ -74,12 +77,12 @@ describe('VisualizeDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Insert into note' }));
     await waitFor(() => expect(insertMindMapCommand).toHaveBeenCalledWith('n1', MAP));
-    expect(useUiStore.getState().aiMindMapOpen).toBe(false);
+    expect(useUiStore.getState().aiVisualizeOpen).toBe(false);
   });
 
   it('switches to a diagram and keeps its own output', async () => {
     render(<VisualizeDialog />);
-    await act(async () => useUiStore.getState().setAiMindMapOpen(true));
+    await act(async () => useUiStore.getState().setAiVisualizeOpen(true));
 
     await userEvent.click(screen.getByRole('radio', { name: 'Diagram' }));
     await userEvent.click(screen.getByRole('button', { name: /Generate diagram/ }));
