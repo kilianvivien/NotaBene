@@ -27,6 +27,19 @@
   paragraph the caret is in for misspellings, missing accents and wrong-word
   mistakes, and leaves the course's own terms alone. Each correction can be
   unticked. Applying them is a single edit, so one undo takes them all back.
+- **More useful suggestions and vocabulary view.** Completion now draws on
+  the open note as well as the course, learns from suggestions you accept, and
+  offers one setting for how present suggestions should be. The course
+  vocabulary dialog includes a word cloud that makes frequent terms easy to
+  spot.
+- **Clearer AI dialogs.** Checking text and creating a diagram or mind map now
+  start with a choice that explains what each action will do. The other study
+  dialogs use the same source selection pattern, and the AI menu has one entry
+  per dialog.
+- **Polish and fixes.** Task details, dark-mode drawing previews, and parts of
+  the shell have been refined. Tag actions remain accessible, and the release
+  build no longer strips required native symbols. TipTap and Vitest were
+  updated to address dependency alerts.
 
 This release updates the library schema from version 7 to 8 to store each
 course's vocabulary. Existing libraries are migrated automatically when they

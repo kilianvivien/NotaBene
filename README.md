@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.0.0"><img alt="Latest release: 1.0.0" src="https://img.shields.io/badge/release-1.0.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.1.0"><img alt="Latest release: 1.1.0" src="https://img.shields.io/badge/release-1.1.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,8 +24,8 @@
 
 ## Download
 
-Download **[NotaBene 1.0.0 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v1.0.0/NotaBene_1.0.0_aarch64.dmg)**.
+Download **[NotaBene 1.1.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v1.1.0/NotaBene_1.1.0_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer. Apple Intelligence as an AI provider needs
 macOS 27 on a Mac eligible for it; every other feature does not.
 
@@ -60,7 +60,8 @@ and control over your own data. NotaBene is being built so you do not have to.
 | Attachments with in-app preview       | Search across notes and commands     | On-device or hosted neural voices | No account, no telemetry      |
 | Import PDF, Word, and slides as notes | Convert an attachment in place       | Optional AI layout for a handout  | Documents converted on-device |
 | Select many notes and act on them all | Merge several notes into one         | Study tools read the whole set    | Nothing leaves without asking |
-| Tasks, subtasks, and reminders        | Link tasks and notes both ways        | Repeating coursework rolls ahead  | No background service         |
+| Tasks, subtasks, and reminders        | Link tasks and notes both ways       | Repeating coursework rolls ahead  | No background service         |
+| Course-aware word completion          | Curated vocabulary for each course   | AI vocabulary and paragraph check | Suggestions stay on your Mac  |
 
 ### An editor you can actually take notes in
 
@@ -73,6 +74,15 @@ Define your own **abbreviations** in Settings and they expand while you write:
 type `tvi`, finish the word, and the note reads "théorème des valeurs
 intermédiaires". Expansions never fire inside code, and the words they wrote are
 briefly tinted so you can see what happened.
+
+**Word completion** learns recurring terms from the notes in the current
+course and offers the rest of a word as you type. Press Tab to accept or Escape
+to dismiss; it never inserts a suggestion on its own. The course vocabulary
+view shows frequent terms as a word cloud and lets you keep useful terms or
+silence repeated typos. You can adjust or turn off completion in Settings →
+Editor. With an AI provider configured, you can also review a course's terms
+against a syllabus or check the paragraph under the caret, accepting only the
+corrections you choose.
 
 Notes also carry attachments — slide decks, spreadsheets, handouts, lecture
 recordings, and e-books all live beside the note instead of in a folder
@@ -263,20 +273,18 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 1.0.0** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v1.0.0).
+**NotaBene 1.1.0** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v1.1.0).
 Everything described above is built and working.
 
-1.0 is the version where the app finally does the whole job end to end —
-write, organize, study, export — and where the AI half of it can run with no
-key, no account, and no request leaving the Mac, on Apple's own on-device
-model.
+1.1 adds course-aware word completion, a vocabulary view, optional AI review
+of course terms and paragraphs, and clearer choices across the AI dialogs.
 
 Two things are deliberately not done yet: the app is **not** signed with an
 Apple Developer ID or notarized, and there are **no** automatic updates. Both
 are planned.
 
-See the [1.0.0 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.0.0)
+See the [1.1.0 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.1.0)
 and [earlier release notes](./RELEASE_NOTES.md), plus the
 [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
