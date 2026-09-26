@@ -110,3 +110,8 @@ objc2-vision = { version = "0.3", default-features = false, features = [
     "VNTypes",
     "objc2-core-foundation",
 ] }
+
+[profile.release.build-override]
+# macOS 27 rejects proc-macro dylibs whose LINKEDIT string pool is misaligned
+# after Rust strips debug info. Build-time crates are not shipped in the app.
+strip = "none"

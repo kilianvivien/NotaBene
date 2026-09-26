@@ -23,6 +23,7 @@ export interface ContextPoint {
 export interface ContextMenuItem {
   id: string;
   label: string;
+  ariaLabel?: string;
   icon?: LucideIcon;
   danger?: boolean;
   disabled?: boolean;
@@ -133,6 +134,7 @@ export function ContextMenu({
             role={checkable ? 'menuitemradio' : 'menuitem'}
             aria-checked={checkable ? entry.selected === true : undefined}
             disabled={entry.disabled}
+            aria-label={entry.ariaLabel}
             title={entry.title}
             className={cn(
               'flex h-8 w-full items-center gap-2 rounded-nb-xs px-2 text-left text-[13px]',

@@ -130,14 +130,16 @@ export function NoteContextMenu({
                 ...(availableTags.length || appliedTags.length ? [null] : []),
                 ...availableTags.map((tag) => ({
                   id: `tag-${tag.id}`,
-                  label: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
+                  label: `+ ${tagLabel(tag, t).full}`,
+                  ariaLabel: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
                   icon: Tag,
                   swatch: tag.color,
                   onSelect: () => void tagNotesCommand(selection, tag.id, 'add'),
                 })),
                 ...appliedTags.map((tag) => ({
                   id: `untag-${tag.id}`,
-                  label: t('noteActions.removeTag', { tag: tagLabel(tag, t).full }),
+                  label: `− ${tagLabel(tag, t).full}`,
+                  ariaLabel: t('noteActions.removeTag', { tag: tagLabel(tag, t).full }),
                   icon: Tag,
                   swatch: tag.color,
                   onSelect: () => void tagNotesCommand(selection, tag.id, 'remove'),
@@ -198,14 +200,16 @@ export function NoteContextMenu({
               ...(availableTags.length || appliedTags.length ? [null] : []),
               ...availableTags.map((tag) => ({
                 id: `tag-${tag.id}`,
-                label: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
+                label: `+ ${tagLabel(tag, t).full}`,
+                ariaLabel: t('noteActions.addTag', { tag: tagLabel(tag, t).full }),
                 icon: Tag,
                 swatch: tag.color,
                 onSelect: () => void update({ tagIds: [...note.tagIds, tag.id] }),
               })),
               ...appliedTags.map((tag) => ({
                 id: `untag-${tag.id}`,
-                label: t('noteActions.removeTag', { tag: tagLabel(tag, t).full }),
+                label: `− ${tagLabel(tag, t).full}`,
+                ariaLabel: t('noteActions.removeTag', { tag: tagLabel(tag, t).full }),
                 icon: Tag,
                 swatch: tag.color,
                 onSelect: () =>
