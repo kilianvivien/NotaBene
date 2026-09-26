@@ -105,7 +105,7 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A–J are code-complete, apart from the explicitly deferred signing,
+Phases A–K are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
 server, the study features, bulk selection, and tasks. The MCP and in-app Agent
@@ -122,7 +122,9 @@ every export), flashcards with Anki export, and note-to-podcast over macOS
 system voices, onboarding, editable study artefacts, accessibility, performance
 instrumentation, and release documentation. J adds tasks: a recurrence engine,
 reminders that survive a quit, a Tasks view, tasks linked to notes both in the
-inspector and inline, and saving a web page onto a note. `docs/plan.md` tracks
+inspector and inline, and saving a web page onto a note. K (1.1.0) adds word
+completion from a per-course vocabulary, curated course terms, an AI
+vocabulary review, and an on-demand paragraph check. `docs/plan.md` tracks
 what is still open honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
@@ -193,6 +195,28 @@ Phase J notes worth knowing before touching it:
   refuses non-HTTP schemes, loopback, the private ranges, link-local and
   carrier-grade NAT, after resolution rather than before. `http://localhost:22600`
   is NotaBene's own MCP server, and a pasted link must not be able to drive it.
+
+Phase K notes worth knowing before touching it:
+
+- Only the curated half of a course's vocabulary is library data
+  (`course_terms`, schema v8). What completion offers beyond it is harvested
+  from the notes on demand in `src/lib/vocabulary/` and never stored — the
+  same reason the search index is not in a backup. `rejected` terms are what
+  keep a recurring typo from being harvested and offered back.
+- `src/lib/vocabulary/text.ts` folds per code point and deliberately differs
+  from `src/lib/search/fold.ts`. The completer cuts ghost text off a term by
+  position, so a folded prefix must be exactly as long as what was typed, and
+  the suggestion keeps the accents that search folding throws away.
+- `WordCompletion` computes its suggestion inside the keystroke's own
+  transaction (the editor re-renders on every transaction), shows one only
+  after plain typed text, claims Tab only while a suggestion is visible (lists
+  and tables indent on Tab), and stands aside during composition — macOS
+  composes accents. `WordCompletion.test.ts` holds those lines.
+- The harvest runs in slices of under a frame (`cache.ts`), never on a
+  keystroke; the keystroke path is a binary search.
+- Proofreading is a read like Define: corrections go back to the editor,
+  which applies them as one transaction and refuses if the paragraph changed
+  since it was sent.
 
 ## House rules
 

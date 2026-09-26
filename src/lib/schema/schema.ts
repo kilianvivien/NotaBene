@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -364,6 +364,41 @@ export const TaskNoteLinkSchema = z.object({
 export type TaskNoteLink = z.infer<typeof TaskNoteLinkSchema>;
 
 // ---------------------------------------------------------------------------
+// Course vocabulary
+// ---------------------------------------------------------------------------
+
+export const COURSE_TERM_STATUSES = ['accepted', 'rejected'] as const;
+export const CourseTermStatusSchema = z.enum(COURSE_TERM_STATUSES);
+export type CourseTermStatus = z.infer<typeof CourseTermStatusSchema>;
+
+/** Longest term the vocabulary keeps. Long enough for "cycle de Krebs" and
+ * "ultra vires", short enough that a pasted sentence is refused. */
+export const MAX_COURSE_TERM_LENGTH = 60;
+
+/**
+ * A word the student told NotaBene about, for one course.
+ *
+ * Only this curated half of a course's vocabulary is library data. The words
+ * the completer finds in the notes themselves are derived on demand and never
+ * stored, the way the search index is — so a backup carries what the student
+ * decided, and nothing that the notes could not regenerate.
+ *
+ * `rejected` is the half that matters most: a typo repeated in three lectures
+ * would otherwise be harvested and offered back forever.
+ */
+export const CourseTermSchema = z.object({
+  id,
+  courseId: id,
+  term: z.string().trim().min(1).max(MAX_COURSE_TERM_LENGTH),
+  status: CourseTermStatusSchema.default('accepted'),
+  /** Who put it on the list — `ai` when the student accepted a model's
+   * proposal, which is still their decision but worth being able to tell. */
+  source: z.enum(['user', 'ai']).default('user'),
+  createdAt: isoDate,
+});
+export type CourseTerm = z.infer<typeof CourseTermSchema>;
+
+// ---------------------------------------------------------------------------
 // Library envelope — what backups and full exports carry
 // ---------------------------------------------------------------------------
 
@@ -387,6 +422,7 @@ export const LibrarySchema = z.object({
   templates: z.array(NoteTemplateSchema).default([]),
   tasks: z.array(TaskSchema).default([]),
   taskNoteLinks: z.array(TaskNoteLinkSchema).default([]),
+  courseTerms: z.array(CourseTermSchema).default([]),
 });
 export type Library = z.infer<typeof LibrarySchema>;
 
@@ -649,6 +685,64 @@ export const AiDefinitionResponseSchema = z.object({
   uncertain: z.boolean().default(false),
 });
 export type AiDefinitionResponse = z.infer<typeof AiDefinitionResponseSchema>;
+
+/**
+ * A model's review of a course's vocabulary. Every field is a proposal the
+ * student ticks or leaves — nothing here reaches the course until they do.
+ *
+ * `corrections` fixes a spelling the notes use (an accent dropped at lecture
+ * speed, a recurring typo); `terms` adds words the course will need that the
+ * notes do not yet contain, usually from a pasted syllabus; `acronyms` offers
+ * expansions, which become abbreviations rather than vocabulary because
+ * "ATP" completing to "ATP" helps nobody.
+ */
+export const AiVocabularyResponseSchema = z.object({
+  corrections: z
+    .array(
+      z.object({
+        from: z.string().trim().min(1).max(MAX_COURSE_TERM_LENGTH),
+        to: z.string().trim().min(1).max(MAX_COURSE_TERM_LENGTH),
+        reason: z.string().trim().max(200).optional(),
+      }),
+    )
+    .max(100)
+    .default([]),
+  terms: z
+    .array(z.object({ term: z.string().trim().min(1).max(MAX_COURSE_TERM_LENGTH) }))
+    .max(100)
+    .default([]),
+  acronyms: z
+    .array(
+      z.object({
+        acronym: z.string().trim().min(1).max(20),
+        expansion: z.string().trim().min(1).max(120),
+      }),
+    )
+    .max(50)
+    .default([]),
+});
+export type AiVocabularyResponse = z.infer<typeof AiVocabularyResponseSchema>;
+
+/**
+ * Corrections to one paragraph: the words a spellchecker cannot catch
+ * because they are real words in the wrong place ("their" for "there"), plus
+ * ordinary misspellings. `original` must be text that occurs in the
+ * paragraph verbatim — the dialog finds it there before offering it, and
+ * drops any it cannot find.
+ */
+export const AiProofreadResponseSchema = z.object({
+  corrections: z
+    .array(
+      z.object({
+        original: z.string().min(1).max(200),
+        replacement: z.string().max(200),
+        reason: z.string().trim().max(200).optional(),
+      }),
+    )
+    .max(40)
+    .default([]),
+});
+export type AiProofreadResponse = z.infer<typeof AiProofreadResponseSchema>;
 export const AiPodcastResponseSchema = PodcastScriptSchema;
 
 /**

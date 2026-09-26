@@ -42,6 +42,10 @@ export const APP_COMMAND_IDS = [
   'backup.create',
   'backup.restore',
   'edit.find',
+  'edit.wordCompletion',
+  'vocabulary.addWord',
+  'vocabulary.ignoreWord',
+  'vocabulary.open',
   'format.bold',
   'format.italic',
   'format.underline',
@@ -68,6 +72,8 @@ export const APP_COMMAND_IDS = [
   'ai.mindMap',
   'ai.diagram',
   'ai.define',
+  'ai.proofread',
+  'ai.vocabularyReview',
   'ai.flashcards',
   'ai.podcast',
   'ai.agent',
@@ -81,7 +87,7 @@ export const APP_COMMAND_IDS = [
 export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
 
 /** The phase a command becomes real. `A` means it works today. */
-export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J';
+export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K';
 
 export interface AppCommand {
   id: AppCommandId;
@@ -130,6 +136,30 @@ function requireNote(open: () => void) {
       return fail('not_found', 'open a note first');
     }
     open();
+    return ok(undefined);
+  };
+}
+
+/**
+ * The course whose vocabulary a command means: the open note's, or else the
+ * course the list is showing. A note with no course has no list of its own —
+ * it completes from the library — so there is nothing to open for it.
+ */
+function vocabularyCourse(): string | null {
+  const note = useEditorStore.getState().note;
+  if (note) return note.courseId;
+  const view = useUiStore.getState().view;
+  return view.kind === 'course' ? view.courseId : null;
+}
+
+function openVocabulary(review: boolean) {
+  return (): CommandResult<unknown> => {
+    const courseId = vocabularyCourse();
+    if (!courseId) {
+      useUiStore.getState().showStatusNotice(translate('vocabulary.noCourse'));
+      return fail('not_found', 'open a note in a course first');
+    }
+    useUiStore.getState().openVocabulary(courseId, review);
     return ok(undefined);
   };
 }
@@ -310,6 +340,49 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     accelerator: 'CmdOrCtrl+F',
     landsIn: 'C',
     run: editorAction('find'),
+  },
+  /**
+   * Word completion on and off, for the lecture where it is getting in the
+   * way. A setting rather than window state: someone who turns it off wants
+   * it to stay off tomorrow.
+   */
+  'edit.wordCompletion': {
+    id: 'edit.wordCompletion',
+    labelKey: 'menu.wordCompletion',
+    accelerator: 'CmdOrCtrl+Alt+K',
+    landsIn: 'K',
+    run: async () => {
+      const { settings, update } = useSettingsStore.getState();
+      const enabled = !settings.completion.enabled;
+      await update({ completion: { ...settings.completion, enabled } });
+      useUiStore
+        .getState()
+        .showStatusNotice(
+          translate(enabled ? 'vocabulary.completionOn' : 'vocabulary.completionOff'),
+        );
+      return ok(undefined);
+    },
+  },
+  'vocabulary.addWord': {
+    id: 'vocabulary.addWord',
+    labelKey: 'menu.addToVocabulary',
+    accelerator: 'CmdOrCtrl+Alt+V',
+    landsIn: 'K',
+    run: editorAction('vocabularyAdd'),
+  },
+  'vocabulary.ignoreWord': {
+    id: 'vocabulary.ignoreWord',
+    labelKey: 'menu.neverSuggest',
+    accelerator: 'CmdOrCtrl+Shift+Alt+V',
+    landsIn: 'K',
+    run: editorAction('vocabularyIgnore'),
+  },
+  'vocabulary.open': {
+    id: 'vocabulary.open',
+    labelKey: 'menu.courseVocabulary',
+    accelerator: 'CmdOrCtrl+Shift+U',
+    landsIn: 'K',
+    run: openVocabulary(false),
   },
 
   'format.bold': {
@@ -608,6 +681,27 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     accelerator: 'CmdOrCtrl+Shift+Alt+D',
     landsIn: 'E',
     run: editorAction('define'),
+  },
+  /**
+   * Check the paragraph under the caret, on request.
+   *
+   * Beside Define because it has the same shape: the argument is where the
+   * caret is, the answer sits in a dialog until the student accepts it, and
+   * what lands in the note arrives through the editor.
+   */
+  'ai.proofread': {
+    id: 'ai.proofread',
+    labelKey: 'proofread.menu',
+    accelerator: 'CmdOrCtrl+Shift+Alt+P',
+    landsIn: 'K',
+    run: editorAction('proofread'),
+  },
+  'ai.vocabularyReview': {
+    id: 'ai.vocabularyReview',
+    labelKey: 'menu.vocabularyReview',
+    accelerator: 'CmdOrCtrl+Shift+Alt+U',
+    landsIn: 'K',
+    run: openVocabulary(true),
   },
   'ai.mindMap': {
     id: 'ai.mindMap',

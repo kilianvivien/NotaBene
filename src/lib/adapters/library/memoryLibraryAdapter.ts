@@ -16,6 +16,7 @@ import {
   type Asset,
   type Backlink,
   type Course,
+  type CourseTerm,
   type JournalEntry,
   type Library,
   type Note,
@@ -38,6 +39,7 @@ import type {
   LibraryAdapter,
   NoteMatch,
   NoteQuery,
+  NoteText,
   SnapshotRetentionPolicy,
   TaskQuery,
 } from './LibraryAdapter';
@@ -159,6 +161,10 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     for (const task of this.library.tasks) {
       if (task.courseId === courseId) task.courseId = null;
     }
+    // A word list does not: it means nothing without its course.
+    this.library.courseTerms = this.library.courseTerms.filter(
+      (entry) => entry.courseId !== courseId,
+    );
   }
 
   async listSections(courseId: string): Promise<Section[]> {
@@ -730,6 +736,42 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     }
   }
 
+  // -- course vocabulary ---------------------------------------------------
+
+  async listNoteTexts(courseId: string | null): Promise<NoteText[]> {
+    return this.library.notes
+      .filter(
+        (note) => !note.trashedAt && (courseId === null || note.courseId === courseId),
+      )
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, 5_000)
+      .map((note) => ({ id: note.id, title: note.title, plainText: note.plainText }));
+  }
+
+  async listCourseTerms(courseId: string | null): Promise<CourseTerm[]> {
+    return clone(
+      this.library.courseTerms
+        .filter((entry) => courseId === null || entry.courseId === courseId)
+        .sort((a, b) => a.term.localeCompare(b.term)),
+    );
+  }
+
+  async upsertCourseTerm(term: CourseTerm): Promise<void> {
+    // `INSERT OR REPLACE` against both the id and `UNIQUE (course_id, term)`.
+    this.library.courseTerms = this.library.courseTerms.filter(
+      (entry) =>
+        entry.id !== term.id &&
+        !(entry.courseId === term.courseId && entry.term === term.term),
+    );
+    this.library.courseTerms.push(clone(term));
+  }
+
+  async deleteCourseTerm(termId: string): Promise<void> {
+    this.library.courseTerms = this.library.courseTerms.filter(
+      (entry) => entry.id !== termId,
+    );
+  }
+
   async listTemplates(): Promise<NoteTemplate[]> {
     return clone(this.library.templates);
   }
@@ -787,6 +829,7 @@ class MemoryLibraryAdapter implements LibraryAdapter {
       if (existing) existing.origin = link.origin;
       else this.library.taskNoteLinks.push(clone(link));
     }
+    for (const term of library.courseTerms) await this.upsertCourseTerm(term);
   }
 
   /** Test seam: wipe everything between test cases. */

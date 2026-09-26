@@ -30,6 +30,7 @@ export function StatusBar() {
   const focusMode = useUiStore((state) => state.focusMode);
   const session = useUiStore((state) => state.focusSession);
   const access = useLibraryAccessStore((state) => state.status);
+  const notice = useUiStore((state) => state.statusNotice);
 
   const stats = note ? docStats(note.doc) : null;
   const target = note ? writingProgress(note.doc) : null;
@@ -43,6 +44,12 @@ export function StatusBar() {
       >
         {t(`save.${saveState}`)}
       </span>
+
+      {notice && (
+        <span role="status" className="truncate text-[var(--nb-text-2)]">
+          {notice}
+        </span>
+      )}
 
       {stats && (
         <>

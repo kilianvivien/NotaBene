@@ -20,6 +20,9 @@ export type EditorCommand =
   | 'date'
   | 'wikipedia'
   | 'define'
+  | 'vocabularyAdd'
+  | 'vocabularyIgnore'
+  | 'proofread'
   | 'find';
 
 type Runner = (command: EditorCommand) => boolean | Promise<boolean>;

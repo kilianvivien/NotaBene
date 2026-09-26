@@ -66,6 +66,15 @@ export interface TaskDraft {
   noteIds?: string[];
 }
 
+/** The paragraph a proofread was asked about. `from`/`to` bound the
+ * textblock's content, so the corrections can be applied to exactly the text
+ * that was sent — and refused if that text has changed since. */
+export interface ProofreadRequest {
+  paragraph: string;
+  from: number;
+  to: number;
+}
+
 /** A sitting at the desk. `startWords` is the note's word count on entry, so
  * the status bar can report what *this* session produced rather than how long
  * the note is. */
@@ -173,6 +182,18 @@ interface UiState {
   taskBreakdownFor: string | null;
   /** The month view of every dated task. */
   taskCalendarOpen: boolean;
+  /**
+   * The course whose vocabulary dialog is open, or `null`. `review` opens it
+   * on the AI review rather than the word list, for the AI menu's entry.
+   */
+  vocabularyRequest: { courseId: string; review: boolean } | null;
+  proofreadRequest: ProofreadRequest | null;
+  /**
+   * A one-line confirmation in the status bar — "Added to the course
+   * vocabulary" — for commands that change nothing visible in the note.
+   * Cleared on a timer by `showStatusNotice`.
+   */
+  statusNotice: string | null;
 
   setView(view: ViewKind): void;
   selectNote(noteId: string | null): void;
@@ -224,6 +245,11 @@ interface UiState {
   openTaskBreakdown(taskId: string): void;
   closeTaskBreakdown(): void;
   setTaskCalendarOpen(open: boolean): void;
+  openVocabulary(courseId: string, review?: boolean): void;
+  closeVocabulary(): void;
+  openProofread(request: ProofreadRequest): void;
+  closeProofread(): void;
+  showStatusNotice(message: string): void;
 }
 
 /**
@@ -253,7 +279,9 @@ export function isOverlayOpen(state: UiState): boolean {
     state.wikipediaOpen ||
     state.defineRequest !== null ||
     state.taskBreakdownFor !== null ||
-    state.taskCalendarOpen
+    state.taskCalendarOpen ||
+    state.vocabularyRequest !== null ||
+    state.proofreadRequest !== null
   );
 }
 
@@ -269,6 +297,11 @@ export function selectionFor(noteId: string): string[] {
   return multiSelection.includes(noteId) ? multiSelection : [noteId];
 }
 
+/** Long enough to read at a glance, short enough not to linger over the
+ * save state it replaces. */
+const STATUS_NOTICE_MS = 3_500;
+let statusNoticeTimer: ReturnType<typeof setTimeout> | undefined;
+
 export const useUiStore = create<UiState>()(
   immer((set, get) => ({
     view: { kind: 'all' },
@@ -282,6 +315,9 @@ export const useUiStore = create<UiState>()(
     defineRequest: null,
     taskBreakdownFor: null,
     taskCalendarOpen: false,
+    vocabularyRequest: null,
+    proofreadRequest: null,
+    statusNotice: null,
     sidebarVisible: true,
     noteListVisible: true,
     inspectorVisible: false,
@@ -406,6 +442,45 @@ export const useUiStore = create<UiState>()(
       set((state) => {
         state.defineRequest = null;
       });
+    },
+
+    openVocabulary(courseId, review = false) {
+      set((state) => {
+        state.vocabularyRequest = { courseId, review };
+      });
+    },
+
+    closeVocabulary() {
+      set((state) => {
+        state.vocabularyRequest = null;
+      });
+    },
+
+    openProofread(request) {
+      set((state) => {
+        state.proofreadRequest = request;
+      });
+    },
+
+    closeProofread() {
+      set((state) => {
+        state.proofreadRequest = null;
+      });
+    },
+
+    showStatusNotice(message) {
+      set((state) => {
+        state.statusNotice = message;
+      });
+      clearTimeout(statusNoticeTimer);
+      statusNoticeTimer = setTimeout(() => {
+        // Only the notice this call raised: a newer one keeps its own time.
+        if (get().statusNotice === message) {
+          set((state) => {
+            state.statusNotice = null;
+          });
+        }
+      }, STATUS_NOTICE_MS);
     },
 
     openTaskBreakdown(taskId) {

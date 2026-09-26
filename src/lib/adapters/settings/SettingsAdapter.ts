@@ -80,6 +80,21 @@ export interface FocusSettings {
   fullscreen: boolean;
 }
 
+/**
+ * Word completion from the course's vocabulary.
+ *
+ * Only the two knobs a student would reach for. Everything else — the
+ * thresholds that decide what counts as vocabulary — is the app's to get
+ * right, not a settings matrix to tune.
+ */
+export interface CompletionSettings {
+  enabled: boolean;
+  /** Letters typed before a suggestion appears. */
+  minPrefix: number;
+}
+
+export const COMPLETION_MIN_PREFIX = { min: 2, max: 6 } as const;
+
 export interface PodcastSettings {
   mode: 'narrator' | 'dialogue';
   /** Target episode length, in minutes. */
@@ -108,6 +123,8 @@ export interface AppSettings {
   abbreviations: Abbreviation[];
   /** How concentration mode behaves and reads. */
   focus: FocusSettings;
+  /** Ghost-text completion from the course's vocabulary. */
+  completion: CompletionSettings;
   /** Trash retention, in days. Applies to trashed tasks as well as notes. */
   trashRetentionDays: number;
   /**
@@ -210,6 +227,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     typewriterScrolling: true,
     hideChrome: true,
     fullscreen: false,
+  },
+  // On: it never changes a word without a keypress, and a student who has
+  // never heard of it would not know to look for it in Settings.
+  completion: {
+    enabled: true,
+    minPrefix: 3,
   },
   trashRetentionDays: 30,
   taskRemindersEnabled: true,

@@ -14,6 +14,7 @@ import type {
   Asset,
   Backlink,
   Course,
+  CourseTerm,
   JournalEntry,
   Library,
   Note,
@@ -75,6 +76,14 @@ export interface TaskQuery {
   sort?: 'due' | 'created' | 'updated' | 'priority' | 'manual';
   limit?: number;
   offset?: number;
+}
+
+/** One note's text, for harvesting a course's vocabulary. Never the document:
+ * the harvest reads words, and the JSON is the expensive half of a row. */
+export interface NoteText {
+  id: string;
+  title: string;
+  plainText: string;
 }
 
 export interface SnapshotRetentionPolicy {
@@ -194,6 +203,18 @@ export interface LibraryAdapter {
   listTaskNoteLinks(): Promise<TaskNoteLink[]>;
   /** Replaces one task's `manual` links; inline `mention` rows are untouched. */
   setTaskNoteLinks(taskId: string, noteIds: string[]): Promise<void>;
+
+  /**
+   * The text of a course's notes, newest first, for the vocabulary harvest.
+   * Trashed notes are left out and archived ones kept: an archived lecture is
+   * still the course's vocabulary. `null` reads every note in the library.
+   */
+  listNoteTexts(courseId: string | null): Promise<NoteText[]>;
+  /** One course's curated vocabulary, or every course's when `null`. */
+  listCourseTerms(courseId: string | null): Promise<CourseTerm[]>;
+  /** Replaces a row with the same id *or* the same course and spelling. */
+  upsertCourseTerm(term: CourseTerm): Promise<void>;
+  deleteCourseTerm(termId: string): Promise<void>;
 
   listTemplates(): Promise<NoteTemplate[]>;
   upsertTemplate(template: NoteTemplate): Promise<void>;

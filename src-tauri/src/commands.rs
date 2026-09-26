@@ -12,11 +12,13 @@ use tauri::{AppHandle, Manager, State};
 use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::location::LibraryAccess;
 use crate::db::model::{
-    Asset, Attachment, Backlink, Course, Library, Note, NoteMatch, NoteQuery, NoteSummary,
-    NoteTemplate, SavedSearch, Section, Snapshot, SnapshotMeta, Tag, Task, TaskNoteLink, TaskQuery,
+    Asset, Attachment, Backlink, Course, CourseTerm, Library, Note, NoteMatch, NoteQuery,
+    NoteSummary, NoteTemplate, NoteText, SavedSearch, Section, Snapshot, SnapshotMeta, Tag, Task,
+    TaskNoteLink, TaskQuery,
 };
 use crate::db::{
-    assets, collections, journal, notes, organization, tasks, transfer, DbError, DbResult, Store,
+    assets, collections, journal, notes, organization, tasks, transfer, vocabulary, DbError,
+    DbResult, Store,
 };
 
 fn now() -> String {
@@ -388,6 +390,34 @@ pub fn library_upsert_saved_search(store: State<'_, Store>, search: SavedSearch)
 #[tauri::command]
 pub fn library_delete_saved_search(store: State<'_, Store>, search_id: String) -> DbResult<()> {
     collections::delete_saved_search(&store, &search_id)
+}
+
+// -- course vocabulary -------------------------------------------------------
+
+#[tauri::command]
+pub fn library_list_note_texts(
+    store: State<'_, Store>,
+    course_id: Option<String>,
+) -> DbResult<Vec<NoteText>> {
+    vocabulary::list_note_texts(&store, course_id.as_deref())
+}
+
+#[tauri::command]
+pub fn library_list_course_terms(
+    store: State<'_, Store>,
+    course_id: Option<String>,
+) -> DbResult<Vec<CourseTerm>> {
+    vocabulary::list_course_terms(&store, course_id.as_deref())
+}
+
+#[tauri::command]
+pub fn library_upsert_course_term(store: State<'_, Store>, term: CourseTerm) -> DbResult<()> {
+    vocabulary::upsert_course_term(&store, &term)
+}
+
+#[tauri::command]
+pub fn library_delete_course_term(store: State<'_, Store>, term_id: String) -> DbResult<()> {
+    vocabulary::delete_course_term(&store, &term_id)
 }
 
 // -- tasks -------------------------------------------------------------------

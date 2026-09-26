@@ -8,7 +8,7 @@
 use super::{DbResult, Store};
 
 /// Must match `SCHEMA_VERSION` in `src/lib/schema/schema.ts`.
-pub const SCHEMA_VERSION: i64 = 7;
+pub const SCHEMA_VERSION: i64 = 8;
 
 const V1: &str = include_str!("schema.sql");
 const V2: &str = r#"
@@ -133,6 +133,25 @@ ALTER TABLE attachments ADD COLUMN url TEXT;
 ALTER TABLE attachments ADD COLUMN fetched_at TEXT;
 "#;
 
+const V8: &str = r#"
+-- A course's own vocabulary: words the student accepted for completion, and
+-- words they never want suggested. Everything else the completer offers is
+-- derived from the notes on demand and is not stored anywhere.
+CREATE TABLE IF NOT EXISTS course_terms (
+    id          TEXT PRIMARY KEY,
+    -- Unlike a task, a word list means nothing without its course.
+    course_id   TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    term        TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'accepted',
+    source      TEXT NOT NULL DEFAULT 'user',
+    created_at  TEXT NOT NULL,
+    -- One row per spelling. Accent- and case-insensitive duplicates are the
+    -- command layer's to merge, because SQLite cannot fold like `fold.ts`.
+    UNIQUE (course_id, term)
+);
+CREATE INDEX IF NOT EXISTS idx_course_terms_course ON course_terms(course_id);
+"#;
+
 pub fn run(store: &Store) -> DbResult<()> {
     let current: i64 = store.with(|connection| {
         Ok(connection.query_row("PRAGMA user_version", [], |row| row.get(0))?)
@@ -193,6 +212,10 @@ pub fn run(store: &Store) -> DbResult<()> {
             if !has_url {
                 transaction.execute_batch(V7)?;
             }
+        }
+        if current < 8 {
+            // `IF NOT EXISTS` throughout, like V6.
+            transaction.execute_batch(V8)?;
         }
         transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         Ok(())
@@ -486,5 +509,43 @@ mod tests {
 
         assert_eq!(spared, None, "a deleted course should unfile its tasks");
         assert_eq!(orphans, 0, "a purged parent should take its subtasks");
+    }
+
+    #[test]
+    fn v7_database_gains_course_terms_that_die_with_their_course() {
+        let connection = Connection::open_in_memory().expect("failed to open database");
+        for step in [V1, V2, V3] {
+            connection.execute_batch(step).expect("failed to apply step");
+        }
+        connection
+            .pragma_update(None, "user_version", 5)
+            .expect("failed to set schema version");
+        let store = Store {
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
+        };
+
+        run(&store).expect("failed to migrate");
+
+        let (before, after): (i64, i64) = store
+            .with(|database| {
+                database.execute_batch(
+                    "PRAGMA foreign_keys = ON;
+                     INSERT INTO courses (id, name, color, created_at, updated_at)
+                     VALUES ('c-1', 'Biologie', '#336699', '2026-09-01T08:00:00Z', '2026-09-01T08:00:00Z');
+                     INSERT INTO course_terms (id, course_id, term, status, source, created_at)
+                     VALUES ('t-1', 'c-1', 'mitochondrie', 'accepted', 'user', '2026-09-01T08:00:00Z');",
+                )?;
+                let before =
+                    database.query_row("SELECT count(*) FROM course_terms", [], |row| row.get(0))?;
+                database.execute("DELETE FROM courses WHERE id = 'c-1'", [])?;
+                let after =
+                    database.query_row("SELECT count(*) FROM course_terms", [], |row| row.get(0))?;
+                Ok((before, after))
+            })
+            .expect("failed to exercise course terms");
+
+        assert_eq!(before, 1);
+        assert_eq!(after, 0);
     }
 }

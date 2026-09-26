@@ -20,6 +20,7 @@ import { AssetImage } from './AssetImage';
 import { AlignedTableCell, AlignedTableHeader } from './AlignedTable';
 import { Abbreviation } from './Abbreviation';
 import { Concentration, type ConcentrationState } from './Concentration';
+import { WordCompletion, type WordCompletionOptions } from './WordCompletion';
 import { Footnote } from './Footnote';
 import { LongForm } from './LongForm';
 
@@ -30,15 +31,23 @@ const CONCENTRATION_OFF: ConcentrationState = {
   typewriterScrolling: false,
 };
 
+const COMPLETION_OFF: WordCompletionOptions = {
+  resolve: () => null,
+  settings: () => ({ enabled: false, minPrefix: 3 }),
+  triggers: () => [],
+};
+
 /**
- * `resolveAbbreviations` and `resolveConcentration` are getters, not values:
- * the extensions array is memoised for the life of an editor, and both are
- * edited in Settings while a note is open.
+ * `resolveAbbreviations`, `resolveConcentration` and `completion` are getters,
+ * not values: the extensions array is memoised for the life of an editor, and
+ * all three change while a note is open — in Settings, or, for the
+ * vocabulary, when a rebuild lands.
  */
 export function editorExtensions(
   placeholder: string,
   resolveAbbreviations: () => readonly AbbreviationRule[] = () => [],
   resolveConcentration: () => ConcentrationState = () => CONCENTRATION_OFF,
+  completion: WordCompletionOptions = COMPLETION_OFF,
 ): Extensions {
   return [
     StarterKit.configure({
@@ -75,5 +84,6 @@ export function editorExtensions(
     LongForm,
     Abbreviation.configure({ resolve: resolveAbbreviations }),
     Concentration.configure({ resolve: resolveConcentration }),
+    WordCompletion.configure(completion),
   ];
 }

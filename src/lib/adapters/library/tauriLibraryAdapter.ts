@@ -12,6 +12,7 @@ import type {
   Asset,
   Backlink,
   Course,
+  CourseTerm,
   JournalEntry,
   Library,
   Note,
@@ -30,6 +31,7 @@ import type {
 import type {
   LibraryAdapter,
   NoteQuery,
+  NoteText,
   SnapshotRetentionPolicy,
   TaskQuery,
 } from './LibraryAdapter';
@@ -118,6 +120,13 @@ export const tauriLibraryAdapter: LibraryAdapter = {
   listTaskNoteLinks: (): Promise<TaskNoteLink[]> => invoke('library_list_task_note_links'),
   setTaskNoteLinks: (taskId: string, noteIds: string[]) =>
     invoke('library_set_task_note_links', { taskId, noteIds }),
+
+  listNoteTexts: (courseId: string | null): Promise<NoteText[]> =>
+    invoke('library_list_note_texts', { courseId }),
+  listCourseTerms: (courseId: string | null): Promise<CourseTerm[]> =>
+    invoke('library_list_course_terms', { courseId }),
+  upsertCourseTerm: (term: CourseTerm) => invoke('library_upsert_course_term', { term }),
+  deleteCourseTerm: (termId: string) => invoke('library_delete_course_term', { termId }),
 
   listTemplates: (): Promise<NoteTemplate[]> => invoke('library_list_templates'),
   upsertTemplate: (template: NoteTemplate) =>

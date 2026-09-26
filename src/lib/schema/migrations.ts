@@ -69,6 +69,8 @@ const MIGRATIONS: Record<number, Migration> = {
         )
       : input.attachments,
   }),
+  // v8 adds each course's curated vocabulary. Nothing before it had one.
+  7: (input) => ({ courseTerms: [], ...input }),
 };
 
 export type ImportResult =

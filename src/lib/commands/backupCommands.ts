@@ -17,6 +17,7 @@ import { createBackupArchive, parseBackupArchive, type ParsedBackup } from '@/li
 import type { Library } from '@/lib/schema';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { invalidateVocabulary } from '@/lib/vocabulary/cache';
 import { fail, ok, type CommandResult } from './types';
 
 const EXTENSION = '.notabene-backup';
@@ -205,6 +206,7 @@ export async function restoreBackupCommand(
       if (restored.id !== id) throw new Error(`Asset ${id} changed while restoring`);
     }
     await library.importLibrary(backup.library, mode);
+    invalidateVocabulary();
     await useLibraryStore.getState().bootstrap();
     return ok({ safetyPath });
   } catch (error) {

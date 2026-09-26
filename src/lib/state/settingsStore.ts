@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import {
   appSettings,
+  COMPLETION_MIN_PREFIX,
   DEFAULT_SETTINGS,
   LOCAL_MODEL_REVISIONS,
   type AppSettings,
@@ -54,6 +55,28 @@ function isCurrentEngine(
   return revisions[id] === LOCAL_MODEL_REVISIONS[id];
 }
 
+/** Hand-edited settings reach the typing path, so the prefix is clamped here
+ * rather than trusted there. */
+function normalizeCompletion(value: unknown): AppSettings['completion'] {
+  const stored = (value ?? {}) as Partial<AppSettings['completion']>;
+  const minPrefix =
+    typeof stored.minPrefix === 'number' && Number.isFinite(stored.minPrefix)
+      ? Math.round(
+          Math.min(
+            COMPLETION_MIN_PREFIX.max,
+            Math.max(COMPLETION_MIN_PREFIX.min, stored.minPrefix),
+          ),
+        )
+      : DEFAULT_SETTINGS.completion.minPrefix;
+  return {
+    enabled:
+      typeof stored.enabled === 'boolean'
+        ? stored.enabled
+        : DEFAULT_SETTINGS.completion.enabled,
+    minPrefix,
+  };
+}
+
 export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
   // `focusMode` was a persisted boolean nothing ever read. Concentration mode
   // is window state and stays in `uiStore`; what belongs in settings is how the
@@ -98,6 +121,7 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
     // Hand-edited or older settings files reach the typing path directly.
     abbreviations: normalizeAbbreviations(rest.abbreviations),
     focus: { ...DEFAULT_SETTINGS.focus, ...rest.focus },
+    completion: normalizeCompletion(rest.completion),
     speech: {
       ...DEFAULT_SETTINGS.speech,
       ...storedSpeech,

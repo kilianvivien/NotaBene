@@ -2,8 +2,8 @@
 //! restore.
 //!
 //! Import is the single most destructive thing the app can do, so it is the one
-//! place where "all or nothing" is not a nicety. Replace mode empties thirteen
-//! tables; if anything after that failed, the previous shape of this code left
+//! place where "all or nothing" is not a nicety. Replace mode empties every
+//! table; if anything after that failed, the previous shape of this code left
 //! the student with an emptied library and a partial restore, because the wipe
 //! committed on its own and each re-insert opened a transaction of its own.
 //! Everything now runs inside one transaction, which is why every write below
@@ -22,7 +22,9 @@ use super::location::{ASSETS_DIR, DATABASE_FILE, LOCK_FILE};
 use super::migrations::SCHEMA_VERSION;
 use super::model::Library;
 use super::model::TaskQuery;
-use super::{assets, collections, notes, organization, tasks, DbError, DbResult, Store};
+use super::{
+    assets, collections, notes, organization, tasks, vocabulary, DbError, DbResult, Store,
+};
 
 pub fn export_library(store: &Store) -> DbResult<Library> {
     let courses = organization::list_courses(store)?;
@@ -63,6 +65,7 @@ pub fn export_library(store: &Store) -> DbResult<Library> {
             },
         )?,
         task_note_links: tasks::list_note_links(store)?,
+        course_terms: store.with(vocabulary::list_all_course_terms_in)?,
     })
 }
 
@@ -84,6 +87,7 @@ pub fn import_library(store: &Store, library: &Library, mode: &str) -> DbResult<
         if mode == "replace" {
             transaction.execute_batch(
                 "DELETE FROM editor_journal;
+                 DELETE FROM course_terms;
                  DELETE FROM note_links;
                  DELETE FROM template_tags;
                  DELETE FROM note_tags;
@@ -142,6 +146,10 @@ pub fn import_library(store: &Store, library: &Library, mode: &str) -> DbResult<
         }
         for link in &library.task_note_links {
             tasks::upsert_link_in(transaction, link)?;
+        }
+        // After courses, for the foreign key.
+        for term in &library.course_terms {
+            vocabulary::upsert_course_term_in(transaction, term)?;
         }
         Ok(())
     })
@@ -406,6 +414,7 @@ mod tests {
             templates: Vec::new(),
             tasks: Vec::new(),
             task_note_links: Vec::new(),
+            course_terms: Vec::new(),
         }
     }
 

@@ -21,6 +21,7 @@ import { TemplatePicker } from './organization/TemplatePicker';
 import { ExportDialog } from './export/ExportDialog';
 import { MergeNotesDialog } from './shell/MergeNotesDialog';
 import { RewriteDialog } from './ai/RewriteDialog';
+import { CourseVocabularyDialog } from './vocabulary/CourseVocabularyDialog';
 import { SynthesisDialog } from './ai/SynthesisDialog';
 import { DiagramDialog } from './ai/DiagramDialog';
 import { MindMapDialog } from './ai/MindMapDialog';
@@ -230,6 +231,7 @@ export function App() {
       <TaskDialog />
       <TaskCalendarDialog />
       <TaskBreakdownDialog />
+      <CourseVocabularyDialog />
       <EditorConflictDialog />
       {pdfReading && <PdfReader request={pdfReading} />}
     </div>
