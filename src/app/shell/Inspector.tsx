@@ -32,6 +32,7 @@ import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { formatTimestamp } from '@/lib/utils/timestamp';
 import { NoteTasksPanel } from '@/app/tasks/NoteTasksPanel';
 import { TaskInspector } from '@/app/tasks/TaskInspector';
 
@@ -436,11 +437,11 @@ function InfoPanel() {
       <dl className="mt-4">
         <div>
           <dt>{t('inspector.created')}</dt>
-          <dd>{new Date(note.createdAt).toLocaleString(i18n.language)}</dd>
+          <dd>{formatTimestamp(note.createdAt, i18n.language)}</dd>
         </div>
         <div>
           <dt>{t('inspector.modified')}</dt>
-          <dd>{new Date(note.updatedAt).toLocaleString(i18n.language)}</dd>
+          <dd>{formatTimestamp(note.updatedAt, i18n.language)}</dd>
         </div>
         <div>
           <dt>{t('inspector.wordCount')}</dt>

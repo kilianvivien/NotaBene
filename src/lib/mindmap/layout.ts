@@ -53,7 +53,7 @@ const PADDING_X = 12;
 const PADDING_Y = 9;
 /** Slack around the outermost ring, so a long label at the edge is not clipped
  * by the viewBox. */
-const MARGIN = 90;
+const MARGIN = 36;
 
 /** Greedy word wrap. Long single words are broken rather than allowed to run
  * out of their box — a chemical name is still more use truncated than absent. */

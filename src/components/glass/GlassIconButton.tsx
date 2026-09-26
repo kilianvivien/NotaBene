@@ -4,13 +4,16 @@ import { cn } from '@/lib/utils/cn';
 interface GlassIconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Required: an icon-only control is invisible to VoiceOver without it. */
   label: string;
+  /** Makes the button a toggle, announced as pressed or not. Leave it out for
+   * a plain action — "New course" is not a switch, and saying "not pressed"
+   * about it misdescribes it to VoiceOver. */
   active?: boolean;
   children: ReactNode;
 }
 
 export function GlassIconButton({
   label,
-  active = false,
+  active,
   className,
   children,
   ...rest

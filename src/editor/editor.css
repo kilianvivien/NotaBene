@@ -880,12 +880,27 @@
 
 .nb-mind-map figcaption {
   display: flex;
+  min-width: 0;
   margin-top: 6px;
   color: var(--nb-text-3);
   font-size: 0.78em;
   align-items: center;
   justify-content: center;
   gap: 5px;
+}
+
+/* In a narrow column the title gives way, never the count or the button:
+   "Edit / map" broken over two lines reads as two controls. */
+.nb-mind-map figcaption > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.nb-mind-map figcaption > .nb-mind-map-title {
+  min-width: 0;
+  overflow: hidden;
+  flex-shrink: 1;
+  text-overflow: ellipsis;
 }
 
 .nb-mind-map-edit {
@@ -900,6 +915,25 @@
 
 .nb-mind-map-edit:hover {
   background: var(--nb-hover);
+}
+
+/* Dark theme: the stored SVGs paint light paper so an export looks right on
+   any page, and in the note they stood out as bright white cards. Inverting
+   lightness and turning the hue back round keeps each colour's identity —
+   the same trick Excalidraw's own dark mode uses. Display only: the stored
+   SVG, and so every export, is untouched. */
+/* #fbfaf8 paper under `invert(0.92)` comes out at #181817; the card matches
+   it so the map does not sit on a visibly different rectangle. */
+html[data-theme='dark'] .nb-mind-map-preview,
+html[data-theme='dark'] .nb-diagram-preview,
+html[data-theme='dark'] .nb-drawing-preview[data-themed] {
+  background: #181817;
+}
+
+html[data-theme='dark'] .nb-mind-map-preview img,
+html[data-theme='dark'] .nb-diagram-preview img,
+html[data-theme='dark'] .nb-drawing-preview[data-themed] img {
+  filter: invert(0.92) hue-rotate(180deg);
 }
 
 /* ---------------------------------------------------------------------------

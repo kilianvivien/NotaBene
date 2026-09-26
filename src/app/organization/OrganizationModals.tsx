@@ -462,22 +462,24 @@ export function SavedSearchDialog({
   search,
   onClose,
 }: {
-  search: SavedSearch | null;
+  /** `'new'` opens it empty, for a smart folder started from the sidebar. */
+  search: SavedSearch | 'new' | null;
   onClose(): void;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [query, setQuery] = useState('');
+  const existing = search === 'new' ? null : search;
   useEffect(() => {
-    setName(search?.name ?? '');
-    setQuery(search?.query ?? '');
-  }, [search]);
+    setName(existing?.name ?? '');
+    setQuery(existing?.query ?? '');
+  }, [existing]);
 
   return (
     <Dialog
       open={search !== null}
       onClose={onClose}
-      title={t('organization.editSavedSearch')}
+      title={t(existing ? 'organization.editSavedSearch' : 'organization.newSavedSearch')}
       size="md"
       footer={
         <>
@@ -496,7 +498,7 @@ export function SavedSearchDialog({
         onSubmit={(event) => {
           event.preventDefault();
           if (!search) return;
-          void saveSearchCommand({ id: search.id, name, query }).then((result) => {
+          void saveSearchCommand({ id: existing?.id, name, query }).then((result) => {
             if (result.ok) onClose();
           });
         }}

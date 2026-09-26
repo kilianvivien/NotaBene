@@ -73,7 +73,9 @@ function MindMapView({ node, selected, updateAttributes }: NodeViewProps) {
 
       <figcaption>
         <Network size={12} aria-hidden />
-        <span>{title}</span>
+        <span className="nb-mind-map-title" title={title}>
+          {title}
+        </span>
         {nodeCount > 0 && <span>· {t('ai.mindMapNodes', { count: nodeCount })}</span>}
         {map.success && (
           <button

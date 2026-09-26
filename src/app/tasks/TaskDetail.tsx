@@ -14,7 +14,7 @@
  * been written is the kind of thing that loses a deadline. Text fields commit
  * on blur; everything else commits on change.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Bell,
   CalendarClock,
@@ -68,6 +68,7 @@ export function TaskDetail() {
   const selectedTaskId = useUiStore((state) => state.selectedTaskId);
   const selectTask = useUiStore((state) => state.selectTask);
   const setInspectorTab = useUiStore((state) => state.setInspectorTab);
+  const inspectorVisible = useUiStore((state) => state.inspectorVisible);
   const openTaskDialog = useUiStore((state) => state.openTaskDialog);
   const openTaskBreakdown = useUiStore((state) => state.openTaskBreakdown);
   const tasks = useLibraryStore((state) => state.tasks);
@@ -90,6 +91,7 @@ export function TaskDetail() {
   const [title, setTitle] = useState('');
   const [details, setDetails] = useState('');
   const [subtaskTitle, setSubtaskTitle] = useState('');
+  const titleField = useRef<HTMLTextAreaElement>(null);
   /** The last verdict, kept in the pane rather than in the library: it is an
    * opinion about the notes as they are right now, and storing it would make a
    * stale one look like a fact about the task. */
@@ -104,6 +106,22 @@ export function TaskDetail() {
     setTitle(task?.title ?? '');
     setDetails(task?.details ?? '');
   }, [task?.id, task?.title, task?.details]);
+
+  // Grow the title to its text, and again when the pane is resized: a column
+  // made narrower by the inspector wraps the same title onto more lines.
+  useLayoutEffect(() => {
+    const field = titleField.current;
+    if (!field) return;
+    const fit = () => {
+      field.style.height = 'auto';
+      field.style.height = `${field.scrollHeight}px`;
+    };
+    fit();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(fit);
+    observer.observe(field);
+    return () => observer.disconnect();
+  }, [title, task?.id]);
 
   useEffect(() => {
     setSubtaskTitle('');
@@ -261,9 +279,19 @@ export function TaskDetail() {
               label={done ? t('tasks.reopen') : t('tasks.complete')}
             />
           </span>
-          <input
+          {/* A textarea so a long title wraps instead of being cut off at the
+              pane's edge; Return still commits, because a title is one line. */}
+          <textarea
+            ref={titleField}
+            rows={1}
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={(event) => setTitle(event.target.value.replace(/\s*\n\s*/g, ' '))}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
+            }}
             onBlur={() => {
               const trimmed = title.trim();
               // An emptied title is a slip, not an instruction: the schema
@@ -274,7 +302,7 @@ export function TaskDetail() {
             }}
             aria-label={t('tasks.titleLabel')}
             className={cn(
-              'min-w-0 flex-1 bg-transparent text-[22px] font-semibold leading-tight text-nb-text',
+              'min-w-0 flex-1 resize-none overflow-hidden bg-transparent text-[22px] font-semibold leading-tight text-nb-text',
               'focus-visible:outline-none',
               done && 'text-nb-text-3 line-through',
             )}
@@ -305,47 +333,51 @@ export function TaskDetail() {
           )}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <MetaChip
-            icon={CalendarClock}
-            tone={overdue ? 'warn' : task.dueAt ? 'set' : 'unset'}
-            onClick={openFields}
-          >
-            {task.dueAt ? formatTaskDate(task.dueAt, i18n.language) : t('tasks.noDate')}
-          </MetaChip>
-          {task.remindAt && !done && (
-            <MetaChip icon={Bell} tone="set" onClick={openFields}>
-              {formatTaskDate(task.remindAt, i18n.language)}
-            </MetaChip>
-          )}
-          {task.recurrence && (
-            <MetaChip icon={Repeat} tone="set" onClick={openFields}>
-              {t(`tasks.recurrence${keySuffix(task.recurrence.freq)}`)}
-            </MetaChip>
-          )}
-          {task.priority !== 'none' && (
+        {/* The chips summarise the inspector; with it open beside them they
+            only said everything twice. */}
+        {!inspectorVisible && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <MetaChip
-              dot={
-                task.priority === 'high'
-                  ? 'var(--nb-danger)'
-                  : task.priority === 'medium'
-                    ? 'var(--nb-warn)'
-                    : 'var(--nb-text-3)'
-              }
-              tone="set"
+              icon={CalendarClock}
+              tone={overdue ? 'warn' : task.dueAt ? 'set' : 'unset'}
               onClick={openFields}
             >
-              {t(`tasks.priority${keySuffix(task.priority)}`)}
+              {task.dueAt ? formatTaskDate(task.dueAt, i18n.language) : t('tasks.noDate')}
             </MetaChip>
-          )}
-          <MetaChip
-            icon={GraduationCap}
-            tone={course ? 'set' : 'unset'}
-            onClick={openFields}
-          >
-            {course ? course.name : t('tasks.noCourse')}
-          </MetaChip>
-        </div>
+            {task.remindAt && !done && (
+              <MetaChip icon={Bell} tone="set" onClick={openFields}>
+                {formatTaskDate(task.remindAt, i18n.language)}
+              </MetaChip>
+            )}
+            {task.recurrence && (
+              <MetaChip icon={Repeat} tone="set" onClick={openFields}>
+                {t(`tasks.recurrence${keySuffix(task.recurrence.freq)}`)}
+              </MetaChip>
+            )}
+            {task.priority !== 'none' && (
+              <MetaChip
+                dot={
+                  task.priority === 'high'
+                    ? 'var(--nb-danger)'
+                    : task.priority === 'medium'
+                      ? 'var(--nb-warn)'
+                      : 'var(--nb-text-3)'
+                }
+                tone="set"
+                onClick={openFields}
+              >
+                {t(`tasks.priority${keySuffix(task.priority)}`)}
+              </MetaChip>
+            )}
+            <MetaChip
+              icon={GraduationCap}
+              tone={course ? 'set' : 'unset'}
+              onClick={openFields}
+            >
+              {course ? course.name : t('tasks.noCourse')}
+            </MetaChip>
+          </div>
+        )}
 
         {/* Disabled rather than hidden when nothing is linked: "check my notes"
             is only discoverable if it is on screen to be read, and the reason

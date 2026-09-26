@@ -56,6 +56,7 @@ export function GlassDateField({
   id,
   disabled = false,
   showQuickChips = true,
+  size = 'md',
 }: {
   label: string;
   value: string | null;
@@ -63,13 +64,17 @@ export function GlassDateField({
   id?: string;
   disabled?: boolean;
   showQuickChips?: boolean;
+  /** Matches `GlassSelect`'s sizes, so a date sits flush in a column of them. */
+  size?: 'sm' | 'md';
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
-  const [month, setMonth] = useState(() => startOfDay(value ? new Date(value) : new Date()));
+  const [month, setMonth] = useState(() =>
+    startOfDay(value ? new Date(value) : new Date()),
+  );
 
   useEffect(() => {
     if (open) setMonth(startOfDay(value ? new Date(value) : new Date()));
@@ -129,7 +134,8 @@ export function GlassDateField({
         aria-label={label}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex min-w-0 flex-1 items-center gap-2 rounded-nb-sm border px-2 py-1 text-left text-[13px]',
+          'flex min-w-0 flex-1 items-center gap-2 rounded-nb-xs border px-2 text-left',
+          size === 'sm' ? 'h-7 text-[12px]' : 'h-8 text-[13px]',
           'border-[var(--nb-control-border)] bg-[var(--nb-control-surface)]',
           'transition-colors duration-[var(--nb-t-fast)] hover:border-[var(--nb-accent)]',
           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--nb-accent-ring)]',

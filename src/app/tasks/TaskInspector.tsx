@@ -32,10 +32,12 @@ import {
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { ensureReminderPermission } from '@/lib/tasks/reminderScheduler';
+import { formatTimestamp } from '@/lib/utils/timestamp';
+import { cn } from '@/lib/utils/cn';
+import { TASK_GROUP_LABELS, groupTasks } from './taskGrouping';
 import { keySuffix } from './taskLabels';
 
 export function TaskInspector() {
-  const { t } = useTranslation();
   const selectedTaskId = useUiStore((state) => state.selectedTaskId);
   const tasks = useLibraryStore((state) => state.tasks);
   const trashedTasks = useLibraryStore((state) => state.trashedTasks);
@@ -46,13 +48,44 @@ export function TaskInspector() {
     trashedTasks.find((entry) => entry.id === selectedTaskId) ??
     null;
 
-  // The same sentence the centre column shows, rather than the note pane's
-  // "select a note": two panes disagreeing about what is missing is what made
-  // the empty inspector confusing in the first place.
-  if (!task) {
-    return <p className="text-[12px] text-nb-text-3">{t('tasks.noSelection')}</p>;
-  }
+  // With nothing selected the centre column already says so; repeating the
+  // sentence here said it twice. The pane shows where the list stands instead.
+  if (!task) return <TaskOverview tasks={tasks} />;
   return <TaskFields key={task.id} task={task} />;
+}
+
+/** The list at a glance: how much is in each band, overdue first. Counted with
+ * `groupTasks`, so these numbers are the list's own group sizes. */
+function TaskOverview({ tasks }: { tasks: Task[] }) {
+  const { t } = useTranslation();
+  const groups = groupTasks(tasks);
+  if (!groups.length) {
+    return <p className="text-[12px] text-nb-text-3">{t('tasks.overviewEmpty')}</p>;
+  }
+  return (
+    <section>
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-nb-text-3">
+        {t('tasks.overview')}
+      </h3>
+      <dl className="flex flex-col gap-1.5 text-[12.5px]">
+        {groups.map((group) => (
+          <div key={group.id} className="flex items-center justify-between gap-3">
+            <dt
+              className={cn(
+                group.id === 'overdue' ? 'text-[var(--nb-warn)]' : 'text-nb-text-2',
+              )}
+            >
+              {t(TASK_GROUP_LABELS[group.id])}
+            </dt>
+            <dd className="tabular-nums text-nb-text">{group.tasks.length}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-[11.5px] leading-snug text-nb-text-3">
+        {t('tasks.overviewHint')}
+      </p>
+    </section>
+  );
 }
 
 /** Label above control, the way `InfoPanel` lays out a note's course. */
@@ -172,6 +205,7 @@ function TaskFields({ task }: { task: Task }) {
       <FieldSection title={t('tasks.sectionSchedule')}>
         <Field label={t('tasks.dueDate')}>
           <GlassDateField
+            size="sm"
             label={t('tasks.dueDate')}
             value={task.dueAt}
             onChange={(next) => patch({ dueAt: next })}
@@ -180,6 +214,7 @@ function TaskFields({ task }: { task: Task }) {
 
         <Field label={t('tasks.remindAt')} hint={reminderHint ?? undefined}>
           <GlassDateField
+            size="sm"
             label={t('tasks.remindAt')}
             value={task.remindAt}
             onChange={(next) => {
@@ -280,11 +315,11 @@ function TaskFields({ task }: { task: Task }) {
         <dl>
           <div>
             <dt>{t('inspector.created')}</dt>
-            <dd>{new Date(task.createdAt).toLocaleString(i18n.language)}</dd>
+            <dd>{formatTimestamp(task.createdAt, i18n.language)}</dd>
           </div>
           <div>
             <dt>{t('inspector.modified')}</dt>
-            <dd>{new Date(task.updatedAt).toLocaleString(i18n.language)}</dd>
+            <dd>{formatTimestamp(task.updatedAt, i18n.language)}</dd>
           </div>
           {task.completedAt && (
             <div>

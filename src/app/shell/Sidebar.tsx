@@ -171,7 +171,7 @@ export function Sidebar() {
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [templateNameOpen, setTemplateNameOpen] = useState(false);
   const [sectionCourseId, setSectionCourseId] = useState<string | null>(null);
-  const [editingSearch, setEditingSearch] = useState<SavedSearch | null>(null);
+  const [editingSearch, setEditingSearch] = useState<SavedSearch | 'new' | null>(null);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
 
@@ -372,10 +372,24 @@ export function Sidebar() {
                 }
               />
             ))}
+            {tags.length === 0 && (
+              <li className="px-2 text-[12px] text-nb-text-3">{t('sidebar.noTags')}</li>
+            )}
           </ul>
         </SidebarSection>
 
-        <SidebarSection title={t('sidebar.savedSearches')}>
+        <SidebarSection
+          title={t('sidebar.savedSearches')}
+          action={
+            <GlassIconButton
+              label={t('organization.newSavedSearch')}
+              className="size-6"
+              onClick={() => setEditingSearch('new')}
+            >
+              <Plus size={13} />
+            </GlassIconButton>
+          }
+        >
           <ul className="flex flex-col gap-0.5">
             {savedSearches.map((search) => {
               const target: ViewKind = { kind: 'savedSearch', savedSearchId: search.id };
@@ -431,6 +445,11 @@ export function Sidebar() {
                 </li>
               );
             })}
+            {savedSearches.length === 0 && (
+              <li className="px-2 text-[12px] text-nb-text-3">
+                {t('sidebar.noSavedSearches')}
+              </li>
+            )}
           </ul>
         </SidebarSection>
 

@@ -32,8 +32,16 @@ export function StatusBar() {
   const access = useLibraryAccessStore((state) => state.status);
   const notice = useUiStore((state) => state.statusNotice);
 
-  const stats = note ? docStats(note.doc) : null;
-  const target = note ? writingProgress(note.doc) : null;
+  // The centre column shows a task there, and the open note's counts beside
+  // it would describe something that is not on screen.
+  const showingTask = useUiStore(
+    (state) =>
+      state.view.kind === 'tasks' ||
+      (state.view.kind === 'trash' && state.trashTab === 'tasks'),
+  );
+  const shownNote = showingTask ? null : note;
+  const stats = shownNote ? docStats(shownNote.doc) : null;
+  const target = shownNote ? writingProgress(shownNote.doc) : null;
   const elapsed = useElapsed(focusMode ? (session?.startedAt ?? null) : null);
 
   return (

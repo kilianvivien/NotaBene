@@ -14,6 +14,10 @@ function DrawingView({ node, updateAttributes, selected }: NodeViewProps) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const svg = typeof node.attrs.svg === 'string' ? node.attrs.svg : '';
+  // A pasted photo would come out as a negative, so only a drawing made of
+  // strokes alone follows the dark theme — Excalidraw's own rule.
+  const files = (node.attrs.data as { files?: Record<string, unknown> } | null)?.files;
+  const strokesOnly = !files || Object.keys(files).length === 0;
 
   return (
     <NodeViewWrapper
@@ -24,6 +28,7 @@ function DrawingView({ node, updateAttributes, selected }: NodeViewProps) {
       <button
         type="button"
         className="nb-drawing-preview"
+        data-themed={strokesOnly || undefined}
         onDoubleClick={() => setEditing(true)}
         onClick={() => {
           if (!svg) setEditing(true);
