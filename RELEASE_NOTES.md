@@ -1,5 +1,37 @@
 # Release notes
 
+## NotaBene 1.1.0
+
+- **Word completion from your course's vocabulary.** As you type, NotaBene
+  suggests the rest of a word in grey after the caret. Tab accepts and
+  Escape dismisses. Suggestions come from the recurring words in the notes of
+  the open note's course, so the long terms of each subject complete after
+  three letters. Accepting also puts back accents you skipped while typing
+  fast. It runs entirely on your Mac, never changes a word without Tab, and
+  stays out of code, the slash menu, link completion, abbreviations and
+  accent composition. A list still indents on Tab whenever no suggestion is
+  showing. Turn it off or change how many letters it waits for in Settings →
+  Editor, or with ⌥⌘K.
+- **A vocabulary for each course.** Right-click a course and choose Course
+  Vocabulary… (or press ⇧⌘U) to see which words it suggests, keep the ones
+  you use, and silence the ones you don't. A silenced word stays silenced
+  even if your notes keep using it, which fixes a typo repeated across
+  lectures. ⌥⌘V adds the word under the caret; ⇧⌥⌘V stops suggesting it.
+- **Review a course's vocabulary with AI.** From the same dialog, or AI →
+  Review Course Vocabulary…, your AI provider proposes spelling fixes,
+  missing terms from a syllabus you paste, and acronym expansions, which
+  become abbreviations. Only the course's recurring words, a short excerpt
+  for each, and anything you paste are sent, never whole notes. Nothing is
+  saved until you tick it.
+- **Check a paragraph.** AI → Check Paragraph… (⇧⌥⌘P) proofreads the
+  paragraph the caret is in for misspellings, missing accents and wrong-word
+  mistakes, and leaves the course's own terms alone. Each correction can be
+  unticked. Applying them is a single edit, so one undo takes them all back.
+
+This release updates the library schema from version 7 to 8 to store each
+course's vocabulary. Existing libraries are migrated automatically when they
+are opened, and backups include the vocabulary.
+
 ## NotaBene 1.0.0
 
 - **Apple Intelligence as an on-device AI provider.** On macOS 27, accept the
