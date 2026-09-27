@@ -112,7 +112,8 @@ Phases A–L are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
 server, the study features, bulk selection, and tasks. The MCP and in-app Agent
-share 21 tools: the original surface plus tag discovery, native merging,
+share 21 tools (the in-app agent adds two pseudo-tools of its own, `finish` and
+`ask_student`, which are loop control rather than capabilities): the original surface plus tag discovery, native merging,
 recoverable Trash/restore operations, bulk archiving, and the five task tools.
 The tools that act on many notes take a `notes: [{ noteId, baseUpdatedAt }]`
 list — `manage_tags` accepts both that and the original single-note form.
@@ -253,6 +254,13 @@ Phase L notes worth knowing before touching it:
   source dates). Keep those fields off `CreateNoteInput`, which MCP reaches.
 - Clicking a `[[Title]]` with no id resolves by title first
   (`resolveWikiTitleCommand`) and only creates a note when none exists.
+- The agent speaks native function calling where the provider table says
+  `nativeTools`, and the JSON decision document elsewhere. Tool definitions
+  are generated from `TOOL_ARGUMENT_SCHEMAS` in `lib/mcp/toolHandlers.ts` via
+  `lib/mcp/jsonSchema.ts` — a new tool gets its definition by being in that
+  table, never by a hand-written schema. Turns stay stateless (the compacted
+  transcript as prose), reads in one turn run in parallel, writes in order.
+  Measure a loop change with `pnpm eval:agent` before claiming it helped.
 - Calendars (`src/lib/export/ics.ts`, `src/lib/import/ics.ts`) write `VEVENT`s
   in floating local time with `UID:task-{id}@notabene`; local midnight means
   all-day. Import is strict and bounded, maps only rules that fit the three

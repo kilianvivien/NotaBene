@@ -29,7 +29,11 @@ function loadRuns(): AgentRunRecord[] {
     const parsed = PersistedAgentRunsSchema.safeParse(
       JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null'),
     );
-    return parsed.success ? parsed.data.runs : [];
+    // A question can only be answered by the run that asked it, and that run
+    // did not survive the relaunch.
+    return parsed.success
+      ? parsed.data.runs.map((run) => ({ ...run, pendingQuestion: undefined }))
+      : [];
   } catch {
     return [];
   }

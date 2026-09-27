@@ -12,19 +12,23 @@ import {
   AgentScopeError,
   AiParseError,
   DEFAULT_AGENT_BUDGET,
+  agentToolDefinitions,
   requestAgentPlan,
   runAgentLoop,
+  usesNativeTools,
   type AgentFollowUpContext,
   type AiRunOptions,
   type AgentToolOutcome,
 } from '@/lib/ai';
-import { executeToolHandler } from '@/lib/mcp/toolHandlers';
+import { agentToolParameters, executeToolHandler } from '@/lib/mcp/toolHandlers';
 import {
   AgentScopeSchema,
+  MAX_AGENT_QUESTIONS,
   newId,
   type AgentBudget,
   type AgentPlan,
   type AgentPlanDraft,
+  type AgentQuestion,
   type AgentRunRecord,
   type AgentScope,
   type AgentToolCallRecord,
@@ -38,6 +42,7 @@ import i18n from '@/lib/i18n';
 import { useAgentStore } from '@/lib/state/agentStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { aiFailure, language, providerFor } from './aiCommands';
 import { restoreNotesCommand, trashNotesCommand } from './bulkCommands';
@@ -174,6 +179,8 @@ export async function planAgentCommand(
   const lookup = await providerFor('agent');
   if (!lookup.ok) return fail('not_supported', lookup.reason);
   const scopeDescription = await describeScope(parsedScope.data);
+  const standingInstructions =
+    useSettingsStore.getState().settings.agentInstructions.trim() || undefined;
 
   try {
     const draft = await requestAgentPlan(
@@ -184,6 +191,7 @@ export async function planAgentCommand(
         scopeContext: scopeDescription.context,
         followUpContext,
         language: language(),
+        standingInstructions,
       },
       options,
     );
@@ -215,6 +223,7 @@ export async function planAgentCommand(
       tokensUsed: 0,
       startedAt: null,
       completedAt: null,
+      standingInstructions,
     };
     useAgentStore.getState().putRun(run);
     useAgentStore.getState().setActiveRun(run.id);
@@ -230,6 +239,9 @@ export async function planAgentCommand(
 export async function runAgentCommand(
   runId: string,
   options: AiRunOptions = {},
+  /** Evaluation only: run over the JSON decision document even where the
+   * provider supports native calls, so the two can be compared on one corpus. */
+  evaluation: { forceJson?: boolean } = {},
 ): Promise<CommandResult<AgentRunRecord>> {
   const stored = useAgentStore.getState().runs.find((run) => run.id === runId);
   if (!stored) return fail('not_found', `no agent run ${runId}`);
@@ -258,6 +270,15 @@ export async function runAgentCommand(
     ? useAgentStore.getState().runs.find((run) => run.id === record.parentRunId)
     : undefined;
 
+  const toolDefinitions = evaluation.forceJson
+    ? undefined
+    : agentToolDefinitions(agentToolParameters());
+  record.toolMode = usesNativeTools({ provider: lookup.provider, toolDefinitions })
+    ? 'native'
+    : 'json';
+  record.questions = [];
+  put(record);
+
   try {
     const result = await runAgentLoop(
       {
@@ -269,7 +290,10 @@ export async function runAgentCommand(
         plan: record.plan,
         budget: record.budget,
         language: language(),
+        standingInstructions: record.standingInstructions,
+        toolDefinitions,
         executeTool: (tool, args, signal) => executeAgentTool(record, tool, args, signal),
+        askStudent: (question, signal) => askStudent(record, question, signal),
         onToolStart: ({ callId, decision }) => {
           const call: AgentToolCallRecord = {
             id: callId,
@@ -328,6 +352,8 @@ export async function runAgentCommand(
               ? error.message
               : String(error);
     record.completedAt = new Date().toISOString();
+    record.pendingQuestion = undefined;
+    pendingAnswers.delete(record.id);
     for (const call of record.calls) {
       if (call.status === 'running') {
         call.status = cancelled ? 'cancelled' : 'failed';
@@ -348,6 +374,61 @@ export async function runAgentCommand(
               : undefined,
           );
   }
+}
+
+/** The resolver of each run's open question, so the panel can answer it. One
+ * per run: the loop asks one question at a time and waits. */
+const pendingAnswers = new Map<string, (answer: string) => void>();
+
+/**
+ * Put the model's question on the run and wait for the student.
+ *
+ * The run stays `running` — it is paused on the student, not finished — and
+ * the record carries the question so the panel can show it and a reload can
+ * tell a waiting run from a working one. Stop rejects the wait through the
+ * signal like any other step.
+ */
+function askStudent(
+  record: AgentRunRecord,
+  question: AgentQuestion,
+  signal: AbortSignal,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const id = newId();
+    record.pendingQuestion = { id, ...question };
+    put(record);
+    const onAbort = () => {
+      pendingAnswers.delete(record.id);
+      record.pendingQuestion = undefined;
+      put(record);
+      reject(signal.reason ?? new DOMException('cancelled', 'AbortError'));
+    };
+    if (signal.aborted) return onAbort();
+    signal.addEventListener('abort', onAbort, { once: true });
+    pendingAnswers.set(record.id, (answer) => {
+      signal.removeEventListener('abort', onAbort);
+      pendingAnswers.delete(record.id);
+      record.pendingQuestion = undefined;
+      record.questions = [...(record.questions ?? []), { ...question, answer }].slice(
+        -MAX_AGENT_QUESTIONS,
+      );
+      put(record);
+      resolve(answer);
+    });
+  });
+}
+
+/** The student's answer to the question a running agent asked. */
+export function answerAgentQuestionCommand(
+  runId: string,
+  answer: string,
+): CommandResult<void> {
+  const text = answer.trim();
+  if (!text) return fail('invalid_input', 'an answer is required');
+  const resolve = pendingAnswers.get(runId);
+  if (!resolve) return fail('not_found', `no question waiting on agent run ${runId}`);
+  resolve(text.slice(0, 2_000));
+  return ok(undefined);
 }
 
 function contextForFollowUp(run: AgentRunRecord): AgentFollowUpContext {

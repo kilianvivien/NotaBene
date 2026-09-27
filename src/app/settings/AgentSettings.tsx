@@ -7,6 +7,7 @@ import { platformRuntime } from '@/lib/platform/runtime';
 import { useMcpStore, type McpActivity } from '@/lib/state/mcpStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { cn } from '@/lib/utils/cn';
+import { AgentInstructionsSettings } from './AgentInstructionsSettings';
 
 export function AgentSettings() {
   const { t } = useTranslation();
@@ -26,8 +27,15 @@ export function AgentSettings() {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState<McpClientId | null>(null);
 
+  // The standing instructions belong to the in-app agent, which every build
+  // has; only the server below is desktop-only.
   if (!platformRuntime.capabilities.mcpServer) {
-    return <p className="text-[13px] text-nb-text-3">{t('mcp.desktopOnly')}</p>;
+    return (
+      <div className="flex flex-col gap-5">
+        <AgentInstructionsSettings />
+        <p className="text-[13px] text-nb-text-3">{t('mcp.desktopOnly')}</p>
+      </div>
+    );
   }
 
   async function setup(client: McpClientId) {
@@ -45,6 +53,7 @@ export function AgentSettings() {
 
   return (
     <div className="flex flex-col gap-5">
+      <AgentInstructionsSettings />
       <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-hover)] p-3">
         <div className="flex items-center justify-between gap-3">
           <div>

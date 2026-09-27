@@ -989,7 +989,7 @@
     "backups": "Sauvegardes",
     "desc_backups": "Quand une copie de la bibliothèque est écrite, et combien de temps l'historique est conservé.",
     "agent": "Accès agent",
-    "desc_agent": "Permet à Claude Code et aux autres clients MCP de lire et écrire vos notes sur cette machine.",
+    "desc_agent": "Les conventions de l’agent intégré, et l’accès de Claude Code et des autres clients MCP sur cette machine.",
     "about": "À propos",
     "desc_about": "La version, ce que NotaBene promet au sujet de vos données, et l’origine de son code tiers.",
     "language": "Langue",
@@ -1424,7 +1424,22 @@
     "did_reopen_task": "« {{title}} » rouverte",
     "did_reopen_task_generic": "Une tâche a été rouverte",
     "did_link_task_note": "Une tâche a été liée à une note",
-    "did_unlink_task_note": "Une tâche a été déliée d’une note"
+    "did_unlink_task_note": "Une tâche a été déliée d’une note",
+    "instructions": {
+      "title": "Consignes permanentes de l’agent",
+      "hint": "Des conventions que l’agent suit dans chaque tâche, pour ne pas avoir à les répéter — par exemple « les étiquettes sont en français » ou « ne jamais archiver quoi que ce soit dans Thèse ». Elles ne lui permettent jamais d’aller au-delà de la portée que vous approuvez.",
+      "placeholder": "Les étiquettes sont en français.\nLes notes de semaine s’intitulent « Semaine N ».\nNe jamais archiver quoi que ce soit dans Thèse.",
+      "count": "{{count}} / {{max}}",
+      "applied": "Vos consignes permanentes s’appliquent",
+      "edit": "Modifier dans les Réglages"
+    },
+    "question": {
+      "title": "L’agent a besoin de votre réponse",
+      "placeholder": "Saisissez votre réponse",
+      "otherPlaceholder": "Ou saisissez une autre réponse",
+      "send": "Répondre",
+      "answered": "Votre réponse : {{answer}}"
+    }
   },
   "reading": {
     "controls": "Réglages de lecture",

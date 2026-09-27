@@ -186,6 +186,14 @@ export interface AppSettings {
    * still shows the choice, since this is the field that decides whether a
    * dozen notes go to the trash. */
   mergeSourceFate: 'trash' | 'archive' | 'keep';
+  /**
+   * Conventions the in-app agent always sees — "tags are in French", "never
+   * archive anything in Thesis" (plan §3.2, item 4). The student's, in
+   * settings rather than the library: a convention about how to work is not
+   * library content, and a backup carries no place for it. The agent reads it
+   * and can never change it.
+   */
+  agentInstructions: string;
   /** Provider id per AI feature, so synthesis can use a stronger model than
    * spell-fixing without the user re-picking every time. The `default` entry is
    * what every unlisted feature resolves through. */
@@ -279,6 +287,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // everything the sources did — so the default tidies up rather than leaving
   // every merge to be cleaned by hand.
   mergeSourceFate: 'trash',
+  agentInstructions: '',
   aiFeatureModels: {},
   aiProviders: {},
   speech: {

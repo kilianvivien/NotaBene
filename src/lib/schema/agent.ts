@@ -64,13 +64,32 @@ export const AgentPlanSchema = AgentPlanDraftBaseSchema.extend({
 });
 export type AgentPlan = z.infer<typeof AgentPlanSchema>;
 
+const AgentToolCallSchema = z.object({
+  tool: AgentToolNameSchema,
+  arguments: z.record(z.unknown()).default({}),
+  rationale: z.string().trim().min(1).max(1_000),
+});
+
+/** Most a run may ask the student (plan §3.2, item 3) — enough to resolve an
+ * ambiguity, too few to turn a run into a chat. */
+export const MAX_AGENT_QUESTIONS = 2;
+
+export const AgentQuestionSchema = z.object({
+  question: z.string().trim().min(1).max(500),
+  /** Offered as cards; the student may also type an answer of their own. */
+  options: z.array(z.string().trim().min(1).max(200)).max(4).default([]),
+});
+export type AgentQuestion = z.infer<typeof AgentQuestionSchema>;
+
 export const AgentDecisionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('tool'), ...AgentToolCallSchema.shape }),
+  /** Several calls in one turn, from native function calling. Only reads run
+   * in parallel; the loop executes anything else in order. */
   z.object({
-    action: z.literal('tool'),
-    tool: AgentToolNameSchema,
-    arguments: z.record(z.unknown()).default({}),
-    rationale: z.string().trim().min(1).max(1_000),
+    action: z.literal('batch'),
+    calls: z.array(AgentToolCallSchema).min(1).max(8),
   }),
+  z.object({ action: z.literal('ask'), ...AgentQuestionSchema.shape }),
   z.object({
     action: z.literal('done'),
     /** Explicit self-check against the original instruction. The command layer
@@ -162,6 +181,18 @@ export const AgentRunRecordSchema = z.object({
   completedAt: z.string().datetime().nullable(),
   summary: z.string().optional(),
   error: z.string().optional(),
+  /** The student's standing instructions as they stood when the plan was
+   * made, so the run follows what the review gate showed. */
+  standingInstructions: z.string().max(4_000).optional(),
+  /** How the run spoke to its model: native function calls or the JSON
+   * decision document. Recorded for the evaluation corpus. */
+  toolMode: z.enum(['native', 'json']).optional(),
+  /** A question waiting for the student. The run is suspended until answered. */
+  pendingQuestion: AgentQuestionSchema.extend({ id: z.string().min(1) }).optional(),
+  questions: z
+    .array(AgentQuestionSchema.extend({ answer: z.string().max(2_000).nullable() }))
+    .max(MAX_AGENT_QUESTIONS)
+    .optional(),
 });
 export type AgentRunRecord = z.infer<typeof AgentRunRecordSchema>;
 

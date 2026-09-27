@@ -989,7 +989,7 @@
     "backups": "Backups",
     "desc_backups": "When a copy of the library is written out, and how long history is kept.",
     "agent": "Agent access",
-    "desc_agent": "Lets Claude Code and other MCP clients read and write your notes on this machine.",
+    "desc_agent": "Conventions for the in-app agent, and access for Claude Code and other MCP clients on this machine.",
     "about": "About",
     "desc_about": "Version, what NotaBene promises about your data, and where its third-party code came from.",
     "language": "Language",
@@ -1424,7 +1424,22 @@
     "did_reopen_task": "Reopened “{{title}}”",
     "did_reopen_task_generic": "Reopened a task",
     "did_link_task_note": "Linked a task to a note",
-    "did_unlink_task_note": "Unlinked a task from a note"
+    "did_unlink_task_note": "Unlinked a task from a note",
+    "instructions": {
+      "title": "Standing instructions for the agent",
+      "hint": "Conventions the agent follows in every task, so you don’t have to repeat them — for example “tags are in French” or “never archive anything in Thesis”. They never let it do more than the scope you approve.",
+      "placeholder": "Tags are in French.\nWeek notes are titled “Semaine N”.\nNever archive anything in Thesis.",
+      "count": "{{count}} / {{max}}",
+      "applied": "Your standing instructions apply",
+      "edit": "Edit in Settings"
+    },
+    "question": {
+      "title": "The agent needs your answer",
+      "placeholder": "Type your answer",
+      "otherPlaceholder": "Or type another answer",
+      "send": "Answer",
+      "answered": "You answered: {{answer}}"
+    }
   },
   "reading": {
     "controls": "Reading controls",

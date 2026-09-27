@@ -19,7 +19,7 @@ import {
   parseStreamFrame,
   ProviderRefusalError,
 } from './protocols';
-import type { AiCall } from './protocols';
+import type { AiCall, ResolvedProvider } from './protocols';
 
 /** Default ceiling for one call. Generous because a local model on a laptop is
  * genuinely slow, and a timeout that fires mid-answer is the worst outcome. */
@@ -105,6 +105,29 @@ export function preflight(
 }
 
 export async function runAi(call: AiCall, options: AiRunOptions = {}): Promise<string> {
+  return execute(call, options, (provider, body) => parseResponse(provider, body));
+}
+
+/**
+ * The same call — preflight, retry, timeout, cancellation — with a caller's
+ * own reading of the response body, for the one caller whose answer is not
+ * text: native tool calls come back as structured blocks, and flattening them
+ * to a string first would throw away exactly what was asked for. Never
+ * streams.
+ */
+export async function runAiParsed<T>(
+  call: AiCall,
+  parse: (provider: ResolvedProvider, body: string) => T,
+  options: AiRunOptions = {},
+): Promise<T> {
+  return execute({ ...call, stream: false }, { ...options, onToken: undefined }, parse);
+}
+
+async function execute<T>(
+  call: AiCall,
+  options: AiRunOptions,
+  parse: (provider: ResolvedProvider, body: string) => T,
+): Promise<T> {
   let check = preflight(call);
   const contextTokens = call.provider.definition.contextTokens;
   if (
@@ -140,7 +163,7 @@ export async function runAi(call: AiCall, options: AiRunOptions = {}): Promise<s
   let lastError: unknown;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
-      return await attemptCall(prepared, options);
+      return await attemptCall(prepared, options, parse);
     } catch (error) {
       lastError = error;
       const retryable = error instanceof AiError && error.retryable;
@@ -153,7 +176,11 @@ export async function runAi(call: AiCall, options: AiRunOptions = {}): Promise<s
   throw lastError instanceof Error ? lastError : new AiError(String(lastError));
 }
 
-async function attemptCall(call: AiCall, options: AiRunOptions): Promise<string> {
+async function attemptCall<T>(
+  call: AiCall,
+  options: AiRunOptions,
+  parse: (provider: ResolvedProvider, body: string) => T,
+): Promise<T> {
   const streaming = Boolean(options.onToken);
   const request = buildRequest({ ...call, stream: streaming });
   const controller = new AbortController();
@@ -167,9 +194,11 @@ async function attemptCall(call: AiCall, options: AiRunOptions): Promise<string>
   try {
     if (options.signal?.aborted) throw new DOMException('aborted', 'AbortError');
     const signed = { ...request, signal: controller.signal };
+    // Only text streams; `runAiParsed` never passes `onToken`, so a parsed
+    // call always takes the whole-response path.
     return streaming
-      ? await readStream(call, signed, options)
-      : await readWhole(call, signed, controller.signal);
+      ? ((await readStream(call, signed, options)) as T)
+      : await readWhole(call, signed, controller.signal, parse);
   } catch (error) {
     throw asAiError(error);
   } finally {
@@ -200,11 +229,12 @@ function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-async function readWhole(
+async function readWhole<T>(
   call: AiCall,
   request: Parameters<typeof aiTransport.request>[0],
   signal: AbortSignal,
-): Promise<string> {
+  parse: (provider: ResolvedProvider, body: string) => T,
+): Promise<T> {
   const response = await untilAborted(aiTransport.request(request), signal);
   if (response.status >= 400) {
     const detail = extractMessage(response.body);
@@ -217,7 +247,7 @@ async function readWhole(
       RETRY_STATUSES.has(response.status),
     );
   }
-  return parseResponse(call.provider, response.body);
+  return parse(call.provider, response.body);
 }
 
 async function readStream(

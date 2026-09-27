@@ -29,10 +29,15 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlassButton, GlassPopupButton } from '@/components/glass';
+import { ChoiceGroup, GlassButton, GlassPopupButton } from '@/components/glass';
 import { DEFAULT_AGENT_BUDGET } from '@/lib/ai';
 import type { AskScope } from '@/lib/ai';
-import { planAgentCommand, runAgentCommand, undoAgentRunCommand } from '@/lib/commands';
+import {
+  answerAgentQuestionCommand,
+  planAgentCommand,
+  runAgentCommand,
+  undoAgentRunCommand,
+} from '@/lib/commands';
 import type { AgentRunRecord, AgentScope } from '@/lib/schema';
 import { useAgentStore } from '@/lib/state/agentStore';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
@@ -542,7 +547,31 @@ function RunView({
         <p className="mt-2.5 rounded-nb-xs bg-[var(--nb-inset-surface)] px-2 py-1.5 text-[10.5px] leading-relaxed text-nb-text-3">
           {limitsSentence(run, t)}
         </p>
+        {/* On the gate, so a plan's origin is legible: a step the student did
+            not ask for may have come from a convention they set weeks ago. */}
+        {run.standingInstructions && (
+          <details className="mt-2 text-[10.5px] leading-relaxed text-nb-text-3">
+            <summary className="cursor-pointer">
+              {t('agent.instructions.applied')}
+            </summary>
+            <p className="mt-1 whitespace-pre-wrap rounded-nb-xs bg-[var(--nb-inset-surface)] px-2 py-1.5">
+              {run.standingInstructions}
+            </p>
+            <button
+              type="button"
+              className="mt-1 text-[var(--nb-accent)] underline-offset-2 hover:underline"
+              onClick={() => {
+                useUiStore.getState().setSettingsTab('agent');
+                useUiStore.getState().setSettingsOpen(true);
+              }}
+            >
+              {t('agent.instructions.edit')}
+            </button>
+          </details>
+        )}
       </section>
+
+      {running && run.pendingQuestion && <QuestionCard run={run} />}
 
       {run.status !== 'planned' && (
         <section>
@@ -597,6 +626,21 @@ function RunView({
               <Loader2 size={12} className="animate-spin" /> {t('agent.thinking')}
             </p>
           ) : null}
+          {(run.questions ?? []).length > 0 && (
+            <ul className="mt-1.5 space-y-1">
+              {(run.questions ?? []).map((entry, index) => (
+                <li
+                  key={index}
+                  className="rounded-nb-xs border border-dashed border-[var(--nb-divider)] px-2 py-1.5 text-[11px] leading-relaxed"
+                >
+                  <p className="text-nb-text-2">{entry.question}</p>
+                  <p className="mt-0.5 text-nb-text-3">
+                    {t('agent.question.answered', { answer: entry.answer ?? '—' })}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 
@@ -648,6 +692,77 @@ function RunView({
         </section>
       )}
     </>
+  );
+}
+
+/**
+ * The question a running agent is waiting on (plan §3.2, item 3).
+ *
+ * The model's options are cards because each is a different outcome, and a
+ * field below takes anything else — the model cannot know every answer a
+ * student might give. The run's wall clock is paused meanwhile; Stop, below,
+ * still cancels.
+ */
+function QuestionCard({ run }: { run: AgentRunRecord }) {
+  const { t } = useTranslation();
+  const question = run.pendingQuestion!;
+  const [choice, setChoice] = useState('');
+  const [typed, setTyped] = useState('');
+  const answer = typed.trim() || choice;
+
+  function send() {
+    if (!answer) return;
+    answerAgentQuestionCommand(run.id, answer);
+    setChoice('');
+    setTyped('');
+  }
+
+  return (
+    <section
+      aria-live="polite"
+      className="rounded-nb-sm border border-[var(--nb-accent)] bg-[var(--nb-accent-soft)] px-3 py-2.5"
+    >
+      <Eyebrow>{t('agent.question.title')}</Eyebrow>
+      <p className="mt-0.5 text-[12.5px] font-semibold leading-snug">
+        {question.question}
+      </p>
+      {question.options.length > 0 && (
+        <ChoiceGroup
+          className="mt-2"
+          label={question.question}
+          value={choice}
+          onChange={(value) => {
+            setChoice(value);
+            setTyped('');
+          }}
+          columns={1}
+          options={question.options.map((option) => ({ value: option, title: option }))}
+        />
+      )}
+      <textarea
+        rows={2}
+        value={typed}
+        placeholder={t(
+          question.options.length
+            ? 'agent.question.otherPlaceholder'
+            : 'agent.question.placeholder',
+        )}
+        aria-label={t('agent.question.placeholder')}
+        onChange={(event) => setTyped(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            send();
+          }
+        }}
+        className="mt-2 w-full resize-none rounded-nb-xs border border-[var(--nb-divider)] bg-[var(--nb-paper)] px-2 py-1.5 text-[11.5px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--nb-accent-ring)]"
+      />
+      <div className="mt-1.5 flex justify-end">
+        <GlassButton size="sm" variant="accent" disabled={!answer} onClick={send}>
+          <Send size={12} aria-hidden /> {t('agent.question.send')}
+        </GlassButton>
+      </div>
+    </section>
   );
 }
 

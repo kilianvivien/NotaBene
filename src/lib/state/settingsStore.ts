@@ -89,6 +89,9 @@ function normalizeCompletion(value: unknown): AppSettings['completion'] {
   };
 }
 
+/** Long enough for a page of conventions; every run resends it each turn. */
+export const MAX_AGENT_INSTRUCTIONS = 2_000;
+
 export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
   // `focusMode` was a persisted boolean nothing ever read. Concentration mode
   // is window state and stays in `uiStore`; what belongs in settings is how the
@@ -130,6 +133,11 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
     ...rest,
     backupSchedule,
     backupDefaultsApplied: true,
+    // A hand-edited file must not hand the planner a novel.
+    agentInstructions:
+      typeof rest.agentInstructions === 'string'
+        ? rest.agentInstructions.slice(0, MAX_AGENT_INSTRUCTIONS)
+        : DEFAULT_SETTINGS.agentInstructions,
     // Hand-edited or older settings files reach the typing path directly.
     abbreviations: normalizeAbbreviations(rest.abbreviations),
     focus: { ...DEFAULT_SETTINGS.focus, ...rest.focus },

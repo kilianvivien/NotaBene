@@ -58,6 +58,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docToMarkdown, markdownToDoc } from '@/editor/markdown';
+import { toolParameters, type JsonSchema } from './jsonSchema';
 
 type Handler = (
   args: unknown,
@@ -332,6 +333,42 @@ const LinkTaskNoteArgs = z.object({
   noteId: z.string().min(1),
   linked: z.boolean().default(true),
 });
+
+/**
+ * What each tool accepts, exactly as its handler parses it — the source the
+ * in-app agent's native tool definitions are generated from, so they cannot
+ * describe a field the handler would reject. `null` means no arguments.
+ */
+export const TOOL_ARGUMENT_SCHEMAS: Record<AgentToolName, z.ZodTypeAny | null> = {
+  get_app_state: null,
+  list_courses: null,
+  list_tags: null,
+  list_notes: ListNotesArgs,
+  search_notes: SearchArgs,
+  read_note: ReadNoteArgs,
+  create_note: CreateNoteArgs,
+  update_note: UpdateNoteArgs,
+  merge_notes: MergeNotesArgs,
+  trash_notes: VersionedNotesArgs,
+  restore_notes: VersionedNotesArgs,
+  archive_notes: ArchiveNotesArgs,
+  manage_tags: ManageTagsArgs,
+  create_course: CreateCourseArgs,
+  export_notes: ExportNotesArgs,
+  organize: OrganizeArgs,
+  list_tasks: ListTasksArgs,
+  create_task: CreateTaskArgs,
+  update_task: UpdateTaskArgs,
+  complete_task: CompleteTaskArgs,
+  link_task_note: LinkTaskNoteArgs,
+};
+
+/** Every tool's parameters as JSON Schema, generated from the schemas above. */
+export function agentToolParameters(): Record<AgentToolName, JsonSchema> {
+  return Object.fromEntries(
+    Object.entries(TOOL_ARGUMENT_SCHEMAS).map(([name, schema]) => [name, toolParameters(schema)]),
+  ) as Record<AgentToolName, JsonSchema>;
+}
 
 export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
   async list_courses(_args: unknown, context: CommandContext) {

@@ -42,6 +42,13 @@ export interface ProviderDefinition {
   /** Provider-specific estimator calibration. Defaults to the conservative
    * English/French average used for hosted models. */
   charsPerToken?: number;
+  /**
+   * Whether the agent may use native function calling (plan §3.2, item 2).
+   * Declared per provider rather than probed: a local runtime supports it per
+   * model, and a guess that fails mid-run costs the student the run. Absent
+   * means the JSON decision document, which every provider handles.
+   */
+  nativeTools?: boolean;
   quirks?: ProviderQuirks;
 }
 
@@ -68,6 +75,9 @@ export interface ProviderQuirks {
   /** Some compatible servers stream when this field is omitted, even on a
    * whole-response request. */
   explicitStream?: boolean;
+  /** The `tool_choice` value that forces a call. OpenAI and OpenRouter say
+   * `required`; Mistral says `any`. */
+  requiredToolChoice?: 'required' | 'any';
 }
 
 export const AI_PROVIDERS: ProviderDefinition[] = [
@@ -86,6 +96,7 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     ],
     defaultModel: 'claude-sonnet-5',
     keyUrl: 'https://console.anthropic.com/settings/keys',
+    nativeTools: true,
     quirks: { sendTemperature: false },
   },
   {
@@ -98,6 +109,7 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     models: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.6'],
     defaultModel: 'gpt-5.6-terra',
     keyUrl: 'https://platform.openai.com/api-keys',
+    nativeTools: true,
     quirks: { maxTokensField: 'max_completion_tokens', sendTemperature: false },
   },
   {
@@ -131,7 +143,8 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     // root, which the strict subset does not allow. A third-party model served
     // here may also not implement the field at all, which `runStructured`
     // recovers from by asking again in plain JSON mode.
-    quirks: { jsonSchemaMode: true, jsonSchemaStrict: false },
+    nativeTools: true,
+    quirks: { jsonSchemaMode: true, jsonSchemaStrict: false, requiredToolChoice: 'any' },
   },
   {
     id: 'gemini',
@@ -148,6 +161,7 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     ],
     defaultModel: 'gemini-3.8-flash',
     keyUrl: 'https://aistudio.google.com/apikey',
+    nativeTools: true,
     quirks: { sendTemperature: false },
   },
   {
@@ -168,6 +182,7 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     ],
     defaultModel: 'anthropic/claude-sonnet-5',
     keyUrl: 'https://openrouter.ai/keys',
+    nativeTools: true,
   },
   {
     id: 'ollama',

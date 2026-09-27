@@ -42,6 +42,34 @@ export interface AiCall {
     schema: Record<string, unknown>;
   };
   stream: boolean;
+  /**
+   * Native function calling (plan §3.2, item 2). When present the model is
+   * offered these tools and, with `required`, must answer with at least one
+   * call. JSON response formatting is dropped for such a call: the structure
+   * comes from the tool schemas, and several providers refuse both at once.
+   */
+  tools?: { definitions: AiToolDefinition[]; required: boolean };
+}
+
+export interface AiToolDefinition {
+  name: string;
+  description: string;
+  /** JSON Schema, object at the root. */
+  parameters: Record<string, unknown>;
+}
+
+/** One call a model asked for. `arguments` is parsed but not validated here —
+ * the tool's own handler does that, as it does for an MCP client. */
+export interface AiToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface AiToolResponse {
+  /** Any prose the model wrote beside its calls. */
+  text: string;
+  calls: AiToolCall[];
 }
 
 /** Trailing slashes turn `${base}/chat/completions` into a 404 that reads like
@@ -98,6 +126,16 @@ function anthropicRequest(call: AiCall): AiRequest {
         content: message.content,
       })),
       ...(call.stream ? { stream: true } : {}),
+      ...(call.tools
+        ? {
+            tools: call.tools.definitions.map((tool) => ({
+              name: tool.name,
+              description: tool.description,
+              input_schema: tool.parameters,
+            })),
+            tool_choice: { type: call.tools.required ? 'any' : 'auto' },
+          }
+        : {}),
     }),
   };
 }
@@ -121,8 +159,23 @@ function openAiRequest(call: AiCall): AiRequest {
       messages: call.messages,
       [tokenField]: call.maxTokens,
       ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
-      ...openAiResponseFormat(call),
+      ...(call.tools ? {} : openAiResponseFormat(call)),
       ...(call.stream || quirks.explicitStream ? { stream: call.stream } : {}),
+      ...(call.tools
+        ? {
+            tools: call.tools.definitions.map((tool) => ({
+              type: 'function',
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters,
+              },
+            })),
+            tool_choice: call.tools.required
+              ? (quirks.requiredToolChoice ?? 'required')
+              : 'auto',
+          }
+        : {}),
     }),
   };
 }
@@ -169,13 +222,171 @@ function geminiRequest(call: AiCall): AiRequest {
       generationConfig: {
         maxOutputTokens: call.maxTokens,
         ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
-        ...(call.json ? { responseMimeType: 'application/json' } : {}),
+        ...(call.json && !call.tools ? { responseMimeType: 'application/json' } : {}),
       },
+      ...(call.tools
+        ? {
+            tools: [
+              {
+                functionDeclarations: call.tools.definitions.map((tool) => ({
+                  name: tool.name,
+                  description: tool.description,
+                  parameters: geminiSchema(tool.parameters),
+                })),
+              },
+            ],
+            toolConfig: {
+              functionCallingConfig: { mode: call.tools.required ? 'ANY' : 'AUTO' },
+            },
+          }
+        : {}),
     }),
   };
 }
 
+/**
+ * Gemini's function declarations take an OpenAPI subset of JSON Schema: no
+ * `const`, no `default`, no `format` beyond a few, and a null member of a
+ * union written as `nullable`. A bare object with no properties — a note
+ * document, which the agent is steered away from anyway — is dropped rather
+ * than sent as a schema Gemini refuses.
+ */
+export function geminiSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(geminiSchema);
+  if (!isRecord(schema)) return schema;
+  const anyOf = schema.anyOf;
+  if (Array.isArray(anyOf)) {
+    const members = anyOf.filter(
+      (member) => !(isRecord(member) && member.type === 'null'),
+    );
+    if (members.length === 1) {
+      return { ...(geminiSchema(members[0]) as Record<string, unknown>), nullable: true };
+    }
+    return { anyOf: members.map(geminiSchema) };
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === 'default' || key === 'additionalProperties') continue;
+    if (key === 'const') {
+      out.enum = [value];
+      continue;
+    }
+    if (key === 'format' && value !== 'date-time' && value !== 'enum') continue;
+    if (key === 'properties' && isRecord(value)) {
+      const properties: Record<string, unknown> = {};
+      for (const [name, property] of Object.entries(value)) {
+        if (isRecord(property) && property.type === 'object' && !property.properties)
+          continue;
+        properties[name] = geminiSchema(property);
+      }
+      out.properties = properties;
+      continue;
+    }
+    out[key] = geminiSchema(value);
+  }
+  if (Array.isArray(out.required) && isRecord(out.properties)) {
+    const present = out.properties;
+    out.required = (out.required as string[]).filter((name) => name in present);
+  }
+  return out;
+}
+
 // -- Reading responses -------------------------------------------------------
+
+/** A tool-calling response: the calls, and whatever text came with them. */
+export function parseToolResponse(
+  provider: ResolvedProvider,
+  body: string,
+): AiToolResponse {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    throw new Error(`provider returned non-JSON: ${body.slice(0, 200)}`);
+  }
+  const error = providerError(payload);
+  if (error) throw new Error(error);
+  if (!isRecord(payload)) throw new Error('provider returned an empty response');
+
+  const calls: AiToolCall[] = [];
+  let text = '';
+  const args = (value: unknown): Record<string, unknown> => {
+    if (typeof value === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(value || '{}');
+        return isRecord(parsed) && !Array.isArray(parsed) ? parsed : {};
+      } catch {
+        // A call whose arguments do not parse still happened; the handler's
+        // validation turns the empty object into an error the model can read.
+        return {};
+      }
+    }
+    return isRecord(value) && !Array.isArray(value) ? value : {};
+  };
+
+  switch (provider.definition.protocol) {
+    case 'anthropic': {
+      const content = Array.isArray(payload.content) ? payload.content : [];
+      for (const block of content) {
+        if (!isRecord(block)) continue;
+        if (block.type === 'text') text += String(block.text ?? '');
+        if (block.type === 'tool_use' && typeof block.name === 'string') {
+          calls.push({
+            id: String(block.id ?? `call_${calls.length}`),
+            name: block.name,
+            arguments: args(block.input),
+          });
+        }
+      }
+      break;
+    }
+    case 'gemini': {
+      const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+      const first = candidates[0];
+      const parts =
+        isRecord(first) && isRecord(first.content) && Array.isArray(first.content.parts)
+          ? first.content.parts
+          : [];
+      for (const part of parts) {
+        if (!isRecord(part)) continue;
+        if (typeof part.text === 'string') text += part.text;
+        const call = part.functionCall;
+        if (isRecord(call) && typeof call.name === 'string') {
+          // Gemini gives its calls no ids; the loop needs one per call.
+          calls.push({
+            id: `call_${calls.length}`,
+            name: call.name,
+            arguments: args(call.args),
+          });
+        }
+      }
+      break;
+    }
+    default: {
+      const choices = Array.isArray(payload.choices) ? payload.choices : [];
+      const first = choices[0];
+      const message = isRecord(first) && isRecord(first.message) ? first.message : null;
+      if (message) {
+        if (typeof message.refusal === 'string' && message.refusal.trim()) {
+          throw new ProviderRefusalError(message.refusal.trim());
+        }
+        text = openAiText(message.content) ?? '';
+        const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+        for (const entry of toolCalls) {
+          if (!isRecord(entry) || !isRecord(entry.function)) continue;
+          const name = entry.function.name;
+          if (typeof name !== 'string') continue;
+          calls.push({
+            id: String(entry.id ?? `call_${calls.length}`),
+            name,
+            arguments: args(entry.function.arguments),
+          });
+        }
+      }
+    }
+  }
+  return { text: text.trim(), calls };
+}
 
 /** Pull the assistant's text out of a complete response body. Throws with the
  * provider's own words when the body is an error document, because "your

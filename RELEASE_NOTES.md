@@ -39,6 +39,18 @@
   made.
 - **Monthly tasks stay on their day.** A task due on the 31st now returns to
   the 31st after February instead of staying on the 28th for good.
+- **A quicker, surer agent.** With Anthropic, OpenAI, Mistral, Gemini and
+  OpenRouter the agent now uses the provider's own tool calling: it can
+  check several notes in one step and no longer trips over the shape of its
+  own requests. Local models keep the previous method.
+- **The agent can ask.** When a task is ambiguous — which of two courses a
+  note belongs to — the agent pauses and asks, with its suggested answers as
+  choices and room to type your own. It asks at most twice per task, and the
+  time limit waits for you.
+- **Standing instructions.** Settings → Agent access now holds conventions
+  the agent follows in every task, such as “tags are in French” or “never
+  archive anything in Thesis”. The review screen shows when they apply; they
+  never let the agent do more than the scope you approve.
 - **Links to existing notes open them.** Clicking a `[[Title]]` link that
   has no note id yet now opens the note of that title instead of creating a
   new one.
