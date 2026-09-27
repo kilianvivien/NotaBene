@@ -21,7 +21,7 @@
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
-![NotaBene 0.7.0 in French, showing the note library, a structured note open in the editor, and the Agent panel ready to work on the current note](./assets/screenshots/notabene-0.7.0.png)
+![NotaBene 1.2.0 in French: courses and tags in the sidebar, a law course note open in the editor, and the Ask panel answering a question from the note](./assets/screenshots/notabene-1.2.0.png)
 
 ## What NotaBene is for
 
