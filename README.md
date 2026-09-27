@@ -16,7 +16,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.1.0"><img alt="Latest release: 1.1.0" src="https://img.shields.io/badge/release-1.1.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.2.0"><img alt="Latest release: 1.2.0" src="https://img.shields.io/badge/release-1.2.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -24,8 +24,8 @@
 
 ## Download
 
-Download **[NotaBene 1.1.0 for Apple silicon
-(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v1.1.0/NotaBene_1.1.0_aarch64.dmg)**.
+Download **[NotaBene 1.2.0 for Apple silicon
+(aarch64)](https://github.com/kilianvivien/NotaBene/releases/download/v1.2.0/NotaBene_1.2.0_aarch64.dmg)**.
 Requires macOS 13 Ventura or newer. Apple Intelligence as an AI provider needs
 macOS 27 on a Mac eligible for it; every other feature does not.
 
@@ -47,21 +47,24 @@ and control over your own data. NotaBene is being built so you do not have to.
   note before you have seen it.
 - **No account.** There is no NotaBene cloud, no sign-up, and no subscription
   between you and your notes.
+- **Bring what you have.** An Obsidian vault, a folder of Markdown or a Notion
+  export comes across with its links, tags and images intact.
 
 ## Highlights
 
-| Write                                 | Organize                             | Study                             | Own                           |
-| ------------------------------------- | ------------------------------------ | --------------------------------- | ----------------------------- |
-| Rich-text and Markdown shortcuts      | Courses, sections, and smart folders | AI summaries and Q&A              | Everything stored on your Mac |
-| Abbreviations that expand as you type | Templates for recurring notes        | Flashcard review in the app       | API keys in the Keychain      |
-| Tables, callouts, toggles, and code   | Tags you can filter and combine      | Mind maps and flashcards          | Continuous autosave           |
-| LaTeX maths and inline images         | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery  |
-| Re-editable Excalidraw drawings       | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports  |
-| Attachments with in-app preview       | Search across notes and commands     | On-device or hosted neural voices | No account, no telemetry      |
-| Import PDF, Word, and slides as notes | Convert an attachment in place       | Optional AI layout for a handout  | Documents converted on-device |
-| Select many notes and act on them all | Merge several notes into one         | Study tools read the whole set    | Nothing leaves without asking |
-| Tasks, subtasks, and reminders        | Link tasks and notes both ways       | Repeating coursework rolls ahead  | No background service         |
-| Course-aware word completion          | Curated vocabulary for each course   | AI vocabulary and paragraph check | Suggestions stay on your Mac  |
+| Write                                 | Organize                             | Study                             | Own                              |
+| ------------------------------------- | ------------------------------------ | --------------------------------- | -------------------------------- |
+| Rich-text and Markdown shortcuts      | Courses, sections, and smart folders | AI summaries and Q&A              | Everything stored on your Mac    |
+| Abbreviations that expand as you type | Templates for recurring notes        | Flashcard review in the app       | API keys in the Keychain         |
+| Tables, callouts, toggles, and code   | Tags you can filter and combine      | Mind maps and flashcards          | Continuous autosave              |
+| LaTeX maths and inline images         | `[[wiki links]]` and backlinks       | Anki deck export                  | Version history and recovery     |
+| Re-editable Excalidraw drawings       | Command palette and quick notes      | Read aloud and note-to-podcast    | Backups and portable exports     |
+| Attachments with in-app preview       | Search across notes and commands     | On-device or hosted neural voices | No account, no telemetry         |
+| Import PDF, Word, and slides as notes | Convert an attachment in place       | Optional AI layout for a handout  | Documents converted on-device    |
+| Select many notes and act on them all | Merge several notes into one         | Study tools read the whole set    | Nothing leaves without asking    |
+| Tasks, subtasks, and reminders        | Link tasks and notes both ways       | Repeating coursework rolls ahead  | No background service            |
+| Course-aware word completion          | Curated vocabulary for each course   | AI vocabulary and paragraph check | Suggestions stay on your Mac     |
+| Import Obsidian, Markdown, and Notion | Folders become courses on import     | Calendar deadlines become tasks   | Re-import updates, never doubles |
 
 ### An editor you can actually take notes in
 
@@ -127,6 +130,29 @@ notes**. You review the proposed changes in the rewrite dialog before accepting
 them. Batch imports also preserve links between notes regardless of their
 order by writing the batch in one transaction.
 
+### Arrive with the library you already have
+
+**File → Import notes from another app** (⇧⌥⌘O) brings in an **Obsidian
+vault**, any **folder of Markdown files**, or a **Notion export**. Everything
+is read on your Mac, and nothing is written until you have seen a preview: how
+many notes, which course each goes into, which tags come along, and every file
+left out and why.
+
+Top-level folders can become courses and their subfolders sections, or
+everything can go into one course or the Inbox. Wiki links, aliases
+(`[[Week 4|damping]]`), relative Markdown links and Notion's page links all
+point at the right note whatever order the notes arrive in, and when two notes
+share a title the deeper one gains its folder in the title, so a link never
+lands on the wrong note. Embedded images, callouts, frontmatter tags,
+`#tags`, and `author:` and `source:` facets come across.
+
+Importing the same vault again updates the notes that changed, keeping the
+previous version in history, instead of doubling your library. The inspector
+shows where every imported note came from.
+
+A first launch asks how you want to begin: bring your notes, explore a sample
+course, or start empty.
+
 ### Organization that matches a semester
 
 Build a library from **courses → sections → notes**, then cut across that
@@ -143,6 +169,13 @@ it inline in your prose as a live status chip. Repeating tasks roll forward one
 occurrence at a time, and reminders missed while the app was closed arrive
 together the next time it opens. A task you bin goes to the same recoverable
 Trash a note does, subtasks and all, and comes back the same way.
+
+Tasks reach your calendar too. **Export tasks to Calendar** (⇧⌥⌘X) writes an
+`.ics` file Apple Calendar opens, with repeats and alerts; exporting again
+updates the same events rather than adding copies. **Import a calendar as
+tasks** (⇧⌥⌘I) reads the feed your Moodle or Canvas publishes, keeps what looks
+like a deadline, leaves class meetings out unless you ask, and updates the
+tasks it made when you import a newer copy.
 
 ### Work on a whole stack of notes
 
@@ -251,6 +284,13 @@ starts, and the whole run undoes as one step. It can fill the recoverable Trash
 but it cannot empty it, and every write it makes is versioned and scope-checked
 like your own.
 
+With Anthropic, OpenAI, Mistral, Gemini and OpenRouter the agent uses the
+provider's own tool calling, so it can check several notes in one step. When a
+job is ambiguous it pauses and asks, with its suggested answers as choices,
+at most twice per run. **Standing instructions** in Settings → Agent access
+hold the conventions it should always follow, such as "tags are in French";
+they never widen what it is allowed to do.
+
 ## Privacy model
 
 No accounts, no cloud sync, no telemetry, no analytics, no ads. Taking notes
@@ -273,18 +313,20 @@ Keychain and cannot end up in a backup or an export.
 
 ## Current status
 
-**NotaBene 1.1.0** is available from
-[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v1.1.0).
+**NotaBene 1.2.0** is available from
+[GitHub Releases](https://github.com/kilianvivien/NotaBene/releases/tag/v1.2.0).
 Everything described above is built and working.
 
-1.1 adds course-aware word completion, a vocabulary view, optional AI review
-of course terms and paragraphs, and clearer choices across the AI dialogs.
+1.2 is about arriving with a library: importers for Obsidian, Markdown folders
+and Notion, tasks to and from `.ics` calendars, an agent that calls tools
+natively and can ask a question, a welcome tour, in-app help (⇧⌘/), and
+collapsible sidebar sections.
 
 Two things are deliberately not done yet: the app is **not** signed with an
 Apple Developer ID or notarized, and there are **no** automatic updates. Both
 are planned.
 
-See the [1.1.0 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.1.0)
+See the [1.2.0 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.2.0)
 and [earlier release notes](./RELEASE_NOTES.md), plus the
 [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
