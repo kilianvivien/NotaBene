@@ -3,14 +3,60 @@ import type { DocNode, NoteDoc } from '@/lib/schema';
 type Mark = NonNullable<DocNode['marks']>[number];
 type NoteDefinition = { note: string; kind: 'footnote' | 'endnote' };
 
+export interface MarkdownParseOptions {
+  /**
+   * How to read `[[a|b]]`. An explicit option, never a guess: a note id is a
+   * bare 12-character nanoid, so a one-word Obsidian alias is indistinguishable
+   * from one.
+   *
+   * - `'notabene'` (default): `b` is the note id — what `docToMarkdown`
+   *   writes, so an export round-trips.
+   * - `'obsidian'`: `b` is a display alias, a folder prefix and a `#heading`
+   *   are dropped from `a`, and no id is claimed unless `resolveWikiLink`
+   *   supplies one.
+   */
+  wikiLinks?: 'notabene' | 'obsidian';
+  /**
+   * Obsidian dialect only: turn a link's target — `Physics/Week 4`, heading
+   * already removed — into the note it means. An importer passes one that
+   * knows the whole batch, which is how a link to a note written in the same
+   * import gets its id before either exists. Without it the target's last
+   * path segment becomes the title and resolution is left to the title.
+   */
+  resolveWikiLink?(target: string): { title: string; noteId: string | null };
+}
+
+type ParseOptions = MarkdownParseOptions & {
+  definitions: ReadonlyMap<string, NoteDefinition>;
+};
+
+/** `Physics/Week 4.md` → `Week 4`. */
+function wikiBasename(target: string): string {
+  return (target.split('/').pop() ?? target).replace(/\.md$/i, '').trim();
+}
+
+function obsidianWikiLink(raw: string, alias: string | undefined, options: ParseOptions): DocNode {
+  const hash = raw.indexOf('#');
+  const target = (hash >= 0 ? raw.slice(0, hash) : raw).trim();
+  const label = alias?.trim() || null;
+  // `[[#Damping]]` points inside the note it is written in. There is no such
+  // link in NotaBene, and a link to a note titled "" would be worse than text.
+  if (!target) return textNode(label ?? raw.slice(hash + 1).replace(/^\^/, '').trim());
+  const resolved = options.resolveWikiLink?.(target) ?? {
+    title: wikiBasename(target),
+    noteId: null,
+  };
+  const attrs: Record<string, unknown> = { title: resolved.title, noteId: resolved.noteId };
+  if (label && label !== resolved.title) attrs.label = label;
+  return { type: 'wikiLink', attrs };
+}
+
 function textNode(text: string, marks?: Mark[]): DocNode {
   return marks?.length ? { type: 'text', text, marks } : { type: 'text', text };
 }
 
-function parseInline(
-  source: string,
-  definitions: ReadonlyMap<string, NoteDefinition> = new Map(),
-): DocNode[] {
+function parseInline(source: string, options: ParseOptions): DocNode[] {
+  const { definitions } = options;
   const nodes: DocNode[] = [];
   const pattern =
     /(\[\[([^|\]]+)(?:\|([^\]]+))?\]\]|\[task:([^|\]]+)\|([^\]]*)\]|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|==([^=]+)==|`([^`]+)`|\$([^$\n]+)\$|\*([^*\n]+)\*|_([^_\n]+)_|\[\^([^\]]+)\])/g;
@@ -21,10 +67,11 @@ function parseInline(
     if (match.index > cursor) nodes.push(textNode(source.slice(cursor, match.index)));
 
     if (match[2]) {
-      nodes.push({
-        type: 'wikiLink',
-        attrs: { title: match[2], noteId: match[3] ?? null },
-      });
+      nodes.push(
+        options.wikiLinks === 'obsidian'
+          ? obsidianWikiLink(match[2], match[3], options)
+          : { type: 'wikiLink', attrs: { title: match[2], noteId: match[3] ?? null } },
+      );
     } else if (match[4]) {
       nodes.push({
         type: 'taskRef',
@@ -59,11 +106,8 @@ function parseInline(
   return nodes;
 }
 
-function paragraph(
-  text: string,
-  definitions?: ReadonlyMap<string, NoteDefinition>,
-): DocNode {
-  const content = parseInline(text, definitions);
+function paragraph(text: string, options: ParseOptions): DocNode {
+  const content = parseInline(text, options);
   return content.length ? { type: 'paragraph', content } : { type: 'paragraph' };
 }
 
@@ -99,18 +143,14 @@ function cells(line: string): string[] {
     .map((cell) => cell.trim().replaceAll('\\|', '|'));
 }
 
-function tableCell(
-  value: string,
-  type = 'tableCell',
-  definitions?: ReadonlyMap<string, NoteDefinition>,
-): DocNode {
-  return { type, content: [paragraph(value, definitions)] };
+function tableCell(value: string, type: string, options: ParseOptions): DocNode {
+  return { type, content: [paragraph(value, options)] };
 }
 
 function parseQuotedBlock(
   lines: string[],
   start: number,
-  definitions: ReadonlyMap<string, NoteDefinition>,
+  options: ParseOptions,
 ): [DocNode, number] {
   const marker = lines[start]?.match(
     /^>\s*\[!(INFO|WARN|IMPORTANT|TOGGLE)(?:\s+([^\]]+))?\]\s*$/i,
@@ -123,13 +163,13 @@ function parseQuotedBlock(
   }
 
   if (marker) {
-    const nested = parseMarkdown(body.join('\n'), definitions).content;
+    const nested = parseMarkdown(body.join('\n'), options).content;
     if (marker[1]?.toUpperCase() === 'TOGGLE') {
       return [
         {
           type: 'toggle',
           attrs: { summary: marker[2] ?? 'Details', open: false },
-          content: nested.length ? nested : [paragraph('', definitions)],
+          content: nested.length ? nested : [paragraph('', options)],
         },
         index,
       ];
@@ -138,7 +178,7 @@ function parseQuotedBlock(
       {
         type: 'callout',
         attrs: { kind: marker[1]?.toLowerCase() ?? 'info' },
-        content: nested.length ? nested : [paragraph('', definitions)],
+        content: nested.length ? nested : [paragraph('', options)],
       },
       index,
     ];
@@ -146,21 +186,19 @@ function parseQuotedBlock(
 
   const content = parseMarkdown(
     [lines[start]?.replace(/^>\s?/, '') ?? '', ...body].join('\n'),
-    definitions,
+    options,
   ).content;
   return [{ type: 'blockquote', content }, index];
 }
 
 /** Parse the loss-aware Markdown dialect used by exports and MCP tools. */
-export function markdownToDoc(markdown: string): NoteDoc {
-  return parseMarkdown(markdown, new Map());
+export function markdownToDoc(markdown: string, options: MarkdownParseOptions = {}): NoteDoc {
+  return parseMarkdown(markdown, { ...options, definitions: new Map() });
 }
 
-function parseMarkdown(
-  markdown: string,
-  inherited: ReadonlyMap<string, NoteDefinition>,
-): NoteDoc {
-  const definitions = new Map(inherited);
+function parseMarkdown(markdown: string, inherited: ParseOptions): NoteDoc {
+  const definitions = new Map(inherited.definitions);
+  const options: ParseOptions = { ...inherited, definitions };
   const lines = markdown
     .replace(/\r\n?/g, '\n')
     .split('\n')
@@ -250,7 +288,7 @@ function parseMarkdown(
       content.push({
         type: 'heading',
         attrs: { level: heading[1]?.length ?? 1 },
-        content: parseInline(heading[2] ?? '', definitions),
+        content: parseInline(heading[2] ?? '', options),
       });
       index += 1;
       continue;
@@ -263,7 +301,7 @@ function parseMarkdown(
     }
 
     if (line.startsWith('>')) {
-      const [node, next] = parseQuotedBlock(lines, index, definitions);
+      const [node, next] = parseQuotedBlock(lines, index, options);
       content.push(node);
       index = next;
       continue;
@@ -278,7 +316,7 @@ function parseMarkdown(
         items.push({
           type: 'taskItem',
           attrs: { checked: candidate[1]?.toLowerCase() === 'x' },
-          content: [paragraph(candidate[2] ?? '', definitions)],
+          content: [paragraph(candidate[2] ?? '', options)],
         });
         index += 1;
       }
@@ -299,7 +337,7 @@ function parseMarkdown(
         if (!candidate) break;
         items.push({
           type: 'listItem',
-          content: [paragraph(candidate[ordered ? 1 : 1] ?? '', definitions)],
+          content: [paragraph(candidate[ordered ? 1 : 1] ?? '', options)],
         });
         index += 1;
       }
@@ -316,7 +354,7 @@ function parseMarkdown(
       const rows: DocNode[] = [
         {
           type: 'tableRow',
-          content: header.map((value) => tableCell(value, 'tableHeader', definitions)),
+          content: header.map((value) => tableCell(value, 'tableHeader', options)),
         },
       ];
       index += 2;
@@ -324,7 +362,7 @@ function parseMarkdown(
         rows.push({
           type: 'tableRow',
           content: cells(lines[index] ?? '').map((value) =>
-            tableCell(value, 'tableCell', definitions),
+            tableCell(value, 'tableCell', options),
           ),
         });
         index += 1;
@@ -345,7 +383,7 @@ function parseMarkdown(
       paragraphLines.push(lines[index] ?? '');
       index += 1;
     }
-    content.push(paragraph(paragraphLines.join(' '), definitions));
+    content.push(paragraph(paragraphLines.join(' '), options));
   }
 
   return { type: 'doc', content };

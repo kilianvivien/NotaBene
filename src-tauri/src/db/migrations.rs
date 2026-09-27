@@ -8,7 +8,7 @@
 use super::{DbResult, Store};
 
 /// Must match `SCHEMA_VERSION` in `src/lib/schema/schema.ts`.
-pub const SCHEMA_VERSION: i64 = 8;
+pub const SCHEMA_VERSION: i64 = 9;
 
 const V1: &str = include_str!("schema.sql");
 const V2: &str = r#"
@@ -152,6 +152,38 @@ CREATE TABLE IF NOT EXISTS course_terms (
 CREATE INDEX IF NOT EXISTS idx_course_terms_course ON course_terms(course_id);
 "#;
 
+/// Provenance for imported notes and tasks: where each came from, so importing
+/// the same vault or calendar twice is a choice rather than a duplicate. Both
+/// tables in one step, so the migration is exercised once (plan §8, §19).
+///
+/// Split per table and probed per table: the partial databases the older steps'
+/// tests build carry one of the two tables and not the other.
+const V9_NOTES: &str = r#"
+ALTER TABLE notes ADD COLUMN import_key TEXT;
+ALTER TABLE notes ADD COLUMN imported_at TEXT;
+-- Partial: almost every note was typed, and only a re-import ever asks.
+CREATE INDEX IF NOT EXISTS idx_notes_import_key ON notes(import_key)
+    WHERE import_key IS NOT NULL;
+"#;
+const V9_TASKS: &str = r#"
+ALTER TABLE tasks ADD COLUMN import_key TEXT;
+CREATE INDEX IF NOT EXISTS idx_tasks_import_key ON tasks(import_key)
+    WHERE import_key IS NOT NULL;
+"#;
+
+/// True when `table` exists and does not yet have `column`.
+fn lacks_column(
+    transaction: &rusqlite::Connection,
+    table: &str,
+    column: &str,
+) -> rusqlite::Result<bool> {
+    let columns: Vec<String> = transaction
+        .prepare("SELECT name FROM pragma_table_info(?1)")?
+        .query_map([table], |row| row.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(!columns.is_empty() && !columns.iter().any(|name| name == column))
+}
+
 pub fn run(store: &Store) -> DbResult<()> {
     let current: i64 = store.with(|connection| {
         Ok(connection.query_row("PRAGMA user_version", [], |row| row.get(0))?)
@@ -216,6 +248,14 @@ pub fn run(store: &Store) -> DbResult<()> {
         if current < 8 {
             // `IF NOT EXISTS` throughout, like V6.
             transaction.execute_batch(V8)?;
+        }
+        if current < 9 {
+            if lacks_column(transaction, "notes", "import_key")? {
+                transaction.execute_batch(V9_NOTES)?;
+            }
+            if lacks_column(transaction, "tasks", "import_key")? {
+                transaction.execute_batch(V9_TASKS)?;
+            }
         }
         transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         Ok(())
@@ -547,5 +587,53 @@ mod tests {
 
         assert_eq!(before, 1);
         assert_eq!(after, 0);
+    }
+
+    #[test]
+    fn v8_database_gains_import_provenance_on_notes_and_tasks() {
+        let connection = Connection::open_in_memory().expect("failed to open database");
+        for step in [V1, V2, V3] {
+            connection.execute_batch(step).expect("failed to apply step");
+        }
+        connection
+            .pragma_update(None, "user_version", 5)
+            .expect("failed to set schema version");
+        let store = Store {
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
+        };
+        run(&store).expect("failed to migrate");
+
+        // A note that predates the importers came from nowhere, and a second
+        // run over an already-migrated database must be a no-op.
+        let (key, imported, task_key): (Option<String>, Option<String>, Option<String>) = store
+            .with(|database| {
+                database.execute_batch(
+                    "INSERT INTO notes (id, title, doc_json, created_at, updated_at)
+                     VALUES ('note-1', 'Lecture', '{}', '2026-09-01T08:00:00Z', '2026-09-01T08:00:00Z');
+                     INSERT INTO tasks (id, title, created_at, updated_at)
+                     VALUES ('task-1', 'Essay', '2026-09-01T08:00:00Z', '2026-09-01T08:00:00Z');",
+                )?;
+                let (key, imported) = database.query_row(
+                    "SELECT import_key, imported_at FROM notes WHERE id = 'note-1'",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )?;
+                let task_key = database.query_row(
+                    "SELECT import_key FROM tasks WHERE id = 'task-1'",
+                    [],
+                    |row| row.get(0),
+                )?;
+                Ok((key, imported, task_key))
+            })
+            .expect("failed to read migrated rows");
+        assert_eq!(key, None);
+        assert_eq!(imported, None);
+        assert_eq!(task_key, None);
+
+        store
+            .with(|database| Ok(database.pragma_update(None, "user_version", 8)?))
+            .expect("failed to rewind schema version");
+        run(&store).expect("re-running V9 over its own columns should be a no-op");
     }
 }

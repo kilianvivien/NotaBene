@@ -52,6 +52,8 @@ import { tauriAppleFmAdapter } from './appleFm/tauriAppleFmAdapter';
 import { unavailableAppleFmAdapter } from './appleFm/unavailableAppleFmAdapter';
 import { tauriDocumentImportAdapter } from './documentImport/tauriDocumentImportAdapter';
 import { memoryDocumentImportAdapter } from './documentImport/memoryDocumentImportAdapter';
+import { tauriFolderImportAdapter } from './folderImport/tauriFolderImportAdapter';
+import { memoryFolderImportAdapter } from './folderImport/memoryFolderImportAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 import {
   browserAppLifecycleAdapter,
@@ -72,6 +74,7 @@ import type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 import type { WindowAdapter } from './window/WindowAdapter';
 import type { StorageAdapter } from './storage/StorageAdapter';
 import type { DocumentImportAdapter } from './documentImport/DocumentImportAdapter';
+import type { FolderImportAdapter } from './folderImport/FolderImportAdapter';
 import type { OcrAdapter } from './ocr/OcrAdapter';
 import type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
 import type { AppleFmAdapter } from './appleFm/AppleFmAdapter';
@@ -108,6 +111,9 @@ export const storage: StorageAdapter = isTauri
 export const documentImporter: DocumentImportAdapter = isTauri
   ? tauriDocumentImportAdapter
   : memoryDocumentImportAdapter;
+export const folderImporter: FolderImportAdapter = isTauri
+  ? tauriFolderImportAdapter
+  : memoryFolderImportAdapter;
 export const ocr: OcrAdapter = isTauri ? tauriOcrAdapter : unavailableOcrAdapter;
 export const appleFm: AppleFmAdapter = isTauri
   ? tauriAppleFmAdapter
@@ -139,10 +145,12 @@ export const ttsRegistry = createTtsEngineRegistry(
 export const tts = activeSystemTtsEngine;
 
 export type {
+  ImportedNoteRef,
   LibraryAdapter,
   NoteMatch,
   NoteQuery,
   NoteText,
+  NoteTitle,
   SnapshotRetentionPolicy,
   TaskQuery,
 } from './library/LibraryAdapter';
@@ -220,6 +228,12 @@ export type {
   DocumentImportAdapter,
   OcrPageText,
 } from './documentImport/DocumentImportAdapter';
+export type {
+  FolderEntry,
+  FolderImportAdapter,
+  FolderManifest,
+  FolderSkip,
+} from './folderImport/FolderImportAdapter';
 export type { OcrAdapter } from './ocr/OcrAdapter';
 export type {
   AppleFmAdapter,

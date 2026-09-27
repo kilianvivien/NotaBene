@@ -27,12 +27,13 @@ import {
 import { compareDocuments } from '@/lib/history/comparison';
 import { docStats } from '@/lib/notes/docText';
 import { tagLabel, tagQuery } from '@/lib/notes/tagLabel';
-import type { Backlink, Snapshot, Tag as NoteTag } from '@/lib/schema';
+import { TAG_NAMESPACES, type Backlink, type Snapshot, type Tag as NoteTag } from '@/lib/schema';
 import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { formatTimestamp } from '@/lib/utils/timestamp';
+import { parseImportKey } from '@/lib/import/provenance';
 import { NoteTasksPanel } from '@/app/tasks/NoteTasksPanel';
 import { TaskInspector } from '@/app/tasks/TaskInspector';
 
@@ -388,6 +389,31 @@ function InfoPanel() {
     };
   }, [note.id, note.courseId, note.updatedAt, refreshSections]);
 
+  const origin = parseImportKey(note.importKey);
+  const importedOn = note.importedAt
+    ? new Date(note.importedAt).toLocaleDateString(i18n.language, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
+  // "Physics/Week 4.md (Obsidian), 3 October 2026" — what makes a migrated
+  // library read as a library rather than the output of a converter.
+  const provenance = origin
+    ? t(
+        origin.source === 'document'
+          ? 'inspector.importedFromDocument'
+          : origin.path
+            ? 'inspector.importedFrom'
+            : 'inspector.importedFromSource',
+        {
+          path: origin.path,
+          source: t([`importSource.source.${origin.source}`, 'inspector.importedUnknownSource']),
+          date: importedOn,
+        },
+      ).replace(/,\s*$/, '')
+    : null;
+
   async function updateLocation(courseId: string | null, sectionId: string | null) {
     await useEditorStore.getState().flush();
     const result = await updateNoteCommand({ noteId: note.id, courseId, sectionId });
@@ -447,6 +473,14 @@ function InfoPanel() {
           <dt>{t('inspector.wordCount')}</dt>
           <dd>{docStats(note.doc).words}</dd>
         </div>
+        {provenance && (
+          <div>
+            <dt>{t('inspector.imported')}</dt>
+            <dd className="break-words" title={note.importKey ?? undefined}>
+              {provenance}
+            </dd>
+          </div>
+        )}
       </dl>
       <section>
         <h3>
@@ -494,7 +528,7 @@ function TagsPanel() {
       const created = await ensureTagCommand({
         name,
         namespace:
-          namespace && ['topic', 'prof', 'semester', 'exam', 'type'].includes(namespace)
+          namespace && (TAG_NAMESPACES as readonly string[]).includes(namespace)
             ? (namespace as NoteTag['namespace'])
             : null,
       });

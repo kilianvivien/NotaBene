@@ -62,6 +62,17 @@ pub struct Note {
     pub created_at: String,
     pub updated_at: String,
     pub order: i64,
+    /// `"{source}:{path}"` for a note an importer wrote, e.g.
+    /// `obsidian:Physics/Week 4.md`. A path rather than a content hash, so
+    /// importing the same vault twice is a decision the preview can offer
+    /// rather than a silent duplicate. Defaulted so a payload written before
+    /// schema v9 still deserialises.
+    #[serde(default)]
+    pub import_key: Option<String>,
+    /// When the importer last wrote the note. Distinct from `created_at`,
+    /// which keeps the source file's own date.
+    #[serde(default)]
+    pub imported_at: Option<String>,
 }
 
 /// What the note list renders — everything but the document itself.
@@ -226,6 +237,10 @@ pub struct Task {
     pub created_at: String,
     pub updated_at: String,
     pub order: i64,
+    /// `ics:{UID}` for a task a calendar import wrote. Same schema step as
+    /// `Note::import_key`, so the migration is exercised once.
+    #[serde(default)]
+    pub import_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -282,6 +297,28 @@ pub struct NoteText {
     pub id: String,
     pub title: String,
     pub plain_text: String,
+}
+
+/// A note an importer wrote, as much of it as planning a re-import needs:
+/// enough to tell unchanged from changed, and changed from edited here since.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportedNote {
+    pub id: String,
+    pub import_key: String,
+    pub title: String,
+    pub plain_text: String,
+    pub updated_at: String,
+    pub imported_at: Option<String>,
+    pub trashed_at: Option<String>,
+}
+
+/// One note's title, for keeping imported titles from colliding with it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteTitle {
+    pub id: String,
+    pub title: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

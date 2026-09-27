@@ -36,6 +36,7 @@ export const APP_COMMAND_IDS = [
   'note.newFromTemplate',
   'course.new',
   'note.importDocument',
+  'note.importFromApp',
   'note.save',
   'note.merge',
   'note.export',
@@ -85,7 +86,7 @@ export const APP_COMMAND_IDS = [
 export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
 
 /** The phase a command becomes real. `A` means it works today. */
-export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K';
+export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L';
 
 export interface AppCommand {
   id: AppCommandId;
@@ -267,6 +268,22 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     accelerator: 'CmdOrCtrl+Shift+O',
     landsIn: 'H',
     run: beginDocumentImportCommand,
+  },
+  /**
+   * One entry for every source. Obsidian, a Markdown folder and Notion are a
+   * choice inside the dialog, not four menu items — the rest of the import is
+   * the same whichever is picked.
+   */
+  'note.importFromApp': {
+    id: 'note.importFromApp',
+    labelKey: 'menu.importFromApp',
+    // Beside Convert Document (⇧⌘O): both bring outside notes in.
+    accelerator: 'CmdOrCtrl+Shift+Alt+O',
+    landsIn: 'L',
+    run: () => {
+      useUiStore.getState().setSourceImportOpen(true);
+      return ok(undefined);
+    },
   },
   'note.save': {
     id: 'note.save',

@@ -46,6 +46,9 @@ describe('createImportedNoteCommand', () => {
 
     expect(result.value.note.title).toBe('Lecture data');
     expect(result.value.note.plainText).toContain('1789');
+    // Provenance, so the inspector can say which file this was.
+    expect(result.value.note.importKey).toBe(`document:${imported.source.filename}`);
+    expect(result.value.note.importedAt).not.toBeNull();
     expect(result.value.attachmentKept).toBe(true);
     expect(await library.listAttachments(result.value.note.id)).toMatchObject([
       { name: 'lecture.csv', assetId: attached.value.assetId },

@@ -46,13 +46,14 @@ fn row_to_task(row: &Row<'_>) -> rusqlite::Result<Task> {
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
         order: row.get("order")?,
+        import_key: row.get("import_key")?,
     })
 }
 
 const TASK_COLUMNS: &str = "t.id, t.title, t.details, t.status, t.priority, t.course_id, \
      t.parent_id, t.due_at, t.remind_at, t.reminded_at, t.recurrence_json, \
      t.completed_at, t.last_completed_at, t.trashed_at, t.created_at, \
-     t.updated_at, t.\"order\"";
+     t.updated_at, t.\"order\", t.import_key";
 
 /// One extra query for every task's tags, rather than one per task.
 fn attach_tags(connection: &Connection, mut tasks: Vec<Task>) -> DbResult<Vec<Task>> {
@@ -251,7 +252,7 @@ pub fn upsert_if_unchanged(store: &Store, task: &Task, base_updated_at: &str) ->
              course_id = ?5, parent_id = ?6, due_at = ?7, remind_at = ?8,
              reminded_at = ?9, recurrence_json = ?10, completed_at = ?11,
              last_completed_at = ?12, trashed_at = ?13, updated_at = ?14,
-             \"order\" = ?15
+             \"order\" = ?15, import_key = ?18
              WHERE id = ?16 AND updated_at = ?17",
             rusqlite::params![
                 task.title,
@@ -271,6 +272,7 @@ pub fn upsert_if_unchanged(store: &Store, task: &Task, base_updated_at: &str) ->
                 task.order,
                 task.id,
                 base_updated_at,
+                task.import_key,
             ],
         )?;
         if changed == 0 {
@@ -290,8 +292,8 @@ pub(crate) fn upsert_in(connection: &Connection, task: &Task) -> DbResult<()> {
     connection.execute(
         "INSERT INTO tasks (id, title, details, status, priority, course_id, \
          parent_id, due_at, remind_at, reminded_at, recurrence_json, completed_at, \
-         last_completed_at, trashed_at, created_at, updated_at, \"order\") \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17) \
+         last_completed_at, trashed_at, created_at, updated_at, \"order\", import_key) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18) \
          ON CONFLICT(id) DO UPDATE SET \
          title = excluded.title, details = excluded.details, status = excluded.status, \
          priority = excluded.priority, course_id = excluded.course_id, \
@@ -299,7 +301,8 @@ pub(crate) fn upsert_in(connection: &Connection, task: &Task) -> DbResult<()> {
          remind_at = excluded.remind_at, reminded_at = excluded.reminded_at, \
          recurrence_json = excluded.recurrence_json, completed_at = excluded.completed_at, \
          last_completed_at = excluded.last_completed_at, trashed_at = excluded.trashed_at, \
-         updated_at = excluded.updated_at, \"order\" = excluded.\"order\"",
+         updated_at = excluded.updated_at, \"order\" = excluded.\"order\", \
+         import_key = excluded.import_key",
         rusqlite::params![
             task.id,
             task.title,
@@ -318,6 +321,7 @@ pub(crate) fn upsert_in(connection: &Connection, task: &Task) -> DbResult<()> {
             task.created_at,
             task.updated_at,
             task.order,
+            task.import_key,
         ],
     )?;
     replace_tags(connection, task)?;
@@ -576,6 +580,7 @@ mod tests {
             created_at: "2026-08-15T08:00:00Z".into(),
             updated_at: "2026-08-15T08:00:00Z".into(),
             order: 0,
+            import_key: None,
         }
     }
 

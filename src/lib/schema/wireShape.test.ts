@@ -36,7 +36,13 @@ describe('wire shape', () => {
   it('wraps a summary and a score the way `library_search_notes` sends them', () => {
     // Nested, not flattened: `NoteSummary` keeps its exact shape for the five
     // callers that predate ranking, and `NoteMatch` composes on top.
-    const { doc: _doc, plainText: _plainText, ...summary } = NoteSchema.parse(fixture);
+    const {
+      doc: _doc,
+      plainText: _plainText,
+      importKey: _importKey,
+      importedAt: _importedAt,
+      ...summary
+    } = NoteSchema.parse(fixture);
     const match = { note: { ...summary, snippet: 'a … snippet' }, score: 12.5 };
 
     const parsed = NoteMatchSchema.parse(match);

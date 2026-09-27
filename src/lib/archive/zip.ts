@@ -2,7 +2,7 @@ import { unzipSync, zipSync } from 'fflate';
 
 type WorkerRequest =
   | { kind: 'zip'; entries: [string, ArrayBuffer][]; level: CompressionLevel }
-  | { kind: 'unzip'; archive: ArrayBuffer };
+  | { kind: 'unzip'; archive: ArrayBuffer; maxBytes?: number };
 
 type WorkerResponse =
   | { ok: true; kind: 'zip'; archive: ArrayBuffer }
@@ -66,15 +66,35 @@ export async function zipFiles(
   return new Uint8Array(result.archive);
 }
 
-/** Decompress off the render thread when Workers are available. */
+/**
+ * Decompress off the render thread when Workers are available.
+ *
+ * `maxBytes` bounds what the entries may declare in total — pass it for any
+ * archive that did not come from NotaBene itself.
+ */
 export async function unzipFiles(
   archive: Uint8Array,
+  options: { maxBytes?: number } = {},
 ): Promise<Record<string, Uint8Array<ArrayBuffer>>> {
-  if (!workerAvailable())
-    return unzipSync(archive) as Record<string, Uint8Array<ArrayBuffer>>;
+  if (!workerAvailable()) {
+    let total = 0;
+    return unzipSync(archive, {
+      filter(file) {
+        if (options.maxBytes === undefined) return true;
+        total += file.originalSize;
+        if (total > options.maxBytes) {
+          throw new Error('too_large:archive expands past its limit');
+        }
+        return true;
+      },
+    }) as Record<string, Uint8Array<ArrayBuffer>>;
+  }
 
   const buffer = ownedBuffer(archive);
-  const result = await runWorker({ kind: 'unzip', archive: buffer }, [buffer]);
+  const result = await runWorker(
+    { kind: 'unzip', archive: buffer, maxBytes: options.maxBytes },
+    [buffer],
+  );
   if (!result.ok) throw new Error(result.error);
   if (result.kind !== 'unzip')
     throw new Error('archive worker returned the wrong result');

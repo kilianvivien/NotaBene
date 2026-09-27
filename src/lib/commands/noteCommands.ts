@@ -42,6 +42,29 @@ const CreateNoteInput = z.object({
 });
 export type CreateNoteInput = z.infer<typeof CreateNoteInput>;
 
+const isoDateTime = z.string().datetime({ offset: true });
+
+/**
+ * What `createNotesCommand` accepts beyond a single create: the fields only an
+ * importer has.
+ *
+ * Kept off `CreateNoteInput`, which the MCP tools and the in-app agent reach —
+ * an agent choosing a note's id, or claiming it was imported from somewhere,
+ * is not a capability anyone meant to hand out. Zod strips unknown keys, so
+ * passing these to a single create does nothing.
+ */
+const BatchNoteInput = CreateNoteInput.extend({
+  /** Pre-minted, so notes in one batch can link to each other by id before
+   * any of them exists. */
+  id: z.string().min(1).max(64).optional(),
+  importKey: z.string().min(1).max(2_000).nullable().optional(),
+  importedAt: isoDateTime.optional(),
+  /** The source file's own dates, so a migrated library keeps its order. */
+  createdAt: isoDateTime.optional(),
+  updatedAt: isoDateTime.optional(),
+});
+export type BatchNoteInput = z.infer<typeof BatchNoteInput>;
+
 const UpdateNoteInput = z.object({
   noteId: z.string().min(1),
   /** Optimistic-concurrency guard used by external writers. When supplied,
@@ -99,6 +122,21 @@ export async function searchNotesCommand(
   }
 }
 
+/**
+ * The note a `[[Title]]` with no id points at — a read, like the search above.
+ *
+ * Every hand-typed link and every imported one starts without an id. Clicking
+ * one used to create a note of that title unconditionally, which for an
+ * imported vault meant a second copy of a note that was already there.
+ */
+export async function resolveWikiTitleCommand(title: string): Promise<string | null> {
+  try {
+    return await library.resolveWikiTitle(title);
+  } catch {
+    return null;
+  }
+}
+
 export async function createNoteCommand(
   input: CreateNoteInput,
   context: CommandContext = USER,
@@ -140,8 +178,11 @@ export async function applyNoteCreate(
 }
 
 /** Validate one input and turn it into the note that would be written. */
-function buildNote(input: CreateNoteInput): CommandResult<Note> {
-  const parsed = CreateNoteInput.safeParse(input);
+function buildNote(
+  input: BatchNoteInput,
+  schema: typeof CreateNoteInput | typeof BatchNoteInput = CreateNoteInput,
+): CommandResult<Note> {
+  const parsed = schema.safeParse(input);
   if (!parsed.success) {
     return fail('invalid_input', 'invalid note input', parsed.error.issues);
   }
@@ -181,7 +222,7 @@ const WRITE_CHUNK = 250;
  * why the failure names how many landed.
  */
 export async function createNotesCommand(
-  inputs: CreateNoteInput[],
+  inputs: BatchNoteInput[],
   context: CommandContext = USER,
 ): Promise<CommandResult<Note[]>> {
   const cancelled = cancelledIfRequested<Note[]>(context);
@@ -189,8 +230,17 @@ export async function createNotesCommand(
   if (!inputs.length) return ok([]);
 
   const notes: Note[] = [];
+  const ids = new Set<string>();
   for (const [index, input] of inputs.entries()) {
-    const built = buildNote(input);
+    const built = buildNote(input, BatchNoteInput);
+    // Two notes sharing a pre-minted id would silently become one row.
+    if (built.ok && ids.has(built.value.id)) {
+      return fail('invalid_input', `invalid note input at ${index}`, {
+        index,
+        issues: 'duplicate id',
+      });
+    }
+    if (built.ok) ids.add(built.value.id);
     // Reported with its position: "note 412 of 900 is invalid" is actionable
     // where "invalid note input" is not.
     if (!built.ok) {

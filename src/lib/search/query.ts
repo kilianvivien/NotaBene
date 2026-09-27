@@ -14,7 +14,17 @@ import type { NoteQuery } from '@/lib/adapters';
 /** Filter keys that name something the parser cannot resolve on its own.
  * `course` names a course; `tag` a plain tag; the rest are the typed tag
  * namespaces from the schema. */
-const NAME_FILTERS = ['course', 'tag', 'topic', 'prof', 'semester', 'type', 'exam'] as const;
+const NAME_FILTERS = [
+  'course',
+  'tag',
+  'topic',
+  'prof',
+  'semester',
+  'type',
+  'exam',
+  'author',
+  'source',
+] as const;
 type NameFilter = (typeof NAME_FILTERS)[number];
 
 export interface ParsedQuery extends NoteQuery {

@@ -86,6 +86,22 @@ export interface NoteText {
   plainText: string;
 }
 
+/** A note an importer wrote, as much as planning a re-import needs. */
+export interface ImportedNoteRef {
+  id: string;
+  importKey: string;
+  title: string;
+  plainText: string;
+  updatedAt: string;
+  importedAt: string | null;
+  trashedAt: string | null;
+}
+
+export interface NoteTitle {
+  id: string;
+  title: string;
+}
+
 export interface SnapshotRetentionPolicy {
   /** Snapshots newer than this many days are all retained. */
   keepAllDays: number;
@@ -139,6 +155,13 @@ export interface LibraryAdapter {
    * first match wins — duplicate titles are resolved before writing, not here.
    */
   resolveWikiTitle(title: string): Promise<string | null>;
+  /**
+   * Notes whose `importKey` starts with `prefix` — one source's worth, such as
+   * `obsidian:`. Trashed notes included; newest import first.
+   */
+  listImportedNotes(prefix: string): Promise<ImportedNoteRef[]>;
+  /** Every note's title, trashed included, as `resolveWikiTitle` sees them. */
+  listNoteTitles(): Promise<NoteTitle[]>;
   /** Atomic optimistic write for interactive/editor and MCP updates. */
   upsertNoteIfUnchanged(note: Note, baseUpdatedAt: string): Promise<boolean>;
   /** Soft delete: sets `trashedAt`. Hard removal is `purgeNote`. */

@@ -63,7 +63,8 @@ interface DocxBuildContext {
 }
 
 function inlineRuns(node: DocNode, context?: DocxBuildContext): ParagraphChild[] {
-  if (node.type === 'wikiLink') return [new TextRun(String(node.attrs?.title ?? ''))];
+  if (node.type === 'wikiLink')
+    return [new TextRun(String(node.attrs?.label || node.attrs?.title || ''))];
   if (node.type === 'taskRef') {
     return [new TextRun(`☐ ${String(node.attrs?.label ?? '')}`)];
   }

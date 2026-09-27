@@ -74,7 +74,9 @@ interface PdfBuildContext {
 
 function inline(node: DocNode, context?: PdfBuildContext): ContentText[] {
   if (node.type === 'wikiLink') {
-    return [{ text: String(node.attrs?.title ?? ''), color: COLORS.accent }];
+    return [
+      { text: String(node.attrs?.label || node.attrs?.title || ''), color: COLORS.accent },
+    ];
   }
   if (node.type === 'taskRef') {
     return [{ text: `☐ ${String(node.attrs?.label ?? '')}`, color: COLORS.accent }];

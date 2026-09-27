@@ -29,9 +29,11 @@ import type {
   TaskNoteLink,
 } from '@/lib/schema';
 import type {
+  ImportedNoteRef,
   LibraryAdapter,
   NoteQuery,
   NoteText,
+  NoteTitle,
   SnapshotRetentionPolicy,
   TaskQuery,
 } from './LibraryAdapter';
@@ -59,6 +61,9 @@ export const tauriLibraryAdapter: LibraryAdapter = {
   upsertNotes: (notes: Note[]) => invoke('library_upsert_notes', { notes }),
   resolveWikiTitle: (title: string) =>
     invoke<string | null>('library_resolve_wiki_title', { title }),
+  listImportedNotes: (prefix: string): Promise<ImportedNoteRef[]> =>
+    invoke('library_list_imported_notes', { prefix }),
+  listNoteTitles: (): Promise<NoteTitle[]> => invoke('library_list_note_titles'),
   upsertNoteIfUnchanged: (note: Note, baseUpdatedAt: string) =>
     invoke<boolean>('library_upsert_note_if_unchanged', { note, baseUpdatedAt }),
   trashNote: (noteId: string) => invoke('library_trash_note', { noteId }),

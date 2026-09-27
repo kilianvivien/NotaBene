@@ -12,7 +12,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { providerFor } from './aiCommands';
 import { addAttachmentCommand, copyAttachmentCommand } from './assetCommands';
-import { createNoteCommand } from './noteCommands';
+import { createNotesCommand } from './noteCommands';
 import { fail, ok, type CommandResult } from './types';
 
 export async function beginDocumentImportCommand(): Promise<CommandResult<void>> {
@@ -194,15 +194,24 @@ export async function createImportedNoteCommand(
   // Compared against the *materialised* text, not the raw extraction — the
   // asset rewrite must not make a plain import look like a model wrote it.
   const markdown = reformatted?.trim() ? reformatted : extracted;
-  const created = await createNoteCommand(
-    {
-      ...location,
-      title: document.metadata?.title || document.source.filename.replace(/\.[^.]+$/, ''),
-      doc: markdownToDoc(markdown),
-    },
+  // Through the batch primitive, as a batch of one, because it is the create
+  // that can record provenance: the inspector then says which file this was.
+  const batch = await createNotesCommand(
+    [
+      {
+        ...location,
+        title: document.metadata?.title || document.source.filename.replace(/\.[^.]+$/, ''),
+        doc: markdownToDoc(markdown),
+        importKey: `document:${document.source.filename}`,
+        importedAt: new Date().toISOString(),
+      },
+    ],
     markdown === extracted ? undefined : { source: 'ai' },
   );
-  if (!created.ok) return created;
+  if (!batch.ok) return batch;
+  const [note] = batch.value;
+  if (!note) return fail('storage_failed', 'the note was not written');
+  const created = { ok: true as const, value: note };
 
   let attachmentKept = !keepOriginal;
   if (keepOriginal) {

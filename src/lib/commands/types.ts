@@ -18,7 +18,7 @@ export interface CommandContext {
   /** Agent name from the MCP `initialize` handshake, for the activity log. */
   agentName?: string;
   /** Internal override for writes such as history restore. */
-  snapshotCause?: 'auto' | 'session' | 'restore' | 'ai' | 'agent';
+  snapshotCause?: 'auto' | 'session' | 'restore' | 'ai' | 'agent' | 'import';
   /** Groups every pre-edit snapshot created by one in-app agent run. */
   agentRunId?: string;
   /** Cooperative cancellation for multi-step agent tool handlers. */

@@ -36,10 +36,12 @@ import { retainedSnapshotIds } from '@/lib/history/retention';
 import { fold } from '@/lib/search/fold';
 import { bm25Rank, BM25_WEIGHTS, type RankedFields } from './memoryRanking';
 import type {
+  ImportedNoteRef,
   LibraryAdapter,
   NoteMatch,
   NoteQuery,
   NoteText,
+  NoteTitle,
   SnapshotRetentionPolicy,
   TaskQuery,
 } from './LibraryAdapter';
@@ -350,6 +352,25 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     // three choices the SQLite query makes, so a link resolves identically on
     // both adapters.
     return this.library.notes.find((note) => fold(note.title) === wanted)?.id ?? null;
+  }
+
+  async listImportedNotes(prefix: string): Promise<ImportedNoteRef[]> {
+    return this.library.notes
+      .filter((note) => note.importKey?.startsWith(prefix))
+      .sort((a, b) => (b.importedAt ?? '').localeCompare(a.importedAt ?? ''))
+      .map((note) => ({
+        id: note.id,
+        importKey: note.importKey!,
+        title: note.title,
+        plainText: note.plainText,
+        updatedAt: note.updatedAt,
+        importedAt: note.importedAt,
+        trashedAt: note.trashedAt,
+      }));
+  }
+
+  async listNoteTitles(): Promise<NoteTitle[]> {
+    return this.library.notes.map((note) => ({ id: note.id, title: note.title }));
   }
 
   async upsertNoteIfUnchanged(note: Note, baseUpdatedAt: string): Promise<boolean> {

@@ -71,6 +71,25 @@ const MIGRATIONS: Record<number, Migration> = {
   }),
   // v8 adds each course's curated vocabulary. Nothing before it had one.
   7: (input) => ({ courseTerms: [], ...input }),
+  // v9 records where an imported note or task came from. Everything before it
+  // was typed, or imported without a record of where from.
+  8: (input) => ({
+    ...input,
+    notes: Array.isArray(input.notes)
+      ? input.notes.map((note) =>
+          typeof note === 'object' && note !== null
+            ? { importKey: null, importedAt: null, ...(note as Record<string, unknown>) }
+            : note,
+        )
+      : input.notes,
+    tasks: Array.isArray(input.tasks)
+      ? input.tasks.map((task) =>
+          typeof task === 'object' && task !== null
+            ? { importKey: null, ...(task as Record<string, unknown>) }
+            : task,
+        )
+      : input.tasks,
+  }),
 };
 
 export type ImportResult =

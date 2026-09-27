@@ -291,7 +291,12 @@
     "noTags": "No tags",
     "noBacklinks": "No notes link here yet",
     "versionCount_one": "{{count}} saved version",
-    "versionCount_other": "{{count}} saved versions"
+    "versionCount_other": "{{count}} saved versions",
+    "imported": "Imported",
+    "importedFrom": "{{path}} ({{source}}), {{date}}",
+    "importedFromDocument": "{{path}}, {{date}}",
+    "importedFromSource": "{{source}}, {{date}}",
+    "importedUnknownSource": "another app"
   },
   "versions": {
     "empty": "No saved versions yet",
@@ -318,7 +323,8 @@
       "session": "edit",
       "restore": "restore",
       "ai": "AI",
-      "agent": "agent"
+      "agent": "agent",
+      "import": "before re-import"
     }
   },
   "export": {
@@ -760,6 +766,8 @@
     "facet_semester": "Semester",
     "facet_exam": "Exam",
     "facet_type": "Kind",
+    "facet_author": "Author",
+    "facet_source": "Source",
     "value_type_summary": "Summary",
     "free": "No category"
   },
@@ -1221,7 +1229,8 @@
     "synthesize": "Summarize…",
     "flashcards": "Flashcards…",
     "podcast": "Listen…",
-    "vocabularyReview": "Review Course Vocabulary…"
+    "vocabularyReview": "Review Course Vocabulary…",
+    "importFromApp": "Import notes from another app…"
   },
   "import": {
     "attachmentMissing": "The attachment data could not be found.",
@@ -1590,5 +1599,137 @@
     "applyReview_one": "Apply {{count}} change",
     "applyReview_other": "Apply {{count}} changes",
     "reviewApplied": "Saved {{terms}} vocabulary changes and {{abbreviations}} abbreviations."
+  },
+  "importSource": {
+    "title": "Import from another app",
+    "description": "Bring an existing library into NotaBene. Everything is read on this Mac, and nothing is written until you confirm.",
+    "sourceLabel": "Where your notes are now",
+    "unavailable": "Not available",
+    "source": {
+      "obsidian": "Obsidian vault",
+      "markdownFolder": "Markdown folder",
+      "notion": "Notion export",
+      "appleNotes": "Apple Notes",
+      "document": "Document"
+    },
+    "sourceHint": {
+      "obsidian": "A vault folder. Wiki links, aliases, embedded images, callouts and tags come across.",
+      "markdownFolder": "Any folder of .md files. Folders can become courses, and links between notes are kept.",
+      "notion": "The .zip from Notion’s “Export → Markdown & CSV”. Databases are left out and listed.",
+      "appleNotes": "Apple Notes has no export NotaBene can read yet."
+    },
+    "chooseFolder": "Choose folder…",
+    "chooseFile": "Choose .zip file…",
+    "reading": "Reading the notes…",
+    "readingCount": "Reading notes: {{done}} of {{total}}…",
+    "writing": "Writing the notes…",
+    "storingImages": "Storing images: {{done}} of {{total}}…",
+    "importing": "Importing…",
+    "import_one": "Import {{count}} note",
+    "import_other": "Import {{count}} notes",
+    "back": "Choose another source",
+    "showCourse": "Show the course",
+    "summaryLine": "Notes: {{notes}} · images: {{images}} · left out: {{skipped}}",
+    "previouslyImported_one": "{{count}} note was imported from here before",
+    "previouslyImported_other": "{{count}} notes were imported from here before",
+    "policy": {
+      "update": "Update changed notes",
+      "skip": "Leave them as they are",
+      "duplicate": "Import them again"
+    },
+    "policyHint": {
+      "update_one": "{{count}} has changed since. The current version stays in its history.",
+      "update_other": "{{count}} have changed since. The current version of each stays in its history.",
+      "skip": "Only notes that are new here are imported.",
+      "duplicate": "Every note is added as a new copy beside the one already here."
+    },
+    "editedSinceImport_one": "{{count}} of the notes to update was edited in NotaBene after it was imported. Updating replaces those edits; they stay in version history.",
+    "editedSinceImport_other": "{{count}} of the notes to update were edited in NotaBene after they were imported. Updating replaces those edits; they stay in version history.",
+    "whereLabel": "Where new notes go",
+    "mapping": {
+      "folders": "Folders become courses",
+      "course": "Into one course",
+      "inbox": "Into the inbox"
+    },
+    "mappingHint": {
+      "folders": "{{names}}. Subfolders become sections; notes at the top go to the inbox.",
+      "noFolders": "These notes are not in folders.",
+      "course": "One course for everything. Folders become its sections.",
+      "inbox": "No course. File them later from the sidebar."
+    },
+    "folderListMore": "{{names}} and {{count}} more",
+    "course": "Course",
+    "newCourse": "New course “{{name}}”",
+    "keepTags_one": "Keep {{count}} tag",
+    "keepTags_other": "Keep {{count}} tags",
+    "keepTagsHint": "Frontmatter tags, #tags, authors and sources. Existing tags with the same name are reused.",
+    "renamed_one": "{{count}} title was changed to stay unique, so links reach the right note.",
+    "renamed_other": "{{count}} titles were changed to stay unique, so links reach the right note.",
+    "warning": {
+      "frontmatterUnsupported_one": "{{count}} frontmatter field could not be read and was left out.",
+      "frontmatterUnsupported_other": "{{count}} frontmatter fields could not be read and were left out.",
+      "attachmentMissing_one": "{{count}} image could not be found and was replaced by its caption.",
+      "attachmentMissing_other": "{{count}} images could not be found and were replaced by their captions.",
+      "embedAsLink_one": "{{count}} embedded note became a link. NotaBene does not embed one note in another.",
+      "embedAsLink_other": "{{count}} embedded notes became links. NotaBene does not embed one note in another.",
+      "fileLinkDropped_one": "{{count}} link to a file other than a note or image was kept as text.",
+      "fileLinkDropped_other": "{{count}} links to files other than notes or images were kept as text.",
+      "remoteImage_one": "{{count}} online image became a link. NotaBene does not load images from the web.",
+      "remoteImage_other": "{{count}} online images became links. NotaBene does not load images from the web.",
+      "scanTruncated_one": "The folder has more files than NotaBene reads at once; only the first 20,000 were looked at.",
+      "scanTruncated_other": "The folder has more files than NotaBene reads at once; only the first 20,000 were looked at.",
+      "unknown_one": "{{count}} item could not be carried over exactly.",
+      "unknown_other": "{{count}} items could not be carried over exactly."
+    },
+    "notesLabel": "Notes",
+    "andMore_one": "and {{count}} more",
+    "andMore_other": "and {{count}} more",
+    "skippedLabel_one": "{{count}} file left out",
+    "skippedLabel_other": "{{count}} files left out",
+    "skip": {
+      "symlink": "Link to elsewhere — not followed",
+      "tooLarge": "Too large",
+      "tooDeep": "Nested too deeply",
+      "unreadable": "Could not be read",
+      "notMarkdown": "Not a note",
+      "excalidraw": "Excalidraw drawing",
+      "database": "Database table",
+      "unknown": "Left out"
+    },
+    "action": {
+      "create": "New",
+      "update": "Update",
+      "skip": "Unchanged"
+    },
+    "error": {
+      "scan_failed": "The notes could not be read.",
+      "not_picked": "NotaBene can only read a folder chosen in the import panel. Choose it again.",
+      "too_large": "Some files are too large to import.",
+      "outside_root": "A file points outside the chosen folder and was refused.",
+      "not_found": "The folder or a file in it could not be found.",
+      "unavailable": "This source is not available in this version of NotaBene.",
+      "notionHtml": "This is Notion’s HTML export. Export again and choose “Markdown & CSV”.",
+      "notNotion": "This .zip does not contain a Notion Markdown export.",
+      "notZip": "This file is not a readable .zip archive.",
+      "archiveTooLarge": "This archive is too large to import in one go. Export a smaller part of the workspace.",
+      "empty": "No notes were found there.",
+      "storage_failed": "The library could not be read.",
+      "applyFailed_one": "The import stopped part-way. {{count}} note was written before it did.",
+      "applyFailed_other": "The import stopped part-way. {{count}} notes were written before it did."
+    },
+    "done": {
+      "created_one": "{{count}} note imported.",
+      "created_other": "{{count}} notes imported.",
+      "updated_one": "{{count}} updated.",
+      "updated_other": "{{count}} updated.",
+      "skipped_one": "{{count}} left unchanged.",
+      "skipped_other": "{{count}} left unchanged.",
+      "images_one": "{{count}} image stored.",
+      "images_other": "{{count}} images stored.",
+      "courses_one": "{{count}} course created.",
+      "courses_other": "{{count}} courses created.",
+      "imagesFailed_one": "{{count}} image could not be stored; its caption was kept instead.",
+      "imagesFailed_other": "{{count}} images could not be stored; their captions were kept instead."
+    }
   }
 }

@@ -10,6 +10,7 @@ mod apple_fm;
 mod commands;
 mod db;
 mod document_import;
+mod folder_import;
 mod mcp;
 mod menu;
 mod ocr;
@@ -99,6 +100,7 @@ pub fn run() {
             library_access.start_monitor(store.clone());
             app.manage(store);
             app.manage(library_access);
+            app.manage(folder_import::ImportRoots::default());
 
             #[cfg(desktop)]
             app.global_shortcut().register("CmdOrCtrl+Shift+Q")?;
@@ -141,6 +143,8 @@ pub fn run() {
             commands::library_upsert_note,
             commands::library_upsert_notes,
             commands::library_resolve_wiki_title,
+            commands::library_list_imported_notes,
+            commands::library_list_note_titles,
             commands::library_upsert_note_if_unchanged,
             commands::library_trash_note,
             commands::library_restore_note,
@@ -194,6 +198,9 @@ pub fn run() {
             commands::export_write,
             document_import::document_import_bytes,
             document_import::document_import_pdf_ocr,
+            folder_import::folder_import_pick,
+            folder_import::folder_scan,
+            folder_import::folder_read,
             ocr::ocr_available,
             ocr::ocr_languages,
             ocr::ocr_recognize_page,

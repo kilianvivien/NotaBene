@@ -78,6 +78,8 @@ export function createNote(input: Partial<Note> = {}): Note {
     createdAt: input.createdAt ?? timestamp,
     updatedAt: input.updatedAt ?? timestamp,
     order: input.order ?? 0,
+    importKey: input.importKey ?? null,
+    importedAt: input.importedAt ?? null,
   };
 }
 
@@ -102,6 +104,7 @@ export function createTask(input: Partial<Task> & { title: string }): Task {
     createdAt: input.createdAt ?? timestamp,
     updatedAt: input.updatedAt ?? timestamp,
     order: input.order ?? 0,
+    importKey: input.importKey ?? null,
   };
 }
 

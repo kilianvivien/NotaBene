@@ -108,7 +108,7 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A–K are code-complete, apart from the explicitly deferred signing,
+Phases A–L are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
 server, the study features, bulk selection, and tasks. The MCP and in-app Agent
@@ -127,7 +127,10 @@ instrumentation, and release documentation. J adds tasks: a recurrence engine,
 reminders that survive a quit, a Tasks view, tasks linked to notes both in the
 inspector and inline, and saving a web page onto a note. K (1.1.0) adds word
 completion from a per-course vocabulary, curated course terms, an AI
-vocabulary review, and an on-demand paragraph check. `docs/plan.md` tracks
+vocabulary review, and an on-demand paragraph check. L (1.2.0, importers and
+calendars) adds importing a Markdown folder, an Obsidian vault or a Notion
+export, with a preview, folder-to-course mapping, idempotent re-import and
+provenance; calendar (.ics) import and export are still to come. `docs/plan.md` tracks
 what is still open honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
@@ -225,6 +228,31 @@ Phase K notes worth knowing before touching it:
 - Proofreading is a read like Define: corrections go back to the editor,
   which applies them as one transaction and refuses if the paragraph changed
   since it was sent.
+
+Phase L notes worth knowing before touching it:
+
+- Schema v9 added `notes.import_key` (`{source}:{key}` — a path for a folder,
+  Notion's page id), `notes.imported_at`, and `tasks.import_key` for the
+  coming `.ics` import. `createdAt` keeps the *source file's* date;
+  `importedAt` is when NotaBene wrote it, and `updatedAt > importedAt` is how
+  a re-import knows a note was edited here since.
+- `src-tauri/src/folder_import.rs` is a security boundary like `web.rs`: it
+  reads outside the `fs` scope, so it only reads under a root that
+  `folder_import_pick` (the native panel, opened from Rust) recorded. Never
+  add a command that takes a root from the webview.
+- Readers (`src/lib/import/sources/`) write nothing and know nothing about
+  courses. `plan.ts` is pure and decides everything — re-import matching,
+  unique titles (shallowest path keeps the title), and **pre-minted ids**, so
+  an in-batch link carries its target's id before either note exists.
+  `applySourceImportCommand` only executes the plan.
+- Foreign Markdown is parsed with `markdownToDoc(md, { wikiLinks: 'obsidian',
+  resolveWikiLink })`; the default dialect stays NotaBene's `[[Title|id]]`.
+  An alias is the node's `label` attr — presentation only; Markdown export
+  drops it (`docs/export-fidelity.md`).
+- `createNotesCommand` takes `BatchNoteInput` (id, importKey, importedAt,
+  source dates). Keep those fields off `CreateNoteInput`, which MCP reaches.
+- Clicking a `[[Title]]` with no id resolves by title first
+  (`resolveWikiTitleCommand`) and only creates a note when none exists.
 
 ## House rules
 

@@ -220,6 +220,64 @@ export async function ensureTagCommand(
   return ok(tag);
 }
 
+/**
+ * `ensureTagCommand` for many tags at once: one read of the tag list, one
+ * refresh at the end. An imported vault arrives with dozens of tags, and the
+ * single-tag command re-lists and refreshes for each.
+ *
+ * Returns ids keyed by `tagKey`. Invalid inputs are left out rather than
+ * failing the batch — one unusable tag must not cost a vault its notes.
+ */
+export async function ensureTagsCommand(
+  inputs: z.input<typeof TagInput>[],
+  context: CommandContext = USER,
+): Promise<CommandResult<Map<string, string>>> {
+  const cancelled = cancelledIfRequested<Map<string, string>>(context);
+  if (cancelled) return cancelled;
+  const known = await library.listTags();
+  const ids = new Map<string, string>();
+  let created = false;
+  for (const input of inputs) {
+    const parsed = TagInput.safeParse(input);
+    if (!parsed.success) continue;
+    const namespace = parsed.data.namespace ?? null;
+    const key = tagKey(namespace, parsed.data.name);
+    if (ids.has(key)) continue;
+    const match = known.find(
+      (tag) =>
+        tag.namespace === namespace &&
+        tag.name.localeCompare(parsed.data.name, undefined, { sensitivity: 'accent' }) ===
+          0,
+    );
+    if (match) {
+      ids.set(key, match.id);
+      continue;
+    }
+    const tag: Tag = {
+      id: newId(),
+      namespace,
+      name: parsed.data.name,
+      color: parsed.data.color ?? DEFAULT_TAG_COLOR,
+    };
+    try {
+      await library.upsertTag(tag);
+    } catch (error) {
+      return fail('storage_failed', String(error));
+    }
+    known.push(tag);
+    ids.set(key, tag.id);
+    created = true;
+  }
+  if (created) await useLibraryStore.getState().refreshTags();
+  return ok(ids);
+}
+
+/** How `ensureTagsCommand` keys its result: case-insensitive within a
+ * namespace, like the tags themselves. */
+export function tagKey(namespace: string | null, name: string): string {
+  return `${namespace ?? ''}:${name.trim().toLocaleLowerCase()}`;
+}
+
 export async function mergeTagsCommand(
   fromTagId: string,
   intoTagId: string,

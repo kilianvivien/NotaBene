@@ -291,7 +291,12 @@
     "noTags": "Aucune étiquette",
     "noBacklinks": "Aucune note ne pointe ici",
     "versionCount_one": "{{count}} version enregistrée",
-    "versionCount_other": "{{count}} versions enregistrées"
+    "versionCount_other": "{{count}} versions enregistrées",
+    "imported": "Importée",
+    "importedFrom": "{{path}} ({{source}}), {{date}}",
+    "importedFromDocument": "{{path}}, {{date}}",
+    "importedFromSource": "{{source}}, {{date}}",
+    "importedUnknownSource": "une autre app"
   },
   "versions": {
     "empty": "Aucune version enregistrée",
@@ -318,7 +323,8 @@
       "session": "modification",
       "restore": "restauration",
       "ai": "IA",
-      "agent": "agent"
+      "agent": "agent",
+      "import": "avant réimport"
     }
   },
   "export": {
@@ -760,6 +766,8 @@
     "facet_semester": "Semestre",
     "facet_exam": "Examen",
     "facet_type": "Type",
+    "facet_author": "Auteur",
+    "facet_source": "Source",
     "value_type_summary": "Résumé",
     "free": "Sans catégorie"
   },
@@ -1221,7 +1229,8 @@
     "synthesize": "Résumer…",
     "flashcards": "Fiches de révision…",
     "podcast": "Écouter…",
-    "vocabularyReview": "Réviser le vocabulaire du cours…"
+    "vocabularyReview": "Réviser le vocabulaire du cours…",
+    "importFromApp": "Importer des notes d’une autre app…"
   },
   "import": {
     "attachmentMissing": "Les données de la pièce jointe sont introuvables.",
@@ -1590,5 +1599,137 @@
     "applyReview_one": "Appliquer {{count}} modification",
     "applyReview_other": "Appliquer {{count}} modifications",
     "reviewApplied": "{{terms}} modifications du vocabulaire et {{abbreviations}} abréviations enregistrées."
+  },
+  "importSource": {
+    "title": "Importer depuis une autre app",
+    "description": "Apportez une bibliothèque existante dans NotaBene. Tout est lu sur ce Mac, et rien n’est écrit avant votre confirmation.",
+    "sourceLabel": "Où se trouvent vos notes",
+    "unavailable": "Indisponible",
+    "source": {
+      "obsidian": "Coffre Obsidian",
+      "markdownFolder": "Dossier Markdown",
+      "notion": "Export Notion",
+      "appleNotes": "Apple Notes",
+      "document": "Document"
+    },
+    "sourceHint": {
+      "obsidian": "Le dossier d’un coffre. Liens wiki, alias, images intégrées, encadrés et étiquettes sont repris.",
+      "markdownFolder": "N’importe quel dossier de fichiers .md. Les dossiers peuvent devenir des cours, et les liens entre notes sont conservés.",
+      "notion": "Le .zip de « Exporter → Markdown et CSV » dans Notion. Les bases de données sont écartées et listées.",
+      "appleNotes": "Apple Notes n’a pas encore d’export que NotaBene sache lire."
+    },
+    "chooseFolder": "Choisir le dossier…",
+    "chooseFile": "Choisir le fichier .zip…",
+    "reading": "Lecture des notes…",
+    "readingCount": "Lecture des notes : {{done}} sur {{total}}…",
+    "writing": "Écriture des notes…",
+    "storingImages": "Enregistrement des images : {{done}} sur {{total}}…",
+    "importing": "Importation…",
+    "import_one": "Importer {{count}} note",
+    "import_other": "Importer {{count}} notes",
+    "back": "Choisir une autre source",
+    "showCourse": "Afficher le cours",
+    "summaryLine": "Notes : {{notes}} · images : {{images}} · écartés : {{skipped}}",
+    "previouslyImported_one": "{{count}} note a déjà été importée d’ici",
+    "previouslyImported_other": "{{count}} notes ont déjà été importées d’ici",
+    "policy": {
+      "update": "Mettre à jour les notes modifiées",
+      "skip": "Les laisser telles quelles",
+      "duplicate": "Les importer à nouveau"
+    },
+    "policyHint": {
+      "update_one": "{{count}} a changé depuis. La version actuelle reste dans son historique.",
+      "update_other": "{{count}} ont changé depuis. La version actuelle de chacune reste dans son historique.",
+      "skip": "Seules les notes nouvelles ici sont importées.",
+      "duplicate": "Chaque note est ajoutée en copie à côté de celle déjà présente."
+    },
+    "editedSinceImport_one": "{{count}} des notes à mettre à jour a été modifiée dans NotaBene après son importation. La mise à jour remplace ces modifications ; elles restent dans l’historique des versions.",
+    "editedSinceImport_other": "{{count}} des notes à mettre à jour ont été modifiées dans NotaBene après leur importation. La mise à jour remplace ces modifications ; elles restent dans l’historique des versions.",
+    "whereLabel": "Où vont les nouvelles notes",
+    "mapping": {
+      "folders": "Les dossiers deviennent des cours",
+      "course": "Dans un seul cours",
+      "inbox": "Dans la boîte de réception"
+    },
+    "mappingHint": {
+      "folders": "{{names}}. Les sous-dossiers deviennent des sections ; les notes à la racine vont dans la boîte de réception.",
+      "noFolders": "Ces notes ne sont pas rangées dans des dossiers.",
+      "course": "Un cours pour tout. Les dossiers en deviennent les sections.",
+      "inbox": "Aucun cours. Classez-les plus tard depuis la barre latérale."
+    },
+    "folderListMore": "{{names}} et {{count}} autres",
+    "course": "Cours",
+    "newCourse": "Nouveau cours « {{name}} »",
+    "keepTags_one": "Conserver {{count}} étiquette",
+    "keepTags_other": "Conserver {{count}} étiquettes",
+    "keepTagsHint": "Étiquettes du frontmatter, #étiquettes, auteurs et sources. Les étiquettes existantes du même nom sont réutilisées.",
+    "renamed_one": "{{count}} titre a été modifié pour rester unique, afin que les liens mènent à la bonne note.",
+    "renamed_other": "{{count}} titres ont été modifiés pour rester uniques, afin que les liens mènent à la bonne note.",
+    "warning": {
+      "frontmatterUnsupported_one": "{{count}} champ du frontmatter n’a pas pu être lu et a été écarté.",
+      "frontmatterUnsupported_other": "{{count}} champs du frontmatter n’ont pas pu être lus et ont été écartés.",
+      "attachmentMissing_one": "{{count}} image est introuvable et a été remplacée par sa légende.",
+      "attachmentMissing_other": "{{count}} images sont introuvables et ont été remplacées par leur légende.",
+      "embedAsLink_one": "{{count}} note intégrée est devenue un lien. NotaBene n’intègre pas une note dans une autre.",
+      "embedAsLink_other": "{{count}} notes intégrées sont devenues des liens. NotaBene n’intègre pas une note dans une autre.",
+      "fileLinkDropped_one": "{{count}} lien vers un fichier qui n’est ni une note ni une image a été gardé comme texte.",
+      "fileLinkDropped_other": "{{count}} liens vers des fichiers qui ne sont ni des notes ni des images ont été gardés comme texte.",
+      "remoteImage_one": "{{count}} image en ligne est devenue un lien. NotaBene ne charge pas d’images depuis le web.",
+      "remoteImage_other": "{{count}} images en ligne sont devenues des liens. NotaBene ne charge pas d’images depuis le web.",
+      "scanTruncated_one": "Le dossier contient plus de fichiers que NotaBene n’en lit d’un coup ; seuls les 20 000 premiers ont été examinés.",
+      "scanTruncated_other": "Le dossier contient plus de fichiers que NotaBene n’en lit d’un coup ; seuls les 20 000 premiers ont été examinés.",
+      "unknown_one": "{{count}} élément n’a pas pu être repris à l’identique.",
+      "unknown_other": "{{count}} éléments n’ont pas pu être repris à l’identique."
+    },
+    "notesLabel": "Notes",
+    "andMore_one": "et {{count}} autre",
+    "andMore_other": "et {{count}} autres",
+    "skippedLabel_one": "{{count}} fichier écarté",
+    "skippedLabel_other": "{{count}} fichiers écartés",
+    "skip": {
+      "symlink": "Lien vers ailleurs — non suivi",
+      "tooLarge": "Trop volumineux",
+      "tooDeep": "Trop profondément imbriqué",
+      "unreadable": "Illisible",
+      "notMarkdown": "Pas une note",
+      "excalidraw": "Dessin Excalidraw",
+      "database": "Table de base de données",
+      "unknown": "Écarté"
+    },
+    "action": {
+      "create": "Nouvelle",
+      "update": "Mise à jour",
+      "skip": "Inchangée"
+    },
+    "error": {
+      "scan_failed": "Les notes n’ont pas pu être lues.",
+      "not_picked": "NotaBene ne peut lire qu’un dossier choisi dans le panneau d’importation. Choisissez-le à nouveau.",
+      "too_large": "Certains fichiers sont trop volumineux pour être importés.",
+      "outside_root": "Un fichier pointe hors du dossier choisi et a été refusé.",
+      "not_found": "Le dossier ou l’un de ses fichiers est introuvable.",
+      "unavailable": "Cette source n’est pas disponible dans cette version de NotaBene.",
+      "notionHtml": "Il s’agit de l’export HTML de Notion. Exportez à nouveau en choisissant « Markdown et CSV ».",
+      "notNotion": "Ce .zip ne contient pas d’export Markdown de Notion.",
+      "notZip": "Ce fichier n’est pas une archive .zip lisible.",
+      "archiveTooLarge": "Cette archive est trop volumineuse pour être importée d’un coup. Exportez une partie plus petite de l’espace de travail.",
+      "empty": "Aucune note n’a été trouvée à cet endroit.",
+      "storage_failed": "La bibliothèque n’a pas pu être lue.",
+      "applyFailed_one": "L’importation s’est arrêtée en cours de route. {{count}} note avait déjà été écrite.",
+      "applyFailed_other": "L’importation s’est arrêtée en cours de route. {{count}} notes avaient déjà été écrites."
+    },
+    "done": {
+      "created_one": "{{count}} note importée.",
+      "created_other": "{{count}} notes importées.",
+      "updated_one": "{{count}} mise à jour.",
+      "updated_other": "{{count}} mises à jour.",
+      "skipped_one": "{{count}} laissée inchangée.",
+      "skipped_other": "{{count}} laissées inchangées.",
+      "images_one": "{{count}} image enregistrée.",
+      "images_other": "{{count}} images enregistrées.",
+      "courses_one": "{{count}} cours créé.",
+      "courses_other": "{{count}} cours créés.",
+      "imagesFailed_one": "{{count}} image n’a pas pu être enregistrée ; sa légende a été conservée.",
+      "imagesFailed_other": "{{count}} images n’ont pas pu être enregistrées ; leurs légendes ont été conservées."
+    }
   }
 }

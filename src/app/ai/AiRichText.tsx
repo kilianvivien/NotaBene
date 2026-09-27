@@ -37,7 +37,7 @@ function renderInline(node: DocNode, key: string): ReactNode {
   if (node.type === 'wikiLink') {
     return (
       <span key={key} className="font-medium text-[var(--nb-link)]">
-        {String(node.attrs?.title ?? '')}
+        {String(node.attrs?.label || node.attrs?.title || '')}
       </span>
     );
   }

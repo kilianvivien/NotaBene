@@ -17,6 +17,16 @@ export const WikiLink = Node.create({
         default: '',
         parseHTML: (element) => element.getAttribute('data-title') ?? element.textContent ?? '',
       },
+      /**
+       * What the link reads as, when that is not the title — an Obsidian
+       * alias, `[[Week 4|damping]]`. Navigation and backlinks only ever use
+       * `title` and `noteId`; this is presentation. Absent on every link
+       * typed in NotaBene, which is why it needed no schema bump.
+       */
+      label: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-label'),
+      },
     };
   },
 
@@ -31,9 +41,10 @@ export const WikiLink = Node.create({
         'data-wiki-link': '',
         'data-note-id': HTMLAttributes.noteId,
         'data-title': HTMLAttributes.title,
+        'data-label': HTMLAttributes.label,
         href: HTMLAttributes.noteId ? `notabene://note/${HTMLAttributes.noteId}` : '#',
       }),
-      String(HTMLAttributes.title),
+      String(HTMLAttributes.label || HTMLAttributes.title),
     ];
   },
 });

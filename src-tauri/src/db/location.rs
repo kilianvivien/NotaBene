@@ -429,6 +429,8 @@ mod tests {
             created_at: Utc::now().to_rfc3339(),
             updated_at: Utc::now().to_rfc3339(),
             order: 0,
+            import_key: None,
+            imported_at: None,
         };
 
         let error = notes::upsert(&read_only, &note).expect_err("write must be refused");

@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -87,7 +87,20 @@ export const SectionSchema = z.object({
 });
 export type Section = z.infer<typeof SectionSchema>;
 
-export const TAG_NAMESPACES = ['topic', 'prof', 'semester', 'exam', 'type'] as const;
+/**
+ * `author` and `source` arrived with the importers (schema v9): Obsidian and
+ * Notion frontmatter carries both routinely, and folding them into `topic`
+ * would lose the one thing that makes a researcher's library facetable.
+ */
+export const TAG_NAMESPACES = [
+  'topic',
+  'prof',
+  'semester',
+  'exam',
+  'type',
+  'author',
+  'source',
+] as const;
 export const TagNamespaceSchema = z.enum(TAG_NAMESPACES);
 export type TagNamespace = z.infer<typeof TagNamespaceSchema>;
 export const DEFAULT_TAG_COLOR = '#9b5c2f';
@@ -134,11 +147,27 @@ export const NoteSchema = z.object({
   updatedAt: isoDate,
   /** Manual ordering within a section; ties break on `updatedAt`. */
   order: z.number().int().nonnegative().default(0),
+  /**
+   * `"{source}:{path}"` for a note an importer wrote — `obsidian:Physics/Week
+   * 4.md`, `document:Lecture 3.pdf`. A path rather than a content hash, so a
+   * second import of the same vault is a choice the preview offers (skip,
+   * update, duplicate) rather than a silent copy. `null` for a typed note.
+   */
+  importKey: z.string().min(1).max(2_000).nullable().default(null),
+  /** When the importer last wrote this note. Separate from `createdAt`, which
+   * keeps the source file's own date so a migrated library keeps its order. */
+  importedAt: isoDate.nullable().default(null),
 });
 export type Note = z.infer<typeof NoteSchema>;
 
-/** What the note list and search results render — never the full document. */
-export const NoteSummarySchema = NoteSchema.omit({ doc: true, plainText: true }).extend({
+/** What the note list and search results render — never the full document,
+ * and not provenance, which only the inspector reads. */
+export const NoteSummarySchema = NoteSchema.omit({
+  doc: true,
+  plainText: true,
+  importKey: true,
+  importedAt: true,
+}).extend({
   snippet: z.string().default(''),
 });
 export type NoteSummary = z.infer<typeof NoteSummarySchema>;
@@ -215,7 +244,8 @@ export const AttachmentSchema = z.object({
 });
 export type Attachment = z.infer<typeof AttachmentSchema>;
 
-export const SNAPSHOT_CAUSES = ['auto', 'session', 'restore', 'ai', 'agent'] as const;
+/** `import` is the version a re-import replaced (schema v9). */
+export const SNAPSHOT_CAUSES = ['auto', 'session', 'restore', 'ai', 'agent', 'import'] as const;
 export const SnapshotCauseSchema = z.enum(SNAPSHOT_CAUSES);
 export type SnapshotCause = z.infer<typeof SnapshotCauseSchema>;
 
@@ -347,6 +377,9 @@ export const TaskSchema = z.object({
   updatedAt: isoDate,
   /** Manual ordering within a status group; ties break on `dueAt`. */
   order: z.number().int().nonnegative().default(0),
+  /** `ics:{UID}` for a task a calendar import wrote; `null` otherwise. Added
+   * with `Note.importKey` in schema v9 so both share one migration. */
+  importKey: z.string().min(1).max(2_000).nullable().default(null),
 });
 export type Task = z.infer<typeof TaskSchema>;
 

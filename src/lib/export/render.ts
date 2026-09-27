@@ -43,7 +43,7 @@ interface HtmlContext {
 
 function inlineHtml(node: DocNode, context: HtmlContext): string {
   if (node.type === 'wikiLink') {
-    return `<span class="wiki-link">${escapeHtml(node.attrs?.title)}</span>`;
+    return `<span class="wiki-link">${escapeHtml(node.attrs?.label || node.attrs?.title)}</span>`;
   }
   // Inert text, like every other live node an export has to flatten: the
   // reader of a PDF cannot tick a box, and a chip that looked interactive

@@ -1,5 +1,37 @@
 # Release notes
 
+## NotaBene 1.2.0
+
+- **Bring your library.** File → Import notes from another app… (⇧⌥⌘O)
+  imports an Obsidian vault, any folder of Markdown files, or a Notion
+  export (.zip, “Markdown & CSV”). Everything is read on your Mac, and
+  nothing is written until you have seen a preview: how many notes, where
+  they will go, which tags come along, and every file left out and why.
+- **Folders become courses.** Top-level folders can become courses and
+  their subfolders sections — or everything can go into one course, or the
+  inbox. Existing courses of the same name are reused rather than doubled.
+- **Links survive the move.** Wiki links, aliases (`[[Week 4|damping]]`),
+  relative Markdown links and Notion’s page links all point at the right
+  imported note, whatever order the notes arrive in. When two notes share a
+  title — or collide with one already in your library — the deeper one gains
+  its folder in the title, so a link never lands on the wrong note. Embedded
+  images are stored once however many notes use them; callouts, frontmatter
+  tags, `#tags`, authors and sources come across, and Obsidian comments stay
+  behind.
+- **Importing twice doubles nothing.** NotaBene remembers where each note
+  came from. Importing the same vault again offers to update the notes that
+  changed (the current version stays in history, marked “before re-import”),
+  leave them alone, or import them again as copies.
+- **Where a note came from.** The inspector shows the source of every
+  imported note — *Physics/Week 4.md (Obsidian), 27 September 2026* —
+  including documents converted with Convert a document to note.
+- **Author and source tags.** Two new tag facets, `author:` and `source:`,
+  keep a researcher’s library searchable by who wrote it and where it came
+  from.
+- **Links to existing notes open them.** Clicking a `[[Title]]` link that
+  has no note id yet now opens the note of that title instead of creating a
+  new one.
+
 ## NotaBene 1.1.0
 
 - **Word completion from your course's vocabulary.** As you type, NotaBene

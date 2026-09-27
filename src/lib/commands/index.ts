@@ -25,3 +25,4 @@ export * from './webLinkCommands';
 export * from './wikipediaCommands';
 export * from './defineCommands';
 export * from './vocabularyCommands';
+export * from './sourceImportCommands';

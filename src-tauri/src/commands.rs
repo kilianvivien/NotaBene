@@ -12,9 +12,9 @@ use tauri::{AppHandle, Manager, State};
 use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::location::LibraryAccess;
 use crate::db::model::{
-    Asset, Attachment, Backlink, Course, CourseTerm, Library, Note, NoteMatch, NoteQuery,
-    NoteSummary, NoteTemplate, NoteText, SavedSearch, Section, Snapshot, SnapshotMeta, Tag, Task,
-    TaskNoteLink, TaskQuery,
+    Asset, Attachment, Backlink, Course, CourseTerm, ImportedNote, Library, Note, NoteMatch,
+    NoteQuery, NoteSummary, NoteTemplate, NoteText, NoteTitle, SavedSearch, Section, Snapshot,
+    SnapshotMeta, Tag, Task, TaskNoteLink, TaskQuery,
 };
 use crate::db::{
     assets, collections, journal, notes, organization, tasks, transfer, vocabulary, DbError,
@@ -118,6 +118,20 @@ pub fn library_resolve_wiki_title(
     title: String,
 ) -> DbResult<Option<String>> {
     notes::resolve_wiki_title(&store, &title)
+}
+
+/// The notes one importer wrote, for planning a re-import of the same source.
+#[tauri::command]
+pub fn library_list_imported_notes(
+    store: State<'_, Store>,
+    prefix: String,
+) -> DbResult<Vec<ImportedNote>> {
+    notes::list_imported(&store, &prefix)
+}
+
+#[tauri::command]
+pub fn library_list_note_titles(store: State<'_, Store>) -> DbResult<Vec<NoteTitle>> {
+    notes::list_titles(&store)
 }
 
 #[tauri::command]

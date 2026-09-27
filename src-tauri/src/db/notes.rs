@@ -7,7 +7,10 @@
 
 use rusqlite::{params_from_iter, types::Value as SqlValue, Connection, OptionalExtension, Row};
 
-use super::model::{Backlink, Note, NoteMatch, NoteQuery, NoteSummary, Snapshot, SnapshotMeta};
+use super::model::{
+    Backlink, ImportedNote, Note, NoteMatch, NoteQuery, NoteSummary, NoteTitle, Snapshot,
+    SnapshotMeta,
+};
 use super::{DbError, DbResult, Store};
 use crate::commands::SnapshotRetentionPolicy;
 
@@ -312,7 +315,8 @@ pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
     store.with(|connection| {
         let mut statement = connection.prepare(
             "SELECT id, course_id, section_id, title, doc_json, plain_text, pinned, archived, \
-             trashed_at, created_at, updated_at, \"order\" FROM notes WHERE id = ?",
+             trashed_at, created_at, updated_at, \"order\", import_key, imported_at \
+             FROM notes WHERE id = ?",
         )?;
 
         let mut rows = statement.query([note_id])?;
@@ -335,6 +339,8 @@ pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
             order: row.get("order")?,
+            import_key: row.get("import_key")?,
+            imported_at: row.get("imported_at")?,
         };
 
         let mut tag_statement =
@@ -350,7 +356,8 @@ pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
 pub(crate) fn list_all_in(connection: &Connection) -> DbResult<Vec<Note>> {
     let mut statement = connection.prepare(
         "SELECT id, course_id, section_id, title, doc_json, plain_text, pinned, archived,
-         trashed_at, created_at, updated_at, \"order\" FROM notes ORDER BY rowid",
+         trashed_at, created_at, updated_at, \"order\", import_key, imported_at
+         FROM notes ORDER BY rowid",
     )?;
     let mut notes = statement
         .query_map([], |row| {
@@ -375,6 +382,8 @@ pub(crate) fn list_all_in(connection: &Connection) -> DbResult<Vec<Note>> {
                 created_at: row.get(9)?,
                 updated_at: row.get(10)?,
                 order: row.get(11)?,
+                import_key: row.get(12)?,
+                imported_at: row.get(13)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -396,6 +405,54 @@ pub(crate) fn list_all_in(connection: &Connection) -> DbResult<Vec<Note>> {
         }
     }
     Ok(notes)
+}
+
+/// Every note whose `import_key` starts with `prefix` -- one source's worth,
+/// e.g. `obsidian:`. Trashed notes are included so the planner can decide what
+/// a trashed import means rather than this query deciding for it.
+///
+/// A prefix comparison by `substr` rather than `LIKE`: a vault path may hold
+/// `%` or `_`, and escaping them is one more thing to get wrong.
+pub fn list_imported(store: &Store, prefix: &str) -> DbResult<Vec<ImportedNote>> {
+    store.with(|connection| {
+        let mut statement = connection.prepare(
+            "SELECT id, import_key, title, plain_text, updated_at, imported_at, trashed_at
+             FROM notes
+             WHERE import_key IS NOT NULL AND substr(import_key, 1, length(?1)) = ?1
+             ORDER BY imported_at DESC, rowid DESC",
+        )?;
+        let rows = statement
+            .query_map([prefix], |row| {
+                Ok(ImportedNote {
+                    id: row.get(0)?,
+                    import_key: row.get(1)?,
+                    title: row.get(2)?,
+                    plain_text: row.get(3)?,
+                    updated_at: row.get(4)?,
+                    imported_at: row.get(5)?,
+                    trashed_at: row.get(6)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    })
+}
+
+/// Every note's title, trashed ones included -- `resolve_wiki_title_in` does
+/// not skip Trash, so a title in Trash still captures a bare `[[Title]]`.
+pub fn list_titles(store: &Store) -> DbResult<Vec<NoteTitle>> {
+    store.with(|connection| {
+        let mut statement = connection.prepare("SELECT id, title FROM notes ORDER BY rowid")?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok(NoteTitle {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    })
 }
 
 pub fn upsert(store: &Store, note: &Note) -> DbResult<()> {
@@ -432,7 +489,8 @@ pub fn upsert_if_unchanged(store: &Store, note: &Note, base_updated_at: &str) ->
             "UPDATE notes SET course_id = ?1, section_id = ?2, title = ?3,
              doc_json = ?4, plain_text = ?5, pinned = ?6, archived = ?7,
              trashed_at = ?8, updated_at = ?9, \"order\" = ?10,
-             has_image = ?11, has_drawing = ?12, has_table = ?13
+             has_image = ?11, has_drawing = ?12, has_table = ?13,
+             import_key = ?16, imported_at = ?17
              WHERE id = ?14 AND updated_at = ?15",
             rusqlite::params![
                 note.course_id,
@@ -450,6 +508,8 @@ pub fn upsert_if_unchanged(store: &Store, note: &Note, base_updated_at: &str) ->
                 i64::from(has_table),
                 note.id,
                 base_updated_at,
+                note.import_key,
+                note.imported_at,
             ],
         )?;
         if changed == 0 {
@@ -483,8 +543,8 @@ pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
     transaction.execute(
         "INSERT INTO notes (id, course_id, section_id, title, doc_json, plain_text, \
          pinned, archived, trashed_at, created_at, updated_at, \"order\", \
-         has_image, has_drawing, has_table) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15) \
+         has_image, has_drawing, has_table, import_key, imported_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17) \
          ON CONFLICT(id) DO UPDATE SET \
          course_id = excluded.course_id, section_id = excluded.section_id, \
          title = excluded.title, doc_json = excluded.doc_json, \
@@ -492,7 +552,8 @@ pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
          archived = excluded.archived, trashed_at = excluded.trashed_at, \
          updated_at = excluded.updated_at, \"order\" = excluded.\"order\", \
          has_image = excluded.has_image, has_drawing = excluded.has_drawing, \
-         has_table = excluded.has_table",
+         has_table = excluded.has_table, import_key = excluded.import_key, \
+         imported_at = excluded.imported_at",
         rusqlite::params![
             note.id,
             note.course_id,
@@ -509,6 +570,8 @@ pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
             i64::from(has_image),
             i64::from(has_drawing),
             i64::from(has_table),
+            note.import_key,
+            note.imported_at,
         ],
     )?;
 
@@ -1073,6 +1136,8 @@ mod tests {
             created_at: "2026-07-27T00:00:00.000Z".into(),
             updated_at: "2026-07-27T00:00:00.000Z".into(),
             order: 0,
+            import_key: None,
+            imported_at: None,
         }
     }
 

@@ -58,6 +58,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('course.new', t),
         separator,
         command('note.importDocument', t),
+        command('note.importFromApp', t),
         separator,
         command('note.save', t),
         separator,

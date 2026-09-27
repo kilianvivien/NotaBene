@@ -4,7 +4,11 @@ import type { Editor } from '@tiptap/core';
 import { useTranslation } from 'react-i18next';
 import type { NoteDoc } from '@/lib/schema';
 import { storeAssetCommand } from '@/lib/commands';
-import { createNoteCommand, setCourseTermCommand } from '@/lib/commands';
+import {
+  createNoteCommand,
+  resolveWikiTitleCommand,
+  setCourseTermCommand,
+} from '@/lib/commands';
 import { library } from '@/lib/adapters';
 import { buildPdfSourceHref, parsePdfSourceHref } from '@/lib/pdf/sourceLinks';
 import { TaskPicker } from '@/app/tasks/TaskPicker';
@@ -277,12 +281,17 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
         void (async () => {
           let targetId = noteId;
           if (!targetId) {
-            if (!view.editable) return;
-            const created = await createNoteCommand({ title });
-            if (!created.ok) return;
-            targetId = created.value.id;
+            // A note of that title may already exist — an imported vault's
+            // links all arrive this way. Only a title nobody has creates one.
+            targetId = await resolveWikiTitleCommand(title);
+            if (!targetId) {
+              if (!view.editable) return;
+              const created = await createNoteCommand({ title });
+              if (!created.ok) return;
+              targetId = created.value.id;
+            }
             const node = view.state.doc.nodeAt(position);
-            if (node?.type.name === 'wikiLink') {
+            if (view.editable && node?.type.name === 'wikiLink') {
               view.dispatch(
                 view.state.tr.setNodeMarkup(position, undefined, {
                   ...node.attrs,

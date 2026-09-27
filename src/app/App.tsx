@@ -37,6 +37,7 @@ import { startReminderScheduler } from '@/lib/tasks/reminderScheduler';
 import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 import { EditorConflictDialog } from './editor/EditorConflictDialog';
 import { ImportDocumentDialog } from './import/ImportDocumentDialog';
+import { ImportSourceDialog } from './import/ImportSourceDialog';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { PdfReader } from '@/editor/attachments/PdfReader';
 import { TaskList } from './tasks/TaskList';
@@ -221,6 +222,7 @@ export function App() {
       <ExportDialog />
       <MergeNotesDialog />
       <ImportDocumentDialog />
+      <ImportSourceDialog />
       <CheckDialog />
       <SynthesisDialog />
       <VisualizeDialog />
