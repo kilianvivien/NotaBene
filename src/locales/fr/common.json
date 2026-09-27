@@ -1214,6 +1214,7 @@
     "documentMap": "Afficher le plan du document",
     "focusMode": "Mode concentration",
     "fullscreen": "Activer/désactiver le plein écran",
+    "welcome": "Bienvenue dans NotaBene",
     "documentation": "Aide NotaBene",
     "githubRepository": "NotaBene sur GitHub",
     "readAloud": "Lire la note à voix haute",
@@ -1507,6 +1508,89 @@
     "mapWrite": "Écrire",
     "mapOrganize": "Relier",
     "mapReview": "Réviser"
+  },
+  "welcome": {
+    "label": "Bienvenue dans NotaBene",
+    "eyebrow": "Bienvenue dans NotaBene",
+    "headline": "Des notes de cours qui restent sur votre Mac.",
+    "lead": "Écrivez, rangez et révisez. Tout reste sur ce Mac, sans compte.",
+    "tourLabel": "Ce que fait NotaBene",
+    "pause": "Mettre la présentation en pause",
+    "play": "Reprendre la présentation",
+    "features": {
+      "write": {
+        "title": "Écrire",
+        "description": "Encadrés, dessins et cartes mentales."
+      },
+      "organize": {
+        "title": "Ranger",
+        "description": "Cours, sections et étiquettes."
+      },
+      "find": {
+        "title": "Trouver",
+        "description": "Cherchez partout, ou appuyez sur ⌘K."
+      },
+      "study": {
+        "title": "Réviser",
+        "description": "Fiches, synthèses et podcasts."
+      },
+      "plan": {
+        "title": "Planifier",
+        "description": "Tâches, rappels et calendrier."
+      },
+      "ask": {
+        "title": "Demander",
+        "description": "Interrogez vos notes avec votre IA."
+      }
+    },
+    "scene": {
+      "course": "Physique",
+      "week": "Semaine 4",
+      "noteTitle": "Oscillations amorties",
+      "noteText": "Le frottement retire de l’énergie au ressort à chaque cycle. À comparer avec",
+      "callout": "À l’examen : les trois régimes d’amortissement.",
+      "mapRoot": "Amortissement",
+      "mapA": "Faible",
+      "mapB": "Critique",
+      "mapC": "Fort",
+      "courseB": "Chimie",
+      "courseC": "Histoire",
+      "inbox": "Boîte de réception",
+      "query": "amorti",
+      "resultA": "Oscillations amorties",
+      "resultB": "Résonance et amortissement",
+      "resultC": "TP 3 : un pendule amorti",
+      "cardFront": "Qu’est-ce qui retire de l’énergie à un oscillateur ?",
+      "cardBack": "L’amortissement : frottement ou résistance.",
+      "studyMap": "Carte mentale",
+      "studyPodcast": "Podcast",
+      "taskA": "Série d’exercices 4",
+      "taskB": "Lire le chapitre 6",
+      "taskC": "Compte rendu de TP",
+      "dueA": "Aujourd’hui",
+      "dueB": "Hier",
+      "dueC": "Lun.",
+      "calendarMonth": "Oct.",
+      "question": "Quel régime revient au repos le plus vite ?",
+      "answer": "L’amortissement critique : il s’arrête sans dépasser.",
+      "provider": "Votre propre clé, ou un modèle sur ce Mac",
+      "link": "Résonance",
+      "courses": "Cours",
+      "tagExam": "Partiel",
+      "tagTopic": "Oscillations",
+      "deckTitle": "Fiches : amortissement",
+      "cardFront2": "Qu’évite l’amortissement critique ?",
+      "answerLabel": "Réponse",
+      "studyAnki": "Export Anki"
+    },
+    "import": {
+      "title": "Apporter mes notes",
+      "description": "Déjà des notes ? Importez-les depuis Obsidian, Markdown ou Notion."
+    },
+    "sample": "Découvrir un cours d’exemple",
+    "empty": "Partir de zéro",
+    "close": "Fermer",
+    "failed": "NotaBene n’a pas pu enregistrer votre choix. Réessayez ou redémarrez l’application."
   },
   "find": {
     "placeholder": "Rechercher dans ce document",

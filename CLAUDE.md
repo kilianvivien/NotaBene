@@ -266,6 +266,11 @@ Phase L notes worth knowing before touching it:
   all-day. Import is strict and bounded, maps only rules that fit the three
   presets (the rest import as one date, flagged), and keys tasks by
   `ics:{UID}`. Neither is reachable over MCP.
+- A first run on an empty library shows `WelcomeScreen`: a feature tour
+  plus import, the sample course (`runOnboardingCommand`), or empty. Help
+  reopens it (`help.welcome`) with only the import.
+  `firstRunPendingCommand` closes the first run quietly over a library that
+  already holds anything. The e2e specs answer it through `e2e/app.ts`.
 - `Recurrence.monthDay` is the anchor day of a monthly rule. The command
   layer sets it (`anchorRecurrence`) when a rule or due date is written and
   never on a rollover — that is what keeps the 31st from drifting to the 28th.

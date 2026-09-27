@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openApp } from './app';
 
 /**
  * The Ask panel's scope control, in a real browser.
@@ -14,8 +15,7 @@ import { expect, test, type Page } from '@playwright/test';
  * two gestures a reader makes: open the menu, pick the row.
  */
 async function openAskPanel(page: Page, title: string) {
-  await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-ready', 'true');
+  await openApp(page);
 
   await page.getByRole('button', { name: 'New note' }).click();
   await page.getByRole('textbox', { name: 'Note title' }).fill(title);
@@ -49,7 +49,7 @@ test('offers the three scopes, defaulting to the open note', async ({ page }) =>
   await page.keyboard.press('Escape');
 
   // The grounding control is a separate axis and must still be there.
-  await expect(page.getByRole('button', { name: 'Answer sources' })).toBeVisible();
+  await expect(page.getByRole('switch', { name: /^Answer sources/ })).toBeVisible();
 });
 
 test('refuses course scope for a note that is in no course', async ({ page }) => {

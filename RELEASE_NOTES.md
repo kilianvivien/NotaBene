@@ -7,6 +7,11 @@
   export (.zip, “Markdown & CSV”). Everything is read on your Mac, and
   nothing is written until you have seen a preview: how many notes, where
   they will go, which tags come along, and every file left out and why.
+- **A new welcome.** A first launch now opens a short tour of what
+  NotaBene does, and asks how to begin: bring your notes from Obsidian, a
+  Markdown folder or Notion, explore the sample course, or start with an
+  empty library. Importing no longer leaves a sample course to clear away.
+  Help → Welcome to NotaBene shows the tour again.
 - **Folders become courses.** Top-level folders can become courses and
   their subfolders sections — or everything can go into one course, or the
   inbox. Existing courses of the same name are reused rather than doubled.

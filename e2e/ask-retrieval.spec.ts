@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openApp } from './app';
 
 /**
  * The whole wide-scope Ask path, in a browser, against a stubbed provider.
@@ -45,7 +46,10 @@ async function stubProvider(page: Page): Promise<{ prompts: string[] }> {
 async function enableStubbedProvider(page: Page) {
   await page.getByRole('button', { name: 'Settings', exact: true }).first().click();
   await page.getByRole('button', { name: 'AI providers' }).click();
-  await page.getByRole('button', { name: /Ollama/ }).first().click();
+  await page
+    .getByRole('button', { name: /Ollama/ })
+    .first()
+    .click();
   await page.getByRole('checkbox', { name: 'Use this local runtime' }).check();
   await page.getByRole('button', { name: 'Close' }).click();
 }
@@ -75,8 +79,7 @@ async function ask(page: Page, question: string) {
 test('answers from a note the question never names, and cites it', async ({ page }) => {
   const stub = await stubProvider(page);
 
-  await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-ready', 'true');
+  await openApp(page);
   await enableStubbedProvider(page);
 
   // The note that holds the answer, in the lecturer's words.
@@ -110,15 +113,16 @@ test('answers from a note the question never names, and cites it', async ({ page
   // The wide-scope hedge travels with it, or a miss reads as an absence.
   expect(stub.prompts[0]).toContain('the ones a keyword search found');
 
-  const sources = page.getByRole('button', { name: /Lecture 4/ });
-  await expect(sources.last()).toBeVisible();
+  // Citations are folded under a count; the retrieved note is among them.
+  const inspector = page.locator('aside');
+  await inspector.getByRole('button', { name: /^\d+ sources?$/ }).click();
+  await expect(inspector.getByRole('button', { name: /Lecture 4/ })).toBeVisible();
 });
 
 test('a citation opens the note it names', async ({ page }) => {
   await stubProvider(page);
 
-  await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-ready', 'true');
+  await openApp(page);
   await enableStubbedProvider(page);
 
   await createNote(
@@ -156,8 +160,7 @@ test('a citation opens the note it names', async ({ page }) => {
 test('sends only the open note, and no hedge, at note scope', async ({ page }) => {
   const stub = await stubProvider(page);
 
-  await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-ready', 'true');
+  await openApp(page);
   await enableStubbedProvider(page);
 
   await createNote(

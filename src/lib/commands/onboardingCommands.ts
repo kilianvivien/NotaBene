@@ -1,10 +1,17 @@
 /**
- * First-run content.
+ * First run.
+ *
+ * A first run asks how to begin rather than assuming: someone arriving with
+ * an Obsidian vault should spend their first minute importing it, not deleting
+ * a sample course (plan §20 item 2). The choice is asked only of an empty
+ * library — a library that already holds something, because it was moved here
+ * or restored, has nothing to be welcomed into.
  *
  * The starter material is ordinary library data written through the same
  * commands as user-created courses and notes. It can therefore be edited,
  * exported, or deleted without any special-case cleanup.
  */
+import { library } from '@/lib/adapters';
 import i18n from '@/lib/i18n';
 import { mindMapToSvg } from '@/lib/mindmap/layout';
 import type { MindMap, NoteDoc } from '@/lib/schema';
@@ -54,7 +61,11 @@ function welcomeDoc(): NoteDoc {
           { type: 'paragraph', content: [text(i18n.t('onboarding.localCallout'))] },
         ],
       },
-      { type: 'heading', attrs: { level: 2 }, content: [text(i18n.t('onboarding.tryTitle'))] },
+      {
+        type: 'heading',
+        attrs: { level: 2 },
+        content: [text(i18n.t('onboarding.tryTitle'))],
+      },
       {
         type: 'taskList',
         content: [
@@ -103,12 +114,41 @@ function studyDoc(): NoteDoc {
       {
         type: 'callout',
         attrs: { kind: 'important' },
-        content: [
-          { type: 'paragraph', content: [text(i18n.t('onboarding.aiCallout'))] },
-        ],
+        content: [{ type: 'paragraph', content: [text(i18n.t('onboarding.aiCallout'))] }],
       },
     ],
   };
+}
+
+/**
+ * Whether to ask how to begin. An empty library whose first run is still open
+ * says yes; a library with anything in it closes the first run quietly, so
+ * the question never comes back once there is something to lose.
+ */
+export async function firstRunPendingCommand(): Promise<CommandResult<boolean>> {
+  if (useSettingsStore.getState().settings.onboardingCompleted) return ok(false);
+  try {
+    const [notes, courses] = await Promise.all([
+      library.countNotes({ scope: 'all' }),
+      library.listCourses(),
+    ]);
+    if (notes === 0 && courses.length === 0) return ok(true);
+    await useSettingsStore.getState().update({ onboardingCompleted: true });
+    return ok(false);
+  } catch (error) {
+    return fail('storage_failed', error instanceof Error ? error.message : String(error));
+  }
+}
+
+/** Close the first run without starter material — the student is importing
+ * a library, or asked to start empty. */
+export async function skipOnboardingCommand(): Promise<CommandResult<void>> {
+  try {
+    await useSettingsStore.getState().update({ onboardingCompleted: true });
+    return ok(undefined);
+  } catch (error) {
+    return fail('storage_failed', error instanceof Error ? error.message : String(error));
+  }
 }
 
 let onboardingRun: Promise<CommandResult<string | null>> | null = null;

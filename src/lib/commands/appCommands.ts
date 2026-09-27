@@ -81,6 +81,7 @@ export const APP_COMMAND_IDS = [
   'tasks.importCalendar',
   'view.tasks',
   'view.taskCalendar',
+  'help.welcome',
   'help.documentation',
   'help.github',
 ] as const;
@@ -778,6 +779,16 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     },
   },
 
+  'help.welcome': {
+    id: 'help.welcome',
+    labelKey: 'menu.welcome',
+    accelerator: 'CmdOrCtrl+Alt+Shift+W',
+    landsIn: 'L',
+    run: () => {
+      useUiStore.getState().setWelcome('revisit');
+      return ok(undefined);
+    },
+  },
   'help.documentation': {
     id: 'help.documentation',
     labelKey: 'menu.documentation',

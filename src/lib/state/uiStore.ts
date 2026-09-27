@@ -112,6 +112,9 @@ interface UiState {
   documentImportSource: DocumentImportSource | null;
   /** The import-from-another-app dialog (Markdown folder, Obsidian, Notion). */
   sourceImportOpen: boolean;
+  /** The welcome screen: asked how to begin on a first launch over an empty
+   * library (plan §20 item 2), or reopened from Help as a tour. */
+  welcome: 'firstRun' | 'revisit' | null;
   /** Tasks to an `.ics` file, and an `.ics` file to tasks (plan §19). */
   calendarExportOpen: boolean;
   calendarImportOpen: boolean;
@@ -210,6 +213,7 @@ interface UiState {
   setExportOpen(open: boolean): void;
   setMergeOpen(open: boolean): void;
   setSourceImportOpen(open: boolean): void;
+  setWelcome(welcome: 'firstRun' | 'revisit' | null): void;
   setCalendarExportOpen(open: boolean): void;
   setCalendarImportOpen(open: boolean): void;
   setDocumentImportSource(source: DocumentImportSource | null): void;
@@ -264,6 +268,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.mergeOpen ||
     state.documentImportSource !== null ||
     state.sourceImportOpen ||
+    state.welcome !== null ||
     state.calendarExportOpen ||
     state.calendarImportOpen ||
     state.settingsOpen ||
@@ -330,6 +335,7 @@ export const useUiStore = create<UiState>()(
     mergeOpen: false,
     documentImportSource: null,
     sourceImportOpen: false,
+    welcome: null,
     calendarExportOpen: false,
     calendarImportOpen: false,
     aiRewriteOpen: false,
@@ -645,6 +651,12 @@ export const useUiStore = create<UiState>()(
     setSourceImportOpen(open) {
       set((state) => {
         state.sourceImportOpen = open;
+      });
+    },
+
+    setWelcome(welcome) {
+      set((state) => {
+        state.welcome = welcome;
       });
     },
 

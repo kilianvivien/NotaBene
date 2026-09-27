@@ -15,6 +15,9 @@ interface ModalOverlayProps {
   label: string;
   children: ReactNode;
   className?: string;
+  /** `top` sits a form where the eye expects it, a little below the title
+   * bar; `center` is for a screen that is the only thing to look at. */
+  placement?: 'top' | 'center';
 }
 
 function prefersReducedMotion(): boolean {
@@ -27,6 +30,7 @@ export function ModalOverlay({
   label,
   children,
   className,
+  placement = 'top',
 }: ModalOverlayProps) {
   // Closing is a state, not an event: the panel outlives `open` by one
   // animation, so it can be seen leaving rather than simply ceasing to exist.
@@ -135,7 +139,8 @@ export function ModalOverlay({
     <div
       ref={overlay}
       className={cn(
-        'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-5 pb-5 pt-[12vh]',
+        'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-5 pb-5',
+        placement === 'top' ? 'pt-[12vh]' : 'pt-5',
         closing ? 'scrim-anim-out' : 'scrim-anim',
       )}
       style={{ background: 'var(--nb-scrim)' }}
@@ -157,6 +162,10 @@ export function ModalOverlay({
         tabIndex={-1}
         className={cn(
           'w-full max-w-[680px] shrink-0 overflow-hidden',
+          // Auto margins rather than `items-center`: they centre while there
+          // is room and fall back to top-aligned scrolling when there is not,
+          // where `items-center` would push the top out of reach.
+          placement === 'center' && 'my-auto',
           closing && 'panel-anim-out',
           className,
         )}

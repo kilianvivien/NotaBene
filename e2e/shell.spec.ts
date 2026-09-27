@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openApp } from './app';
 
 /**
  * Smoke test for the shell. Runs against `pnpm dev`, which uses the in-memory
@@ -6,8 +7,7 @@ import { expect, test } from '@playwright/test';
  * without needing a Tauri build.
  */
 test('creates a note and reflects its title in the list', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-ready', 'true');
+  await openApp(page);
 
   await expect(page.getByRole('button', { name: 'All notes' }).first()).toBeVisible();
 
@@ -27,12 +27,12 @@ test('creates a note and reflects its title in the list', async ({ page }) => {
   });
 
   // The list reads from summaries, so this also proves it re-queried.
-  await expect(page.getByRole('button', { name: /Lecture 3/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /Lecture 3/ })).toBeVisible();
 });
 
 test('creates localized starter material on first run', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByRole('button', { name: /Start here/ })).toBeVisible();
+  await openApp(page, 'sample');
+  await expect(page.getByRole('option', { name: /Start here/ })).toBeVisible();
   await expect(
     page.getByText(
       'Your library stays on this Mac. NotaBene has no account, cloud sync, or telemetry.',
@@ -41,9 +41,17 @@ test('creates localized starter material on first run', async ({ page }) => {
   ).toBeVisible();
 });
 
+test('offers to bring a library on first run', async ({ page }) => {
+  await openApp(page, 'import');
+  await expect(
+    page.getByRole('dialog', { name: 'Import from another app' }),
+  ).toBeVisible();
+  // Importing replaces the starter material rather than arriving beside it.
+  await expect(page.getByRole('option', { name: /Start here/ })).toHaveCount(0);
+});
+
 test('builds a real PDF in the browser export path', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-ready', 'true');
+  await openApp(page);
   await page.keyboard.press('Meta+Shift+E');
   await expect(page.getByRole('dialog', { name: 'Export notes' })).toBeVisible();
 

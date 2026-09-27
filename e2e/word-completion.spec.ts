@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openApp } from './app';
 
 /**
  * Word completion with a real keyboard, in a real browser.
@@ -10,11 +11,13 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 async function openCourseNote(page: Page): Promise<void> {
-  await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-ready', 'true');
+  await openApp(page);
   // The starter course, so the new note belongs to a course and has a
   // vocabulary to complete from.
-  await page.getByRole('button', { name: /Welcome to NotaBene/ }).first().click();
+  await page
+    .getByRole('button', { name: /Welcome to NotaBene/ })
+    .first()
+    .click();
   await page.getByRole('button', { name: 'New note' }).click();
   await expect(page.getByRole('textbox', { name: 'Note title' })).toBeVisible();
 }
@@ -30,18 +33,35 @@ async function addToVocabulary(page: Page, word: string): Promise<void> {
   await expect(dialog).toBeHidden();
 }
 
+/**
+ * Type into an empty body until a suggestion shows. The course index is
+ * harvested in slices after a term is added, never on a keystroke, so under a
+ * loaded parallel run the first attempt can beat it; retyping is what a
+ * student would do too.
+ */
+async function typeUntilSuggested(page: Page, text: string): Promise<void> {
+  const body = page.getByLabel('Start typing, or press / for blocks');
+  await expect(async () => {
+    await body.click();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type(text, { delay: 40 });
+    await expect(page.locator('.nb-completion-ghost')).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+}
+
 test('suggests a course term as ghost text and accepts it with Tab', async ({ page }) => {
   await openCourseNote(page);
   await addToVocabulary(page, 'mitochondrie');
 
   const body = page.getByLabel('Start typing, or press / for blocks');
-  await body.click();
-  await page.keyboard.type('La mito', { delay: 40 });
+  await typeUntilSuggested(page, 'La mito');
 
   const ghost = page.locator('.nb-completion-ghost');
-  await expect(ghost).toHaveText('chondrie');
+  // The first suggestions carry a `tab` key hint after the rest of the word.
+  await expect(ghost).toHaveText(/^chondrie(tab)?$/);
   // Drawn inline, straight after the caret, inside the same paragraph.
-  await expect(body).toHaveText('La mito' + 'chondrie');
+  await expect(body).toHaveText(/^La mitochondrie(tab)?$/);
   await expect(body.locator('p')).toHaveCount(1);
 
   await page.keyboard.press('Tab');
@@ -57,9 +77,8 @@ test('Escape dismisses the suggestion and nothing is written', async ({ page }) 
   await addToVocabulary(page, 'photosynthèse');
 
   const body = page.getByLabel('Start typing, or press / for blocks');
-  await body.click();
-  await page.keyboard.type('La photo', { delay: 40 });
-  await expect(page.locator('.nb-completion-ghost')).toHaveText('synthèse');
+  await typeUntilSuggested(page, 'La photo');
+  await expect(page.locator('.nb-completion-ghost')).toHaveText(/^synthèse(tab)?$/);
 
   await page.keyboard.press('Escape');
   await expect(page.locator('.nb-completion-ghost')).toHaveCount(0);

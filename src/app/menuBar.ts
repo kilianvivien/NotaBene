@@ -177,7 +177,12 @@ export function buildMenuBar(t: Translate): MenuNode[] {
     {
       kind: 'submenu',
       label: t('menu.help'),
-      items: [command('help.documentation', t), separator, command('help.github', t)],
+      items: [
+        command('help.welcome', t),
+        command('help.documentation', t),
+        separator,
+        command('help.github', t),
+      ],
     },
   ];
 }

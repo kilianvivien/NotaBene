@@ -1214,6 +1214,7 @@
     "documentMap": "Show document map",
     "focusMode": "Concentration mode",
     "fullscreen": "Toggle Full Screen",
+    "welcome": "Welcome to NotaBene",
     "documentation": "NotaBene help",
     "githubRepository": "NotaBene on GitHub",
     "readAloud": "Read note aloud",
@@ -1507,6 +1508,89 @@
     "mapWrite": "Write",
     "mapOrganize": "Connect",
     "mapReview": "Review"
+  },
+  "welcome": {
+    "label": "Welcome to NotaBene",
+    "eyebrow": "Welcome to NotaBene",
+    "headline": "Class notes that stay on your Mac.",
+    "lead": "Write, organise and revise. Everything stays on this Mac, with no account.",
+    "tourLabel": "What NotaBene does",
+    "pause": "Pause the tour",
+    "play": "Play the tour",
+    "features": {
+      "write": {
+        "title": "Write",
+        "description": "Callouts, drawings and mind maps."
+      },
+      "organize": {
+        "title": "Organise",
+        "description": "Courses, sections and tags."
+      },
+      "find": {
+        "title": "Find",
+        "description": "Search everything, or press ⌘K."
+      },
+      "study": {
+        "title": "Revise",
+        "description": "Flashcards, syntheses and podcasts."
+      },
+      "plan": {
+        "title": "Plan",
+        "description": "Tasks, reminders and your calendar."
+      },
+      "ask": {
+        "title": "Ask",
+        "description": "Question your notes with your own AI."
+      }
+    },
+    "scene": {
+      "course": "Physics",
+      "week": "Week 4",
+      "noteTitle": "Damped oscillations",
+      "noteText": "Friction takes energy out of the spring on every cycle. Compare with",
+      "callout": "On the exam: the three damping regimes.",
+      "mapRoot": "Damping",
+      "mapA": "Under",
+      "mapB": "Critical",
+      "mapC": "Over",
+      "courseB": "Chemistry",
+      "courseC": "History",
+      "inbox": "Inbox",
+      "query": "damp",
+      "resultA": "Damped oscillations",
+      "resultB": "Resonance and damping",
+      "resultC": "Lab 3: a damped pendulum",
+      "cardFront": "What takes energy out of an oscillator?",
+      "cardBack": "Damping: friction or resistance.",
+      "studyMap": "Mind map",
+      "studyPodcast": "Podcast",
+      "taskA": "Problem set 4",
+      "taskB": "Read chapter 6",
+      "taskC": "Lab report",
+      "dueA": "Today",
+      "dueB": "Yesterday",
+      "dueC": "Mon",
+      "calendarMonth": "Oct",
+      "question": "Which regime returns to rest fastest?",
+      "answer": "Critical damping: it settles without overshooting.",
+      "provider": "Your own key, or a model on this Mac",
+      "link": "Resonance",
+      "courses": "Courses",
+      "tagExam": "Midterm",
+      "tagTopic": "Oscillations",
+      "deckTitle": "Flashcards: damping",
+      "cardFront2": "What does critical damping avoid?",
+      "answerLabel": "Answer",
+      "studyAnki": "Anki export"
+    },
+    "import": {
+      "title": "Bring my notes",
+      "description": "Already have notes? Import them from Obsidian, Markdown or Notion."
+    },
+    "sample": "Explore a sample course",
+    "empty": "Start with an empty library",
+    "close": "Close",
+    "failed": "NotaBene could not save your choice. Try again, or restart the app."
   },
   "find": {
     "placeholder": "Search this document",

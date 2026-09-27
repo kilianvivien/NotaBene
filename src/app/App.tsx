@@ -28,8 +28,8 @@ import { FlashcardsDialog } from './ai/FlashcardsDialog';
 import { PodcastDialog } from './ai/PodcastDialog';
 import {
   collectAssetGarbageCommand,
+  firstRunPendingCommand,
   purgeExpiredTrashCommand,
-  runOnboardingCommand,
   runScheduledBackupCommand,
 } from '@/lib/commands';
 import { startAgentBridge } from '@/lib/mcp/agentBridge';
@@ -38,6 +38,7 @@ import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 import { EditorConflictDialog } from './editor/EditorConflictDialog';
 import { ImportDocumentDialog } from './import/ImportDocumentDialog';
 import { ImportSourceDialog } from './import/ImportSourceDialog';
+import { WelcomeScreen } from './onboarding/WelcomeScreen';
 import { CalendarExportDialog, CalendarImportDialog } from './tasks/CalendarDialogs';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { PdfReader } from '@/editor/attachments/PdfReader';
@@ -115,7 +116,10 @@ export function App() {
       await useAppleFmStore.getState().initialize();
       await bootstrap();
       const readOnly = useLibraryAccessStore.getState().status?.readOnly === true;
-      if (!readOnly) await runOnboardingCommand();
+      if (!readOnly) {
+        const firstRun = await firstRunPendingCommand();
+        if (firstRun.ok && firstRun.value) useUiStore.getState().setWelcome('firstRun');
+      }
       if (!active) return;
       performance.mark('notabene-ready');
       performance.measure('notabene-startup', 'notabene-start', 'notabene-ready');
@@ -224,6 +228,7 @@ export function App() {
       <MergeNotesDialog />
       <ImportDocumentDialog />
       <ImportSourceDialog />
+      <WelcomeScreen />
       <CalendarExportDialog />
       <CalendarImportDialog />
       <CheckDialog />
