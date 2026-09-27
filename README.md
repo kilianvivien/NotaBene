@@ -9,8 +9,9 @@
 </p>
 
 <p align="center">
-  A local-first class-notes app for writing, organizing, understanding, and
-  revising—without giving up ownership of your work.
+  A note-taking app for the Mac, made for students. Take notes in class, keep
+  them organized by course, and turn them into revision material, with
+  everything stored on your own Mac.
 </p>
 
 <p align="center">
@@ -22,6 +23,37 @@
 
 ![NotaBene 0.7.0 in French, showing the note library, a structured note open in the editor, and the Agent panel ready to work on the current note](./assets/screenshots/notabene-0.7.0.png)
 
+## What NotaBene is for
+
+NotaBene follows a class from the lecture to the exam. A typical week:
+
+1. **In the lecture, write fast.** Headings, lists, LaTeX maths, tables,
+   drawings and callouts from a slash menu; abbreviations that expand as you
+   type; and word completion that learns each course's vocabulary.
+2. **After class, put it away properly.** File the note under its course and
+   section, tag it, link it to last week's with `[[wiki links]]`, and attach
+   the slides. A PDF or Word handout can become an editable note.
+3. **Before the deadline, see what is due.** Tasks with due dates, reminders
+   and repeats sit beside your notes and can go into Apple Calendar. Your
+   Moodle or Canvas calendar can come in as tasks.
+4. **Before the exam, revise from what you wrote.** Search everything
+   instantly, then turn a week of notes into flashcards (reviewable in the app
+   or exported to Anki), a revision sheet, a mind map, or a podcast, or ask
+   questions of your notes and get answers with sources.
+
+The AI tools are optional. Everything else works without an account, a
+subscription or a connection.
+
+**Who it is for.** Students first: anyone taking notes in lectures and
+revising from them. It also suits graduate students and researchers. Bring an
+existing library from Obsidian, a Markdown folder or Notion, write long
+documents with footnotes and a table of contents, and annotate PDFs.
+
+**What it is not.** NotaBene is a Mac app, with no iPhone, iPad or web
+version. It has no cloud sync, no shared notebooks and no collaboration: your
+library is a folder on your Mac. If you need notes on every device or shared
+with a team, another app will serve you better.
+
 ## Download
 
 Download **[NotaBene 1.2.0 for Apple silicon
@@ -30,27 +62,30 @@ Requires macOS 13 Ventura or newer. Apple Intelligence as an AI provider needs
 macOS 27 on a Mac eligible for it; every other feature does not.
 
 > [!IMPORTANT]
-> The DMG is ad-hoc signed only, so macOS Gatekeeper may warn or block it.
-> Signed builds and automatic updates are deferred for now.
+> The DMG is ad-hoc signed only, so macOS Gatekeeper may warn or block it. If
+> macOS refuses to open NotaBene, go to System Settings → Privacy & Security
+> and choose **Open Anyway**. Signed builds and automatic updates are deferred
+> for now.
+
+On first launch NotaBene shows a short tour and asks how to begin: import your
+notes, explore a sample course, or start empty. Help → NotaBene help (⇧⌘/)
+explains each part of the app and lists every shortcut.
 
 ## Why NotaBene?
 
-Most note apps make you choose between a capable editor, useful study tools,
-and control over your own data. NotaBene is being built so you do not have to.
+- **Your notes stay yours.** Notes, attachments and version history live on
+  your Mac. No account, no NotaBene cloud, no telemetry.
+- **Built around courses.** Courses, sections, tags, backlinks, maths,
+  drawings and fast search are the core of the app, not add-ons.
+- **AI on your terms.** Use Apple Intelligence on-device, a local model, your
+  own API key, or no AI at all. Nothing a model suggests reaches a note before
+  you have seen it.
+- **Open formats in and out.** Import from Obsidian, Markdown and Notion;
+  export to Markdown, HTML, PDF, Word and Anki.
 
-- **Local by default.** Your notes, attachments, and version history stay on
-  your Mac.
-- **Made for classes.** Courses, sections, tags, backlinks, maths, drawings,
-  and fast search are the point, not add-ons.
-- **AI on your terms.** Use Apple Intelligence on-device, bring your own key,
-  run a local model, or use no AI at all. Nothing a model suggests reaches a
-  note before you have seen it.
-- **No account.** There is no NotaBene cloud, no sign-up, and no subscription
-  between you and your notes.
-- **Bring what you have.** An Obsidian vault, a folder of Markdown or a Notion
-  export comes across with its links, tags and images intact.
+## Features in detail
 
-## Highlights
+### At a glance
 
 | Write                                 | Organize                             | Study                             | Own                              |
 | ------------------------------------- | ------------------------------------ | --------------------------------- | -------------------------------- |
@@ -331,7 +366,7 @@ and [earlier release notes](./RELEASE_NOTES.md), plus the
 [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
 
-## Getting started
+## Build from source
 
 NotaBene currently targets **macOS 13 Ventura or newer**.
 
