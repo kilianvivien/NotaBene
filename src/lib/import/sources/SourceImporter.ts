@@ -16,7 +16,7 @@ import type { ImportWarning, TagNamespace } from '@/lib/schema';
 
 /** In the order the dialog offers them: Obsidian first, because it is the
  * closest fit and the most common library a researcher arrives with. */
-export const SOURCE_IDS = ['obsidian', 'markdownFolder', 'notion', 'appleNotes'] as const;
+export const SOURCE_IDS = ['obsidian', 'markdownFolder', 'notion'] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 /** A picture a note refers to, read only when the import is applied — a vault

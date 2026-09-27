@@ -7,6 +7,7 @@ import { useUiStore } from '@/lib/state/uiStore';
 import {
   APP_COMMANDS,
   APP_COMMAND_IDS,
+  bindCommandKeys,
   isCommandAvailable,
   runAppCommand,
 } from './appCommands';
@@ -181,13 +182,26 @@ describe('runAppCommand', () => {
     expect(open).toHaveBeenCalledWith('https://github.com/kilianvivien/NotaBene');
   });
 
-  it('refuses a command whose feature has not shipped, naming the phase', async () => {
+  it('recognises ⇧⌘/ although Shift turns the slash into a question mark', async () => {
+    useUiStore.getState().setHelpOpen(false);
+    const unbind = bindCommandKeys();
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: '?',
+        code: 'Slash',
+        metaKey: true,
+        shiftKey: true,
+      }),
+    );
+    unbind();
+    await vi.waitFor(() => expect(useUiStore.getState().helpOpen).toBe(true));
+  });
+
+  it('opens the help from the Help menu', async () => {
+    useUiStore.getState().setHelpOpen(false);
     const result = await runAppCommand('help.documentation');
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.code).toBe('not_supported');
-      expect(result.message).toContain('phase H');
-    }
+    expect(result.ok).toBe(true);
+    expect(useUiStore.getState().helpOpen).toBe(true);
   });
 
   // The study features act on the open note, so refusing early is the honest

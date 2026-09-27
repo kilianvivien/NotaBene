@@ -1,0 +1,349 @@
+/*
+ * The help dialog (`HelpDialog.tsx`). Tokens only; one fixed height, so
+ * moving between topics never resizes the panel under the pointer.
+ */
+
+.nb-help {
+  background: var(--nb-surface-modal);
+}
+
+.hl-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  height: min(540px, calc(100vh - 140px));
+}
+
+/* ---------- Topics ---------- */
+
+.hl-side {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px 12px 16px;
+  border-right: 1px solid var(--nb-divider);
+  background: var(--nb-sidebar-surface);
+}
+
+.hl-title {
+  padding: 0 8px;
+  font-family: var(--nb-font-claude);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--nb-text);
+}
+
+.hl-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: var(--nb-radius-sm);
+  background: var(--nb-control-surface);
+  color: var(--nb-text-3);
+  transition:
+    border-color var(--nb-t-fast) var(--nb-ease-out),
+    box-shadow var(--nb-t-fast) var(--nb-ease-out);
+}
+
+.hl-search:focus-within {
+  border-color: var(--nb-accent);
+  box-shadow: 0 0 0 3px var(--nb-accent-ring);
+}
+
+.hl-search input {
+  min-width: 0;
+  flex: 1;
+  padding: 6px 0;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  color: var(--nb-text);
+  outline: none;
+}
+
+.hl-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.hl-tab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: var(--nb-radius-sm);
+  font-size: 13px;
+  text-align: left;
+  color: var(--nb-text-2);
+  transition:
+    background-color var(--nb-t-fast) var(--nb-ease-out),
+    color var(--nb-t-fast) var(--nb-ease-out);
+}
+
+.hl-tab svg {
+  flex-shrink: 0;
+  color: var(--nb-text-3);
+  transition: color var(--nb-t-fast) var(--nb-ease-out);
+}
+
+.hl-tab:hover {
+  background: var(--nb-hover);
+  color: var(--nb-text);
+}
+
+.hl-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--nb-accent-ring);
+}
+
+.hl-tab.is-selected {
+  background: var(--nb-accent-soft);
+  color: var(--nb-text);
+  font-weight: 600;
+}
+
+.hl-tab.is-selected svg {
+  color: var(--nb-accent);
+}
+
+/* ---------- Article ---------- */
+
+.hl-panel {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 28px 22px;
+}
+
+.hl-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--nb-divider);
+}
+
+.hl-header-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--nb-accent-soft);
+  color: var(--nb-accent);
+}
+
+.hl-heading {
+  font-family: var(--nb-font-claude);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--nb-text);
+}
+
+.hl-lead {
+  margin-top: 3px;
+  max-width: 60ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--nb-text-2);
+  text-wrap: pretty;
+}
+
+.hl-entries {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+}
+
+.hl-entry {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--nb-divider);
+}
+
+.hl-entry:last-child {
+  border-bottom: none;
+}
+
+.hl-entry-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -10px;
+  padding: 10px;
+  border-radius: var(--nb-radius-sm);
+  text-align: left;
+}
+
+.hl-entry-main.is-action {
+  cursor: pointer;
+  transition: background-color var(--nb-t-fast) var(--nb-ease-out);
+}
+
+.hl-entry-main.is-action:hover {
+  background: var(--nb-hover);
+}
+
+.hl-entry-main.is-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--nb-accent-ring);
+}
+
+.hl-entry-context {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--nb-text-3);
+}
+
+.hl-entry-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--nb-text);
+  transition: color var(--nb-t-fast) var(--nb-ease-out);
+}
+
+.hl-entry-main.is-action:hover .hl-entry-title {
+  color: var(--nb-accent);
+}
+
+.hl-entry-text {
+  max-width: 62ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--nb-text-2);
+  text-wrap: pretty;
+}
+
+.hl-keys {
+  flex-shrink: 0;
+  min-width: 26px;
+  padding: 2px 7px;
+  border: 1px solid var(--nb-divider-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--nb-glass-strong);
+  font-family: var(--nb-font-sans);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--nb-text-2);
+  white-space: nowrap;
+}
+
+.hl-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border-left: 3px solid var(--nb-accent);
+  border-radius: var(--nb-radius-xs);
+  background: var(--nb-inset-surface);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--nb-text-2);
+}
+
+.hl-tip svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--nb-accent);
+}
+
+.hl-tip strong {
+  margin-right: 6px;
+  font-weight: 600;
+  color: var(--nb-text);
+}
+
+.hl-empty {
+  margin-top: 16px;
+  font-size: 12.5px;
+  color: var(--nb-text-3);
+}
+
+.hl-link {
+  color: var(--nb-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- Keyboard shortcuts ---------- */
+
+.hl-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.hl-groups {
+  columns: 2 250px;
+  column-gap: 32px;
+}
+
+.hl-group {
+  break-inside: avoid;
+  margin-bottom: 18px;
+}
+
+.hl-group-label {
+  margin-bottom: 4px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--nb-divider);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nb-text-3);
+}
+
+.hl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  color: var(--nb-text);
+}
+
+/* ---------- Footer ---------- */
+
+.hl-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--nb-divider);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hl-header,
+  .hl-entry,
+  .hl-tip,
+  .hl-shortcuts {
+    animation: hl-in 340ms var(--nb-ease-out) both;
+  }
+
+  .hl-tip,
+  .hl-shortcuts {
+    animation-delay: 220ms;
+  }
+
+  @keyframes hl-in {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+  }
+}

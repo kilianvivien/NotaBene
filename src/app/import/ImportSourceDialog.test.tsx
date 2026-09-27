@@ -17,7 +17,7 @@ vi.mock('@/lib/commands', () => ({
   scanSourceCommand: (...args: unknown[]) => scanSourceCommand(...args),
   planSourceImportCommand: (...args: unknown[]) => planSourceImportCommand(...args),
   applySourceImportCommand: (...args: unknown[]) => applySourceImportCommand(...args),
-  sourceAvailable: (id: string) => id !== 'appleNotes',
+  sourceAvailable: () => true,
 }));
 
 beforeEach(async () => {
@@ -51,13 +51,14 @@ beforeEach(async () => {
 });
 
 describe('ImportSourceDialog', () => {
-  it('offers every source, with Apple Notes visible but disabled', () => {
+  it('offers the three sources it can read, and no others', () => {
     render(<ImportSourceDialog />);
-    const disabled = (name: string | RegExp) =>
-      (screen.getByRole('radio', { name }) as HTMLButtonElement).disabled;
-    expect(disabled('Obsidian vault')).toBe(false);
-    expect(disabled('Notion export')).toBe(false);
-    expect(disabled(/Apple Notes/)).toBe(true);
+    expect(screen.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      expect.stringContaining('Obsidian vault'),
+      expect.stringContaining('Markdown folder'),
+      expect.stringContaining('Notion export'),
+    ]);
+    expect(screen.queryByRole('radio', { name: /Apple Notes/ })).toBeNull();
   });
 
   it('previews before writing, then imports with the mapping chosen', async () => {

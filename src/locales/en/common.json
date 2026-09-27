@@ -1592,6 +1592,199 @@
     "close": "Close",
     "failed": "NotaBene could not save your choice. Try again, or restart the app."
   },
+  "help": {
+    "title": "NotaBene help",
+    "topicsLabel": "Help topics",
+    "tour": "Show the welcome tour",
+    "github": "NotaBene on GitHub",
+    "close": "Close",
+    "search": "Search help",
+    "noResults": "Nothing in help matches “{{query}}”.",
+    "results": "Results for “{{query}}”",
+    "tipLabel": "Good to know",
+    "filter": "Filter shortcuts",
+    "noMatch": "No shortcut matches “{{query}}”.",
+    "topics": {
+      "start": {
+        "title": "Getting started",
+        "lead": "NotaBene keeps each class in a course and each lecture in a note. Everything saves as you type.",
+        "tip": "Your library stays on this Mac. There is no account, and nothing leaves it unless you connect an AI provider.",
+        "entries": {
+          "note": {
+            "title": "Write a note",
+            "text": "Create a note in the course you are looking at. Every save is also kept in the note's history."
+          },
+          "quick": {
+            "title": "Quick note",
+            "text": "Jot something down without choosing where it goes. It waits in the Inbox until you file it."
+          },
+          "blocks": {
+            "title": "Blocks",
+            "text": "Type / at the start of a line for headings, lists, callouts, tables, equations, drawings and mind maps."
+          },
+          "links": {
+            "title": "Link notes",
+            "text": "Type [[ and a title to link to another note. The note you link to lists it under Linked notes."
+          },
+          "palette": {
+            "title": "Find anything",
+            "text": "Search notes and tasks, or run any command by its name."
+          },
+          "focus": {
+            "title": "Concentration mode",
+            "text": "Hide everything but the page. Move the pointer to an edge of the window to bring the panes back."
+          }
+        }
+      },
+      "organize": {
+        "title": "Organising",
+        "lead": "Courses hold your notes; sections, tags and smart folders slice them the way you revise.",
+        "tip": "Deleted notes stay in the Trash for 30 days by default. Archived notes are out of the way, but never deleted.",
+        "entries": {
+          "courses": {
+            "title": "Courses and sections",
+            "text": "One course per class, with a colour and an icon. Add sections for weeks or chapters, and drag notes between them."
+          },
+          "tags": {
+            "title": "Tags",
+            "text": "Add tags in the inspector. Facets such as Exam, Topic or Lecturer keep a long list sorted."
+          },
+          "smart": {
+            "title": "Smart folders",
+            "text": "Save a search and it stays up to date in the sidebar."
+          },
+          "templates": {
+            "title": "Templates",
+            "text": "Save any note as a template, then start new notes from it."
+          },
+          "select": {
+            "title": "Several notes at once",
+            "text": "⌘-click or ⇧-click notes to move, tag, archive or merge them in one go."
+          },
+          "versions": {
+            "title": "Versions",
+            "text": "The inspector keeps earlier versions of every note, and restores any of them."
+          }
+        }
+      },
+      "study": {
+        "title": "Study tools",
+        "lead": "Turn the notes you took into material to revise from. Select one note, or several, before you start.",
+        "tip": "Read aloud needs no AI provider: it uses your Mac's own voices.",
+        "entries": {
+          "flashcards": {
+            "title": "Flashcards",
+            "text": "Generate a deck from the selected notes, edit the cards, then keep them in a note or export them to Anki."
+          },
+          "synthesis": {
+            "title": "Synthesis",
+            "text": "Combine several notes into one revision sheet that cites its sources."
+          },
+          "visualize": {
+            "title": "Mind map or diagram",
+            "text": "Turn a note into a picture you can revise from. It goes into the note and survives every export."
+          },
+          "podcast": {
+            "title": "Podcast",
+            "text": "Listen to your notes as an episode, narrated or as two speakers, read by your Mac's voices."
+          },
+          "define": {
+            "title": "Define",
+            "text": "Get a short definition of the selected term, in the context of your note."
+          },
+          "completion": {
+            "title": "Word completion",
+            "text": "Suggests the rest of a word from the course's vocabulary. Tab accepts, Option-Tab shows another."
+          }
+        }
+      },
+      "tasks": {
+        "title": "Tasks and calendar",
+        "lead": "Tasks sit beside your notes, with due dates, reminders and repeats.",
+        "tip": "Reminders appear while NotaBene is open. Any that came due while it was closed arrive together when you open it.",
+        "entries": {
+          "task": {
+            "title": "New task",
+            "text": "Add a due date, a reminder, a daily, weekly or monthly repeat, and subtasks."
+          },
+          "view": {
+            "title": "Tasks view",
+            "text": "Everything due across your courses, in one list."
+          },
+          "link": {
+            "title": "Tasks in notes",
+            "text": "Link a task to a note from the inspector, or mention it inline in the text."
+          },
+          "export": {
+            "title": "Export to Calendar",
+            "text": "Write an .ics file Apple Calendar opens. Export again after a change and the events update rather than doubling."
+          },
+          "import": {
+            "title": "Import a calendar",
+            "text": "Read the calendar your Moodle or Canvas publishes. Deadlines come in; class meetings stay out unless you ask."
+          }
+        }
+      },
+      "ai": {
+        "title": "AI and privacy",
+        "lead": "AI in NotaBene is optional and uses the provider you choose. Nothing is sent until you connect one.",
+        "tip": "Keys are kept in the macOS Keychain. Backups and exports never contain them.",
+        "entries": {
+          "provider": {
+            "title": "Connect a provider",
+            "text": "Anthropic, OpenAI, Mistral, Gemini or OpenRouter with your own key; Ollama or LM Studio on this Mac; or Apple's on-device model."
+          },
+          "ask": {
+            "title": "Ask",
+            "text": "Ask about the open note, its course or your whole library. Answers cite the notes they come from."
+          },
+          "check": {
+            "title": "Check and correct",
+            "text": "Fix spelling and grammar, or rewrite a passage. Every change is shown for review first."
+          },
+          "agent": {
+            "title": "Agent",
+            "text": "Describe a job such as “file my inbox by course”. You approve the plan first, and can undo the whole run."
+          },
+          "mcp": {
+            "title": "Claude Code and other clients",
+            "text": "Connect an MCP client from Settings › Agent access. It follows the same safeguards as the in-app agent."
+          }
+        }
+      },
+      "files": {
+        "title": "Import and export",
+        "lead": "Bring notes in from elsewhere, and take them out in open formats.",
+        "tip": "A backup holds your notes and attachments, never your AI keys.",
+        "entries": {
+          "fromApp": {
+            "title": "Import from another app",
+            "text": "An Obsidian vault, a Markdown folder or a Notion export. You see a preview first, and importing again updates rather than duplicates."
+          },
+          "document": {
+            "title": "Convert a document",
+            "text": "Turn a PDF or Word file into a note. Scanned pages are read with on-device text recognition."
+          },
+          "export": {
+            "title": "Export",
+            "text": "Save notes as HTML, PDF, Word or Markdown. Drawings and mind maps come along."
+          },
+          "backup": {
+            "title": "Back up",
+            "text": "Write your whole library to one file, or schedule backups in Settings."
+          },
+          "restore": {
+            "title": "Restore",
+            "text": "Bring a backup back, on this Mac or another."
+          }
+        }
+      },
+      "shortcuts": {
+        "title": "Keyboard shortcuts",
+        "lead": "Every shortcut, grouped as in the menu bar."
+      }
+    }
+  },
   "find": {
     "placeholder": "Search this document",
     "searching": "Searching…",
@@ -1710,14 +1903,12 @@
       "obsidian": "Obsidian vault",
       "markdownFolder": "Markdown folder",
       "notion": "Notion export",
-      "appleNotes": "Apple Notes",
       "document": "Document"
     },
     "sourceHint": {
       "obsidian": "A vault folder. Wiki links, aliases, embedded images, callouts and tags come across.",
       "markdownFolder": "Any folder of .md files. Folders can become courses, and links between notes are kept.",
-      "notion": "The .zip from Notion’s “Export → Markdown & CSV”. Databases are left out and listed.",
-      "appleNotes": "Apple Notes has no export NotaBene can read yet."
+      "notion": "The .zip from Notion’s “Export → Markdown & CSV”. Databases are left out and listed."
     },
     "chooseFolder": "Choose folder…",
     "chooseFile": "Choose .zip file…",

@@ -793,7 +793,11 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     id: 'help.documentation',
     labelKey: 'menu.documentation',
     accelerator: 'CmdOrCtrl+Shift+Slash',
-    landsIn: 'H',
+    landsIn: 'L',
+    run: () => {
+      useUiStore.getState().setHelpOpen(true);
+      return ok(undefined);
+    },
   },
   'help.github': {
     id: 'help.github',
@@ -854,6 +858,9 @@ export async function runAppCommand(
 
 interface Accelerator {
   key: string;
+  /** The physical key for named punctuation. Shift changes what `/` produces
+   * (it arrives as `?`), so ⇧⌘/ can only be recognised by where it is. */
+  code?: string;
   meta: boolean;
   shift: boolean;
   alt: boolean;
@@ -874,6 +881,14 @@ const KEY_NAMES: Record<string, string> = {
   space: ' ',
 };
 
+const KEY_CODES: Record<string, string> = {
+  slash: 'Slash',
+  comma: 'Comma',
+  period: 'Period',
+  minus: 'Minus',
+  equal: 'Equal',
+};
+
 /** Parse Tauri accelerator syntax. `CmdOrCtrl` maps to the platform's own
  * modifier, which on the only platform we ship is Command. */
 function parseAccelerator(accelerator: string): Accelerator {
@@ -883,6 +898,7 @@ function parseAccelerator(accelerator: string): Accelerator {
   const modifiers = parts.slice(0, -1).map((part) => part.toLowerCase());
   return {
     key: key.toLowerCase(),
+    code: KEY_CODES[raw],
     meta: modifiers.includes('cmdorctrl') || modifiers.includes('cmd'),
     shift: modifiers.includes('shift'),
     alt: modifiers.includes('alt') || modifiers.includes('option'),
@@ -895,7 +911,8 @@ function matches(event: KeyboardEvent, accelerator: Accelerator): boolean {
   const pressed =
     accelerator.key.length === 1 && /[a-z]/.test(accelerator.key)
       ? event.code === `Key${accelerator.key.toUpperCase()}`
-      : event.key.toLowerCase() === accelerator.key;
+      : event.key.toLowerCase() === accelerator.key ||
+        (accelerator.code !== undefined && event.code === accelerator.code);
 
   const primary = event.metaKey || event.ctrlKey;
   return (

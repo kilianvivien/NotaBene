@@ -39,6 +39,7 @@ import { EditorConflictDialog } from './editor/EditorConflictDialog';
 import { ImportDocumentDialog } from './import/ImportDocumentDialog';
 import { ImportSourceDialog } from './import/ImportSourceDialog';
 import { WelcomeScreen } from './onboarding/WelcomeScreen';
+import { HelpDialog } from './help/HelpDialog';
 import { CalendarExportDialog, CalendarImportDialog } from './tasks/CalendarDialogs';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { PdfReader } from '@/editor/attachments/PdfReader';
@@ -229,6 +230,7 @@ export function App() {
       <ImportDocumentDialog />
       <ImportSourceDialog />
       <WelcomeScreen />
+      <HelpDialog />
       <CalendarExportDialog />
       <CalendarImportDialog />
       <CheckDialog />

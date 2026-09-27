@@ -23,7 +23,6 @@ import {
   RefreshCw,
   SkipForward,
   Copy,
-  StickyNote,
   type LucideIcon,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -70,7 +69,6 @@ const SOURCE_ICONS: Record<SourceId, LucideIcon> = {
   obsidian: Gem,
   markdownFolder: FolderOpen,
   notion: NotebookPen,
-  appleNotes: StickyNote,
 };
 
 function StatusBadge({ note }: { note: PlannedNote }) {
@@ -369,6 +367,7 @@ export function ImportSourceDialog() {
             value={sourceId}
             onChange={setSourceId}
             options={sourceOptions}
+            columns={1}
           />
         )}
 

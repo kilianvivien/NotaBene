@@ -115,6 +115,7 @@ interface UiState {
   /** The welcome screen: asked how to begin on a first launch over an empty
    * library (plan §20 item 2), or reopened from Help as a tour. */
   welcome: 'firstRun' | 'revisit' | null;
+  helpOpen: boolean;
   /** Tasks to an `.ics` file, and an `.ics` file to tasks (plan §19). */
   calendarExportOpen: boolean;
   calendarImportOpen: boolean;
@@ -214,6 +215,7 @@ interface UiState {
   setMergeOpen(open: boolean): void;
   setSourceImportOpen(open: boolean): void;
   setWelcome(welcome: 'firstRun' | 'revisit' | null): void;
+  setHelpOpen(open: boolean): void;
   setCalendarExportOpen(open: boolean): void;
   setCalendarImportOpen(open: boolean): void;
   setDocumentImportSource(source: DocumentImportSource | null): void;
@@ -269,6 +271,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.documentImportSource !== null ||
     state.sourceImportOpen ||
     state.welcome !== null ||
+    state.helpOpen ||
     state.calendarExportOpen ||
     state.calendarImportOpen ||
     state.settingsOpen ||
@@ -336,6 +339,7 @@ export const useUiStore = create<UiState>()(
     documentImportSource: null,
     sourceImportOpen: false,
     welcome: null,
+    helpOpen: false,
     calendarExportOpen: false,
     calendarImportOpen: false,
     aiRewriteOpen: false,
@@ -657,6 +661,12 @@ export const useUiStore = create<UiState>()(
     setWelcome(welcome) {
       set((state) => {
         state.welcome = welcome;
+      });
+    },
+
+    setHelpOpen(open) {
+      set((state) => {
+        state.helpOpen = open;
       });
     },
 

@@ -1592,6 +1592,199 @@
     "close": "Fermer",
     "failed": "NotaBene n’a pas pu enregistrer votre choix. Réessayez ou redémarrez l’application."
   },
+  "help": {
+    "title": "Aide NotaBene",
+    "topicsLabel": "Rubriques d’aide",
+    "tour": "Revoir la présentation",
+    "github": "NotaBene sur GitHub",
+    "close": "Fermer",
+    "search": "Rechercher dans l’aide",
+    "noResults": "Rien dans l’aide ne correspond à « {{query}} ».",
+    "results": "Résultats pour « {{query}} »",
+    "tipLabel": "Bon à savoir",
+    "filter": "Filtrer les raccourcis",
+    "noMatch": "Aucun raccourci ne correspond à « {{query}} ».",
+    "topics": {
+      "start": {
+        "title": "Premiers pas",
+        "lead": "NotaBene range chaque matière dans un cours et chaque séance dans une note. Tout s’enregistre pendant la frappe.",
+        "tip": "Votre bibliothèque reste sur ce Mac. Pas de compte, et rien n’en sort sauf si vous connectez un fournisseur d’IA.",
+        "entries": {
+          "note": {
+            "title": "Écrire une note",
+            "text": "Créez une note dans le cours affiché. Chaque enregistrement est aussi conservé dans l’historique de la note."
+          },
+          "quick": {
+            "title": "Note rapide",
+            "text": "Notez une idée sans choisir où la ranger. Elle attend dans la boîte de réception."
+          },
+          "blocks": {
+            "title": "Blocs",
+            "text": "Tapez / en début de ligne pour les titres, listes, encadrés, tableaux, équations, dessins et cartes mentales."
+          },
+          "links": {
+            "title": "Relier des notes",
+            "text": "Tapez [[ puis un titre pour créer un lien. La note liée l’affiche dans ses notes liées."
+          },
+          "palette": {
+            "title": "Tout trouver",
+            "text": "Cherchez notes et tâches, ou lancez une commande par son nom."
+          },
+          "focus": {
+            "title": "Mode concentration",
+            "text": "Masquez tout sauf la page. Approchez le pointeur d’un bord de la fenêtre pour faire revenir les panneaux."
+          }
+        }
+      },
+      "organize": {
+        "title": "Organisation",
+        "lead": "Les cours contiennent vos notes ; sections, étiquettes et dossiers intelligents les découpent comme vous révisez.",
+        "tip": "Les notes supprimées restent 30 jours dans la corbeille par défaut. Les notes archivées sont écartées, jamais supprimées.",
+        "entries": {
+          "courses": {
+            "title": "Cours et sections",
+            "text": "Un cours par matière, avec une couleur et une icône. Ajoutez des sections par semaine ou chapitre, et glissez-y les notes."
+          },
+          "tags": {
+            "title": "Étiquettes",
+            "text": "Ajoutez-les dans l’inspecteur. Les facettes comme Examen, Thème ou Enseignant gardent une longue liste en ordre."
+          },
+          "smart": {
+            "title": "Dossiers intelligents",
+            "text": "Enregistrez une recherche : elle reste à jour dans la barre latérale."
+          },
+          "templates": {
+            "title": "Modèles",
+            "text": "Enregistrez une note comme modèle, puis créez-en de nouvelles à partir de lui."
+          },
+          "select": {
+            "title": "Plusieurs notes à la fois",
+            "text": "⌘-clic ou ⇧-clic pour déplacer, étiqueter, archiver ou fusionner d’un coup."
+          },
+          "versions": {
+            "title": "Versions",
+            "text": "L’inspecteur garde les versions précédentes de chaque note et peut restaurer n’importe laquelle."
+          }
+        }
+      },
+      "study": {
+        "title": "Révision",
+        "lead": "Transformez vos notes en supports de révision. Sélectionnez une ou plusieurs notes avant de commencer.",
+        "tip": "La lecture à voix haute ne demande aucun fournisseur d’IA : elle utilise les voix de votre Mac.",
+        "entries": {
+          "flashcards": {
+            "title": "Fiches",
+            "text": "Générez un paquet depuis les notes sélectionnées, modifiez les cartes, puis gardez-les dans une note ou exportez-les vers Anki."
+          },
+          "synthesis": {
+            "title": "Synthèse",
+            "text": "Réunissez plusieurs notes en une fiche de révision qui cite ses sources."
+          },
+          "visualize": {
+            "title": "Carte mentale ou schéma",
+            "text": "Transformez une note en image pour réviser. Elle entre dans la note et survit à chaque export."
+          },
+          "podcast": {
+            "title": "Podcast",
+            "text": "Écoutez vos notes en épisode, narré ou à deux voix, lu par les voix de votre Mac."
+          },
+          "define": {
+            "title": "Définir",
+            "text": "Obtenez une courte définition du terme sélectionné, dans le contexte de votre note."
+          },
+          "completion": {
+            "title": "Complétion",
+            "text": "Propose la fin d’un mot tirée du vocabulaire du cours. Tab accepte, Option-Tab en propose un autre."
+          }
+        }
+      },
+      "tasks": {
+        "title": "Tâches et calendrier",
+        "lead": "Les tâches vivent à côté de vos notes, avec échéances, rappels et répétitions.",
+        "tip": "Les rappels s’affichent quand NotaBene est ouvert. Ceux arrivés à échéance pendant sa fermeture apparaissent ensemble à l’ouverture.",
+        "entries": {
+          "task": {
+            "title": "Nouvelle tâche",
+            "text": "Ajoutez une échéance, un rappel, une répétition quotidienne, hebdomadaire ou mensuelle, et des sous-tâches."
+          },
+          "view": {
+            "title": "Vue Tâches",
+            "text": "Tout ce qui est à rendre, tous cours confondus, dans une seule liste."
+          },
+          "link": {
+            "title": "Tâches dans les notes",
+            "text": "Liez une tâche à une note depuis l’inspecteur, ou mentionnez-la dans le texte."
+          },
+          "export": {
+            "title": "Exporter vers Calendrier",
+            "text": "Écrivez un fichier .ics que Calendrier ouvre. Un nouvel export met les événements à jour sans les dupliquer."
+          },
+          "import": {
+            "title": "Importer un calendrier",
+            "text": "Lisez le calendrier publié par Moodle ou Canvas. Les échéances entrent ; les séances de cours restent dehors, sauf demande."
+          }
+        }
+      },
+      "ai": {
+        "title": "IA et confidentialité",
+        "lead": "L’IA est facultative dans NotaBene et passe par le fournisseur de votre choix. Rien n’est envoyé avant que vous en connectiez un.",
+        "tip": "Les clés sont conservées dans le trousseau macOS. Les sauvegardes et les exports ne les contiennent jamais.",
+        "entries": {
+          "provider": {
+            "title": "Connecter un fournisseur",
+            "text": "Anthropic, OpenAI, Mistral, Gemini ou OpenRouter avec votre clé ; Ollama ou LM Studio sur ce Mac ; ou le modèle d’Apple sur l’appareil."
+          },
+          "ask": {
+            "title": "Demander",
+            "text": "Interrogez la note ouverte, son cours ou toute la bibliothèque. Les réponses citent les notes d’où elles viennent."
+          },
+          "check": {
+            "title": "Vérifier et corriger",
+            "text": "Corrigez l’orthographe et la grammaire, ou réécrivez un passage. Chaque modification est proposée avant d’être appliquée."
+          },
+          "agent": {
+            "title": "Agent",
+            "text": "Décrivez une tâche comme « range ma boîte de réception par cours ». Vous validez le plan, et pouvez tout annuler."
+          },
+          "mcp": {
+            "title": "Claude Code et autres clients",
+            "text": "Connectez un client MCP depuis Réglages › Accès agent. Il suit les mêmes garde-fous que l’agent intégré."
+          }
+        }
+      },
+      "files": {
+        "title": "Import et export",
+        "lead": "Faites entrer des notes venues d’ailleurs, et sortez-les dans des formats ouverts.",
+        "tip": "Une sauvegarde contient vos notes et pièces jointes, jamais vos clés d’IA.",
+        "entries": {
+          "fromApp": {
+            "title": "Importer depuis une autre app",
+            "text": "Un coffre Obsidian, un dossier Markdown ou un export Notion. Un aperçu d’abord, et un nouvel import met à jour sans dupliquer."
+          },
+          "document": {
+            "title": "Convertir un document",
+            "text": "Transformez un PDF ou un fichier Word en note. Les pages scannées sont lues par la reconnaissance de texte de l’appareil."
+          },
+          "export": {
+            "title": "Exporter",
+            "text": "Enregistrez vos notes en HTML, PDF, Word ou Markdown. Dessins et cartes mentales suivent."
+          },
+          "backup": {
+            "title": "Sauvegarder",
+            "text": "Écrivez toute la bibliothèque dans un fichier, ou planifiez des sauvegardes dans les Réglages."
+          },
+          "restore": {
+            "title": "Restaurer",
+            "text": "Récupérez une sauvegarde, sur ce Mac ou un autre."
+          }
+        }
+      },
+      "shortcuts": {
+        "title": "Raccourcis clavier",
+        "lead": "Tous les raccourcis, rangés comme dans la barre des menus."
+      }
+    }
+  },
   "find": {
     "placeholder": "Rechercher dans ce document",
     "searching": "Recherche…",
@@ -1710,14 +1903,12 @@
       "obsidian": "Coffre Obsidian",
       "markdownFolder": "Dossier Markdown",
       "notion": "Export Notion",
-      "appleNotes": "Apple Notes",
       "document": "Document"
     },
     "sourceHint": {
       "obsidian": "Le dossier d’un coffre. Liens wiki, alias, images intégrées, encadrés et étiquettes sont repris.",
       "markdownFolder": "N’importe quel dossier de fichiers .md. Les dossiers peuvent devenir des cours, et les liens entre notes sont conservés.",
-      "notion": "Le .zip de « Exporter → Markdown et CSV » dans Notion. Les bases de données sont écartées et listées.",
-      "appleNotes": "Apple Notes n’a pas encore d’export que NotaBene sache lire."
+      "notion": "Le .zip de « Exporter → Markdown et CSV » dans Notion. Les bases de données sont écartées et listées."
     },
     "chooseFolder": "Choisir le dossier…",
     "chooseFile": "Choisir le fichier .zip…",

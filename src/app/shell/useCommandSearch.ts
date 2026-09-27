@@ -22,21 +22,21 @@ export type CommandSearchRow =
  * without pushing the notes that match off the bottom of the dropdown. */
 const TASK_RESULT_LIMIT = 5;
 
-/** Tauri accelerator syntax as the symbols a Mac menu would show. */
+/** Tauri accelerator syntax as the symbols a Mac menu would show, with the
+ * modifiers in the order macOS prints them: ⌃⌥⇧⌘, then the key. */
 export function commandShortcut(accelerator: string | undefined): string | null {
   if (!accelerator) return null;
-  return accelerator
-    .split('+')
-    .map((part) => {
-      const key = part.toLowerCase();
-      if (key === 'cmdorctrl' || key === 'cmd') return '⌘';
-      if (key === 'shift') return '⇧';
-      if (key === 'alt' || key === 'option') return '⌥';
-      if (key === 'ctrl') return '⌃';
-      if (key === 'slash') return '/';
-      return part.toUpperCase();
-    })
-    .join('');
+  const parts = accelerator.split('+').map((part) => part.toLowerCase());
+  const key = parts.at(-1) ?? '';
+  const has = (...names: string[]) =>
+    parts.slice(0, -1).some((part) => names.includes(part));
+  return [
+    has('ctrl') ? '⌃' : '',
+    has('alt', 'option') ? '⌥' : '',
+    has('shift') ? '⇧' : '',
+    has('cmdorctrl', 'cmd') ? '⌘' : '',
+    key === 'slash' ? '/' : key === 'comma' ? ',' : key.toUpperCase(),
+  ].join('');
 }
 
 /**

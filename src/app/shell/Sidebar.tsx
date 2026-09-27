@@ -166,6 +166,7 @@ export function Sidebar() {
   const selectNote = useUiStore((state) => state.selectNote);
   const note = useEditorStore((state) => state.note);
   const openNote = useEditorStore((state) => state.openNote);
+  const { collapsed, toggle: toggleSection } = useCollapsedSections();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [courseDialog, setCourseDialog] = useState<Course | null | 'new'>(null);
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
@@ -303,6 +304,10 @@ export function Sidebar() {
         </ul>
 
         <SidebarSection
+          id="courses"
+          count={courses.length}
+          collapsed={collapsed.has('courses')}
+          onToggle={toggleSection}
           title={t('sidebar.courses')}
           action={
             <GlassIconButton
@@ -342,6 +347,10 @@ export function Sidebar() {
         </SidebarSection>
 
         <SidebarSection
+          id="tags"
+          count={tags.length}
+          collapsed={collapsed.has('tags')}
+          onToggle={toggleSection}
           title={t('sidebar.tags')}
           action={
             <GlassIconButton
@@ -379,6 +388,10 @@ export function Sidebar() {
         </SidebarSection>
 
         <SidebarSection
+          id="savedSearches"
+          count={savedSearches.length}
+          collapsed={collapsed.has('savedSearches')}
+          onToggle={toggleSection}
           title={t('sidebar.savedSearches')}
           action={
             <GlassIconButton
@@ -454,6 +467,10 @@ export function Sidebar() {
         </SidebarSection>
 
         <SidebarSection
+          id="templates"
+          count={templates.length}
+          collapsed={collapsed.has('templates')}
+          onToggle={toggleSection}
           title={t('organization.templates')}
           action={
             <GlassIconButton
@@ -1030,24 +1047,100 @@ function TemplateMenu({
   );
 }
 
+type SectionId = 'courses' | 'tags' | 'savedSearches' | 'templates';
+
+/** Collapsed sections are a view preference of this Mac, not library data,
+ * so they live in `localStorage` — and a profile that refuses storage just
+ * starts with every section open. */
+const COLLAPSED_KEY = 'notabene.sidebar.collapsed';
+
+function readCollapsed(): Set<SectionId> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]');
+    return new Set(Array.isArray(value) ? (value as SectionId[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function useCollapsedSections() {
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggle = useCallback((id: SectionId) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+      } catch {
+        // Storage refused: the choice lasts for this session.
+      }
+      return next;
+    });
+  }, []);
+  return { collapsed, toggle };
+}
+
 function SidebarSection({
+  id,
   title,
+  count,
+  collapsed,
+  onToggle,
   action,
   children,
 }: {
+  id: SectionId;
   title: string;
+  /** Shown while collapsed, so a folded section still says what it holds. */
+  count: number;
+  collapsed: boolean;
+  onToggle(id: SectionId): void;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const bodyId = `nb-sidebar-${id}`;
   return (
     <section>
-      <div className="mb-1 flex min-h-6 items-center justify-between gap-1 px-2">
-        <h2 className="min-w-0 truncate text-[12px] font-semibold uppercase tracking-wide text-nb-text-3">
-          {title}
-        </h2>
+      <div className="group/section mb-1 flex min-h-6 items-center justify-between gap-1 pl-1 pr-2">
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          aria-controls={bodyId}
+          onClick={() => onToggle(id)}
+          className="flex min-w-0 items-center gap-1 rounded-nb-sm px-1 py-0.5 text-nb-text-3 transition-colors duration-[var(--nb-t-fast)] hover:text-nb-text-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--nb-accent-ring)]"
+        >
+          <ChevronRight
+            size={11}
+            aria-hidden
+            className={cn(
+              'shrink-0 transition-transform duration-[var(--nb-t-base)] ease-[var(--nb-ease-out)]',
+              !collapsed && 'rotate-90',
+            )}
+          />
+          <h2 className="min-w-0 truncate text-[12px] font-semibold uppercase tracking-wide">
+            {title}
+          </h2>
+          {collapsed && count > 0 && (
+            <span className="ml-1 rounded-full bg-[var(--nb-hover)] px-1.5 text-[10.5px] font-medium tabular-nums text-nb-text-3">
+              {count}
+            </span>
+          )}
+        </button>
         {action}
       </div>
-      {children}
+      {/* Folded with a grid row rather than unmounted, so it can animate
+          and so a drop target inside keeps its state. */}
+      <div
+        id={bodyId}
+        className={cn(
+          'grid transition-[grid-template-rows,opacity] duration-[var(--nb-t-base)] ease-[var(--nb-ease-out)] motion-reduce:transition-none',
+          collapsed ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100',
+        )}
+        inert={collapsed}
+      >
+        <div className="min-h-0 overflow-hidden">{children}</div>
+      </div>
     </section>
   );
 }

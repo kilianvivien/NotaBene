@@ -12,6 +12,13 @@
   Markdown folder or Notion, explore the sample course, or start with an
   empty library. Importing no longer leaves a sample course to clear away.
   Help → Welcome to NotaBene shows the tour again.
+- **Help, at last.** Help → NotaBene help (⇧⌘/) explains each part of the
+  app in a few lines, runs the feature you are reading about with a click,
+  searches across every topic, and lists every keyboard shortcut, grouped as
+  in the menu bar.
+- **A tidier sidebar.** Courses, Tags, Smart folders and Templates now fold
+  away with a click on their heading, showing how many items they hold, and
+  stay the way you left them.
 - **Folders become courses.** Top-level folders can become courses and
   their subfolders sections — or everything can go into one course, or the
   inbox. Existing courses of the same name are reused rather than doubled.
