@@ -251,11 +251,20 @@ mod tests {
     }
 
     fn temp_store() -> TempStore {
+        // A timestamp alone is not unique: the clock is coarser than a
+        // nanosecond, and parallel tests starting in the same tick shared a
+        // database (the bug `db/notes.rs` found). The counter and process id
+        // make the name unique; the timestamp only keeps leftovers apart.
+        static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock before epoch")
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!("notabene-assets-{unique}"));
+        let sequence = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let directory = std::env::temp_dir().join(format!(
+            "notabene-assets-{unique}-{}-{sequence}",
+            std::process::id()
+        ));
         let store = Store::open(
             &directory.join("notabene.sqlite3"),
             std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),

@@ -345,12 +345,25 @@ mod tests {
         }
     }
 
-    fn temp_store(label: &str) -> TempStore {
+    /// A timestamp alone is not unique: the clock is coarser than a
+    /// nanosecond, and parallel tests starting in the same tick shared a
+    /// directory (the bug `db/notes.rs` found). The counter and process id
+    /// make the name unique; the timestamp only keeps leftovers apart.
+    fn unique_temp_path(label: &str) -> std::path::PathBuf {
+        static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock before the epoch")
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!("notabene-{label}-{unique}"));
+        let sequence = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "notabene-{label}-{unique}-{}-{sequence}",
+            std::process::id()
+        ))
+    }
+
+    fn temp_store(label: &str) -> TempStore {
+        let directory = unique_temp_path(label);
         let store = Store::open(
             &directory.join("notabene.sqlite3"),
             Arc::new(AtomicBool::new(false)),
@@ -360,11 +373,7 @@ mod tests {
     }
 
     fn empty_temp_dir(label: &str) -> std::path::PathBuf {
-        let unique = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("clock before the epoch")
-            .as_nanos();
-        let directory = std::env::temp_dir().join(format!("notabene-{label}-{unique}"));
+        let directory = unique_temp_path(label);
         std::fs::create_dir_all(&directory).expect("failed to create temp directory");
         directory
     }

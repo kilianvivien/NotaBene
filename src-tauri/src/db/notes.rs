@@ -1029,14 +1029,19 @@ mod tests {
         // coarser than a nanosecond, so two tests starting in the same tick --
         // which is routine, since these run in parallel -- got the same
         // directory and quietly shared a database. The counter is what makes
-        // the name unique; the timestamp only keeps leftovers distinguishable.
+        // the name unique within a process, the process id across the test
+        // binaries cargo runs side by side; the timestamp only keeps leftovers
+        // distinguishable.
         static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock before the epoch")
             .as_nanos();
         let sequence = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let directory = std::env::temp_dir().join(format!("notabene-test-{unique}-{sequence}"));
+        let directory = std::env::temp_dir().join(format!(
+            "notabene-test-{unique}-{}-{sequence}",
+            std::process::id()
+        ));
         let path = directory.join("notabene.sqlite3");
         let store = Store::open(
             &path,

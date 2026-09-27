@@ -402,11 +402,20 @@ mod tests {
     }
 
     fn temp_dir(label: &str) -> TempDir {
+        // A timestamp alone is not unique: the clock is coarser than a
+        // nanosecond, and parallel tests starting in the same tick shared a
+        // directory. The counter and process id make the name unique; the
+        // timestamp only keeps leftovers apart.
+        static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock before epoch")
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("notabene-{label}-{unique}"));
+        let sequence = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "notabene-{label}-{unique}-{}-{sequence}",
+            std::process::id()
+        ));
         fs::create_dir_all(&path).expect("failed to create temp dir");
         TempDir(path)
     }
