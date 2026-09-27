@@ -214,6 +214,11 @@ pub struct Recurrence {
     pub interval: i64,
     /// 0 = Sunday … 6 = Saturday. Only read when `freq` is `weekly`.
     pub weekdays: Vec<i64>,
+    /// The day of the month a monthly task belongs to (schema v9). It lives in
+    /// `recurrence_json`, so it needed no column; defaulted so a rule written
+    /// before it still reads.
+    #[serde(default)]
+    pub month_day: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

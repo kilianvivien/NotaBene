@@ -22,13 +22,15 @@ export type ExportFormat =
   | 'audio'
   | 'attachment'
   | 'svg'
-  | 'png';
+  | 'png'
+  /** An `.ics` of tasks (plan §19). */
+  | 'calendar';
 
 /** The formats the note export pipeline renders. The others are produced by
  * features that build their own bytes and only borrow the sink. */
 export type NoteExportFormat = Exclude<
   ExportFormat,
-  'backup' | 'anki' | 'audio' | 'attachment' | 'svg' | 'png'
+  'backup' | 'anki' | 'audio' | 'attachment' | 'svg' | 'png' | 'calendar'
 >;
 
 export interface ExportFile {

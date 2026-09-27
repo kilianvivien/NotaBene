@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import type { Recurrence } from '@/lib/schema';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -12,7 +12,7 @@ import {
   updateTaskCommand,
 } from './taskCommands';
 
-const weekly: Recurrence = { freq: 'weekly', interval: 1, weekdays: [] };
+const weekly: Recurrence = { freq: 'weekly', interval: 1, weekdays: [], monthDay: null };
 
 beforeEach(() => memoryLibraryAdapter.reset());
 
@@ -207,6 +207,54 @@ describe('completeTaskCommand', () => {
     expect(new Date(result.value.dueAt as string).getTime()).toBeGreaterThan(
       new Date(dueAt).getTime(),
     );
+  });
+
+  describe('a monthly task on the 31st', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('goes back to the 31st after February rather than staying on the 28th', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(2026, 0, 30, 12));
+      const task = value<{ id: string; recurrence: Recurrence | null }>(
+        await createTaskCommand({
+          title: 'Rent',
+          dueAt: new Date(2026, 0, 31, 9).toISOString(),
+          recurrence: { freq: 'monthly', interval: 1, weekdays: [], monthDay: null },
+        }),
+      );
+      expect(task.recurrence?.monthDay).toBe(31);
+
+      const days: number[] = [];
+      for (const now of [
+        new Date(2026, 0, 31, 12),
+        new Date(2026, 1, 28, 12),
+        new Date(2026, 2, 31, 12),
+      ]) {
+        vi.setSystemTime(now);
+        const done = value<{ dueAt: string | null }>(
+          await completeTaskCommand({ taskId: task.id }),
+        );
+        days.push(new Date(done.dueAt!).getDate());
+      }
+      expect(days).toEqual([28, 31, 30]);
+    });
+
+    it('moves its anchor when the student moves the due date', async () => {
+      const task = value<{ id: string }>(
+        await createTaskCommand({
+          title: 'Report',
+          dueAt: new Date(2026, 0, 31, 9).toISOString(),
+          recurrence: { freq: 'monthly', interval: 1, weekdays: [], monthDay: null },
+        }),
+      );
+      const moved = value<{ recurrence: Recurrence | null }>(
+        await updateTaskCommand({
+          taskId: task.id,
+          dueAt: new Date(2026, 1, 12, 9).toISOString(),
+        }),
+      );
+      expect(moved.recurrence?.monthDay).toBe(12);
+    });
   });
 
   it('clears the delivery stamp so the next occurrence reminds again', async () => {

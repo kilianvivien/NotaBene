@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Recurrence } from '@/lib/schema';
-import { nextOccurrence, nextOccurrenceAfter, shiftReminder } from './recurrence';
+import {
+  anchorRecurrence,
+  nextOccurrence,
+  nextOccurrenceAfter,
+  shiftReminder,
+} from './recurrence';
 
 /** Local-time construction, because that is the frame the rules work in. */
-function at(
-  year: number,
-  month: number,
-  day: number,
-  hour = 9,
-  minute = 0,
-): string {
+function at(year: number, month: number, day: number, hour = 9, minute = 0): string {
   return new Date(year, month - 1, day, hour, minute).toISOString();
 }
 
@@ -24,7 +23,7 @@ function localParts(iso: string): [number, number, number, number, number] {
   ];
 }
 
-const daily: Recurrence = { freq: 'daily', interval: 1, weekdays: [] };
+const daily: Recurrence = { freq: 'daily', interval: 1, weekdays: [], monthDay: null };
 
 describe('nextOccurrence', () => {
   it('advances a daily task by its interval', () => {
@@ -47,7 +46,12 @@ describe('nextOccurrence', () => {
 
   it('rolls a weekly task to the next listed weekday before jumping a week', () => {
     // 2026-08-11 is a Tuesday; the rule is Tuesdays and Thursdays.
-    const rule: Recurrence = { freq: 'weekly', interval: 1, weekdays: [2, 4] };
+    const rule: Recurrence = {
+      freq: 'weekly',
+      interval: 1,
+      weekdays: [2, 4],
+      monthDay: null,
+    };
     const thursday = nextOccurrence(at(2026, 8, 11), rule);
     expect(localParts(thursday).slice(0, 3)).toEqual([2026, 8, 13]);
 
@@ -57,21 +61,36 @@ describe('nextOccurrence', () => {
   });
 
   it('treats a weekly rule with no weekdays as "this same day, every N weeks"', () => {
-    const rule: Recurrence = { freq: 'weekly', interval: 2, weekdays: [] };
+    const rule: Recurrence = {
+      freq: 'weekly',
+      interval: 2,
+      weekdays: [],
+      monthDay: null,
+    };
     expect(localParts(nextOccurrence(at(2026, 8, 11), rule)).slice(0, 3)).toEqual([
       2026, 8, 25,
     ]);
   });
 
   it('crosses a month boundary on a weekly rule', () => {
-    const rule: Recurrence = { freq: 'weekly', interval: 1, weekdays: [] };
+    const rule: Recurrence = {
+      freq: 'weekly',
+      interval: 1,
+      weekdays: [],
+      monthDay: null,
+    };
     expect(localParts(nextOccurrence(at(2026, 8, 27), rule)).slice(0, 3)).toEqual([
       2026, 9, 3,
     ]);
   });
 
   it('clamps a monthly task rather than overflowing into the next month', () => {
-    const rule: Recurrence = { freq: 'monthly', interval: 1, weekdays: [] };
+    const rule: Recurrence = {
+      freq: 'monthly',
+      interval: 1,
+      weekdays: [],
+      monthDay: null,
+    };
     // The 31st of January has no counterpart in February; it must land on the
     // 28th, not spill over into March the way `setMonth` alone would.
     expect(localParts(nextOccurrence(at(2026, 1, 31), rule)).slice(0, 3)).toEqual([
@@ -83,14 +102,47 @@ describe('nextOccurrence', () => {
   });
 
   it('clamps to 29 February in a leap year', () => {
-    const rule: Recurrence = { freq: 'monthly', interval: 1, weekdays: [] };
+    const rule: Recurrence = {
+      freq: 'monthly',
+      interval: 1,
+      weekdays: [],
+      monthDay: null,
+    };
     expect(localParts(nextOccurrence(at(2028, 1, 31), rule)).slice(0, 3)).toEqual([
       2028, 2, 29,
     ]);
   });
 
+  it('returns to its anchor day after a short month instead of drifting', () => {
+    const rule: Recurrence = { freq: 'monthly', interval: 1, weekdays: [], monthDay: 31 };
+    const february = nextOccurrence(at(2026, 1, 31), rule);
+    expect(localParts(february).slice(0, 3)).toEqual([2026, 2, 28]);
+    const march = nextOccurrence(february, rule);
+    expect(localParts(march).slice(0, 3)).toEqual([2026, 3, 31]);
+    expect(localParts(nextOccurrence(march, rule)).slice(0, 3)).toEqual([2026, 4, 30]);
+  });
+
+  it('anchors a monthly rule to the due day, and only moves it when asked', () => {
+    const rule: Recurrence = {
+      freq: 'monthly',
+      interval: 1,
+      weekdays: [],
+      monthDay: null,
+    };
+    expect(anchorRecurrence(rule, at(2026, 1, 31))?.monthDay).toBe(31);
+    const anchored = { ...rule, monthDay: 31 };
+    expect(anchorRecurrence(anchored, at(2026, 2, 28))).toBe(anchored);
+    expect(anchorRecurrence(anchored, at(2026, 2, 12), true)?.monthDay).toBe(12);
+    expect(anchorRecurrence(daily, at(2026, 2, 12))).toBe(daily);
+  });
+
   it('advances a monthly task across a year boundary', () => {
-    const rule: Recurrence = { freq: 'monthly', interval: 2, weekdays: [] };
+    const rule: Recurrence = {
+      freq: 'monthly',
+      interval: 2,
+      weekdays: [],
+      monthDay: null,
+    };
     expect(localParts(nextOccurrence(at(2026, 11, 15), rule)).slice(0, 3)).toEqual([
       2027, 1, 15,
     ]);

@@ -112,6 +112,9 @@ interface UiState {
   documentImportSource: DocumentImportSource | null;
   /** The import-from-another-app dialog (Markdown folder, Obsidian, Notion). */
   sourceImportOpen: boolean;
+  /** Tasks to an `.ics` file, and an `.ics` file to tasks (plan §19). */
+  calendarExportOpen: boolean;
+  calendarImportOpen: boolean;
   aiRewriteOpen: boolean;
   /** The mode the rewrite dialog should open in, when something opened it on
    * the student's behalf. Import sets `'study'` here; the dialog reads it once
@@ -207,6 +210,8 @@ interface UiState {
   setExportOpen(open: boolean): void;
   setMergeOpen(open: boolean): void;
   setSourceImportOpen(open: boolean): void;
+  setCalendarExportOpen(open: boolean): void;
+  setCalendarImportOpen(open: boolean): void;
   setDocumentImportSource(source: DocumentImportSource | null): void;
   setAiRewriteOpen(open: boolean): void;
   setPendingRewriteMode(mode: RewriteMode | null): void;
@@ -259,6 +264,8 @@ export function isOverlayOpen(state: UiState): boolean {
     state.mergeOpen ||
     state.documentImportSource !== null ||
     state.sourceImportOpen ||
+    state.calendarExportOpen ||
+    state.calendarImportOpen ||
     state.settingsOpen ||
     state.aiRewriteOpen ||
     state.aiSynthesisOpen ||
@@ -323,6 +330,8 @@ export const useUiStore = create<UiState>()(
     mergeOpen: false,
     documentImportSource: null,
     sourceImportOpen: false,
+    calendarExportOpen: false,
+    calendarImportOpen: false,
     aiRewriteOpen: false,
     pendingRewriteMode: null,
     aiSynthesisOpen: false,
@@ -636,6 +645,18 @@ export const useUiStore = create<UiState>()(
     setSourceImportOpen(open) {
       set((state) => {
         state.sourceImportOpen = open;
+      });
+    },
+
+    setCalendarExportOpen(open) {
+      set((state) => {
+        state.calendarExportOpen = open;
+      });
+    },
+
+    setCalendarImportOpen(open) {
+      set((state) => {
+        state.calendarImportOpen = open;
       });
     },
 

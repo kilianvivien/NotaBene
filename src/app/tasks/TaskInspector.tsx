@@ -146,6 +146,8 @@ function TaskFields({ task }: { task: Task }) {
       freq: freq as Recurrence['freq'],
       interval: task.recurrence?.interval ?? 1,
       weekdays: task.recurrence?.weekdays ?? [],
+      // The command anchors a monthly rule to the due date's day.
+      monthDay: null,
     };
     patch({ recurrence: next });
   };

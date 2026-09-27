@@ -23,7 +23,7 @@ import {
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
-import { nextOccurrenceAfter, shiftReminder } from '@/lib/tasks/recurrence';
+import { anchorRecurrence, nextOccurrenceAfter, shiftReminder } from '@/lib/tasks/recurrence';
 import {
   cancelledIfRequested,
   fail,
@@ -84,7 +84,11 @@ export async function createTaskCommand(
     }
   }
 
-  const task = createTask({ ...fields, parentId: parentId ?? null });
+  const task = createTask({
+    ...fields,
+    recurrence: anchorRecurrence(fields.recurrence ?? null, fields.dueAt ?? null),
+    parentId: parentId ?? null,
+  });
 
   try {
     await library.upsertTask(task);
@@ -172,6 +176,21 @@ export async function applyTaskUpdate(
     return fail('invalid_input', 'only a top-level task can repeat');
   }
 
+  // A monthly rule belongs to the day the student chose: a new rule takes it
+  // from the due date, and moving the due date by hand moves the anchor. A
+  // rollover (completeTaskCommand) never comes through here, so the clamped
+  // February date cannot re-anchor the task to the 28th.
+  {
+    const rule = patch.recurrence !== undefined ? patch.recurrence : existing.recurrence;
+    const dueAt = patch.dueAt !== undefined ? patch.dueAt : existing.dueAt;
+    const anchored = anchorRecurrence(
+      rule,
+      dueAt,
+      patch.recurrence !== undefined || patch.dueAt !== undefined,
+    );
+    if (anchored !== rule) patch.recurrence = anchored;
+  }
+
   // Moving a reminder is the student saying "tell me then", so the delivery
   // stamp is cleared and the reminder becomes eligible again.
   if (patch.remindAt !== undefined && patch.remindAt !== existing.remindAt) {
@@ -249,11 +268,10 @@ export async function completeTaskCommand(
   let updated: Task;
 
   if (parsed.data.done && existing.recurrence) {
-    const nextDueAt = nextOccurrenceAfter(
-      existing.dueAt ?? now,
-      existing.recurrence,
-      now,
-    );
+    // A rule written before schema v9 has no anchor yet; it takes the current
+    // due day, which is the best evidence left of what was meant.
+    const rule = anchorRecurrence(existing.recurrence, existing.dueAt) ?? existing.recurrence;
+    const nextDueAt = nextOccurrenceAfter(existing.dueAt ?? now, rule, now);
     updated = {
       ...existing,
       // Deliberately still `todo`: the occurrence was completed, the task was
@@ -261,6 +279,7 @@ export async function completeTaskCommand(
       status: 'todo',
       completedAt: null,
       lastCompletedAt: now,
+      recurrence: rule,
       dueAt: nextDueAt,
       remindAt: shiftReminder(existing.remindAt, existing.dueAt, nextDueAt),
       remindedAt: null,

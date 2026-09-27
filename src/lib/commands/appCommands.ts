@@ -77,6 +77,8 @@ export const APP_COMMAND_IDS = [
   'ai.podcast',
   'ai.agent',
   'task.new',
+  'tasks.exportCalendar',
+  'tasks.importCalendar',
   'view.tasks',
   'view.taskCalendar',
   'help.documentation',
@@ -560,6 +562,28 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     },
   },
 
+  /** Both open a dialog: an export says how many tasks and which are left
+   * out, an import shows what it would write, before either happens. */
+  'tasks.exportCalendar': {
+    id: 'tasks.exportCalendar',
+    labelKey: 'menu.exportCalendar',
+    accelerator: 'CmdOrCtrl+Shift+Alt+X',
+    landsIn: 'L',
+    run: () => {
+      useUiStore.getState().setCalendarExportOpen(true);
+      return ok(undefined);
+    },
+  },
+  'tasks.importCalendar': {
+    id: 'tasks.importCalendar',
+    labelKey: 'menu.importCalendar',
+    accelerator: 'CmdOrCtrl+Shift+Alt+I',
+    landsIn: 'L',
+    run: () => {
+      useUiStore.getState().setCalendarImportOpen(true);
+      return ok(undefined);
+    },
+  },
   'task.new': {
     id: 'task.new',
     labelKey: 'menu.newTask',

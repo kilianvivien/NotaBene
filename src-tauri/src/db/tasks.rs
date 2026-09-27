@@ -592,6 +592,7 @@ mod tests {
             freq: "weekly".into(),
             interval: 1,
             weekdays: vec![2, 4],
+            month_day: None,
         });
         upsert(&store, &seeded).expect("failed to write task");
 

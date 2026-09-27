@@ -130,7 +130,7 @@ completion from a per-course vocabulary, curated course terms, an AI
 vocabulary review, and an on-demand paragraph check. L (1.2.0, importers and
 calendars) adds importing a Markdown folder, an Obsidian vault or a Notion
 export, with a preview, folder-to-course mapping, idempotent re-import and
-provenance; calendar (.ics) import and export are still to come. `docs/plan.md` tracks
+provenance, and tasks to and from `.ics` calendars. `docs/plan.md` tracks
 what is still open honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
@@ -253,6 +253,14 @@ Phase L notes worth knowing before touching it:
   source dates). Keep those fields off `CreateNoteInput`, which MCP reaches.
 - Clicking a `[[Title]]` with no id resolves by title first
   (`resolveWikiTitleCommand`) and only creates a note when none exists.
+- Calendars (`src/lib/export/ics.ts`, `src/lib/import/ics.ts`) write `VEVENT`s
+  in floating local time with `UID:task-{id}@notabene`; local midnight means
+  all-day. Import is strict and bounded, maps only rules that fit the three
+  presets (the rest import as one date, flagged), and keys tasks by
+  `ics:{UID}`. Neither is reachable over MCP.
+- `Recurrence.monthDay` is the anchor day of a monthly rule. The command
+  layer sets it (`anchorRecurrence`) when a rule or due date is written and
+  never on a rollover — that is what keeps the 31st from drifting to the 28th.
 
 ## House rules
 

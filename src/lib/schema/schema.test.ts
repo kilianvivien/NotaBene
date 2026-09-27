@@ -225,7 +225,14 @@ describe('task schema', () => {
       updatedAt: new Date().toISOString(),
     });
 
-    expect(parsed.recurrence).toEqual({ freq: 'weekly', interval: 2, weekdays: [2, 4] });
+    // `monthDay` is only read for monthly rules, and a rule written before
+    // schema v9 defaults it to "not anchored".
+    expect(parsed.recurrence).toEqual({
+      freq: 'weekly',
+      interval: 2,
+      weekdays: [2, 4],
+      monthDay: null,
+    });
   });
 });
 

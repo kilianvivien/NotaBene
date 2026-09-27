@@ -38,6 +38,7 @@ import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 import { EditorConflictDialog } from './editor/EditorConflictDialog';
 import { ImportDocumentDialog } from './import/ImportDocumentDialog';
 import { ImportSourceDialog } from './import/ImportSourceDialog';
+import { CalendarExportDialog, CalendarImportDialog } from './tasks/CalendarDialogs';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { PdfReader } from '@/editor/attachments/PdfReader';
 import { TaskList } from './tasks/TaskList';
@@ -223,6 +224,8 @@ export function App() {
       <MergeNotesDialog />
       <ImportDocumentDialog />
       <ImportSourceDialog />
+      <CalendarExportDialog />
+      <CalendarImportDialog />
       <CheckDialog />
       <SynthesisDialog />
       <VisualizeDialog />

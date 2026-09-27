@@ -28,6 +28,17 @@
 - **Author and source tags.** Two new tag facets, `author:` and `source:`,
   keep a researcher’s library searchable by who wrote it and where it came
   from.
+- **Tasks in your calendar.** File → Export tasks to Calendar… (⇧⌥⌘X)
+  writes an .ics file Apple Calendar opens: every task with a due date
+  becomes an event, repeating tasks repeat, reminders become alerts, and
+  exporting again updates the same events instead of adding copies.
+- **Your course calendar as tasks.** File → Import a calendar as tasks…
+  (⇧⌥⌘I) reads the .ics your Moodle or Canvas publishes. It keeps what looks
+  like a deadline and leaves class meetings out unless you ask, shows every
+  task before writing it, and importing a newer copy updates the tasks it
+  made.
+- **Monthly tasks stay on their day.** A task due on the 31st now returns to
+  the 31st after February instead of staying on the 28th for good.
 - **Links to existing notes open them.** Clicking a `[[Title]]` link that
   has no note id yet now opens the note of that title instead of creating a
   new one.

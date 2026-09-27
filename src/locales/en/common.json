@@ -1230,7 +1230,9 @@
     "flashcards": "Flashcards…",
     "podcast": "Listen…",
     "vocabularyReview": "Review Course Vocabulary…",
-    "importFromApp": "Import notes from another app…"
+    "importFromApp": "Import notes from another app…",
+    "exportCalendar": "Export tasks to Calendar…",
+    "importCalendar": "Import a calendar as tasks…"
   },
   "import": {
     "attachmentMissing": "The attachment data could not be found.",
@@ -1730,6 +1732,84 @@
       "courses_other": "{{count}} courses created.",
       "imagesFailed_one": "{{count}} image could not be stored; its caption was kept instead.",
       "imagesFailed_other": "{{count}} images could not be stored; their captions were kept instead."
+    }
+  },
+  "calendar": {
+    "exportTitle": "Export tasks to Calendar",
+    "exportDescription": "An .ics file Apple Calendar and other calendar apps can open. Each task with a due date becomes an event.",
+    "scopeLabel": "Which tasks",
+    "scope": {
+      "all": "All courses",
+      "course": "One course"
+    },
+    "scopeHint": {
+      "all": "Every open task with a due date, filed or not.",
+      "course": "Only the tasks of the course you choose."
+    },
+    "course": "Course",
+    "includeDone": "Include completed tasks",
+    "withoutDueDate_one": "{{count}} task has no due date and is left out.",
+    "withoutDueDate_other": "{{count}} tasks have no due date and are left out.",
+    "exportHint": "Exporting again later updates the events already in your calendar instead of adding copies. Repeating tasks repeat there too, and reminders become alerts.",
+    "exportButton_one": "Export {{count}} task…",
+    "exportButton_other": "Export {{count}} tasks…",
+    "exported_one": "{{count}} task exported. Open the file to add it to Calendar.",
+    "exported_other": "{{count}} tasks exported. Open the file to add them to Calendar.",
+    "exportFailed": "The calendar file could not be written.",
+    "importTitle": "Import a calendar as tasks",
+    "importDescription": "Turn the deadlines in an .ics file — from Moodle, Canvas or any calendar — into tasks. Nothing is written until you confirm.",
+    "importHint": "Most course sites can export or publish their calendar as an .ics file. Importing a newer copy later updates the tasks it made instead of doubling them.",
+    "chooseFile": "Choose .ics file…",
+    "fileLine_one": "{{name}} · {{count}} event",
+    "fileLine_other": "{{name}} · {{count}} events",
+    "whichLabel": "Which events",
+    "which": {
+      "deadlines": "Deadlines only",
+      "all": "Everything"
+    },
+    "whichHint": {
+      "deadlines": "All-day entries, to-dos, moments with no duration, and titles that say “due” or “exam”. Class meetings are left out.",
+      "all": "Every event becomes a task, class meetings included."
+    },
+    "includePast": "Include past events",
+    "includePastHint": "Events before today. Repeating events are always kept and start at their next date.",
+    "noCourse": "No course",
+    "simplified_one": "{{count}} repeating event does not fit NotaBene’s daily, weekly or monthly repeats and is imported as a single date.",
+    "simplified_other": "{{count}} repeating events do not fit NotaBene’s daily, weekly or monthly repeats and are imported as single dates.",
+    "overrides_one": "{{count}} change to a single occurrence of a series was left out.",
+    "overrides_other": "{{count}} changes to single occurrences of a series were left out.",
+    "warning": {
+      "unknownTimezone_one": "{{count}} time uses a time zone NotaBene does not know and was read as local time.",
+      "unknownTimezone_other": "{{count}} times use a time zone NotaBene does not know and were read as local time.",
+      "unknown_one": "{{count}} item could not be read exactly.",
+      "unknown_other": "{{count}} items could not be read exactly."
+    },
+    "listLabel_one": "{{count}} task",
+    "listLabel_other": "{{count}} tasks",
+    "nothingSelected": "Nothing matches. Choose “Everything” or include past events.",
+    "repeats": {
+      "daily": "daily",
+      "weekly": "weekly",
+      "monthly": "monthly"
+    },
+    "oneOccurrence": "single date",
+    "importButton_one": "Import {{count}} task",
+    "importButton_other": "Import {{count}} tasks",
+    "error": {
+      "tooLarge": "This file is too large for a calendar.",
+      "tooManyEvents": "This calendar has more events than NotaBene imports at once.",
+      "notCalendar": "This file is not an iCalendar (.ics) file.",
+      "unreadable": "The calendar could not be read.",
+      "empty": "No events with a date were found in this calendar.",
+      "applyFailed": "The import stopped part-way. The tasks written so far are kept."
+    },
+    "done": {
+      "created_one": "{{count}} task created.",
+      "created_other": "{{count}} tasks created.",
+      "updated_one": "{{count}} updated.",
+      "updated_other": "{{count}} updated.",
+      "unchanged_one": "{{count}} already up to date.",
+      "unchanged_other": "{{count}} already up to date."
     }
   }
 }

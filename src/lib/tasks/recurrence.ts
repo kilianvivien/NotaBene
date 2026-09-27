@@ -53,7 +53,9 @@ export function nextOccurrence(from: string, rule: Recurrence): string {
 
     case 'monthly': {
       const target = new Date(start);
-      const day = start.getDate();
+      // The anchor, not the current date: a task that clamped to the 28th in
+      // February must go back to the 31st in March.
+      const day = rule.monthDay ?? start.getDate();
       // Set the day to 1 before moving the month: `new Date(2026, 0, 31)` plus
       // one month is 3 March, not February, because JavaScript overflows rather
       // than clamps.
@@ -63,6 +65,26 @@ export function nextOccurrence(from: string, rule: Recurrence): string {
       return target.toISOString();
     }
   }
+}
+
+/**
+ * Give a monthly rule its anchor day, from the due date it repeats from.
+ *
+ * Called by the command layer whenever a rule or a due date is written, so
+ * `monthDay` always means "the day the student chose". Rules for other
+ * frequencies, and rules that already have an anchor, come back unchanged —
+ * unless `reanchor` is set, which is what moving the due date by hand means.
+ */
+export function anchorRecurrence(
+  rule: Recurrence | null,
+  dueAt: string | null,
+  reanchor = false,
+): Recurrence | null {
+  if (!rule || rule.freq !== 'monthly' || !dueAt) return rule;
+  if (rule.monthDay != null && !reanchor) return rule;
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return rule;
+  return { ...rule, monthDay: due.getDate() };
 }
 
 function shiftDays(start: Date, days: number): string {

@@ -343,6 +343,14 @@ export const RecurrenceSchema = z.object({
   interval: z.number().int().min(1).max(52).default(1),
   /** 0 = Sunday … 6 = Saturday. Only read when `freq` is `weekly`. */
   weekdays: z.array(z.number().int().min(0).max(6)).default([]),
+  /**
+   * The day of the month a monthly task belongs to, 1–31 (schema v9). Only
+   * read when `freq` is `monthly`. Without it the next date was computed from
+   * the current one, so a task due on the 31st clamped to 28 February and then
+   * stayed on the 28th for good; with it, March is the 31st again. Set by the
+   * command layer from the due date — callers never need to supply it.
+   */
+  monthDay: z.number().int().min(1).max(31).nullable().default(null),
 });
 export type Recurrence = z.infer<typeof RecurrenceSchema>;
 

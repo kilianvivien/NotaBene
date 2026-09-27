@@ -1230,7 +1230,9 @@
     "flashcards": "Fiches de révision…",
     "podcast": "Écouter…",
     "vocabularyReview": "Réviser le vocabulaire du cours…",
-    "importFromApp": "Importer des notes d’une autre app…"
+    "importFromApp": "Importer des notes d’une autre app…",
+    "exportCalendar": "Exporter les tâches vers Calendrier…",
+    "importCalendar": "Importer un calendrier en tâches…"
   },
   "import": {
     "attachmentMissing": "Les données de la pièce jointe sont introuvables.",
@@ -1730,6 +1732,84 @@
       "courses_other": "{{count}} cours créés.",
       "imagesFailed_one": "{{count}} image n’a pas pu être enregistrée ; sa légende a été conservée.",
       "imagesFailed_other": "{{count}} images n’ont pas pu être enregistrées ; leurs légendes ont été conservées."
+    }
+  },
+  "calendar": {
+    "exportTitle": "Exporter les tâches vers Calendrier",
+    "exportDescription": "Un fichier .ics que Calendrier d’Apple et les autres agendas savent ouvrir. Chaque tâche datée devient un événement.",
+    "scopeLabel": "Quelles tâches",
+    "scope": {
+      "all": "Tous les cours",
+      "course": "Un seul cours"
+    },
+    "scopeHint": {
+      "all": "Toutes les tâches ouvertes avec une échéance, classées ou non.",
+      "course": "Seulement les tâches du cours choisi."
+    },
+    "course": "Cours",
+    "includeDone": "Inclure les tâches terminées",
+    "withoutDueDate_one": "{{count}} tâche n’a pas d’échéance et est écartée.",
+    "withoutDueDate_other": "{{count}} tâches n’ont pas d’échéance et sont écartées.",
+    "exportHint": "Exporter à nouveau plus tard met à jour les événements déjà dans votre agenda au lieu d’en ajouter des copies. Les tâches répétées s’y répètent aussi, et les rappels deviennent des alertes.",
+    "exportButton_one": "Exporter {{count}} tâche…",
+    "exportButton_other": "Exporter {{count}} tâches…",
+    "exported_one": "{{count}} tâche exportée. Ouvrez le fichier pour l’ajouter à Calendrier.",
+    "exported_other": "{{count}} tâches exportées. Ouvrez le fichier pour les ajouter à Calendrier.",
+    "exportFailed": "Le fichier de calendrier n’a pas pu être écrit.",
+    "importTitle": "Importer un calendrier en tâches",
+    "importDescription": "Transformez les échéances d’un fichier .ics — de Moodle, Canvas ou de n’importe quel agenda — en tâches. Rien n’est écrit avant votre confirmation.",
+    "importHint": "La plupart des plateformes de cours savent exporter ou publier leur calendrier en .ics. Importer une version plus récente plus tard met à jour les tâches créées au lieu de les dupliquer.",
+    "chooseFile": "Choisir le fichier .ics…",
+    "fileLine_one": "{{name}} · {{count}} événement",
+    "fileLine_other": "{{name}} · {{count}} événements",
+    "whichLabel": "Quels événements",
+    "which": {
+      "deadlines": "Échéances seulement",
+      "all": "Tout"
+    },
+    "whichHint": {
+      "deadlines": "Journées entières, tâches, moments sans durée et titres qui parlent de « rendu » ou d’« examen ». Les séances de cours sont écartées.",
+      "all": "Chaque événement devient une tâche, séances de cours comprises."
+    },
+    "includePast": "Inclure les événements passés",
+    "includePastHint": "Les événements d’avant aujourd’hui. Les événements répétés sont toujours gardés et commencent à leur prochaine date.",
+    "noCourse": "Aucun cours",
+    "simplified_one": "{{count}} événement répété ne correspond pas aux répétitions quotidiennes, hebdomadaires ou mensuelles de NotaBene et est importé comme une seule date.",
+    "simplified_other": "{{count}} événements répétés ne correspondent pas aux répétitions quotidiennes, hebdomadaires ou mensuelles de NotaBene et sont importés comme des dates uniques.",
+    "overrides_one": "{{count}} modification d’une seule occurrence d’une série a été écartée.",
+    "overrides_other": "{{count}} modifications d’occurrences isolées d’une série ont été écartées.",
+    "warning": {
+      "unknownTimezone_one": "{{count}} horaire utilise un fuseau que NotaBene ne connaît pas et a été lu en heure locale.",
+      "unknownTimezone_other": "{{count}} horaires utilisent un fuseau que NotaBene ne connaît pas et ont été lus en heure locale.",
+      "unknown_one": "{{count}} élément n’a pas pu être lu à l’identique.",
+      "unknown_other": "{{count}} éléments n’ont pas pu être lus à l’identique."
+    },
+    "listLabel_one": "{{count}} tâche",
+    "listLabel_other": "{{count}} tâches",
+    "nothingSelected": "Rien ne correspond. Choisissez « Tout » ou incluez les événements passés.",
+    "repeats": {
+      "daily": "chaque jour",
+      "weekly": "chaque semaine",
+      "monthly": "chaque mois"
+    },
+    "oneOccurrence": "date unique",
+    "importButton_one": "Importer {{count}} tâche",
+    "importButton_other": "Importer {{count}} tâches",
+    "error": {
+      "tooLarge": "Ce fichier est trop volumineux pour un calendrier.",
+      "tooManyEvents": "Ce calendrier contient plus d’événements que NotaBene n’en importe d’un coup.",
+      "notCalendar": "Ce fichier n’est pas un fichier iCalendar (.ics).",
+      "unreadable": "Le calendrier n’a pas pu être lu.",
+      "empty": "Aucun événement daté n’a été trouvé dans ce calendrier.",
+      "applyFailed": "L’importation s’est arrêtée en cours de route. Les tâches déjà écrites sont conservées."
+    },
+    "done": {
+      "created_one": "{{count}} tâche créée.",
+      "created_other": "{{count}} tâches créées.",
+      "updated_one": "{{count}} mise à jour.",
+      "updated_other": "{{count}} mises à jour.",
+      "unchanged_one": "{{count}} déjà à jour.",
+      "unchanged_other": "{{count}} déjà à jour."
     }
   }
 }
