@@ -317,8 +317,9 @@ Lecture audio notes (phase M, plan §10.0) worth knowing before touching it:
   it.
 - How the microphone is read lives in `settings.recording` (Settings →
   Recording): device, a gain stage behind a limiter in the capture graph
-  (default ×2), automatic level, noise reduction. Transcription (§10.3) will
-  get its section in that pane, not a new one.
+  (default ×2), automatic level, noise reduction. Transcription is planned
+  for 1.3.5 (§10.3) and gets its section in that pane, not a new one. Never
+  call CrispASR's `set_punc_model`: it downloads a model on first use.
 - Markers are drawn only for recordings the player found on the open note
   (`lecturePlaybackStore`), which loads audio on first play, not on open.
 
