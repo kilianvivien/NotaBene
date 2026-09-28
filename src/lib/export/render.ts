@@ -27,6 +27,29 @@ img,svg{display:block;max-width:100%;height:auto;margin:1em auto}figcaption{text
 @page{margin:18mm 16mm 20mm}@media print{body{max-width:none;padding:0}.note{break-after:page}}
 `;
 
+/** Link targets an exported note may keep: the web, mail, its own anchors,
+ * and a PDF excerpt's `notabene-pdf:` citation, which the editor allows and a
+ * browser cannot follow. Anything else — `javascript:`, `file:`, `data:` — is
+ * dropped and the link text stays. */
+function exportableHref(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  if (value.startsWith('#') || value.startsWith('notabene-pdf:')) return value;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * An exported page never needs script. Said in the file itself, so a note
+ * that smuggled markup past the renderer still cannot run in whichever
+ * browser opens it — and that browser is holding every note in the export.
+ */
+const EXPORT_CSP =
+  "script-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'";
+
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -92,9 +115,14 @@ function inlineHtml(node: DocNode, context: HtmlContext): string {
       case 'code':
         value = `<code>${value}</code>`;
         break;
-      case 'link':
-        value = `<a href="${escapeHtml(mark.attrs?.href)}">${value}</a>`;
+      case 'link': {
+        // An imported vault or a model's Markdown can carry `javascript:`;
+        // escaping keeps it inside the attribute but not from running when
+        // the exported file is opened and the link clicked.
+        const href = exportableHref(mark.attrs?.href);
+        value = href ? `<a href="${escapeHtml(href)}">${value}</a>` : value;
         break;
+      }
       default:
         break;
     }
@@ -170,9 +198,14 @@ function blockHtml(node: DocNode, context: HtmlContext): string {
     case 'mindMap': {
       const fallback = node.type === 'mindMap' ? 'Mind map' : 'Drawing';
       const svg = typeof node.attrs?.svg === 'string' ? node.attrs.svg : '';
+      const title = escapeHtml(node.attrs?.title ?? fallback);
+      // As an image, exactly as the editor draws it, never as inline markup:
+      // the `svg` attribute can arrive from a `notabene-drawing` fence in any
+      // imported Markdown, and inline SVG runs its scripts when the exported
+      // file is opened. Inside `<img>` it is a picture and nothing more.
       return svg
-        ? `<figure>${svg}<figcaption>${escapeHtml(node.attrs?.title ?? fallback)}</figcaption></figure>`
-        : `<p>[${escapeHtml(node.attrs?.title ?? fallback)}]</p>`;
+        ? `<figure><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" alt="${title}"><figcaption>${title}</figcaption></figure>`
+        : `<p>[${title}]</p>`;
     }
     default:
       return childrenHtml(node, context);
@@ -210,7 +243,7 @@ export function completeHtmlDocument(
   body: string,
   options: { toc?: string; language?: string } = {},
 ): string {
-  return `<!doctype html><html lang="${escapeHtml(options.language ?? 'en')}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title><style>${EXPORT_STYLES}</style></head><body>${options.toc ?? ''}${body}</body></html>`;
+  return `<!doctype html><html lang="${escapeHtml(options.language ?? 'en')}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${EXPORT_CSP}"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title><style>${EXPORT_STYLES}</style></head><body>${options.toc ?? ''}${body}</body></html>`;
 }
 
 export function htmlText(value: unknown): string {

@@ -270,6 +270,16 @@ function noteText(state: EditorState): string {
   return `${doc.textBetween(0, start, '\n', ' ')} ${doc.textBetween(head, doc.content.size, '\n', ' ')}`;
 }
 
+/**
+ * The ghost text, drawn from attributes by CSS (`editor.css`) rather than
+ * holding a text node of its own.
+ *
+ * With a real text node beside the caret, WebKit sometimes put the letters
+ * the student typed next *inside* it: ProseMirror ignores changes within a
+ * widget, so the note never received them, and the grey run read "ire" +
+ * "ires" while Tab still wrote the right word. An element with no text in it
+ * leaves the browser nowhere to type but the paragraph.
+ */
 function ghostWidget(suggestion: CompletionSuggestion): () => HTMLElement {
   return () => {
     const ghost = document.createElement('span');
@@ -277,7 +287,7 @@ function ghostWidget(suggestion: CompletionSuggestion): () => HTMLElement {
     // Read-aloud and VoiceOver must hear the note, not a guess about it.
     ghost.setAttribute('aria-hidden', 'true');
     ghost.contentEditable = 'false';
-    ghost.append(suggestion.rest);
+    ghost.dataset.rest = suggestion.rest;
 
     const alternatives = suggestion.candidates.length;
     // Once the student has cycled, where they are among the alternatives is
@@ -287,13 +297,13 @@ function ghostWidget(suggestion: CompletionSuggestion): () => HTMLElement {
       hint.className = 'nb-completion-hint';
       if (suggestion.hint) {
         const key = document.createElement('kbd');
-        key.textContent = 'tab';
+        key.dataset.label = 'tab';
         hint.append(key);
       }
       if (alternatives > 1) {
         const more = document.createElement('span');
         more.className = 'nb-completion-count';
-        more.textContent = `${suggestion.hint ? '⌥⇥ ' : ''}${suggestion.choice + 1}/${alternatives}`;
+        more.dataset.label = `${suggestion.hint ? '⌥⇥ ' : ''}${suggestion.choice + 1}/${alternatives}`;
         hint.append(more);
       }
       ghost.append(hint);

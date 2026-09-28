@@ -372,6 +372,44 @@ mod tests {
         TempStore { store, directory }
     }
 
+    /// A real library through SQLite, on demand: the Rust half of plan §8's
+    /// "a 1.1.0 backup restores". Feed it the migrated library the webview
+    /// probe writes (`NB_BACKUP_PROBE_OUT` in `realBackup.probe.test.ts`):
+    /// `NB_LIBRARY_PROBE=/tmp/library.json cargo test -- --ignored probe_imports`
+    #[test]
+    #[ignore = "needs NB_LIBRARY_PROBE pointing at a library JSON"]
+    fn probe_imports_a_real_library() {
+        let path = std::env::var("NB_LIBRARY_PROBE").expect("NB_LIBRARY_PROBE");
+        let library: Library =
+            serde_json::from_slice(&std::fs::read(&path).expect("library file"))
+                .expect("a library the webview wrote must deserialize");
+        let temp = temp_store("library-probe");
+        import_library(&temp.store, &library, "replace").expect("import into SQLite");
+        let back = export_library(&temp.store).expect("export from SQLite");
+
+        let counts = |library: &Library| {
+            (
+                library.notes.len(),
+                library.courses.len(),
+                library.tags.len(),
+                library.tasks.len(),
+                library.attachments.len(),
+                library.snapshots.len(),
+            )
+        };
+        assert_eq!(counts(&back), counts(&library));
+        for note in &library.notes {
+            let restored = back
+                .notes
+                .iter()
+                .find(|entry| entry.id == note.id)
+                .expect("every note survives");
+            assert_eq!(restored.title, note.title);
+            assert_eq!(restored.doc, note.doc, "{} changed in SQLite", note.id);
+        }
+        println!("SQLite round trip: {:?}", counts(&back));
+    }
+
     fn empty_temp_dir(label: &str) -> std::path::PathBuf {
         let directory = unique_temp_path(label);
         std::fs::create_dir_all(&directory).expect("failed to create temp directory");

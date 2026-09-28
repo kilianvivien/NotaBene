@@ -115,19 +115,28 @@ function visible(path: string): boolean {
 }
 
 /** Notion splits a large export into `Part-1.zip`, `Part-2.zip` inside the
- * outer archive. One level of that is unpacked; deeper nesting is not. */
+ * outer archive. One level of that is unpacked; deeper nesting is not.
+ *
+ * Every part draws on the one expansion budget the outer archive started
+ * with. Giving each its own ceiling let a crafted export of fifty small parts
+ * ask for fifty gigabytes. */
 async function expand(entries: Entries): Promise<Entries> {
   const paths = Object.keys(entries).filter(visible);
   if (!paths.length || !paths.every((path) => extensionOf(path) === 'zip'))
     return entries;
+  let remaining = MAX_EXPANDED_BYTES - expandedSize(entries);
   const merged: Entries = {};
   for (const path of paths) {
-    Object.assign(
-      merged,
-      await unzipFiles(entries[path]!, { maxBytes: MAX_EXPANDED_BYTES }),
-    );
+    if (remaining <= 0) throw new Error('too_large:archive expands past its limit');
+    const part = await unzipFiles(entries[path]!, { maxBytes: remaining });
+    remaining -= expandedSize(part);
+    Object.assign(merged, part);
   }
   return merged;
+}
+
+function expandedSize(entries: Entries): number {
+  return Object.values(entries).reduce((total, bytes) => total + bytes.byteLength, 0);
 }
 
 /** Drop one wrapping folder that every entry shares — the export's own

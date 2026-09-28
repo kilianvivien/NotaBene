@@ -58,10 +58,11 @@ test('suggests a course term as ghost text and accepts it with Tab', async ({ pa
   await typeUntilSuggested(page, 'La mito');
 
   const ghost = page.locator('.nb-completion-ghost');
-  // The first suggestions carry a `tab` key hint after the rest of the word.
-  await expect(ghost).toHaveText(/^chondrie(tab)?$/);
-  // Drawn inline, straight after the caret, inside the same paragraph.
-  await expect(body).toHaveText(/^La mitochondrie(tab)?$/);
+  await expect(ghost).toHaveAttribute('data-rest', 'chondrie');
+  // Drawn inline, straight after the caret, inside the same paragraph — and
+  // drawn by CSS, so the editor's text is only what was typed.
+  await expect(body.locator('p .nb-completion-ghost')).toHaveCount(1);
+  await expect(body).toHaveText('La mito');
   await expect(body.locator('p')).toHaveCount(1);
 
   await page.keyboard.press('Tab');
@@ -78,7 +79,7 @@ test('Escape dismisses the suggestion and nothing is written', async ({ page }) 
 
   const body = page.getByLabel('Start typing, or press / for blocks');
   await typeUntilSuggested(page, 'La photo');
-  await expect(page.locator('.nb-completion-ghost')).toHaveText(/^synthèse(tab)?$/);
+  await expect(page.locator('.nb-completion-ghost')).toHaveAttribute('data-rest', 'synthèse');
 
   await page.keyboard.press('Escape');
   await expect(page.locator('.nb-completion-ghost')).toHaveCount(0);

@@ -202,7 +202,9 @@ describe('Phase D versions, backups, and exports', () => {
     expect(html).toContain('<details open>');
     expect(html).toContain('<table>');
     expect(html).toContain('<pre><code');
-    expect(html).toContain('<svg');
+    // Drawn as an image, never inlined: inline SVG would run its scripts.
+    expect(html).toContain('<img src="data:image/svg+xml');
+    expect(html).not.toContain('<svg');
     expect(html).toContain('katex');
     expect(html).toContain('notabene-pdf:attachment-1?page=7');
     expect(html).toContain('A source footnote');

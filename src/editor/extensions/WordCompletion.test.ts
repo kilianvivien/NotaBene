@@ -108,9 +108,11 @@ describe('word completion', () => {
     type(current, 'La mito');
 
     expect(currentCompletion(current.state)?.rest).toBe('chondrie');
-    expect(current.view.dom.querySelector('.nb-completion-ghost')?.textContent).toBe(
-      'chondrie',
-    );
+    const ghost = current.view.dom.querySelector<HTMLElement>('.nb-completion-ghost');
+    expect(ghost?.dataset.rest).toBe('chondrie');
+    // No text node for the browser to type into: WebKit put the next letters
+    // inside a ghost that had one, where the note never received them.
+    expect(ghost?.textContent).toBe('');
     // The document holds only what was typed: nothing for autosave, export
     // or an agent to pick up.
     expect(text(current)).toBe('La mito');
@@ -285,9 +287,9 @@ describe('word completion', () => {
 
     expect(press(current, 'Tab', { altKey: true }).handled).toBe(true);
     expect(currentCompletion(current.state)?.term).toBe('cellulaire');
-    expect(current.view.dom.querySelector('.nb-completion-count')?.textContent).toBe(
-      '2/2',
-    );
+    expect(
+      current.view.dom.querySelector<HTMLElement>('.nb-completion-count')?.dataset.label,
+    ).toBe('2/2');
     // Cycling is not an edit.
     expect(text(current)).toBe('cell');
 
@@ -337,9 +339,9 @@ describe('word completion', () => {
     overrides = { hint: 'always' };
     const current = open('<p></p>');
     type(current, 'mito');
-    expect(current.view.dom.querySelector('.nb-completion-hint kbd')?.textContent).toBe(
-      'tab',
-    );
+    expect(
+      current.view.dom.querySelector<HTMLElement>('.nb-completion-hint kbd')?.dataset.label,
+    ).toBe('tab');
     // Beside the ghost text, never in the note.
     expect(text(current)).toBe('mito');
   });

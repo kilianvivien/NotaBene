@@ -9,9 +9,10 @@
 //! webview's `connect-src` names exactly three hosts, and a feature that could
 //! reach any URL would have to dismantle that.
 
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
+use futures_util::StreamExt;
 use serde::Serialize;
 
 /// Long enough for a slow news site, short enough that a hung server does not
@@ -45,39 +46,70 @@ pub struct FetchedPage {
 fn is_forbidden(address: &IpAddr) -> bool {
     match address {
         IpAddr::V4(v4) => {
+            let [a, b, ..] = v4.octets();
             v4.is_loopback()
                 || v4.is_private()
                 || v4.is_link_local()
                 || v4.is_broadcast()
                 || v4.is_documentation()
-                || v4.is_unspecified()
+                || v4.is_multicast()
+                // 0.0.0.0/8: "this network" — macOS connects 0.0.0.0 to loopback.
+                || a == 0
                 // 100.64.0.0/10, carrier-grade NAT.
-                || (v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1]))
+                || (a == 100 && (64..128).contains(&b))
+                // 192.0.0.0/24, protocol assignments.
+                || (a == 192 && b == 0 && v4.octets()[2] == 0)
+                // 198.18.0.0/15, benchmarking — routed to lab gear, never the web.
+                || (a == 198 && (b == 18 || b == 19))
+                // 240.0.0.0/4, reserved.
+                || a >= 240
         }
         IpAddr::V6(v6) => {
+            let first = v6.segments()[0];
             v6.is_loopback()
                 || v6.is_unspecified()
+                || v6.is_multicast()
                 // Unique local, fc00::/7.
-                || (v6.segments()[0] & 0xfe00) == 0xfc00
+                || (first & 0xfe00) == 0xfc00
                 // Link-local, fe80::/10.
-                || (v6.segments()[0] & 0xffc0) == 0xfe80
-                // An IPv4 address wearing an IPv6 hat still goes where it goes.
-                || v6.to_ipv4_mapped().map(|v4| is_forbidden(&IpAddr::V4(v4))) == Some(true)
+                || (first & 0xffc0) == 0xfe80
+                // An IPv4 address wearing an IPv6 hat still goes where it goes:
+                // mapped (::ffff:a.b.c.d) and the old compatible form (::a.b.c.d)…
+                || v6.to_ipv4().map(|v4| is_forbidden(&IpAddr::V4(v4))) == Some(true)
+                // …NAT64 (64:ff9b::/96), which a DNS64 resolver hands out for
+                // any name, including one that means 127.0.0.1…
+                || (v6.segments()[..6] == [0x64, 0xff9b, 0, 0, 0, 0]
+                    && is_forbidden(&IpAddr::V4(embedded_v4(v6, 6))))
+                // …and 6to4 (2002::/16), which carries its address in bits 16–48.
+                || (first == 0x2002 && is_forbidden(&IpAddr::V4(embedded_v4(v6, 1))))
         }
     }
 }
 
-/// Refuse a URL before any connection is opened.
+/// The IPv4 address carried in two segments of an IPv6 one, from `at`.
+fn embedded_v4(v6: &std::net::Ipv6Addr, at: usize) -> Ipv4Addr {
+    let segments = v6.segments();
+    let [hi, lo] = [segments[at], segments[at + 1]];
+    Ipv4Addr::new((hi >> 8) as u8, hi as u8, (lo >> 8) as u8, lo as u8)
+}
+
+/// Refuse a URL before any connection is opened, and say where it may go.
 ///
 /// Resolution happens here rather than being left to reqwest so the answer can
-/// be inspected. This is not airtight — a name that resolves twice can answer
-/// differently the second time — but closing that properly means owning the
-/// socket, and the gap left is much smaller than the one it replaces.
-async fn check_destination(url: &reqwest::Url) -> Result<(), String> {
+/// be inspected — and the addresses that passed are returned so the request is
+/// pinned to them. Resolving a second time at connect would let a name answer
+/// with a public address for the check and `127.0.0.1` for the connection
+/// (DNS rebinding). `None` means the host was a literal address, which cannot
+/// change between the two.
+async fn check_destination(
+    url: &reqwest::Url,
+) -> Result<Option<(String, Vec<SocketAddr>)>, String> {
     if !matches!(url.scheme(), "http" | "https") {
         return Err(format!("refused_scheme:{}", url.scheme()));
     }
-    let host = url.host_str().ok_or_else(|| "invalid_url:no host".to_string())?;
+    let host = url
+        .host_str()
+        .ok_or_else(|| "invalid_url:no host".to_string())?;
     // `host_str` keeps the brackets on an IPv6 literal, and `[::1]` does not
     // parse as an address — which quietly sent loopback down the DNS path and
     // straight through the check this function exists to perform.
@@ -90,7 +122,7 @@ async fn check_destination(url: &reqwest::Url) -> Result<(), String> {
         return if is_forbidden(&address) {
             Err("refused_host:that address is not on the public web".into())
         } else {
-            Ok(())
+            Ok(None)
         };
     }
 
@@ -98,17 +130,54 @@ async fn check_destination(url: &reqwest::Url) -> Result<(), String> {
     let resolved = tokio::net::lookup_host((host, port))
         .await
         .map_err(|error| format!("dns_failed:{error}"))?;
-    let mut any = false;
+    let mut addresses = Vec::new();
     for candidate in resolved {
-        any = true;
         if is_forbidden(&candidate.ip()) {
             return Err("refused_host:that address is not on the public web".into());
         }
+        addresses.push(candidate);
     }
-    if !any {
+    if addresses.is_empty() {
         return Err("dns_failed:the host did not resolve".into());
     }
-    Ok(())
+    Ok(Some((host.to_owned(), addresses)))
+}
+
+/// A client for one hop, connecting only to the addresses that were checked.
+fn pinned_client(pin: Option<(String, Vec<SocketAddr>)>) -> Result<reqwest::Client, String> {
+    let mut builder = reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        // A real user agent: several large sites serve an error page to a
+        // client that does not name itself, and a blank reader view reads as a
+        // NotaBene bug rather than as the site's choice.
+        .user_agent(concat!("NotaBene/", env!("CARGO_PKG_VERSION")));
+    if let Some((host, addresses)) = pin {
+        builder = builder.resolve_to_addrs(&host, &addresses);
+    }
+    builder.build().map_err(|error| error.to_string())
+}
+
+/// Read a body up to `MAX_BYTES`, stopping as soon as it passes — not after
+/// the whole of an endless response has already been held in memory.
+async fn read_capped(response: reqwest::Response, what: &str) -> Result<Vec<u8>, String> {
+    let too_large = || format!("too_large:{what} is larger than NotaBene will read");
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_BYTES as u64)
+    {
+        return Err(too_large());
+    }
+    let mut body = Vec::new();
+    let mut chunks = response.bytes_stream();
+    while let Some(chunk) = chunks.next().await {
+        let chunk = chunk.map_err(|error| format!("fetch_failed:{error}"))?;
+        if body.len() + chunk.len() > MAX_BYTES {
+            return Err(too_large());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
 }
 
 /// Follow redirects by hand, so every hop is checked rather than only the first.
@@ -118,20 +187,10 @@ async fn check_destination(url: &reqwest::Url) -> Result<(), String> {
 pub async fn fetch_page(url: &str) -> Result<FetchedPage, String> {
     crate::tls::ensure_provider();
 
-    let client = reqwest::Client::builder()
-        .timeout(REQUEST_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none())
-        // A real user agent: several large sites serve an error page to a
-        // client that does not name itself, and a blank reader view reads as a
-        // NotaBene bug rather than as the site's choice.
-        .user_agent(concat!("NotaBene/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .map_err(|error| error.to_string())?;
-
     let mut current = reqwest::Url::parse(url).map_err(|error| format!("invalid_url:{error}"))?;
 
     for _ in 0..=MAX_REDIRECTS {
-        check_destination(&current).await?;
+        let client = pinned_client(check_destination(&current).await?)?;
 
         let response = client
             .get(current.clone())
@@ -166,13 +225,7 @@ pub async fn fetch_page(url: &str) -> Result<FetchedPage, String> {
         }
 
         let final_url = response.url().to_string();
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|error| format!("fetch_failed:{error}"))?;
-        if bytes.len() > MAX_BYTES {
-            return Err("too_large:that page is larger than NotaBene will read".into());
-        }
+        let bytes = read_capped(response, "that page").await?;
 
         return Ok(FetchedPage {
             final_url,
@@ -276,16 +329,10 @@ pub async fn wikipedia_search(
         .append_pair("q", query)
         .append_pair("limit", &limit.unwrap_or(8).clamp(1, 20).to_string());
 
-    check_destination(&url).await?;
-
-    let client = reqwest::Client::builder()
-        .timeout(REQUEST_TIMEOUT)
-        // No redirects at all: the search endpoint answers directly, and a
-        // redirect here would be a hop this function never checked.
-        .redirect(reqwest::redirect::Policy::none())
-        .user_agent(concat!("NotaBene/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .map_err(|error| error.to_string())?;
+    // No redirects at all (the pinned client follows none): the search
+    // endpoint answers directly, and a redirect here would be a hop this
+    // function never checked.
+    let client = pinned_client(check_destination(&url).await?)?;
 
     let response = client
         .get(url)
@@ -298,13 +345,7 @@ pub async fn wikipedia_search(
         return Err(format!("http_error:{}", response.status().as_u16()));
     }
 
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| format!("fetch_failed:{error}"))?;
-    if bytes.len() > MAX_BYTES {
-        return Err("too_large:that search returned more than NotaBene will read".into());
-    }
+    let bytes = read_capped(response, "that search").await?;
 
     // Only the fields the dialog draws. Wikipedia adds keys between releases,
     // and a search that failed because of a new one would be a poor trade.
@@ -382,7 +423,47 @@ mod tests {
 
     #[test]
     fn refuses_a_private_address_wearing_an_ipv6_hat() {
-        assert!(refused("http://[::ffff:127.0.0.1]/").starts_with("refused_host"));
+        for url in [
+            "http://[::ffff:127.0.0.1]/",
+            // IPv4-compatible, NAT64 and 6to4 forms of loopback and the LAN.
+            "http://[::127.0.0.1]/",
+            "http://[64:ff9b::7f00:1]/",
+            "http://[64:ff9b::c0a8:101]/",
+            "http://[2002:7f00:1::]/",
+            "http://[2002:a00:5::1]/",
+        ] {
+            assert!(
+                refused(url).starts_with("refused_host"),
+                "{url} should have been refused"
+            );
+        }
+    }
+
+    #[test]
+    fn refuses_the_ranges_that_are_not_the_web_either() {
+        for url in [
+            "http://0.0.0.0:22600/",
+            "http://0.1.2.3/",
+            "http://224.0.0.1/",
+            "http://240.0.0.1/",
+            "http://198.18.0.1/",
+            "http://192.0.0.8/",
+            "http://[ff02::1]/",
+        ] {
+            assert!(
+                refused(url).starts_with("refused_host"),
+                "{url} should have been refused"
+            );
+        }
+    }
+
+    #[test]
+    fn keeps_public_nat64_and_6to4_addresses() {
+        // 93.184.216.34 in both wrappings: the web is still the web.
+        for address in ["64:ff9b::5db8:d822", "2002:5db8:d822::1"] {
+            let parsed: IpAddr = address.parse().unwrap();
+            assert!(!is_forbidden(&parsed), "{address} should be allowed");
+        }
     }
 
     /// The language code becomes a hostname, so it is the one field an attacker
@@ -420,6 +501,22 @@ mod tests {
                 "{slug:?} should not have added a fragment"
             );
         }
+    }
+
+    /// The pinned client against the real web, redirects included:
+    /// `NB_WEB_PROBE=http://example.com cargo test -- --ignored probe_fetches`
+    #[test]
+    #[ignore = "needs the network and NB_WEB_PROBE"]
+    fn probe_fetches_a_public_page() {
+        let url = std::env::var("NB_WEB_PROBE").expect("NB_WEB_PROBE");
+        let page = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build runtime")
+            .block_on(fetch_page(&url))
+            .expect("a public page should be fetched");
+        println!("{} ({} bytes)", page.final_url, page.html.len());
+        assert!(!page.html.is_empty());
     }
 
     #[test]

@@ -497,6 +497,16 @@
   white-space: pre;
 }
 
+/* Drawn from attributes, never text nodes — see `ghostWidget`. */
+.nb-prosemirror .nb-completion-ghost::before {
+  content: attr(data-rest);
+}
+
+.nb-prosemirror .nb-completion-hint kbd::before,
+.nb-prosemirror .nb-completion-count::before {
+  content: attr(data-label);
+}
+
 /* The keycap and the "2/3" ride after the ghost text, smaller and in the UI
    face, so they read as chrome about the suggestion rather than part of it. */
 .nb-prosemirror .nb-completion-hint {
