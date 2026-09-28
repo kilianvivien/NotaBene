@@ -154,11 +154,34 @@ describe('createMediaRecorderAdapter', () => {
     expect(getUserMedia).toHaveBeenCalledWith({
       audio: expect.objectContaining({
         deviceId: { exact: 'usb-mic' },
-        autoGainControl: false,
+        autoGainControl: { exact: false },
         noiseSuppression: true,
-        echoCancellation: false,
+        echoCancellation: { exact: false },
       }),
     });
     await session.cancel();
   });
+
+  it.each(['autoGainControl', 'echoCancellation'] as const)(
+    'releases the microphone without writing when %s remains enabled',
+    async (processing) => {
+      const stop = vi.fn();
+      const processedTrack = { stop, getSettings: () => ({ [processing]: true }) };
+      vi.stubGlobal('navigator', {
+        mediaDevices: {
+          getUserMedia: vi.fn(async () => ({
+            getTracks: () => [processedTrack],
+            getAudioTracks: () => [processedTrack],
+          })),
+        },
+      });
+      const sink = memorySink();
+      await expect(
+        createMediaRecorderAdapter(sink).start({ id: 'rec-1', noteId: 'note-1' }),
+      ).rejects.toMatchObject({ reason: 'unsupported' });
+      expect(stop).toHaveBeenCalledOnce();
+      expect(sink.begin).not.toHaveBeenCalled();
+      expect(FakeRecorder.last).toBeNull();
+    },
+  );
 });

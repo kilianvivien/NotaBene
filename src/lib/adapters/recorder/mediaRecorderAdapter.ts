@@ -56,7 +56,11 @@ function unavailableFrom(error: unknown): RecorderUnavailableError {
   if (name === 'NotAllowedError' || name === 'SecurityError') {
     return new RecorderUnavailableError('denied');
   }
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+  const constraint = (error as { constraint?: string } | null)?.constraint;
+  if (
+    name === 'NotFoundError' ||
+    (name === 'OverconstrainedError' && constraint === 'deviceId')
+  ) {
     return new RecorderUnavailableError('no_device');
   }
   return new RecorderUnavailableError('unsupported', String(error));
@@ -98,12 +102,11 @@ async function openInput(input: RecordingInput): Promise<OpenInput> {
       audio: {
         ...(input.deviceId ? { deviceId: { exact: input.deviceId } } : {}),
         channelCount: 1,
-        echoCancellation: false,
-        // Never the platform's: it starts low and takes seconds to adapt, so
-        // every recording opened on a near-silent first sentence (found on a
-        // real one, 2026-09-28: −50 dBFS for 3.5 s, then +25 dB). Automatic
-        // level is the leveller in the graph below, even from sample one.
-        autoGainControl: false,
+        // Plain booleans are preferences: the browser may ignore them.
+        // Voice-call processing can change the microphone level mid-sentence;
+        // require it off wherever the browser supports these constraints.
+        echoCancellation: { exact: false },
+        autoGainControl: { exact: false },
         noiseSuppression: input.noiseSuppression,
       },
     });
@@ -111,6 +114,14 @@ async function openInput(input: RecordingInput): Promise<OpenInput> {
     throw unavailableFrom(error);
   }
   const release = () => microphone.getTracks().forEach((track) => track.stop());
+  const settings = microphone.getAudioTracks()[0]?.getSettings?.();
+  if (settings?.autoGainControl === true || settings?.echoCancellation === true) {
+    release();
+    throw new RecorderUnavailableError(
+      'unsupported',
+      'Microphone voice processing could not be disabled',
+    );
+  }
 
   const Context = audioContextClass();
   if (!Context) {
