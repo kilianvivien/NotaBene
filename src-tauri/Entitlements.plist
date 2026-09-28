@@ -9,5 +9,9 @@
        entitlement in the same change that adds Developer ID signing. -->
   <key>com.apple.security.cs.disable-library-validation</key>
   <true/>
+  <!-- Lecture recording (plan §10.0). Under the hardened runtime the
+       microphone is refused without this, whatever the student answers. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
 </dict>
 </plist>

@@ -30,6 +30,13 @@ import {
   type WordCompletionOptions,
 } from './extensions/WordCompletion';
 import { paragraphText, rangeFor } from './proofread/paragraphText';
+import {
+  formatOffset,
+  refreshLectureAnchors,
+  type LectureAnchorsOptions,
+} from './extensions/LectureAnchors';
+import { activeRecording } from '@/lib/state/recordingStore';
+import { useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { closeHistory } from '@tiptap/pm/history';
 import {
   OPEN_REFRESH_MS,
@@ -128,6 +135,23 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
       hintWanted: () => acceptedCompletions() < HINT_LESSONS,
     };
   }, [resolveAbbreviations]);
+  // Read at each keystroke for the same reason as the course above. Anchors
+  // only get markers for recordings the player found on *this* note.
+  const lectureAnchors = useMemo(
+    (): Partial<LectureAnchorsOptions> => ({
+      active: activeRecording,
+      noteId: () => useEditorStore.getState().note?.id ?? null,
+      available: () => {
+        const playback = useLecturePlaybackStore.getState();
+        return playback.noteId === useEditorStore.getState().note?.id
+          ? new Set(playback.recordings.map((recording) => recording.id))
+          : new Set<string>();
+      },
+      play: (anchor) => void useLecturePlaybackStore.getState().playAnchor(anchor),
+      label: (offsetMs) => t('recording.playFrom', { time: formatOffset(offsetMs) }),
+    }),
+    [t],
+  );
   const extensions = useMemo(
     () =>
       editorExtensions(
@@ -135,8 +159,9 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
         resolveAbbreviations,
         resolveConcentration,
         completion,
+        lectureAnchors,
       ),
-    [resolveAbbreviations, resolveConcentration, completion, t],
+    [resolveAbbreviations, resolveConcentration, completion, lectureAnchors, t],
   );
   const noteId = useEditorStore((state) => state.note?.id);
   const noteCourseId = useEditorStore((state) => state.note?.courseId);
@@ -361,6 +386,20 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
       stopSettings();
       stopUi();
     };
+  }, [editor]);
+
+  // A recording kept, removed or found: redraw the markers. No transaction
+  // would otherwise ask the plugin to look again.
+  useEffect(() => {
+    if (!editor) return;
+    return useLecturePlaybackStore.subscribe((state, previous) => {
+      if (
+        !editor.isDestroyed &&
+        (state.recordings !== previous.recordings || state.noteId !== previous.noteId)
+      ) {
+        refreshLectureAnchors(editor.view);
+      }
+    });
   }, [editor]);
 
   const run = useCallback(

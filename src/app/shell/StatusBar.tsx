@@ -8,6 +8,7 @@ import { useUiStore } from '@/lib/state/uiStore';
 import { docStats } from '@/lib/notes/docText';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { writingProgress } from '@/lib/longForm/outline';
+import { RecordingStatus } from '@/app/recording/RecordingControls';
 
 /** Save state, note stats, and the agent-activity indicator. The save state is
  * load-bearing UI: it is what replaces a Save button.
@@ -96,6 +97,8 @@ export function StatusBar() {
       )}
 
       <span className="ml-auto" aria-hidden />
+
+      <RecordingStatus />
 
       {access?.readOnly && (
         <span

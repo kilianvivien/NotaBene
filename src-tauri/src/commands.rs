@@ -290,7 +290,10 @@ pub struct AssetPayload {
     mime: String,
 }
 
-fn asset_file_path(access: &LibraryAccess, asset_id: &str) -> DbResult<std::path::PathBuf> {
+pub(crate) fn asset_file_path(
+    access: &LibraryAccess,
+    asset_id: &str,
+) -> DbResult<std::path::PathBuf> {
     if asset_id.len() < 2
         || !asset_id
             .chars()

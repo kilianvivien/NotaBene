@@ -23,6 +23,7 @@ import { Concentration, type ConcentrationState } from './Concentration';
 import { WordCompletion, type WordCompletionOptions } from './WordCompletion';
 import { Footnote } from './Footnote';
 import { LongForm } from './LongForm';
+import { LectureAnchors, type LectureAnchorsOptions } from './LectureAnchors';
 
 const CONCENTRATION_OFF: ConcentrationState = {
   active: false,
@@ -55,6 +56,9 @@ export function editorExtensions(
   resolveAbbreviations: () => readonly AbbreviationRule[] = () => [],
   resolveConcentration: () => ConcentrationState = () => CONCENTRATION_OFF,
   completion: WordCompletionOptions = COMPLETION_OFF,
+  // Always registered, even with nothing recording: an editor without the
+  // attribute in its schema would drop every anchor on the next save.
+  lectureAnchors: Partial<LectureAnchorsOptions> = {},
 ): Extensions {
   return [
     StarterKit.configure({
@@ -92,5 +96,6 @@ export function editorExtensions(
     Abbreviation.configure({ resolve: resolveAbbreviations }),
     Concentration.configure({ resolve: resolveConcentration }),
     WordCompletion.configure(completion),
+    LectureAnchors.configure(lectureAnchors),
   ];
 }

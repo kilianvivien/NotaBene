@@ -22,7 +22,12 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FieldNote, FieldSection, GlassButton } from '@/components/glass';
-import { storage, type IntegrityReport, type StorageSummary } from '@/lib/adapters';
+import {
+  library,
+  storage,
+  type IntegrityReport,
+  type StorageSummary,
+} from '@/lib/adapters';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { formatBytes } from '@/lib/utils/formatBytes';
 import { relocateLibraryCommand } from '@/lib/commands';
@@ -63,6 +68,10 @@ export function DataStorageSettings() {
     (state) => state.settings.lastAssetReclaimedBytes,
   );
   const [summary, setSummary] = useState<StorageSummary | null>(null);
+  // Lecture recordings are attachments, so they are inside the attachments
+  // figure; this says how much of it is audio, the one kind that runs to tens
+  // of megabytes a lecture (plan §10.0 item 7).
+  const [audioBytes, setAudioBytes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -75,6 +84,12 @@ export function DataStorageSettings() {
     setLoading(true);
     try {
       setSummary(await storage.summary());
+      const assets = await library.listAssets().catch(() => []);
+      setAudioBytes(
+        assets
+          .filter((asset) => asset.mime.startsWith('audio/'))
+          .reduce((total, asset) => total + asset.bytes, 0),
+      );
       setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -245,6 +260,11 @@ export function DataStorageSettings() {
             </li>
           ))}
         </ul>
+        {audioBytes > 0 && (
+          <FieldNote>
+            {t('storage.audioNote', { size: formatBytes(audioBytes, locale) })}
+          </FieldNote>
+        )}
         {summary.modelsBytes > 0 && (
           <FieldNote>
             {t('storage.modelsNote', {

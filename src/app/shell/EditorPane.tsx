@@ -5,6 +5,7 @@ import { RichTextEditor } from '@/editor/RichTextEditor';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { DocumentMap } from '@/app/longForm/DocumentMap';
 import { useUiStore } from '@/lib/state/uiStore';
+import { LecturePlayer } from '@/app/recording/LecturePlayer';
 
 export function EditorPane() {
   const { t } = useTranslation();
@@ -70,6 +71,7 @@ export function EditorPane() {
             editable={!readOnly}
             onChange={applyDoc}
           />
+          <LecturePlayer noteId={note.id} readOnly={readOnly} />
         </div>
       </div>
     </div>

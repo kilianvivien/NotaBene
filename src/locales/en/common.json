@@ -460,7 +460,8 @@
     "integrityOk": "No problems found",
     "damagedTitle": "The database reported problems at launch",
     "damagedBody": "Your notes are still readable. Back up or export them now, then run the check below to see what was found.",
-    "neverStored": "API keys are not stored here — they live in the macOS Keychain and have no place in a backup or an export. There are no accounts and no telemetry: nothing in this folder is sent anywhere."
+    "neverStored": "API keys are not stored here — they live in the macOS Keychain and have no place in a backup or an export. There are no accounts and no telemetry: nothing in this folder is sent anywhere.",
+    "audioNote": "{{size}} of the attachments is audio — lecture recordings and audio you attached. Remove a recording from its note’s player; the note keeps its text."
   },
   "search": {
     "placeholder": "Search notes or commands",
@@ -1245,7 +1246,12 @@
     "vocabularyReview": "Review Course Vocabulary…",
     "importFromApp": "Import notes from another app…",
     "exportCalendar": "Export tasks to Calendar…",
-    "importCalendar": "Import a calendar as tasks…"
+    "importCalendar": "Import a calendar as tasks…",
+    "recordLecture": "Record Lecture",
+    "toggleRecording": "Start or Stop Recording",
+    "lecturePlayPause": "Play or Pause Lecture",
+    "lectureBack": "Lecture Back 10 Seconds",
+    "lectureForward": "Lecture Forward 10 Seconds"
   },
   "import": {
     "attachmentMissing": "The attachment data could not be found.",
@@ -1512,7 +1518,11 @@
     "body": "NotaBene closed before these edits were saved. Restore them, or keep the last saved version.",
     "unsavedSince": "Edited at {{time}} · last saved at {{saved}}",
     "restore": "Restore",
-    "discard": "Discard"
+    "discard": "Discard",
+    "recordingTitle": "Interrupted recording",
+    "recordingBody": "NotaBene closed while recording. Everything up to the last few seconds was kept. Add it to its note, or discard it.",
+    "recordingRow": "Recording started {{time}}",
+    "keepRecording": "Add to note"
   },
   "common": {
     "cancel": "Cancel",
@@ -1681,6 +1691,14 @@
           "links": {
             "title": "Link notes",
             "text": "Type [[ and a title to link to another note. The note you link to lists it under Linked notes."
+          },
+          "record": {
+            "title": "Record a lecture",
+            "text": "Record while you type. Each paragraph you start remembers the moment it was written; the audio stays on this Mac and is kept as an attachment."
+          },
+          "listen": {
+            "title": "Hear what was said",
+            "text": "Point at a paragraph written during a recording and press the play mark beside it to hear the lecture from just before that moment."
           },
           "palette": {
             "title": "Find anything",
@@ -2157,5 +2175,44 @@
       "unchanged_one": "{{count}} already up to date.",
       "unchanged_other": "{{count}} already up to date."
     }
+  },
+  "recording": {
+    "fileName": "Recording — {{date}}",
+    "unsupported": "Recording needs the NotaBene desktop app.",
+    "readOnly": "This library is open read-only, so a recording could not be kept.",
+    "unavailable": {
+      "unsupported": "This Mac cannot record here.",
+      "denied": "NotaBene is not allowed to use the microphone. Allow it in System Settings → Privacy & Security → Microphone.",
+      "no_device": "No microphone was found."
+    },
+    "startFailed": "The recording could not start.",
+    "saveFailed": "The recording could not be saved. It is still on disk and will be offered back at the next launch.",
+    "noteMissing": "The note this recording belongs to no longer exists. It stays here until the note is back or you discard it.",
+    "alreadyRunning": "A recording is already running.",
+    "notRunning": "Nothing is being recorded.",
+    "interrupted": "The recording stopped unexpectedly. What was recorded has been kept.",
+    "saved": "Recording saved to the note.",
+    "noAudio": "This note has no recording.",
+    "playFrom": "Play the lecture from {{time}}",
+    "player": "Lecture recording",
+    "play": "Play",
+    "pause": "Pause",
+    "back": "Back {{seconds}} seconds",
+    "forward": "Forward {{seconds}} seconds",
+    "loading": "Loading…",
+    "position": "Position in the recording",
+    "choose": "Recording",
+    "playError": {
+      "missing": "The audio for this recording is missing.",
+      "unplayable": "This recording cannot be played."
+    },
+    "remove": "Remove recording",
+    "removeTitle": "Remove this recording?",
+    "removeConfirm": "“{{name}}” will be removed from this note. Your notes and their text stay as they are.",
+    "anchorsHint": "Recording. Each paragraph you start now remembers when it was written.",
+    "stopIn": "Stop recording in “{{title}}”",
+    "status": "Recording {{time}}",
+    "saving": "Saving recording…",
+    "anchorsElsewhere": "anchors go to “{{title}}”"
   }
 }

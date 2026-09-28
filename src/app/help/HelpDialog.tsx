@@ -49,6 +49,8 @@ const TOPICS = {
       { id: 'quick', command: 'note.quick' },
       { id: 'blocks', keys: '/' },
       { id: 'links', keys: '[[' },
+      { id: 'record', command: 'recording.toggle' },
+      { id: 'listen', command: 'recording.playPause' },
       { id: 'palette', command: 'app.commandPalette' },
       { id: 'focus', command: 'view.focusMode' },
     ],

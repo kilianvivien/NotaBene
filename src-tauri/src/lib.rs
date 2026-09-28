@@ -15,6 +15,7 @@ mod grants;
 mod mcp;
 mod menu;
 mod ocr;
+mod recording;
 mod settings;
 mod storage;
 mod tls;
@@ -103,6 +104,7 @@ pub fn run() {
             app.manage(library_access);
             app.manage(folder_import::ImportRoots::default());
             app.manage(grants::Grants::load(handle));
+            app.manage(recording::ActiveRecordings::default());
 
             #[cfg(desktop)]
             app.global_shortcut().register("CmdOrCtrl+Shift+Q")?;
@@ -209,6 +211,11 @@ pub fn run() {
             ocr::ocr_available,
             ocr::ocr_languages,
             ocr::ocr_recognize_page,
+            recording::recording_begin,
+            recording::recording_append,
+            recording::recording_finish,
+            recording::recording_discard,
+            recording::recording_interrupted,
             settings::settings_load,
             settings::settings_save,
             settings::secrets_get,

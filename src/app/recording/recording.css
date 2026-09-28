@@ -1,0 +1,127 @@
+/* Lecture audio (plan §10.0): the chrome pill, the docked player, and the
+   gutter markers the editor draws beside anchored blocks. Opaque surfaces
+   from the tokens, as everywhere else. */
+
+.nb-recording-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--nb-danger);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-recording-dot {
+    animation: nb-recording-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes nb-recording-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.nb-recording-pill {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 7px;
+  border: 0.5px solid var(--nb-control-border);
+  border-radius: var(--nb-radius-sm);
+  background: var(--nb-control-surface);
+  padding: 0 9px;
+  color: var(--nb-danger);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--nb-t-fast);
+}
+
+.nb-recording-pill:hover {
+  background: var(--nb-hover);
+}
+
+.nb-recording-pill:disabled {
+  opacity: 0.6;
+}
+
+.nb-level-meter {
+  display: inline-flex;
+  height: 11px;
+  align-items: flex-end;
+  gap: 1.5px;
+}
+
+.nb-level-meter > span {
+  width: 2.5px;
+  border-radius: 1px;
+  background: var(--nb-divider-strong);
+}
+
+.nb-level-meter > span:nth-child(1) {
+  height: 3px;
+}
+.nb-level-meter > span:nth-child(2) {
+  height: 5px;
+}
+.nb-level-meter > span:nth-child(3) {
+  height: 7px;
+}
+.nb-level-meter > span:nth-child(4) {
+  height: 9px;
+}
+.nb-level-meter > span:nth-child(5) {
+  height: 11px;
+}
+
+.nb-level-meter > span[data-lit] {
+  background: var(--nb-danger);
+}
+
+/* Pinned to the foot of the note while it scrolls, inside the page's measure
+   so it reads as part of the note rather than as window chrome. */
+.nb-lecture-player {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  margin-top: 16px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  border: 0.5px solid var(--nb-control-border);
+  border-radius: 12px;
+  background: var(--nb-menu-surface);
+  box-shadow: var(--nb-shadow-sm);
+  padding: 4px 8px 4px 4px;
+  font-size: 12px;
+  color: var(--nb-text-2);
+}
+
+.nb-lecture-player-hint {
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.nb-lecture-time {
+  min-width: 5.5rem;
+  flex-shrink: 0;
+  padding: 0 4px;
+  font-family: var(--nb-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.nb-lecture-scrubber {
+  min-width: 4rem;
+  flex: 1 1 auto;
+  accent-color: var(--nb-accent);
+}
+
+.nb-lecture-name {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--nb-text-3);
+}

@@ -460,7 +460,8 @@
     "integrityOk": "Aucun problème détecté",
     "damagedTitle": "La base de données a signalé des problèmes au lancement",
     "damagedBody": "Vos notes restent lisibles. Sauvegardez-les ou exportez-les maintenant, puis lancez la vérification ci-dessous pour voir ce qui a été détecté.",
-    "neverStored": "Les clés d’API ne sont pas stockées ici : elles résident dans le trousseau macOS et n’ont aucune place dans une sauvegarde ou un export. Il n’y a ni compte ni télémétrie — rien de ce dossier n’est envoyé où que ce soit."
+    "neverStored": "Les clés d’API ne sont pas stockées ici : elles résident dans le trousseau macOS et n’ont aucune place dans une sauvegarde ou un export. Il n’y a ni compte ni télémétrie — rien de ce dossier n’est envoyé où que ce soit.",
+    "audioNote": "{{size}} des pièces jointes sont de l’audio : enregistrements de cours et fichiers audio joints. Supprimez un enregistrement depuis le lecteur de sa note ; la note garde son texte."
   },
   "search": {
     "placeholder": "Rechercher des notes ou des commandes",
@@ -1245,7 +1246,12 @@
     "vocabularyReview": "Réviser le vocabulaire du cours…",
     "importFromApp": "Importer des notes d’une autre app…",
     "exportCalendar": "Exporter les tâches vers Calendrier…",
-    "importCalendar": "Importer un calendrier en tâches…"
+    "importCalendar": "Importer un calendrier en tâches…",
+    "recordLecture": "Enregistrer le cours",
+    "toggleRecording": "Démarrer ou arrêter l’enregistrement",
+    "lecturePlayPause": "Lire ou mettre en pause le cours",
+    "lectureBack": "Reculer le cours de 10 secondes",
+    "lectureForward": "Avancer le cours de 10 secondes"
   },
   "import": {
     "attachmentMissing": "Les données de la pièce jointe sont introuvables.",
@@ -1512,7 +1518,11 @@
     "body": "NotaBene s'est fermé avant l'enregistrement de ces modifications. Restaurez-les, ou conservez la dernière version enregistrée.",
     "unsavedSince": "Modifiée à {{time}} · dernier enregistrement à {{saved}}",
     "restore": "Restaurer",
-    "discard": "Abandonner"
+    "discard": "Abandonner",
+    "recordingTitle": "Enregistrement interrompu",
+    "recordingBody": "NotaBene s’est fermé pendant un enregistrement. Tout a été conservé jusqu’aux dernières secondes. Ajoutez-le à sa note, ou abandonnez-le.",
+    "recordingRow": "Enregistrement commencé le {{time}}",
+    "keepRecording": "Ajouter à la note"
   },
   "common": {
     "cancel": "Annuler",
@@ -1681,6 +1691,14 @@
           "links": {
             "title": "Relier des notes",
             "text": "Tapez [[ puis un titre pour créer un lien. La note liée l’affiche dans ses notes liées."
+          },
+          "record": {
+            "title": "Enregistrer un cours",
+            "text": "Enregistrez pendant que vous tapez. Chaque paragraphe commencé retient le moment où il a été écrit ; l’audio reste sur ce Mac et est conservé en pièce jointe."
+          },
+          "listen": {
+            "title": "Réentendre ce qui a été dit",
+            "text": "Survolez un paragraphe écrit pendant un enregistrement et cliquez sur le repère de lecture à côté pour réentendre le cours juste avant ce moment."
           },
           "palette": {
             "title": "Tout trouver",
@@ -2157,5 +2175,44 @@
       "unchanged_one": "{{count}} déjà à jour.",
       "unchanged_other": "{{count}} déjà à jour."
     }
+  },
+  "recording": {
+    "fileName": "Enregistrement — {{date}}",
+    "unsupported": "L’enregistrement nécessite l’application NotaBene pour Mac.",
+    "readOnly": "Cette bibliothèque est ouverte en lecture seule : un enregistrement ne pourrait pas être conservé.",
+    "unavailable": {
+      "unsupported": "Ce Mac ne peut pas enregistrer ici.",
+      "denied": "NotaBene n’a pas accès au micro. Autorisez-le dans Réglages Système → Confidentialité et sécurité → Micro.",
+      "no_device": "Aucun micro n’a été trouvé."
+    },
+    "startFailed": "L’enregistrement n’a pas pu démarrer.",
+    "saveFailed": "L’enregistrement n’a pas pu être sauvegardé. Il reste sur le disque et vous sera reproposé au prochain lancement.",
+    "noteMissing": "La note de cet enregistrement n’existe plus. Il reste ici jusqu’à ce que la note revienne ou que vous l’abandonniez.",
+    "alreadyRunning": "Un enregistrement est déjà en cours.",
+    "notRunning": "Aucun enregistrement en cours.",
+    "interrupted": "L’enregistrement s’est arrêté de façon inattendue. Ce qui a été enregistré est conservé.",
+    "saved": "Enregistrement ajouté à la note.",
+    "noAudio": "Cette note n’a pas d’enregistrement.",
+    "playFrom": "Écouter le cours à partir de {{time}}",
+    "player": "Enregistrement du cours",
+    "play": "Lire",
+    "pause": "Pause",
+    "back": "Reculer de {{seconds}} secondes",
+    "forward": "Avancer de {{seconds}} secondes",
+    "loading": "Chargement…",
+    "position": "Position dans l’enregistrement",
+    "choose": "Enregistrement",
+    "playError": {
+      "missing": "L’audio de cet enregistrement est introuvable.",
+      "unplayable": "Cet enregistrement ne peut pas être lu."
+    },
+    "remove": "Supprimer l’enregistrement",
+    "removeTitle": "Supprimer cet enregistrement ?",
+    "removeConfirm": "« {{name}} » sera retiré de cette note. Vos notes et leur texte restent inchangés.",
+    "anchorsHint": "Enregistrement en cours. Chaque paragraphe commencé maintenant retient le moment où il a été écrit.",
+    "stopIn": "Arrêter l’enregistrement dans « {{title}} »",
+    "status": "Enregistrement {{time}}",
+    "saving": "Sauvegarde de l’enregistrement…",
+    "anchorsElsewhere": "les ancres vont dans « {{title}} »"
   }
 }

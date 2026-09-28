@@ -133,7 +133,8 @@ completion from a per-course vocabulary, curated course terms, an AI
 vocabulary review, and an on-demand paragraph check. L (1.2.0, importers and
 calendars) adds importing a Markdown folder, an Obsidian vault or a Notion
 export, with a preview, folder-to-course mapping, idempotent re-import and
-provenance, and tasks to and from `.ics` calendars. `docs/plan.md` tracks
+provenance, and tasks to and from `.ics` calendars. M (1.3, in progress) adds
+lecture recording anchored to the blocks typed during it. `docs/plan.md` tracks
 what is still open honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
@@ -296,6 +297,26 @@ Agent tier 2 notes (1.3, plan §3.2 items 5–9) worth knowing before touching i
 - Near the provider's input limit the loop condenses its transcript into an
   `AgentProgress` summary (model-written, mechanical fallback) and continues;
   the ceilings still bound the run.
+
+Lecture audio notes (phase M, plan §10.0) worth knowing before touching it:
+
+- Capture is `MediaRecorder` in the webview behind `RecorderAdapter`
+  (`src/lib/adapters/recorder/`); the file is Rust's. `recording.rs` appends
+  each four-second slice in order and flushes it before answering, into
+  `recordings/` under app data, and finishing copies it into the asset store
+  without the bytes crossing IPC again. Whatever is left there at launch is
+  offered back by `RecoveryPrompt`; nothing ever resumes the microphone.
+- A kept recording is an ordinary attachment whose id is the recording id —
+  minted before capture. Anchors carry that id, which is the whole link; no
+  schema bump, and a new recording is always a new attachment.
+- `audioAnchor` is a global attribute on paragraphs and headings
+  (`LectureAnchors.ts`), set once when a block goes from empty to typed, only
+  in the note the recording started in, never on paste or a large insertion,
+  and not inherited on Enter. The extension is in every editor: without the
+  attribute in the schema an editor would drop anchors on save. Exports ignore
+  it.
+- Markers are drawn only for recordings the player found on the open note
+  (`lecturePlaybackStore`), which loads audio on first play, not on open.
 
 ## House rules
 

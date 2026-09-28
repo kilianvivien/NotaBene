@@ -1,7 +1,11 @@
 import { Editor } from '@tiptap/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DecorationSet } from '@tiptap/pm/view';
-import { focusedBlock, type ConcentrationState } from './Concentration';
+import {
+  concentrationPluginKey,
+  focusedBlock,
+  type ConcentrationState,
+} from './Concentration';
 import { editorExtensions } from '.';
 
 const ON: ConcentrationState = {
@@ -42,14 +46,12 @@ function open(html: string): Editor {
 function decorations(
   current: Editor,
 ): { from: number; to: number; spec: unknown; attrs: unknown }[] {
-  const sets = current.view.someProp('decorations', (handler) =>
-    handler.call(
-      current.view.state.plugins.find((plugin) =>
-        String(plugin.spec.key).startsWith('concentration'),
-      ),
-      current.view.state,
-    ),
+  // The concentration plugin's own prop, not `someProp`: that returns the
+  // first plugin with any decorations, whichever it is.
+  const plugin = current.view.state.plugins.find(
+    (candidate) => candidate.spec.key === concentrationPluginKey,
   );
+  const sets = plugin?.props.decorations?.call(plugin, current.view.state);
   if (!(sets instanceof DecorationSet)) return [];
   return sets.find().map((decoration) => ({
     from: decoration.from,

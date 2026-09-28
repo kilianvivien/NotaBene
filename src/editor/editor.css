@@ -2573,3 +2573,48 @@ html[data-nb-find] {
     animation: nb-panel-in var(--nb-t-fast) var(--nb-ease-out);
   }
 }
+
+/* Lecture anchors (plan §10.0). The marker is positioned against the editor,
+   not the block, so a paragraph nested in a list puts its marker in the same
+   gutter as a top-level one instead of on top of the bullet. With `top` left
+   at `auto` it keeps its own line's height. Quiet until the block is hovered:
+   a note of fifty paragraphs must not become fifty buttons. */
+.nb-prosemirror {
+  position: relative;
+}
+
+.nb-audio-anchor {
+  position: absolute;
+  left: -30px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  margin-top: 0.1em;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--nb-text-3);
+  opacity: 0;
+  transition:
+    opacity var(--nb-t-fast),
+    background-color var(--nb-t-fast);
+}
+
+.nb-audio-anchor > span {
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid currentColor;
+}
+
+[data-audio-anchor]:hover > .nb-audio-anchor,
+.nb-audio-anchor:focus-visible {
+  opacity: 1;
+}
+
+.nb-audio-anchor:hover {
+  background: var(--nb-hover);
+  color: var(--nb-accent);
+  opacity: 1;
+}

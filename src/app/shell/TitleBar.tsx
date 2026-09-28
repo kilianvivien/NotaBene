@@ -16,6 +16,7 @@ import { runAppCommand } from '@/lib/commands';
 import { saveSearchCommand } from '@/lib/commands';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { NameDialog } from '@/app/organization/OrganizationModals';
+import { RecordButton } from '@/app/recording/RecordingControls';
 import { CommandSearchRowBody } from './CommandSearchRow';
 import {
   chooseCommandSearchRow,
@@ -257,6 +258,8 @@ export function TitleBar() {
           </GlassSelect>
         )}
       </div>
+
+      <RecordButton />
 
       {/* Concentration mode had no button anywhere — only ⇧⌘F and a View menu
           item, which is a lot of app to hide behind a shortcut nobody was told

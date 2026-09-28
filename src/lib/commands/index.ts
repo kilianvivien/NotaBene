@@ -27,3 +27,4 @@ export * from './defineCommands';
 export * from './vocabularyCommands';
 export * from './sourceImportCommands';
 export * from './calendarCommands';
+export * from './recordingCommands';

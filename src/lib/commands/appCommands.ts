@@ -19,6 +19,8 @@ import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useSpeechStore } from '@/lib/state/speechStore';
+import { useRecordingStore } from '@/lib/state/recordingStore';
+import { SKIP_MS, useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docStats } from '@/lib/notes/docText';
 import { appWindow, externalLinks } from '@/lib/adapters';
@@ -63,6 +65,10 @@ export const APP_COMMAND_IDS = [
   'insert.date',
   'insert.wikipedia',
   'note.readAloud',
+  'recording.toggle',
+  'recording.playPause',
+  'recording.skipBack',
+  'recording.skipForward',
   'view.toggleSidebar',
   'view.toggleInspector',
   'view.documentMap',
@@ -89,7 +95,8 @@ export const APP_COMMAND_IDS = [
 export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
 
 /** The phase a command becomes real. `A` means it works today. */
-export type CommandPhase = 'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L';
+export type CommandPhase =
+  'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M';
 
 export interface AppCommand {
   id: AppCommandId;
@@ -128,6 +135,20 @@ async function openQuickNote(): Promise<CommandResult<unknown>> {
   useUiStore.getState().selectNote(result.value.id);
   await useEditorStore.getState().openNote(result.value.id);
   return result;
+}
+
+/** Playback acts on the open note's audio; with none there is nothing to do,
+ * and saying so beats a shortcut that silently does nothing. */
+async function lectureAction(
+  action: (playback: ReturnType<typeof useLecturePlaybackStore.getState>) => Promise<void>,
+): Promise<CommandResult<unknown>> {
+  const playback = useLecturePlaybackStore.getState();
+  const noteId = useEditorStore.getState().note?.id;
+  if (!noteId || playback.noteId !== noteId || !playback.recordings.length) {
+    return fail('not_found', translate('recording.noAudio'));
+  }
+  await action(playback);
+  return ok(undefined);
 }
 
 /** AI actions all need something to work on. Refusing with a named reason beats
@@ -561,6 +582,50 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
       await speech.speak(note.plainText);
       return ok(undefined);
     },
+  },
+
+  /**
+   * Lecture audio (plan §10.0, phase M). One shortcut starts and stops, like
+   * reading aloud: a student reaching for it at the end of a lecture should
+   * not have to remember a second one. Recording starts only from here — the
+   * menu, the shortcut or the title-bar button — never on its own.
+   */
+  'recording.toggle': {
+    id: 'recording.toggle',
+    labelKey: 'menu.toggleRecording',
+    accelerator: 'CmdOrCtrl+Alt+R',
+    landsIn: 'M',
+    run: async () => {
+      const recording = useRecordingStore.getState();
+      if (recording.status === 'recording') return recording.stop();
+      if (recording.status !== 'idle') return fail('conflict', 'recording is busy');
+      const note = useEditorStore.getState().note;
+      if (!note) return fail('not_found', 'open a note first');
+      return recording.start(note.id, note.title);
+    },
+  },
+  /** The trio sits on adjacent keys — ⌥⌘, ⌥⌘. ⌥⌘/ — so the hand that is
+   * typing can scrub without looking. */
+  'recording.playPause': {
+    id: 'recording.playPause',
+    labelKey: 'menu.lecturePlayPause',
+    accelerator: 'CmdOrCtrl+Alt+Slash',
+    landsIn: 'M',
+    run: () => lectureAction((playback) => playback.toggle()),
+  },
+  'recording.skipBack': {
+    id: 'recording.skipBack',
+    labelKey: 'menu.lectureBack',
+    accelerator: 'CmdOrCtrl+Alt+Comma',
+    landsIn: 'M',
+    run: () => lectureAction((playback) => playback.skip(-SKIP_MS)),
+  },
+  'recording.skipForward': {
+    id: 'recording.skipForward',
+    labelKey: 'menu.lectureForward',
+    accelerator: 'CmdOrCtrl+Alt+Period',
+    landsIn: 'M',
+    run: () => lectureAction((playback) => playback.skip(SKIP_MS)),
   },
 
   /** Both open a dialog: an export says how many tasks and which are left

@@ -51,7 +51,11 @@
       "minimumSystemVersion": "13.0",
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist",
-      "frameworks": []
+      "frameworks": [],
+      "files": {
+        "Resources/en.lproj/InfoPlist.strings": "./macos/en.lproj/InfoPlist.strings",
+        "Resources/fr.lproj/InfoPlist.strings": "./macos/fr.lproj/InfoPlist.strings"
+      }
     }
   }
 }

@@ -54,6 +54,8 @@ import { tauriDocumentImportAdapter } from './documentImport/tauriDocumentImport
 import { memoryDocumentImportAdapter } from './documentImport/memoryDocumentImportAdapter';
 import { tauriFolderImportAdapter } from './folderImport/tauriFolderImportAdapter';
 import { memoryFolderImportAdapter } from './folderImport/memoryFolderImportAdapter';
+import { tauriRecorderAdapter } from './recorder/tauriRecorderAdapter';
+import { unavailableRecorderAdapter } from './recorder/unavailableRecorderAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 import {
   browserAppLifecycleAdapter,
@@ -78,6 +80,7 @@ import type { FolderImportAdapter } from './folderImport/FolderImportAdapter';
 import type { OcrAdapter } from './ocr/OcrAdapter';
 import type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
 import type { AppleFmAdapter } from './appleFm/AppleFmAdapter';
+import type { RecorderAdapter } from './recorder/RecorderAdapter';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -118,6 +121,9 @@ export const ocr: OcrAdapter = isTauri ? tauriOcrAdapter : unavailableOcrAdapter
 export const appleFm: AppleFmAdapter = isTauri
   ? tauriAppleFmAdapter
   : unavailableAppleFmAdapter;
+export const recorder: RecorderAdapter = isTauri
+  ? tauriRecorderAdapter
+  : unavailableRecorderAdapter;
 export const appLifecycle: AppLifecycleAdapter = isTauri
   ? tauriAppLifecycleAdapter
   : browserAppLifecycleAdapter;
@@ -241,4 +247,11 @@ export type {
   AppleFmPreflight,
   AppleFmStatus,
 } from './appleFm/AppleFmAdapter';
+export type {
+  InterruptedRecording,
+  RecorderAdapter,
+  RecorderSession,
+  RecorderUnavailableReason,
+} from './recorder/RecorderAdapter';
+export { RecorderUnavailableError } from './recorder/RecorderAdapter';
 export { MCP_CLIENTS } from './mcp/McpAdapter';

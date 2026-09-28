@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Merged into the bundle's Info.plist by Tauri. Without it macOS refuses
+       the microphone outright instead of asking (plan §10.0). The French text
+       is in macos/fr.lproj/InfoPlist.strings. -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>NotaBene records a lecture only when you start a recording in a note. The audio stays on this Mac.</string>
+</dict>
+</plist>
