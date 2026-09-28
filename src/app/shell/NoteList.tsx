@@ -60,17 +60,22 @@ export function NoteList() {
   const sentinel = useRef<HTMLLIElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const hasNotes = notes.length > 0;
 
+  // Keyed on `hasNotes` because the scroll area only exists while there are
+  // rows: measured once at mount, an empty first query left the height at 0
+  // for good, and the window then rendered nothing but the overscan.
   useEffect(() => {
     const element = scrollArea.current;
     if (!element) return;
     const update = () => setViewportHeight(element.clientHeight);
     update();
+    setScrollTop(element.scrollTop);
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(update);
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [hasNotes]);
 
   useEffect(() => {
     const root = scrollArea.current;
@@ -213,7 +218,7 @@ export function NoteList() {
 
       <SelectionBar />
 
-      {notes.length === 0 ? (
+      {!hasNotes ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center">
           <p className="text-[13px] text-nb-text-2">{t('noteList.empty')}</p>
           <p className="text-[12px] text-nb-text-3">{t('noteList.emptyHint')}</p>
