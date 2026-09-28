@@ -112,9 +112,11 @@ Phases A–L are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
 server, the study features, bulk selection, and tasks. The MCP and in-app Agent
-share 21 tools (the in-app agent adds two pseudo-tools of its own, `finish` and
+share 29 tools (the in-app agent adds two pseudo-tools of its own, `finish` and
 `ask_student`, which are loop control rather than capabilities): the original surface plus tag discovery, native merging,
-recoverable Trash/restore operations, bulk archiving, and the five task tools.
+recoverable Trash/restore operations, bulk archiving, the five task tools, and
+the eight of the agent's tier 2 (attachments and highlights, versions, and the
+study features as tools).
 The tools that act on many notes take a `notes: [{ noteId, baseUpdatedAt }]`
 list — `manage_tags` accepts both that and the original single-note form.
 E adds the provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter,
@@ -274,6 +276,26 @@ Phase L notes worth knowing before touching it:
 - `Recurrence.monthDay` is the anchor day of a monthly rule. The command
   layer sets it (`anchorRecurrence`) when a rule or due date is written and
   never on a rollover — that is what keeps the 31st from drifting to the 28th.
+
+Agent tier 2 notes (1.3, plan §3.2 items 5–9) worth knowing before touching it:
+
+- The study-feature tools (`generate_flashcards`, `synthesize_notes`,
+  `visualize_note`, `define`) call the same commands as the dialogs, passing
+  the *tool's* `CommandContext` through (`StudyWrite` in `studyCommands.ts`),
+  so a write carries the run id and whole-run undo finds it. Their model cost
+  reaches the run through `context.onModelUsage`, and `modelCallFits` refuses
+  one that would not fit the ceiling *before* paying for it. Over MCP they
+  need write access, because they spend the student's key.
+- A run whose plan uses `organize`, `manage_tags`, `archive_notes` or
+  `trash_notes` stages those writes in `run.changeset` (`agentChangeset.ts`)
+  instead of making them. Ten notes or fewer apply as the run finishes; more,
+  or an unfinished run, wait for Apply/Cancel in the panel. Applying goes
+  through the same executor and journal, skips a note changed outside the run
+  (`noteVersions` holds the run's own later versions), and re-checks scope.
+  Section creation and tag renames are never staged — later calls need them.
+- Near the provider's input limit the loop condenses its transcript into an
+  `AgentProgress` summary (model-written, mechanical fallback) and continues;
+  the ceilings still bound the run.
 
 ## House rules
 

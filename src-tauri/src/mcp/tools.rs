@@ -24,6 +24,9 @@ use super::bridge::{BridgeCallError, ClientInfo, McpBridge};
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
 /// Writes may wait on an autosave flush or a busy editor.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(120);
+/// A study feature waits on the student's configured model before it writes,
+/// and reading a long attachment may convert it first.
+const MODEL_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -392,6 +395,98 @@ pub struct LinkTaskNoteParams {
     pub linked: Option<bool>,
 }
 
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteIdParams {
+    pub note_id: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadAttachmentParams {
+    /// The note the attachment belongs to.
+    pub note_id: String,
+    /// From `notabene_list_annotations`.
+    pub attachment_id: String,
+    /// Character offset to start from; pass the previous call's `nextOffset`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset: Option<u32>,
+    /// Characters to return, 1 000–60 000. Defaults to 20 000.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_chars: Option<u32>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ListVersionsParams {
+    pub note_id: String,
+    /// 1–100. Defaults to 30.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadVersionParams {
+    pub note_id: String,
+    /// From `notabene_list_versions`.
+    pub version_id: String,
+    /// `markdown` (default) or `blocks`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DefineParams {
+    /// A word or short phrase, at most eight words.
+    pub term: String,
+    /// The passage the term appears in; it decides which sense is meant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_title: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateFlashcardsParams {
+    /// Source notes, at most ten.
+    pub note_ids: Vec<String>,
+    /// `basic`, `cloze`, or `mixed` (default).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
+    /// 1–40 cards. Defaults to 12.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count: Option<u32>,
+    /// The note the deck is appended to, with its concurrency token.
+    pub target: VersionedNoteParams,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SynthesizeNotesParams {
+    /// Source notes, at most ten.
+    pub note_ids: Vec<String>,
+    /// `summary` (default), `revision`, `outline`, `qa`, `glossary`, or `custom`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
+    /// The brief, required for the `custom` style.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct VisualizeNoteParams {
+    pub note_id: String,
+    /// `updatedAt` returned by read/list/search.
+    pub base_updated_at: String,
+    /// `mindmap` (default) or `diagram`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct NotaBeneMcpServer {
     bridge: Arc<McpBridge>,
@@ -652,6 +747,153 @@ impl NotaBeneMcpServer {
     }
 
     #[tool(
+        name = "notabene_list_annotations",
+        description = "A note's attachments, each with its PDF highlights and comments and the page they are on."
+    )]
+    pub async fn list_annotations(
+        &self,
+        Parameters(params): Parameters<NoteIdParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("list_annotations", args, client_of(&ctx), READ_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_read_attachment",
+        description = "The extracted text of a document attached to a note, paged by characters: call again from nextOffset for the rest. A scanned PDF has no text until the student imports it with text recognition."
+    )]
+    pub async fn read_attachment(
+        &self,
+        Parameters(params): Parameters<ReadAttachmentParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("read_attachment", args, client_of(&ctx), MODEL_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_list_versions",
+        description = "A note's saved versions, newest first, with why each was saved (autosave, AI, agent, restore, import). Read-only: restoring a version is the student's action."
+    )]
+    pub async fn list_versions(
+        &self,
+        Parameters(params): Parameters<ListVersionsParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("list_versions", args, client_of(&ctx), READ_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_read_version",
+        description = "One saved version of a note, as Markdown or indexed blocks, to compare with the note as it is now."
+    )]
+    pub async fn read_version(
+        &self,
+        Parameters(params): Parameters<ReadVersionParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("read_version", args, client_of(&ctx), READ_TIMEOUT)
+                .await,
+        )
+    }
+    #[tool(
+        name = "notabene_define",
+        description = "Define a word or short phrase in the sense the passage gives it, using the student's configured AI provider. Writes nothing, but spends the student's model budget, so it needs write access."
+    )]
+    pub async fn define(
+        &self,
+        Parameters(params): Parameters<DefineParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("define", args, client_of(&ctx), MODEL_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_generate_flashcards",
+        description = "Run NotaBene's flashcard feature over up to ten notes with the student's configured AI provider, and append the deck to the target note as a self-test section. The target's previous state is kept as a version."
+    )]
+    pub async fn generate_flashcards(
+        &self,
+        Parameters(params): Parameters<GenerateFlashcardsParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("generate_flashcards", args, client_of(&ctx), MODEL_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_synthesize_notes",
+        description = "Run NotaBene's synthesis feature over up to ten notes with the student's configured AI provider. Creates a new note beside its sources, tagged type:summary."
+    )]
+    pub async fn synthesize_notes(
+        &self,
+        Parameters(params): Parameters<SynthesizeNotesParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("synthesize_notes", args, client_of(&ctx), MODEL_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_visualize_note",
+        description = "Run NotaBene's visualize feature on a note with the student's configured AI provider and append a mind map or a diagram to it. The previous state is kept as a version."
+    )]
+    pub async fn visualize_note(
+        &self,
+        Parameters(params): Parameters<VisualizeNoteParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("visualize_note", args, client_of(&ctx), MODEL_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
         name = "notabene_create_note",
         description = "Create a note from Markdown and file it under a course. To duplicate a note without making the model reproduce its body, pass copyFrom with its noteId and current baseUpdatedAt; prependMarkdown may add a short summary or heading before the exact copy. Autosave and version history apply exactly as they would to a note the student typed."
     )]
@@ -873,7 +1115,13 @@ impl ServerHandler for NotaBeneMcpServer {
              Assignments and deadlines live in tasks rather than in note text: use \
              notabene_list_tasks to see what is due, and notabene_complete_task \
              rather than a status update to finish one, because it closes subtasks \
-             and rolls a repeating task forward. Never rewrite a note wholesale unless the user asked for \
+             and rolls a repeating task forward. Attached papers and their highlights \
+             are readable with notabene_list_annotations and notabene_read_attachment, \
+             and a note's earlier versions with notabene_list_versions. \
+             notabene_generate_flashcards, notabene_synthesize_notes, notabene_visualize_note \
+             and notabene_define run NotaBene's own study features on the student's \
+             configured AI provider, at their expense — use them only when the user asked \
+             for that work. Never rewrite a note wholesale unless the user asked for \
              exactly that."
                 .into(),
         );

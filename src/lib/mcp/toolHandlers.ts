@@ -44,7 +44,25 @@ import {
 import { storage } from '@/lib/adapters';
 import { joinPath } from '@/lib/commands/backupCommands';
 import {
+  attachmentTextCommand,
+  listAttachmentsCommand,
+  listSnapshotsCommand,
+  readSnapshotCommand,
+} from '@/lib/commands/readCommands';
+import { defineTermCommand } from '@/lib/commands/defineCommands';
+import { synthesizeNotesCommand } from '@/lib/commands/aiCommands';
+import {
+  insertDiagramCommand,
+  insertMindMapCommand,
+  proposeDiagramCommand,
+  proposeFlashcardsCommand,
+  proposeMindMapCommand,
+  saveFlashcardsToNoteCommand,
+} from '@/lib/commands/studyCommands';
+import { estimateTokens, MAX_AI_SOURCES } from '@/lib/ai';
+import {
   NoteDocSchema,
+  type Attachment,
   RECURRENCE_FREQS,
   TAG_NAMESPACES,
   TASK_PRIORITIES,
@@ -334,6 +352,59 @@ const LinkTaskNoteArgs = z.object({
   linked: z.boolean().default(true),
 });
 
+const ListAnnotationsArgs = z.object({
+  noteId: z.string().min(1),
+});
+
+const ReadAttachmentArgs = z.object({
+  noteId: z.string().min(1),
+  attachmentId: z.string().min(1),
+  /** Character offset to start from; pass the previous call's `nextOffset`. */
+  offset: z.number().int().nonnegative().default(0),
+  maxChars: z.number().int().min(1_000).max(60_000).default(20_000),
+});
+
+const ListVersionsArgs = z.object({
+  noteId: z.string().min(1),
+  limit: z.number().int().positive().max(100).default(30),
+});
+
+const ReadVersionArgs = z.object({
+  noteId: z.string().min(1),
+  versionId: z.string().min(1),
+  format: z.enum(['markdown', 'blocks']).default('markdown'),
+});
+
+const DefineArgs = z.object({
+  term: z.string().trim().min(1).max(120),
+  /** The passage the term appears in; it decides which sense is meant. */
+  context: z.string().max(20_000).default(''),
+  noteTitle: z.string().max(300).default(''),
+});
+
+const SourceNoteIds = z.array(z.string().min(1)).min(1).max(MAX_AI_SOURCES);
+
+const GenerateFlashcardsArgs = z.object({
+  noteIds: SourceNoteIds,
+  style: z.enum(['basic', 'cloze', 'mixed']).default('mixed'),
+  count: z.number().int().min(1).max(40).default(12),
+  /** The note the deck is appended to, as a self-test section. */
+  target: VersionedNoteArgs,
+});
+
+const SynthesizeNotesArgs = z.object({
+  noteIds: SourceNoteIds,
+  style: z
+    .enum(['summary', 'revision', 'outline', 'qa', 'glossary', 'custom'])
+    .default('summary'),
+  /** The brief for the `custom` style. */
+  instructions: z.string().max(2_000).optional(),
+});
+
+const VisualizeNoteArgs = VersionedNoteArgs.extend({
+  kind: z.enum(['mindmap', 'diagram']).default('mindmap'),
+});
+
 /**
  * What each tool accepts, exactly as its handler parses it — the source the
  * in-app agent's native tool definitions are generated from, so they cannot
@@ -361,6 +432,14 @@ export const TOOL_ARGUMENT_SCHEMAS: Record<AgentToolName, z.ZodTypeAny | null> =
   update_task: UpdateTaskArgs,
   complete_task: CompleteTaskArgs,
   link_task_note: LinkTaskNoteArgs,
+  list_annotations: ListAnnotationsArgs,
+  read_attachment: ReadAttachmentArgs,
+  list_versions: ListVersionsArgs,
+  read_version: ReadVersionArgs,
+  define: DefineArgs,
+  generate_flashcards: GenerateFlashcardsArgs,
+  synthesize_notes: SynthesizeNotesArgs,
+  visualize_note: VisualizeNoteArgs,
 };
 
 /** Every tool's parameters as JSON Schema, generated from the schemas above. */
@@ -840,6 +919,203 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     return organizeNotesCommand(parsed.data, context);
   },
 
+  async list_annotations(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = ListAnnotationsArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const note = await readNoteCommand(parsed.data.noteId);
+    if (!note.ok) return note;
+    const attachments = await listAttachmentsCommand(note.value.id);
+    if (!attachments.ok) return attachments;
+    return ok(
+      attachments.value.map((attachment) => ({
+        attachmentId: attachment.id,
+        name: attachment.name,
+        url: attachment.url,
+        annotations: [...attachment.annotations]
+          .sort((a, b) => a.page - b.page || a.createdAt.localeCompare(b.createdAt))
+          .map((annotation) => ({
+            page: annotation.page,
+            text: annotation.text,
+            comment: annotation.comment,
+            color: annotation.color,
+          })),
+      })),
+    );
+  },
+
+  async read_attachment(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = ReadAttachmentArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const attachment = await findAttachment(parsed.data.noteId, parsed.data.attachmentId);
+    if (!attachment.ok) return attachment;
+    const text = await attachmentTextCommand(attachment.value);
+    if (!text.ok) {
+      // A scanned PDF has no text until the student runs recognition, which
+      // is a choice about their time and their machine the agent cannot make.
+      return text.message === 'ocr_required'
+        ? fail(
+            'not_supported',
+            'this document is scanned; the student must import it with text recognition before it can be read',
+            text.details,
+          )
+        : text;
+    }
+    const body = withoutImportedImages(text.value);
+    const { offset, maxChars } = parsed.data;
+    const end = Math.min(body.length, offset + maxChars);
+    return ok({
+      attachmentId: attachment.value.id,
+      name: attachment.value.name,
+      totalChars: body.length,
+      offset,
+      text: body.slice(offset, end),
+      nextOffset: end < body.length ? end : null,
+    });
+  },
+
+  async list_versions(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = ListVersionsArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const note = await readNoteCommand(parsed.data.noteId);
+    if (!note.ok) return note;
+    const versions = await listSnapshotsCommand(note.value.id);
+    if (!versions.ok) return versions;
+    return ok({
+      noteId: note.value.id,
+      currentUpdatedAt: note.value.updatedAt,
+      versions: versions.value.slice(0, parsed.data.limit).map((version) => ({
+        versionId: version.id,
+        title: version.title,
+        cause: version.cause,
+        savedAt: version.createdAt,
+        agentRunId: version.runId,
+      })),
+      omitted: Math.max(0, versions.value.length - parsed.data.limit),
+    });
+  },
+
+  async read_version(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = ReadVersionArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const version = await readSnapshotCommand(parsed.data.versionId);
+    if (!version.ok) return version;
+    // The scope check runs on `noteId`, so a version must belong to it — an
+    // id from another note must not read past the check.
+    if (version.value.noteId !== parsed.data.noteId) {
+      return fail('not_found', `no snapshot ${parsed.data.versionId}`);
+    }
+    return ok({
+      versionId: version.value.id,
+      noteId: version.value.noteId,
+      title: version.value.title,
+      cause: version.value.cause,
+      savedAt: version.value.createdAt,
+      markdown:
+        parsed.data.format === 'markdown' ? docToMarkdown(version.value.doc) : undefined,
+      blocks:
+        parsed.data.format === 'blocks'
+          ? version.value.doc.content.map((node, index) => ({
+              index,
+              markdown: docToMarkdown({ type: 'doc', content: [node] }).trim(),
+            }))
+          : undefined,
+    });
+  },
+
+  async define(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = DefineArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const result = await defineTermCommand(parsed.data, { signal: context.signal });
+    if (result.ok) {
+      reportModelUsage(context, parsed.data.context, result.value);
+    }
+    return result;
+  },
+
+  async generate_flashcards(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = GenerateFlashcardsArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    // The target is checked before the model is paid for, not after.
+    const target = parsed.data.target;
+    const checked = await validateVersionedNotes([target], context, 'live');
+    if (!checked.ok) return checked;
+    const sources = await sourceText(parsed.data.noteIds);
+    const deck = await proposeFlashcardsCommand(
+      { noteIds: parsed.data.noteIds, style: parsed.data.style, count: parsed.data.count },
+      { signal: context.signal },
+    );
+    if (!deck.ok) return deck;
+    reportModelUsage(context, sources, deck.value);
+    const saved = await saveFlashcardsToNoteCommand(target.noteId, deck.value, {
+      context,
+      baseUpdatedAt: target.baseUpdatedAt,
+    });
+    if (!saved.ok) return saved;
+    return ok({
+      noteId: saved.value.id,
+      title: saved.value.title,
+      updatedAt: saved.value.updatedAt,
+      deckTitle: deck.value.title,
+      cards: deck.value.cards.length,
+    });
+  },
+
+  async synthesize_notes(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = SynthesizeNotesArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    if (parsed.data.style === 'custom' && !parsed.data.instructions?.trim()) {
+      return fail('invalid_input', 'the custom style requires instructions');
+    }
+    const sources = await sourceText(parsed.data.noteIds);
+    const created = await synthesizeNotesCommand(
+      parsed.data,
+      { signal: context.signal },
+      context,
+    );
+    if (created.ok) reportModelUsage(context, sources, created.value.doc);
+    return created;
+  },
+
+  async visualize_note(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = VisualizeNoteArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    const checked = await validateVersionedNotes([parsed.data], context, 'live');
+    if (!checked.ok) return checked;
+    const sources = await sourceText([parsed.data.noteId]);
+    const write = { context, baseUpdatedAt: parsed.data.baseUpdatedAt };
+
+    if (parsed.data.kind === 'mindmap') {
+      const map = await proposeMindMapCommand(parsed.data.noteId, {
+        signal: context.signal,
+      });
+      if (!map.ok) return map;
+      reportModelUsage(context, sources, map.value.map);
+      return insertMindMapCommand(parsed.data.noteId, map.value, write);
+    }
+    const diagram = await proposeDiagramCommand(parsed.data.noteId, {
+      signal: context.signal,
+    });
+    if (!diagram.ok) return diagram;
+    reportModelUsage(context, sources, diagram.value.answer);
+    return insertDiagramCommand(parsed.data.noteId, diagram.value, write);
+  },
+
   /** Lets an agent act on "the note I'm looking at". */
   async get_app_state(_args: unknown, context: CommandContext) {
     const cancelled = cancelledIfRequested<unknown>(context);
@@ -867,6 +1143,44 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     });
   },
 };
+
+/** An attachment, looked up through the note that owns it — which is what
+ * the scope check sees, so the two cannot disagree. */
+async function findAttachment(
+  noteId: string,
+  attachmentId: string,
+): Promise<CommandResult<Attachment>> {
+  const note = await readNoteCommand(noteId);
+  if (!note.ok) return note;
+  const attachments = await listAttachmentsCommand(note.value.id);
+  if (!attachments.ok) return attachments;
+  const attachment = attachments.value.find((entry) => entry.id === attachmentId);
+  return attachment
+    ? ok(attachment)
+    : fail('not_found', `no attachment ${attachmentId} on this note`);
+}
+
+/** Imported images arrive as `nb-import-asset:` placeholders that mean
+ * nothing outside an import; to a reader they are noise. */
+function withoutImportedImages(markdown: string): string {
+  return markdown.replaceAll(/!\[[^\]]*\]\(nb-import-asset:[^)]*\)\n?/g, '');
+}
+
+/** The source text a study feature is about to send, for charging its cost. */
+async function sourceText(noteIds: string[]): Promise<string> {
+  const parts: string[] = [];
+  for (const noteId of noteIds) {
+    const note = await readNoteCommand(noteId);
+    if (note.ok) parts.push(note.value.plainText);
+  }
+  return parts.join('\n');
+}
+
+/** An estimate, like every token count the agent keeps: what went to the
+ * model plus what came back. */
+function reportModelUsage(context: CommandContext, input: string, output: unknown): void {
+  context.onModelUsage?.(estimateTokens(input) + estimateTokens(JSON.stringify(output)));
+}
 
 /** Read a task back so a trash or restore answers with the row it moved. */
 async function readTask(taskId: string): Promise<CommandResult<Task>> {

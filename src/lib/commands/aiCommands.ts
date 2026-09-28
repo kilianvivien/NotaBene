@@ -46,7 +46,7 @@ import { useAiStore } from '@/lib/state/aiStore';
 import { createNoteCommand, updateNoteCommand } from './noteCommands';
 import { ensureTagCommand } from './organizationCommands';
 import { gatherAskSourcesCommand } from './retrievalCommands';
-import { fail, ok, type CommandResult } from './types';
+import { fail, ok, type CommandContext, type CommandResult } from './types';
 
 /** Every AI command runs as the AI, never as the user: the snapshot cause and
  * the version history entry both depend on it. */
@@ -224,6 +224,8 @@ export interface SynthesizeInput {
 export async function synthesizeNotesCommand(
   input: SynthesizeInput,
   options: AiRunOptions = {},
+  /** The dialog writes as the AI; an agent tool passes its run's context. */
+  context: CommandContext = AI,
 ): Promise<CommandResult<Note>> {
   await useEditorStore.getState().flush();
 
@@ -261,7 +263,7 @@ export async function synthesizeNotesCommand(
   const sectionId =
     courseId && sectionIds.size === 1 ? (notes[0]?.sectionId ?? null) : null;
 
-  const tag = await ensureTagCommand({ name: 'summary', namespace: 'type' });
+  const tag = await ensureTagCommand({ name: 'summary', namespace: 'type' }, context);
 
   const created = await createNoteCommand(
     {
@@ -271,7 +273,7 @@ export async function synthesizeNotesCommand(
       sectionId,
       tagIds: tag.ok ? [tag.value.id] : [],
     },
-    AI,
+    context,
   );
   if (!created.ok) return created;
 

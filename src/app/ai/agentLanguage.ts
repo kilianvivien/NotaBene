@@ -89,6 +89,11 @@ export function callOutcome(
   if (call.status !== 'succeeded') return null;
   const args = call.arguments;
   const parsed = parsePreview(call.resultPreview);
+  // A staged write changed nothing yet; saying "Archived 23 notes" here would
+  // be the lie the changeset card exists to prevent. Read from the start of
+  // the preview, which survives the truncation a whole parse would not.
+  const staged = /^\{"staged":true,"notes":(\d+)/.exec(call.resultPreview ?? '');
+  if (staged) return t('agent.changeset.staged', { count: Number(staged[1]) });
 
   switch (call.tool) {
     case 'get_app_state':
@@ -196,7 +201,71 @@ export function callOutcome(
       return args.linked === false
         ? t('agent.did_unlink_task_note')
         : t('agent.did_link_task_note');
+
+    case 'list_annotations':
+      // The preview is truncated long before a paper's highlights end, so a
+      // count read from it would be a guess.
+      return Array.isArray(parsed)
+        ? t('agent.did_list_annotations', {
+            count: parsed.reduce(
+              (sum: number, entry: unknown) =>
+                sum +
+                (isRecordValue(entry) && Array.isArray(entry.annotations)
+                  ? entry.annotations.length
+                  : 0),
+              0,
+            ),
+          })
+        : null;
+
+    case 'read_attachment': {
+      const name = isRecordValue(parsed) && typeof parsed.name === 'string' ? parsed.name : null;
+      return name
+        ? t('agent.did_read_attachment', { name })
+        : t('agent.did_read_attachment_generic');
+    }
+
+    case 'list_versions':
+      return isRecordValue(parsed) && Array.isArray(parsed.versions)
+        ? t('agent.did_list_versions', { count: parsed.versions.length })
+        : null;
+
+    case 'read_version': {
+      const title = previewTitle(parsed) ?? touchedTitle(run, args.noteId);
+      return title
+        ? t('agent.did_read_version', { title })
+        : t('agent.did_read_version_generic');
+    }
+
+    case 'define':
+      return typeof args.term === 'string' ? t('agent.did_define', { term: args.term }) : null;
+
+    case 'generate_flashcards': {
+      const title = previewTitle(parsed);
+      const cards = isRecordValue(parsed) && typeof parsed.cards === 'number' ? parsed.cards : null;
+      return title && cards !== null
+        ? t('agent.did_generate_flashcards', { count: cards, title })
+        : t('agent.did_generate_flashcards_generic');
+    }
+
+    case 'synthesize_notes': {
+      const title = previewTitle(parsed);
+      return title
+        ? t('agent.did_synthesize_notes', { title })
+        : t('agent.did_synthesize_notes_generic');
+    }
+
+    case 'visualize_note': {
+      const title = touchedTitle(run, args.noteId) ?? previewTitle(parsed);
+      return title
+        ? t('agent.did_visualize_note', { title })
+        : t('agent.did_visualize_note_generic');
+    }
   }
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function parsedId(value: unknown): unknown {

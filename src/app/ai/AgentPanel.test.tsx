@@ -240,3 +240,63 @@ describe('AgentPanel review gate', () => {
     expect(useAiStore.getState().running).toBe('agent');
   });
 });
+
+describe('AgentPanel changeset review', () => {
+  function pendingRun(): AgentRunRecord {
+    const refs = Array.from({ length: 12 }, (_, index) => ({
+      noteId: `note-${index}`,
+      baseUpdatedAt: '2026-09-28T10:00:00.000Z',
+    }));
+    return {
+      ...plannedRun(),
+      status: 'completed',
+      summary: 'Archived last term’s notes.',
+      calls: [
+        {
+          id: 'call-1',
+          tool: 'archive_notes',
+          arguments: { notes: refs },
+          rationale: 'Archive last term',
+          status: 'succeeded',
+          resultPreview: '{"staged":true,"notes":12,"note":"Recorded…"}',
+          startedAt: '2026-09-28T10:00:00.000Z',
+          completedAt: '2026-09-28T10:00:01.000Z',
+        },
+      ],
+      changeset: {
+        state: 'pending',
+        calls: [{ id: 'staged-1', tool: 'archive_notes', arguments: { notes: refs } }],
+        noteVersions: {},
+      },
+    };
+  }
+
+  it('shows what will change and asks for Apply before anything lands', () => {
+    const run = pendingRun();
+    useAgentStore.setState({ runs: [run], activeRunId: run.id });
+    render(<AgentPanel noteId="note-1" />);
+
+    expect(screen.getByText('12 notes archived')).not.toBeNull();
+    expect(screen.getByText(/Nothing here has been changed yet/)).not.toBeNull();
+    // The step says it was set aside, not that it archived anything.
+    expect(screen.getByText('12 notes set aside for your review')).not.toBeNull();
+    expect(screen.queryByText(/Archived 12 notes/)).toBeNull();
+    // The decision replaces the follow-up composer until it is made.
+    expect(screen.queryByLabelText('Follow-up')).toBeNull();
+
+    const apply = vi
+      .spyOn(commands, 'applyAgentChangesetCommand')
+      .mockResolvedValue({ ok: true, value: run });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
+    expect(apply).toHaveBeenCalledWith(run.id);
+  });
+
+  it('says plainly when the student cancelled', () => {
+    const run = pendingRun();
+    run.changeset!.state = 'discarded';
+    useAgentStore.setState({ runs: [run], activeRunId: run.id });
+    render(<AgentPanel noteId="note-1" />);
+    expect(screen.getByText(/Changes cancelled\. Nothing was changed\./)).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Apply changes' })).toBeNull();
+  });
+});

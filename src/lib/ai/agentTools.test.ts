@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AGENT_TOOL_NAMES, type AgentDecision } from '@/lib/schema';
 import { agentToolParameters } from '@/lib/mcp/toolHandlers';
 import { providerById } from './providers';
+import { AiParseError } from './json';
 import {
   buildRequest,
   geminiSchema,
@@ -14,7 +15,10 @@ import {
   requestNativeDecision,
   runAgentLoop,
   toolResponseDecision,
+  transcriptForDecision,
   usesNativeTools,
+  BUDGET_EXHAUSTED,
+  mechanicalProgress,
   type AgentLoopRequest,
   type AgentLoopRuntime,
 } from './agent';
@@ -367,5 +371,163 @@ describe('the loop with batches and questions', () => {
     const result = await runAgentLoop(request(), {}, decide);
     expect(result.questions).toBe(0);
     expect(result.outcomeAchieved).toBe(false);
+  });
+
+  it('charges a study feature’s own model call to the run', async () => {
+    const executeTool = vi.fn(async () => ({
+      ok: true as const,
+      value: { title: 'Summary' },
+      modelTokens: 5_000,
+    }));
+    const result = await runAgentLoop(
+      request({ executeTool }),
+      {},
+      runtime([
+        { action: 'tool', tool: 'synthesize_notes', arguments: {}, rationale: 'r' },
+        { action: 'done', outcomeAchieved: true, summary: 'ok' },
+      ]),
+    );
+    const withoutFeature = await runAgentLoop(
+      request(),
+      {},
+      runtime([
+        { action: 'tool', tool: 'list_notes', arguments: {}, rationale: 'r' },
+        { action: 'done', outcomeAchieved: true, summary: 'ok' },
+      ]),
+    );
+    expect(result.tokensUsed - withoutFeature.tokensUsed).toBeGreaterThanOrEqual(5_000);
+  });
+
+  it('ends the run on the token ceiling when a feature call would not fit', async () => {
+    const executeTool = vi.fn(async () => ({
+      ok: false as const,
+      code: BUDGET_EXHAUSTED,
+      message: 'no room',
+    }));
+    await expect(
+      runAgentLoop(
+        request({ executeTool }),
+        {},
+        runtime([
+          { action: 'tool', tool: 'synthesize_notes', arguments: {}, rationale: 'r' },
+        ]),
+      ),
+    ).rejects.toMatchObject({ name: 'AgentBudgetError', limit: 'tokens' });
+  });
+});
+
+describe('transcript compaction of source reads', () => {
+  function attachmentRead(offset: number, text: string) {
+    return {
+      tool: 'read_attachment',
+      arguments: { noteId: 'n', attachmentId: 'a', offset },
+      rationale: 'r',
+      outcome: {
+        ok: true,
+        value: { attachmentId: 'a', name: 'paper.pdf', offset, text, nextOffset: null, totalChars: 1 },
+      },
+    };
+  }
+
+  it('keeps separate pages of one attachment, and collapses a page read twice', () => {
+    const view = transcriptForDecision([
+      attachmentRead(0, 'first page'),
+      attachmentRead(20_000, 'second page'),
+      attachmentRead(0, 'first page again'),
+    ]) as { outcome: { value: Record<string, unknown> } }[];
+    expect(view[0]!.outcome.value).toMatchObject({ bodyOmitted: true, attachmentId: 'a' });
+    expect(view[1]!.outcome.value.text).toBe('second page');
+    expect(view[2]!.outcome.value.text).toBe('first page again');
+  });
+});
+
+describe('longer runs (plan §3.2 item 9)', () => {
+  /** A local model with a small window, so a few long reads fill it. */
+  function smallWindow(): AgentLoopRequest['provider'] {
+    const provider = resolved('anthropic');
+    return { ...provider, definition: { ...provider.definition, contextTokens: 40_000 } };
+  }
+
+  function longReads(count: number): AgentDecision[] {
+    return [
+      ...Array.from({ length: count }, (_, index) => ({
+        action: 'tool' as const,
+        tool: 'read_note' as const,
+        arguments: { noteId: `n${index}`, format: 'markdown' },
+        rationale: `Read note ${index}`,
+      })),
+      { action: 'done', outcomeAchieved: true, summary: 'ok' },
+    ];
+  }
+
+  const executeTool = vi.fn(async (_tool: string, args: Record<string, unknown>) => ({
+    ok: true as const,
+    value: {
+      id: args.noteId,
+      title: `Note ${String(args.noteId)}`,
+      updatedAt: '2026-09-28T10:00:00.000Z',
+      markdown: 'word '.repeat(4_000),
+    },
+  }));
+
+  it('condenses the record near the input limit and carries on instead of failing', async () => {
+    const decide = runtime(longReads(8));
+    const result = await runAgentLoop(
+      request({ provider: smallWindow(), executeTool, budget: { tokenCeiling: 5_000_000, toolCallCeiling: 20, wallClockMs: 10_000 } }),
+      {},
+      decide,
+    );
+    expect(result.outcomeAchieved).toBe(true);
+    expect(result.toolCalls).toBe(8);
+    expect(result.condensations).toBeGreaterThan(0);
+
+    const transcripts = (decide.decide as ReturnType<typeof vi.fn>).mock.calls.map(
+      (call) => call[1] as unknown[],
+    );
+    const condensed = transcripts.find(
+      (entries) => typeof entries[0] === 'object' && entries[0] !== null && 'progress' in entries[0],
+    )!;
+    expect(condensed.length).toBeLessThanOrEqual(3);
+    expect(condensed[0]).toMatchObject({
+      progress: { done: expect.arrayContaining(['read_note: Read note 0']) },
+    });
+  });
+
+  it('asks the model for the summary when it can, and falls back when it cannot parse', async () => {
+    const summarize = vi
+      .fn()
+      .mockRejectedValueOnce(new AiParseError('bad', '{'))
+      .mockResolvedValue({ done: ['Read notes'], remaining: [], findings: ['n0 matters'], notesTouched: [] });
+    const decide = { ...runtime(longReads(12)), summarize };
+    const result = await runAgentLoop(
+      request({ provider: smallWindow(), executeTool, budget: { tokenCeiling: 5_000_000, toolCallCeiling: 20, wallClockMs: 10_000 } }),
+      {},
+      decide,
+    );
+    expect(result.outcomeAchieved).toBe(true);
+    expect(summarize).toHaveBeenCalled();
+    expect(result.condensations).toBe(summarize.mock.calls.length);
+  });
+
+  it('lists the planned steps whose tools have not yet succeeded as remaining', () => {
+    const progress = mechanicalProgress(
+      {
+        summary: 'Tag',
+        noteReferences: [],
+        steps: [
+          { description: 'Find the notes', expectedTools: ['search_notes'], noteIds: [] },
+          { description: 'Tag them', expectedTools: ['manage_tags'], noteIds: [] },
+        ],
+      },
+      [
+        {
+          tool: 'search_notes',
+          rationale: 'Look for the midterm',
+          outcome: { ok: true, value: [] },
+        },
+      ],
+    );
+    expect(progress.remaining).toEqual(['Tag them']);
+    expect(progress.done).toEqual(['search_notes: Look for the midterm']);
   });
 });

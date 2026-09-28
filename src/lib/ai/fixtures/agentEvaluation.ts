@@ -213,6 +213,52 @@ export function agentEvaluationLibrary(): Library {
     note('eval-history-2', 'Napoleon', 'Rise to power in 1799; the Civil Code.', {
       courseId: history,
     }),
+    // A paper the student read and highlighted — what the agent's attachment
+    // tools are for (plan §3.2 item 5). The highlights are the source; the
+    // note's own body says almost nothing.
+    note('eval-kramers', 'Kramers (1940) — reading', 'Paper attached. Highlights to write up.', {
+      courseId: physics,
+    }),
+  ];
+  const highlight = (id: string, page: number, text: string, comment = '') => ({
+    id,
+    page,
+    rects: [{ x1: 72, y1: 600, x2: 520, y2: 612 }],
+    text,
+    comment,
+    color: 'yellow' as const,
+    createdAt: AT,
+    updatedAt: AT,
+  });
+  library.attachments = [
+    {
+      id: 'eval-kramers-pdf',
+      noteId: 'eval-kramers',
+      assetId: 'eval-kramers-asset',
+      name: 'kramers-1940.pdf',
+      createdAt: AT,
+      url: null,
+      fetchedAt: null,
+      annotations: [
+        highlight(
+          'eval-kramers-h1',
+          2,
+          'A particle in a potential well escapes by Brownian motion over the barrier.',
+          'the core model',
+        ),
+        highlight(
+          'eval-kramers-h2',
+          5,
+          'The escape rate falls exponentially with the barrier height over kT.',
+          'Arrhenius form — exam?',
+        ),
+        highlight(
+          'eval-kramers-h3',
+          9,
+          'At high friction the rate is inversely proportional to the friction coefficient.',
+        ),
+      ],
+    },
   ];
   library.tasks = [
     createTask({
@@ -486,6 +532,47 @@ export const AGENT_EVALUATION_CASES: AgentEvalCase[] = [
         byId(state, 'eval-inbox-lab-safety')?.courseId === physics,
         'Lab safety not in Physics',
       ),
+  },
+  {
+    id: 'summarise-highlights',
+    instruction:
+      'Write up my highlights of the Kramers paper as a new note in Physics — Waves.',
+    scope: { kind: 'course', courseId: physics },
+    check: (state) => {
+      const fixture = new Set(agentEvaluationLibrary().notes.map((entry) => entry.id));
+      const written = state.notes.find(
+        (entry) =>
+          !fixture.has(entry.id) && entry.courseId === physics && !entry.archived,
+      );
+      const text = written?.plainText.toLowerCase() ?? '';
+      return [
+        ...expect(Boolean(written), 'no new note in Physics'),
+        ...expect(text.includes('brownian'), 'first highlight missing'),
+        ...expect(text.includes('escape rate') || text.includes('exponential'), 'second highlight missing'),
+        ...expect(text.includes('friction'), 'third highlight missing'),
+        ...nothingTrashed(state),
+      ];
+    },
+  },
+  {
+    id: 'flashcards-lecture',
+    instruction: 'Add a set of flashcards on Lecture 7 at the end of that lecture note.',
+    scope: { kind: 'course', courseId: physics },
+    check: (state) => {
+      const lecture = byId(state, 'eval-lecture-7');
+      const blocks = lecture?.doc.content ?? [];
+      const original = agentEvaluationLibrary().notes.find(
+        (entry) => entry.id === 'eval-lecture-7',
+      )!.doc.content.length;
+      return [
+        ...expect(blocks.length > original + 2, 'no cards added to Lecture 7'),
+        ...expect(
+          (lecture?.plainText ?? '').includes('Gibbs phenomenon'),
+          'Lecture 7’s own text changed',
+        ),
+        ...nothingTrashed(state),
+      ];
+    },
   },
   {
     id: 'link-task',

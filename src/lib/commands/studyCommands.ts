@@ -59,7 +59,7 @@ import { aiFailure, language, providerFor, sourceLimitFailure } from './aiComman
 import { updateNoteCommand } from './noteCommands';
 import { createNoteCommand } from './noteCommands';
 import { addAttachmentCommand } from './assetCommands';
-import { fail, ok, type CommandResult } from './types';
+import { fail, ok, type CommandContext, type CommandResult } from './types';
 
 const AI = { source: 'ai' } as const;
 
@@ -80,19 +80,38 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Append blocks to a note and reopen it, so the student sees what landed. */
+/**
+ * Where a study feature's write comes from. The dialogs write as the AI; an
+ * agent tool passes its own context, so the version it replaces carries the
+ * run id and whole-run undo can find it, and passes the `updatedAt` it read.
+ */
+export interface StudyWrite {
+  context?: CommandContext;
+  baseUpdatedAt?: string;
+}
+
+/** Append blocks to a note. A student's own request reopens the note so they
+ * see what landed; an agent's does not take the editor away from them. */
 async function appendToNote(
   noteId: string,
   blocks: DocNode[],
+  write: StudyWrite = {},
 ): Promise<CommandResult<Note>> {
   const note = await library.getNote(noteId);
   if (!note) return fail('not_found', `no note ${noteId}`);
+  const context = write.context ?? AI;
 
   const result = await updateNoteCommand(
-    { noteId, doc: { type: 'doc', content: [...note.doc.content, ...blocks] } },
-    AI,
+    {
+      noteId,
+      baseUpdatedAt: write.baseUpdatedAt,
+      doc: { type: 'doc', content: [...note.doc.content, ...blocks] },
+    },
+    context,
   );
-  if (result.ok) await useEditorStore.getState().openNote(noteId);
+  if (result.ok && context.source !== 'agent') {
+    await useEditorStore.getState().openNote(noteId);
+  }
   return result;
 }
 
@@ -130,13 +149,18 @@ export async function proposeMindMapCommand(
 export async function insertMindMapCommand(
   noteId: string,
   result: MindMapResult,
+  write: StudyWrite = {},
 ): Promise<CommandResult<Note>> {
-  return appendToNote(noteId, [
-    {
-      type: 'mindMap',
-      attrs: { data: result.map, svg: result.svg, title: result.map.title },
-    },
-  ]);
+  return appendToNote(
+    noteId,
+    [
+      {
+        type: 'mindMap',
+        attrs: { data: result.map, svg: result.svg, title: result.map.title },
+      },
+    ],
+    write,
+  );
 }
 
 // -- Diagram -----------------------------------------------------------------
@@ -176,8 +200,9 @@ export async function proposeDiagramCommand(
 export async function insertDiagramCommand(
   noteId: string,
   result: DiagramResult,
+  write: StudyWrite = {},
 ): Promise<CommandResult<Note>> {
-  return appendToNote(noteId, [drawingNode(result.scene, result.answer.title)]);
+  return appendToNote(noteId, [drawingNode(result.scene, result.answer.title)], write);
 }
 
 /** A title as a filename: no diacritics, no separators, nothing a shell or a
@@ -356,6 +381,7 @@ function cloze(text: string, reveal: boolean): string {
 export async function saveFlashcardsToNoteCommand(
   noteId: string,
   deck: FlashcardDeck,
+  write: StudyWrite = {},
 ): Promise<CommandResult<Note>> {
   if (!deck.cards.length) return fail('invalid_input', 'the deck is empty');
   const answerLabel = language().startsWith('fr') ? 'Réponse' : 'Answer';
@@ -386,10 +412,11 @@ export async function saveFlashcardsToNoteCommand(
     }),
   ].join('\n');
 
-  return appendToNote(noteId, [
-    { type: 'horizontalRule' },
-    ...markdownToDoc(markdown).content,
-  ]);
+  return appendToNote(
+    noteId,
+    [{ type: 'horizontalRule' }, ...markdownToDoc(markdown).content],
+    write,
+  );
 }
 
 export async function exportFlashcardsCommand(

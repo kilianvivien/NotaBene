@@ -25,6 +25,16 @@ export const AGENT_TOOL_NAMES = [
   'update_task',
   'complete_task',
   'link_task_note',
+  // Tier 2 (plan §3.2): what a researcher works from, and NotaBene's own
+  // study features. Reads first, then the three that write.
+  'list_annotations',
+  'read_attachment',
+  'list_versions',
+  'read_version',
+  'define',
+  'generate_flashcards',
+  'synthesize_notes',
+  'visualize_note',
 ] as const;
 export const AgentToolNameSchema = z.enum(AGENT_TOOL_NAMES);
 export type AgentToolName = z.infer<typeof AgentToolNameSchema>;
@@ -100,6 +110,30 @@ export const AgentDecisionSchema = z.discriminatedUnion('action', [
 ]);
 export type AgentDecision = z.infer<typeof AgentDecisionSchema>;
 
+/**
+ * Where a long run stands, written by the model when its record of calls
+ * nears the input limit (plan §3.2 item 9). The loop continues from this in
+ * place of the calls it condensed, so it must carry everything the rest of the
+ * run needs: what is finished, what is left, and the facts — ids and versions
+ * included — that later steps depend on.
+ */
+export const AgentProgressSchema = z.object({
+  done: z.array(z.string().trim().min(1).max(500)).max(60),
+  remaining: z.array(z.string().trim().min(1).max(500)).max(30),
+  findings: z.array(z.string().trim().min(1).max(1_000)).max(60).default([]),
+  notesTouched: z
+    .array(
+      z.object({
+        noteId: z.string().min(1),
+        title: z.string().max(500).default(''),
+        updatedAt: z.string().optional(),
+      }),
+    )
+    .max(200)
+    .default([]),
+});
+export type AgentProgress = z.infer<typeof AgentProgressSchema>;
+
 export const AgentScopeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('selection'), noteIds: z.array(z.string().min(1)).min(1) }),
   z.object({ kind: z.literal('course'), courseId: z.string().min(1) }),
@@ -163,6 +197,36 @@ export const AgentUndoJournalSchema = z.object({
 });
 export type AgentUndoJournal = z.infer<typeof AgentUndoJournalSchema>;
 
+/**
+ * Metadata writes a run recorded instead of making (plan §3.2 item 8), shown
+ * to the student as one changeset with Apply and Cancel. Lives in the run
+ * journal, not the library: nothing here exists until it is applied.
+ */
+export const AgentChangesetSchema = z.object({
+  /** `staging` while the run records; then `pending` until the student
+   * decides, unless it was small enough to apply on its own. */
+  state: z.enum(['staging', 'pending', 'applied', 'discarded']),
+  calls: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        tool: AgentToolNameSchema,
+        arguments: z.record(z.unknown()),
+      }),
+    )
+    .max(500),
+  /** The `updatedAt` each note had after the run's own last write to it. At
+   * apply time a note may have moved on from the version a staged call read
+   * only by the run's own hand; anything else is somebody else's edit. */
+  noteVersions: z.record(z.string()).default({}),
+  /** Notes left out when applying because they changed outside the run. */
+  skipped: z
+    .array(z.object({ noteId: z.string().min(1), title: z.string() }))
+    .max(500)
+    .optional(),
+});
+export type AgentChangeset = z.infer<typeof AgentChangesetSchema>;
+
 export const AgentRunRecordSchema = z.object({
   id: z.string().min(1),
   /** Follow-ups are separate undo units, but remain linked to the run whose
@@ -193,6 +257,7 @@ export const AgentRunRecordSchema = z.object({
     .array(AgentQuestionSchema.extend({ answer: z.string().max(2_000).nullable() }))
     .max(MAX_AGENT_QUESTIONS)
     .optional(),
+  changeset: AgentChangesetSchema.optional(),
 });
 export type AgentRunRecord = z.infer<typeof AgentRunRecordSchema>;
 

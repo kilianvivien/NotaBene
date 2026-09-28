@@ -20,6 +20,7 @@ import { library, secrets } from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import {
   answerAgentQuestionCommand,
+  applyAgentChangesetCommand,
   planAgentCommand,
   runAgentCommand,
 } from '@/lib/commands/agentCommands';
@@ -127,6 +128,14 @@ async function runCase(testCase: AgentEvalCase): Promise<AgentCaseResult> {
       );
     }
     await runAgentCommand(planned.value.id, {}, { forceJson });
+    // The student's Apply, for a run that set its changes aside for review:
+    // the outcome being scored is the library after the run, not the preview.
+    const staged = useAgentStore
+      .getState()
+      .runs.find((entry) => entry.id === planned.value.id);
+    if (staged?.changeset?.state === 'pending') {
+      await applyAgentChangesetCommand(staged.id);
+    }
     const run = useAgentStore
       .getState()
       .runs.find((entry) => entry.id === planned.value.id)!;

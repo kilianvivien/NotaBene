@@ -23,6 +23,12 @@ export interface CommandContext {
   agentRunId?: string;
   /** Cooperative cancellation for multi-step agent tool handlers. */
   signal?: AbortSignal;
+  /**
+   * Told how many tokens a tool spent on a model call of its own — a study
+   * feature called as an agent tool. The in-app run charges them to its token
+   * ceiling; an external client pays its own way and passes nothing.
+   */
+  onModelUsage?(tokens: number): void;
 }
 
 export const USER: CommandContext = { source: 'user' };

@@ -30,9 +30,19 @@ function loadRuns(): AgentRunRecord[] {
       JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null'),
     );
     // A question can only be answered by the run that asked it, and that run
-    // did not survive the relaunch.
+    // did not survive the relaunch. What it had staged did, and waits for the
+    // student like any other unfinished run's changes.
     return parsed.success
-      ? parsed.data.runs.map((run) => ({ ...run, pendingQuestion: undefined }))
+      ? parsed.data.runs.map((run) => ({
+          ...run,
+          pendingQuestion: undefined,
+          changeset:
+            run.changeset?.state === 'staging'
+              ? run.changeset.calls.length
+                ? { ...run.changeset, state: 'pending' as const }
+                : undefined
+              : run.changeset,
+        }))
       : [];
   } catch {
     return [];

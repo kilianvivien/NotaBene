@@ -34,10 +34,15 @@ import { DEFAULT_AGENT_BUDGET } from '@/lib/ai';
 import type { AskScope } from '@/lib/ai';
 import {
   answerAgentQuestionCommand,
+  applyAgentChangesetCommand,
+  discardAgentChangesetCommand,
   planAgentCommand,
   runAgentCommand,
   undoAgentRunCommand,
 } from '@/lib/commands';
+import { summarizeChangeset } from '@/lib/commands/agentChangeset';
+import { tagLabel } from '@/lib/notes/tagLabel';
+import { TAG_NAMESPACES, type TagNamespace } from '@/lib/schema';
 import type { AgentRunRecord, AgentScope } from '@/lib/schema';
 import { useAgentStore } from '@/lib/state/agentStore';
 import { beginRun, cancelRun, endRun, useAiStore } from '@/lib/state/aiStore';
@@ -94,6 +99,7 @@ export function AgentPanel({
 
   const [instruction, setInstruction] = useState('');
   const [undoing, setUndoing] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [error, setError] = useState('');
   const [requiredScope, setRequiredScope] = useState<'library' | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -184,6 +190,21 @@ export function AgentPanel({
     if (!response.ok) {
       setError(agentErrorText(response.message) ?? t('agent.errorFallback'));
     } else await useLibraryStore.getState().refreshCurrentView();
+  }
+
+  async function applyChanges() {
+    if (!run) return;
+    setApplying(true);
+    setError('');
+    const response = await applyAgentChangesetCommand(run.id);
+    setApplying(false);
+    if (!response.ok) setError(agentErrorText(response.message) ?? t('agent.errorFallback'));
+  }
+
+  function discardChanges() {
+    if (!run) return;
+    const response = discardAgentChangesetCommand(run.id);
+    if (!response.ok) setError(agentErrorText(response.message) ?? t('agent.errorFallback'));
   }
 
   /** Back to the composer. `keep` carries the wording over, which is what
@@ -314,13 +335,18 @@ export function AgentPanel({
             run={run}
             running={running}
             undoing={undoing}
+            applying={applying}
             canRun={availability.available}
             onRun={() => void execute()}
             onStop={() => cancelRun('agent')}
             onUndo={() => void undo()}
             onEdit={() => reset(true)}
+            onApply={() => void applyChanges()}
+            onDiscard={discardChanges}
           />
-          {run.status !== 'planned' && run.status !== 'running' && (
+          {run.status !== 'planned' &&
+            run.status !== 'running' &&
+            run.changeset?.state !== 'pending' && (
             <AgentComposer
               inputRef={composerRef}
               value={instruction}
@@ -644,6 +670,10 @@ function RunView({
         </section>
       )}
 
+      {run.changeset && run.changeset.state !== 'staging' && (
+        <ChangesetCard changeset={run.changeset} />
+      )}
+
       {(run.summary || run.error || run.touchedNotes.length > 0) && (
         <section className="rounded-nb-sm bg-[var(--nb-inset-surface)] px-3 py-2.5">
           <Eyebrow>{t('agent.result')}</Eyebrow>
@@ -766,6 +796,105 @@ function QuestionCard({ run }: { run: AgentRunRecord }) {
   );
 }
 
+/**
+ * What a run set aside for review (plan §3.2 item 8), in the terms the student
+ * decides in — *23 notes → Constitutional Law / Week 4, 6 archived* — never
+ * as a list of calls. The buttons are in `RunActions`, outside the scroll.
+ */
+function ChangesetCard({
+  changeset,
+}: {
+  changeset: NonNullable<AgentRunRecord['changeset']>;
+}) {
+  const { t } = useTranslation();
+  const courses = useLibraryStore((state) => state.courses);
+  const sections = useLibraryStore((state) => state.sections);
+  const tags = useLibraryStore((state) => state.tags);
+  const summary = summarizeChangeset(changeset.calls);
+  const pending = changeset.state === 'pending';
+
+  function destination(courseId: string | null, sectionId: string | null): string {
+    if (!courseId) return t('sidebar.inbox');
+    const course = courses.find((entry) => entry.id === courseId);
+    if (!course) return t('agent.changeset.unknownDestination');
+    const section = sectionId
+      ? (sections[courseId] ?? []).find((entry) => entry.id === sectionId)
+      : undefined;
+    return section ? `${course.name} / ${section.name}` : course.name;
+  }
+
+  function addedTag(raw: string): string {
+    const [maybeNamespace, ...rest] = raw.split(':');
+    const namespace = TAG_NAMESPACES.includes(maybeNamespace as TagNamespace)
+      ? (maybeNamespace as TagNamespace)
+      : null;
+    return tagLabel(
+      namespace && rest.length ? { namespace, name: rest.join(':') } : { namespace: null, name: raw },
+      t,
+    ).full;
+  }
+
+  function removedTag(tagId: string): string {
+    const tag = tags.find((entry) => entry.id === tagId);
+    return tag ? tagLabel(tag, t).full : t('agent.changeset.unknownDestination');
+  }
+
+  const lines = [
+    ...summary.moves.map((move) =>
+      t('agent.changeset.move', {
+        count: move.count,
+        destination: destination(move.courseId, move.sectionId),
+      }),
+    ),
+    ...summary.tagsAdded.map((entry) =>
+      t('agent.changeset.tagAdded', { count: entry.count, tag: addedTag(entry.name) }),
+    ),
+    ...summary.tagsRemoved.map((entry) =>
+      t('agent.changeset.tagRemoved', { count: entry.count, tag: removedTag(entry.tagId) }),
+    ),
+    ...(summary.archived ? [t('agent.changeset.archived', { count: summary.archived })] : []),
+    ...(summary.unarchived
+      ? [t('agent.changeset.unarchived', { count: summary.unarchived })]
+      : []),
+    ...(summary.trashed ? [t('agent.changeset.trashed', { count: summary.trashed })] : []),
+  ];
+  const skipped = changeset.skipped?.length ?? 0;
+
+  return (
+    <section
+      aria-live="polite"
+      className={cn(
+        'rounded-nb-sm px-3 py-2.5',
+        pending
+          ? 'border border-[var(--nb-accent)] bg-[var(--nb-accent-soft)]'
+          : 'border border-[var(--nb-divider)] bg-[var(--nb-paper)]',
+      )}
+    >
+      <Eyebrow>{t('agent.changeset.title')}</Eyebrow>
+      {pending && (
+        <p className="mt-0.5 text-[11px] leading-relaxed text-nb-text-3">
+          {t('agent.changeset.intro', { count: summary.notes })}
+        </p>
+      )}
+      <ul className="mt-1.5 space-y-0.5 text-[11.5px] leading-relaxed text-nb-text-2">
+        {lines.map((line, index) => (
+          <li key={index}>{line}</li>
+        ))}
+      </ul>
+      {!pending && (
+        <p className="mt-1.5 text-[11px] leading-relaxed text-nb-text-3">
+          {t(
+            changeset.state === 'applied'
+              ? 'agent.changeset.applied'
+              : 'agent.changeset.discarded',
+          )}
+          {skipped > 0 && ` ${t('agent.changeset.skipped', { count: skipped })}`}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** The buttons that replace the composer once a run exists. They sit where the
  * composer sat, outside the scroll area, so the thing you press next is never
  * below the fold. */
@@ -773,20 +902,26 @@ function RunActions({
   run,
   running,
   undoing,
+  applying,
   canRun,
   onRun,
   onStop,
   onUndo,
   onEdit,
+  onApply,
+  onDiscard,
 }: {
   run: AgentRunRecord;
   running: boolean;
   undoing: boolean;
+  applying: boolean;
   canRun: boolean;
   onRun(): void;
   onStop(): void;
   onUndo(): void;
   onEdit(): void;
+  onApply(): void;
+  onDiscard(): void;
 }) {
   const { t } = useTranslation();
   const canUndo =
@@ -823,6 +958,38 @@ function RunActions({
         >
           <Sparkles size={11} aria-hidden />
           {t('agent.runPlan')}
+        </GlassButton>
+      </div>
+    );
+  }
+
+  // The changeset is the decision in front of the student; undo of whatever
+  // else the run wrote stays available after it, not instead of it.
+  if (run.changeset?.state === 'pending') {
+    return (
+      <div className="flex items-center gap-1.5">
+        <GlassButton
+          size="sm"
+          variant="ghost"
+          disabled={applying}
+          onClick={onDiscard}
+          className="shrink-0"
+        >
+          {t('agent.changeset.cancel')}
+        </GlassButton>
+        <GlassButton
+          size="sm"
+          variant="accent"
+          disabled={applying}
+          onClick={onApply}
+          className="min-w-0 flex-1 justify-center"
+        >
+          {applying ? (
+            <Loader2 size={11} className="animate-spin" />
+          ) : (
+            <Check size={11} aria-hidden />
+          )}
+          {applying ? t('agent.changeset.applying') : t('agent.changeset.apply')}
         </GlassButton>
       </div>
     );

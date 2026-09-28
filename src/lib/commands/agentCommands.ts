@@ -11,7 +11,9 @@ import {
   AgentBudgetError,
   AgentScopeError,
   AiParseError,
+  BUDGET_EXHAUSTED,
   DEFAULT_AGENT_BUDGET,
+  estimateTokens,
   agentToolDefinitions,
   requestAgentPlan,
   runAgentLoop,
@@ -53,6 +55,15 @@ import {
   updateTagCommand,
 } from './organizationCommands';
 import { updateNoteCommand } from './noteCommands';
+import {
+  CHANGESET_REVIEW_THRESHOLD,
+  STAGEABLE_TOOLS,
+  changesetNoteIds,
+  planStagesChanges,
+  splitForStaging,
+  stagedRefs,
+  withoutNotes,
+} from './agentChangeset';
 import { fail, ok, type CommandResult } from './types';
 
 export interface PlanAgentInput {
@@ -173,6 +184,11 @@ export async function planAgentCommand(
   if (parent?.status === 'planned' || parent?.status === 'running') {
     return fail('conflict', 'finish the current agent run before following up');
   }
+  if (parent?.changeset?.state === 'pending') {
+    // A follow-up planned over changes that may or may not land would be
+    // planned against a library nobody can describe.
+    return fail('conflict', i18n.t('agent.changeset.decideFirst'));
+  }
   const followUpContext = parent ? contextForFollowUp(parent) : undefined;
 
   await useEditorStore.getState().flush();
@@ -277,6 +293,9 @@ export async function runAgentCommand(
     ? 'native'
     : 'json';
   record.questions = [];
+  record.changeset = planStagesChanges(record.plan)
+    ? { state: 'staging', calls: [], noteVersions: {} }
+    : undefined;
   put(record);
 
   try {
@@ -331,6 +350,7 @@ export async function runAgentCommand(
     if (!result.outcomeAchieved || missingTools.length > 0) {
       throw new AgentCompletionError(missingTools);
     }
+    await settleChangeset(record, true, options.signal);
     record.status = 'completed';
     record.summary = result.summary;
     record.tokensUsed = result.tokensUsed;
@@ -354,6 +374,7 @@ export async function runAgentCommand(
     record.completedAt = new Date().toISOString();
     record.pendingQuestion = undefined;
     pendingAnswers.delete(record.id);
+    await settleChangeset(record, false);
     for (const call of record.calls) {
       if (call.status === 'running') {
         call.status = cancelled ? 'cancelled' : 'failed';
@@ -449,6 +470,9 @@ export async function undoAgentRunCommand(
     return fail('conflict', 'stop the agent before undoing');
   if (stored.status === 'undone') return ok(stored);
   const record = structuredClone(stored);
+  // Changes still waiting for Apply were never made; undoing the run is also
+  // deciding against them.
+  if (record.changeset?.state === 'pending') record.changeset.state = 'discarded';
 
   // Restore pre-existing notes from the exact pre-run snapshot plus the
   // metadata snapshots do not carry. Created notes are archived, never purged.
@@ -578,14 +602,204 @@ export async function executeAgentTool(
 ): Promise<AgentToolOutcome> {
   const scoped = await enforceScope(record, tool, args);
   if (!scoped.ok) return scoped;
-  const before = await captureBefore(record, tool, scoped.value);
+  if (record.changeset?.state === 'staging' && STAGEABLE_TOOLS.has(tool)) {
+    return stageTool(record, tool, scoped.value, signal);
+  }
+  return performTool(record, tool, scoped.value, signal);
+}
+
+/** Told to the model in place of a staged call's result. */
+const STAGED_NOTE =
+  'Recorded for the student to review. It is applied when they approve this run’s changes, after you finish: treat it as done, do not repeat it, and do not expect reads to show it yet.';
+
+/**
+ * Record a metadata write instead of making it (plan §3.2 item 8).
+ *
+ * The versions are checked now, as the handler would, so a stale read fails
+ * while the model can still recover — not at Apply, after it has finished.
+ */
+async function stageTool(
+  record: AgentRunRecord,
+  tool: AgentToolName,
+  args: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<AgentToolOutcome> {
+  const changeset = record.changeset!;
+  const split = splitForStaging(tool, args);
+  let now: AgentToolOutcome | null = null;
+  if (split.now) {
+    now = await performTool(record, tool, split.now, signal);
+    if (!now.ok || !split.staged) return now;
+  }
+  const staged = split.staged!;
+  const call = { id: newId(), tool, arguments: staged };
+  const refs = stagedRefs(call);
+  if (new Set(refs.map((ref) => ref.noteId)).size !== refs.length) {
+    return fail('invalid_input', 'each note may appear only once');
+  }
+  for (const ref of refs) {
+    const note = await library.getNote(ref.noteId);
+    if (!note) return fail('not_found', `no note ${ref.noteId}`);
+    if (note.updatedAt !== ref.baseUpdatedAt) {
+      return fail('conflict', 'the note changed after it was read', {
+        noteId: note.id,
+        expectedUpdatedAt: ref.baseUpdatedAt,
+        actualUpdatedAt: note.updatedAt,
+      });
+    }
+    if (note.trashedAt !== null) {
+      return fail('invalid_input', 'a note is already in Trash', { noteId: note.id });
+    }
+  }
+  if (changeset.calls.length >= MAX_STAGED_CALLS) {
+    return fail('invalid_input', 'too many changes are waiting for review in this run');
+  }
+  changeset.calls.push(call);
+  put(record);
+  return ok({
+    staged: true,
+    notes: refs.length,
+    ...(now?.ok ? { created: now.value } : {}),
+    note: STAGED_NOTE,
+  });
+}
+
+const MAX_STAGED_CALLS = 500;
+
+/**
+ * Decide a run's staged changes as it ends: a small changeset that finished
+ * cleanly is applied now; a large one, or one a run left unfinished, waits for
+ * the student.
+ */
+async function settleChangeset(
+  record: AgentRunRecord,
+  completed: boolean,
+  signal?: AbortSignal,
+): Promise<void> {
+  const changeset = record.changeset;
+  if (!changeset || changeset.state !== 'staging') return;
+  if (!changeset.calls.length) {
+    record.changeset = undefined;
+    return;
+  }
+  changeset.state = 'pending';
+  if (completed && changesetNoteIds(changeset.calls).length <= CHANGESET_REVIEW_THRESHOLD) {
+    await applyChangeset(record, signal);
+  }
+  put(record);
+}
+
+/**
+ * Make a changeset's writes, through the same executor and journal as any
+ * other call — so they are in whole-run undo like the rest of the run.
+ *
+ * Each note must still be at the version the run left it; one the student
+ * edited since is skipped and reported, never overwritten. Scope is checked
+ * again, because a note can leave a course between staging and Apply.
+ */
+async function applyChangeset(record: AgentRunRecord, signal?: AbortSignal): Promise<void> {
+  const changeset = record.changeset!;
+  const skipped = new Map<string, string>();
+  const controller = signal ? null : new AbortController();
+  const live = signal ?? controller!.signal;
+
+  for (const staged of changeset.calls) {
+    // A copy: versions are refreshed in place below, and the recorded call
+    // must keep saying what the run staged.
+    const call = { tool: staged.tool, arguments: structuredClone(staged.arguments) };
+    const refs = stagedRefs(call);
+    const drop = new Set<string>();
+    const current = new Map<string, string>();
+    for (const ref of refs) {
+      const note = await library.getNote(ref.noteId);
+      const unchanged =
+        note &&
+        note.trashedAt === null &&
+        (note.updatedAt === ref.baseUpdatedAt ||
+          note.updatedAt === changeset.noteVersions[ref.noteId]);
+      if (!unchanged) {
+        drop.add(ref.noteId);
+        skipped.set(ref.noteId, note?.title ?? '');
+      } else current.set(ref.noteId, note.updatedAt);
+    }
+    const args = withoutNotes(call, drop);
+    for (const ref of stagedRefs({ tool: call.tool, arguments: args })) {
+      ref.baseUpdatedAt = current.get(ref.noteId)!;
+    }
+    if (!stagedRefs({ tool: call.tool, arguments: args }).length) continue;
+
+    const scoped = await enforceScope(record, call.tool, args);
+    const outcome = scoped.ok
+      ? await performTool(record, call.tool, scoped.value, live)
+      : scoped;
+    if (!outcome.ok) {
+      for (const noteId of current.keys()) {
+        const note = await library.getNote(noteId);
+        skipped.set(noteId, note?.title ?? '');
+      }
+    }
+  }
+  changeset.state = 'applied';
+  changeset.skipped = [...skipped].map(([noteId, title]) => ({ noteId, title }));
+  put(record);
+  await useLibraryStore.getState().refreshCurrentView();
+  await useLibraryStore.getState().refreshTags();
+}
+
+/** Apply a run's pending changeset — the student's Apply. */
+export async function applyAgentChangesetCommand(
+  runId: string,
+): Promise<CommandResult<AgentRunRecord>> {
+  const stored = useAgentStore.getState().runs.find((run) => run.id === runId);
+  if (!stored) return fail('not_found', `no agent run ${runId}`);
+  if (stored.status === 'running') return fail('conflict', 'the agent run is still running');
+  if (stored.changeset?.state !== 'pending') {
+    return fail('conflict', 'this run has no changes waiting for review');
+  }
+  await useEditorStore.getState().flush();
+  const record = structuredClone(stored);
+  await applyChangeset(record);
+  return ok(record);
+}
+
+/** Drop a run's pending changeset — the student's Cancel. Nothing was
+ * written, so there is nothing to put back. */
+export function discardAgentChangesetCommand(runId: string): CommandResult<AgentRunRecord> {
+  const stored = useAgentStore.getState().runs.find((run) => run.id === runId);
+  if (!stored) return fail('not_found', `no agent run ${runId}`);
+  if (stored.changeset?.state !== 'pending') {
+    return fail('conflict', 'this run has no changes waiting for review');
+  }
+  const record = structuredClone(stored);
+  record.changeset!.state = 'discarded';
+  put(record);
+  return ok(record);
+}
+
+/** Run one tool for real: the ceiling check, the before-image, the handler,
+ * and the journal entry that makes it undoable. */
+async function performTool(
+  record: AgentRunRecord,
+  tool: AgentToolName,
+  args: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<AgentToolOutcome> {
+  const affordable = await modelCallFits(record, tool, args);
+  if (!affordable) {
+    return { ok: false, code: BUDGET_EXHAUSTED, message: budgetError('tokens') };
+  }
+  const before = await captureBefore(record, tool, args);
   let result: AgentToolOutcome | undefined;
+  let modelTokens = 0;
   try {
-    const handled = await executeToolHandler(tool, scoped.value, {
+    const handled = await executeToolHandler(tool, args, {
       source: 'agent',
       agentName: 'NotaBene in-app agent',
       agentRunId: record.id,
       signal,
+      onModelUsage: (tokens) => {
+        modelTokens += tokens;
+      },
     });
     result = handled.ok
       ? {
@@ -593,6 +807,7 @@ export async function executeAgentTool(
           value: await filterReadResult(record.scope, tool, handled.value),
         }
       : handled;
+    if (modelTokens) result = { ...result, modelTokens };
     return result;
   } finally {
     // A handler can be cancelled or fail after an earlier step already wrote
@@ -601,12 +816,79 @@ export async function executeAgentTool(
     await journalAfter(
       record,
       tool,
-      scoped.value,
+      args,
       result?.ok ? result.value : undefined,
       before,
     );
+    if (record.changeset && result?.ok) await recordVersions(record, tool, args, result.value);
     put(record);
   }
+}
+
+/** Remember the version each note is at after the run's own write, so a
+ * staged change to it still applies once the run has moved it on. */
+async function recordVersions(
+  record: AgentRunRecord,
+  tool: AgentToolName,
+  args: Record<string, unknown>,
+  value: unknown,
+): Promise<void> {
+  const noteIds = writeNoteIds(tool, args);
+  if (isNote(value)) noteIds.push(value.id);
+  for (const noteId of noteIds) {
+    const note = await library.getNote(noteId);
+    if (note) record.changeset!.noteVersions[noteId] = note.updatedAt;
+  }
+}
+
+/** Tools that make a model call of their own (plan §3.2 item 7). */
+const MODEL_TOOLS = new Set<AgentToolName>([
+  'define',
+  'generate_flashcards',
+  'synthesize_notes',
+  'visualize_note',
+]);
+
+/** Room kept for what a study feature writes back, on top of what it sends. */
+const MODEL_TOOL_OUTPUT_ALLOWANCE = 8_192;
+
+/**
+ * Whether a study feature's model call fits in what is left of the ceiling.
+ *
+ * Checked before the call rather than after it, because a synthesis of ten
+ * notes can cost more than every turn of the run so far, and the ceiling was
+ * shown to the student as a promise.
+ */
+async function modelCallFits(
+  record: AgentRunRecord,
+  tool: AgentToolName,
+  args: Record<string, unknown>,
+): Promise<boolean> {
+  if (!MODEL_TOOLS.has(tool)) return true;
+  let input = typeof args.context === 'string' ? estimateTokens(args.context) : 0;
+  for (const noteId of modelSourceNoteIds(tool, args)) {
+    const note = await library.getNote(noteId);
+    if (note) input += estimateTokens(note.plainText);
+  }
+  return (
+    record.tokensUsed + input + MODEL_TOOL_OUTPUT_ALLOWANCE <= record.budget.tokenCeiling
+  );
+}
+
+function modelSourceNoteIds(tool: AgentToolName, args: Record<string, unknown>): string[] {
+  if (tool === 'visualize_note') {
+    return typeof args.noteId === 'string' ? [args.noteId] : [];
+  }
+  if (tool === 'generate_flashcards' || tool === 'synthesize_notes') {
+    return stringArray(args.noteIds);
+  }
+  return [];
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : [];
 }
 
 interface BeforeTool {
@@ -640,8 +922,7 @@ async function captureBefore(
       });
     }
   }
-  const tags =
-    tool === 'manage_tags' || tool === 'create_note' ? await library.listTags() : [];
+  const tags = TAG_CREATING_TOOLS.has(tool) ? await library.listTags() : [];
   const courses = tool === 'create_course' ? await library.listCourses() : [];
   const sectionCourseId =
     tool === 'organize' && isObject(args.createSection)
@@ -695,7 +976,10 @@ async function journalAfter(
     record.undoJournal.createdTaskIds ??= [];
     addUnique(record.undoJournal.createdTaskIds, value.id);
   }
-  if ((tool === 'create_note' || tool === 'merge_notes') && isNote(value)) {
+  if (
+    (tool === 'create_note' || tool === 'merge_notes' || tool === 'synthesize_notes') &&
+    isNote(value)
+  ) {
     addUnique(record.undoJournal.createdNoteIds, value.id);
     upsertTouched(record, value.id, value.title, null, true);
   }
@@ -724,7 +1008,7 @@ async function journalAfter(
       }
     }
   }
-  if (tool === 'manage_tags' || tool === 'create_note') {
+  if (TAG_CREATING_TOOLS.has(tool)) {
     const after = await library.listTags();
     const beforeById = new Map(before.tags.map((tag) => [tag.id, tag]));
     for (const tag of after) {
@@ -750,6 +1034,14 @@ async function journalAfter(
     upsertTouched(record, note.id, note.title, firstInRun?.id ?? null, false);
   }
 }
+
+/** Tools that may create a tag as a side effect, so the tag list is compared
+ * before and after them. Synthesis files its note under `type:summary`. */
+const TAG_CREATING_TOOLS = new Set<AgentToolName>([
+  'manage_tags',
+  'create_note',
+  'synthesize_notes',
+]);
 
 async function enforceScope(
   record: AgentRunRecord,
@@ -892,8 +1184,20 @@ function referencedNoteIds(tool: AgentToolName, args: Record<string, unknown>): 
       ...versionedNoteIds(args),
     ];
   }
-  if (tool === 'read_note' || tool === 'update_note') {
+  if (
+    tool === 'read_note' ||
+    tool === 'update_note' ||
+    tool === 'list_annotations' ||
+    tool === 'read_attachment' ||
+    tool === 'list_versions' ||
+    tool === 'read_version' ||
+    tool === 'visualize_note'
+  ) {
     return typeof args.noteId === 'string' ? [args.noteId] : [];
+  }
+  if (tool === 'synthesize_notes') return stringArray(args.noteIds);
+  if (tool === 'generate_flashcards') {
+    return [...stringArray(args.noteIds), ...flashcardTarget(args)];
   }
   if (tool === 'export_notes') {
     return Array.isArray(args.noteIds)
@@ -963,7 +1267,15 @@ async function taskAllowed(record: AgentRunRecord, taskId: string): Promise<bool
   );
 }
 
+/** The note a deck is appended to. Its sources are only read. */
+function flashcardTarget(args: Record<string, unknown>): string[] {
+  return isObject(args.target) && typeof args.target.noteId === 'string'
+    ? [args.target.noteId]
+    : [];
+}
+
 function writeNoteIds(tool: AgentToolName, args: Record<string, unknown>): string[] {
+  if (tool === 'generate_flashcards') return flashcardTarget(args);
   if (
     tool === 'merge_notes' &&
     (args.sourceFate === undefined || args.sourceFate === 'keep')
@@ -978,6 +1290,7 @@ function writeNoteIds(tool: AgentToolName, args: Record<string, unknown>): strin
     'trash_notes',
     'restore_notes',
     'archive_notes',
+    'visualize_note',
   ].includes(tool)
     ? referencedNoteIds(tool, args)
     : [];
