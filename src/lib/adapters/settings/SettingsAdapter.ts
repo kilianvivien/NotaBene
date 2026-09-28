@@ -219,6 +219,8 @@ export interface AppSettings {
   /** Script-specific podcast preferences. */
   podcast: PodcastSettings;
   recording: RecordingSettings;
+  /** How an image is resized and re-encoded as it enters a note. */
+  imageOptimization: 'off' | 'balanced' | 'small';
   mcpEnabled: boolean;
   mcpPort: number;
   /** Existing pairings migrate to write; newly minted tokens start read-only. */
@@ -316,6 +318,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // real recording (2026-09-28). Noise suppression off — it is tuned for a
   // voice a foot away, and takes a distant lecturer for noise.
   recording: { deviceId: null, gain: 2, autoGain: true, noiseSuppression: false },
+  // On: a pasted phone photo is 5 MB shown at 640 px and carries its GPS
+  // position, and a student would never think to look for this switch.
+  imageOptimization: 'balanced',
   mcpEnabled: false,
   mcpPort: 22600,
   mcpScope: 'write',

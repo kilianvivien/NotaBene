@@ -21,7 +21,13 @@ import {
   Lock,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { FieldNote, FieldSection, GlassButton } from '@/components/glass';
+import {
+  FieldNote,
+  FieldRow,
+  FieldSection,
+  GlassButton,
+  GlassSegmentedControl,
+} from '@/components/glass';
 import {
   library,
   storage,
@@ -30,6 +36,7 @@ import {
 } from '@/lib/adapters';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { formatBytes } from '@/lib/utils/formatBytes';
+import { IMAGE_OPTIMIZATIONS, type ImageOptimization } from '@/lib/images/optimize';
 import { relocateLibraryCommand } from '@/lib/commands';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 
@@ -59,6 +66,35 @@ function partition(summary: StorageSummary): Record<SegmentKey, number> {
     models: summary.modelsBytes,
     other: summary.settingsBytes + summary.otherBytes,
   };
+}
+
+/** Images are most of what makes a library heavy, so the choice sits beside
+ * the figure it changes. It applies to images from now on; nothing already
+ * stored is rewritten. */
+function ImageOptimizationSection() {
+  const { t } = useTranslation();
+  const value = useSettingsStore((state) => state.settings.imageOptimization);
+  const update = useSettingsStore((state) => state.update);
+  return (
+    <FieldSection title={t('storage.imagesSection')}>
+      <FieldRow
+        label={t('storage.imageOptimization')}
+        hint={t(`storage.imageOptimizationHint_${value}`)}
+      >
+        <GlassSegmentedControl<ImageOptimization>
+          fill
+          label={t('storage.imageOptimization')}
+          value={value}
+          onChange={(imageOptimization) => void update({ imageOptimization })}
+          options={IMAGE_OPTIMIZATIONS.map((option) => ({
+            value: option,
+            label: t(`storage.imageOptimization_${option}`),
+          }))}
+        />
+      </FieldRow>
+      <FieldNote>{t('storage.imageOptimizationNote')}</FieldNote>
+    </FieldSection>
+  );
 }
 
 export function DataStorageSettings() {
@@ -135,7 +171,12 @@ export function DataStorageSettings() {
   // library in memory. A pane full of "0 B" would be a claim about storage; the
   // honest answer is that there is none to describe.
   if (!summary) {
-    return <FieldNote tone="notice">{t('storage.desktopOnly')}</FieldNote>;
+    return (
+      <div className="space-y-5">
+        <FieldNote tone="notice">{t('storage.desktopOnly')}</FieldNote>
+        <ImageOptimizationSection />
+      </div>
+    );
   }
 
   const parts = partition(summary);
@@ -285,6 +326,8 @@ export function DataStorageSettings() {
           </FieldNote>
         )}
       </FieldSection>
+
+      <ImageOptimizationSection />
 
       <FieldSection title={t('storage.contentsSection')}>
         <ul className="grid grid-cols-3 gap-3">

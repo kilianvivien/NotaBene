@@ -3,7 +3,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
 import { useTranslation } from 'react-i18next';
 import type { NoteDoc } from '@/lib/schema';
-import { storeAssetCommand } from '@/lib/commands';
+import { storeImageCommand } from '@/lib/commands';
 import {
   createNoteCommand,
   resolveWikiTitleCommand,
@@ -186,7 +186,7 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
     if (!editor) return;
     for (const file of files) {
       if (!file.type.startsWith('image/')) continue;
-      const stored = await storeAssetCommand(file);
+      const stored = await storeImageCommand(file);
       if (!stored.ok) continue;
       editor
         .chain()

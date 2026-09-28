@@ -166,6 +166,11 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
           : DEFAULT_SETTINGS.speech.playbackRate),
     },
     recording: normalizeRecording(rest.recording),
+    imageOptimization: (['off', 'balanced', 'small'] as const).includes(
+      rest.imageOptimization as AppSettings['imageOptimization'],
+    )
+      ? (rest.imageOptimization as AppSettings['imageOptimization'])
+      : DEFAULT_SETTINGS.imageOptimization,
     podcast: {
       mode: legacyPodcast?.mode ?? DEFAULT_SETTINGS.podcast.mode,
       minutes: legacyPodcast?.minutes ?? DEFAULT_SETTINGS.podcast.minutes,

@@ -27,7 +27,7 @@ import { flattenDoc } from '@/lib/notes/docText';
 import type { Course, DocNode, Note, NoteDoc, Section } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
-import { storeAssetCommand } from './assetCommands';
+import { storeImageCommand } from './assetCommands';
 import { createNotesCommand, type BatchNoteInput } from './noteCommands';
 import {
   createCourseCommand,
@@ -307,7 +307,7 @@ export async function applySourceImportCommand(
     const stopped = cancelledIfRequested<ImportSummary>(context);
     if (stopped) return stopped;
     try {
-      const result = await storeAssetCommand(await attachment.load());
+      const result = await storeImageCommand(await attachment.load());
       if (result.ok) stored.set(key, result.value.id);
       else summary.imagesFailed += 1;
     } catch {

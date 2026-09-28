@@ -1,4 +1,4 @@
-import { storeAssetCommand } from '@/lib/commands/assetCommands';
+import { storeImageCommand } from '@/lib/commands/assetCommands';
 import { decodeBase64 } from '@/lib/archive/base64';
 import type { ImportedDocument, ImportWarning } from '@/lib/schema';
 
@@ -42,7 +42,7 @@ export async function materialiseAssets(
   for (const asset of document.assets) {
     try {
       const bytes = await decodeBase64(asset.data);
-      const stored = await storeAssetCommand(
+      const stored = await storeImageCommand(
         new Blob([bytes], { type: asset.mime || 'application/octet-stream' }),
       );
       if (!stored.ok) {

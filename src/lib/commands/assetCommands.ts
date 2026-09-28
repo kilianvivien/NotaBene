@@ -2,7 +2,9 @@ import { assets, dialog, exporter, library } from '@/lib/adapters';
 import { canPreviewAttachment } from '@/lib/attachments/previewSupport';
 import { documentImportSupported } from '@/lib/import/documentImport';
 import { AttachmentSchema, newId, type Asset, type Attachment } from '@/lib/schema';
+import { optimizeImage } from '@/lib/images/optimize';
 import { attachmentsChanged } from '@/lib/state/attachmentStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { fail, ok, type CommandResult } from './types';
 
 export async function storeAssetCommand(blob: Blob): Promise<CommandResult<Asset>> {
@@ -11,6 +13,16 @@ export async function storeAssetCommand(blob: Blob): Promise<CommandResult<Asset
   } catch (error) {
     return fail('storage_failed', String(error));
   }
+}
+
+/**
+ * Store an image that is going into a note's body, optimised under the
+ * student's setting. Attachments do not come through here: an attachment is
+ * the original file, and Save hands those exact bytes back.
+ */
+export async function storeImageCommand(blob: Blob): Promise<CommandResult<Asset>> {
+  const setting = useSettingsStore.getState().settings.imageOptimization;
+  return storeAssetCommand(await optimizeImage(blob, setting));
 }
 
 export async function addAttachmentCommand(
