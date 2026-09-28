@@ -346,6 +346,15 @@ Transcription notes (phase N, plan §10.3) worth knowing before touching it:
   per window, cancel kills the helper (`asr_cancel`), release in `finally`.
   `confidence` is `null` where an engine has none, and only real numbers
   under 0.5 become review highlights.
+- The lecture's vocabulary (`src/lib/transcript/vocabulary.ts`: accepted
+  course terms, the lecture note's own words, the course harvest; never a
+  rejected term) goes to the engine as hints, then respells *doubtful* words
+  that are near misses (≤ 25 % edits, not an inflection, two words may merge
+  into one term). Corrected words stay highlighted. Confident words are
+  never touched. Both are behind *Use course vocabulary*.
+- Recording level: automatic level is NotaBene's leveller in the capture
+  graph (`mediaRecorderAdapter.ts`), never `autoGainControl`, which ramped
+  from near silence over the first seconds of a real recording.
 - A new transcript note anchors to a *copy* of the attachment whose id is
   minted before the note exists (`copyAttachmentCommand(…, id)`); the lecture
   and transcript are matched by backlink + shared `assetId`, never by

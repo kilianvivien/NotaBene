@@ -99,7 +99,11 @@ async function openInput(input: RecordingInput): Promise<OpenInput> {
         ...(input.deviceId ? { deviceId: { exact: input.deviceId } } : {}),
         channelCount: 1,
         echoCancellation: false,
-        autoGainControl: input.autoGain,
+        // Never the platform's: it starts low and takes seconds to adapt, so
+        // every recording opened on a near-silent first sentence (found on a
+        // real one, 2026-09-28: −50 dBFS for 3.5 s, then +25 dB). Automatic
+        // level is the leveller in the graph below, even from sample one.
+        autoGainControl: false,
         noiseSuppression: input.noiseSuppression,
       },
     });
@@ -125,19 +129,34 @@ async function openInput(input: RecordingInput): Promise<OpenInput> {
   const source = context.createMediaStreamSource(microphone);
   let tail: AudioNode = source;
   let stream = microphone;
-  if (input.gain !== 1) {
+  if (input.gain !== 1 || input.autoGain) {
     const gain = context.createGain();
     gain.gain.value = input.gain;
-    // A limiter, not a compressor: speech at a normal level passes untouched,
-    // and only what the gain would push past full scale is held down.
+    let chain: AudioNode = source.connect(gain);
+    if (input.autoGain) {
+      // The leveller: a gentle compressor whose own makeup gain lifts quiet
+      // speech (+11 dB on the test recording) while loud passages barely
+      // move. Tuned offline on a real lecture recording; the room's silence
+      // stays where it was, so pauses do not fill with hiss.
+      const leveller = context.createDynamicsCompressor();
+      leveller.threshold.value = -24;
+      leveller.knee.value = 10;
+      leveller.ratio.value = 4;
+      leveller.attack.value = 0.01;
+      leveller.release.value = 0.3;
+      chain = chain.connect(leveller);
+    }
+    // A limiter, not a compressor: only what would pass full scale is held
+    // down. −6 dB because a Web Audio compressor has no look-ahead and
+    // overshoots its threshold by a few dB on a sharp consonant.
     const limiter = context.createDynamicsCompressor();
-    limiter.threshold.value = -3;
+    limiter.threshold.value = -6;
     limiter.knee.value = 0;
     limiter.ratio.value = 20;
-    limiter.attack.value = 0.003;
+    limiter.attack.value = 0.001;
     limiter.release.value = 0.25;
     const destination = context.createMediaStreamDestination();
-    source.connect(gain).connect(limiter).connect(destination);
+    chain.connect(limiter).connect(destination);
     tail = limiter;
     stream = destination.stream;
   }

@@ -42,7 +42,8 @@ export interface RecordingInput {
   /** Linear gain applied before encoding, behind a limiter so a raised
    * level cannot clip when the lecturer leans into the microphone. */
   gain: number;
-  /** The platform's automatic level control. */
+  /** NotaBene's leveller in the capture graph — never the platform's
+   * automatic gain, which ramps up over the first seconds. */
   autoGain: boolean;
   /** The platform's noise suppression. Off by default: it is tuned for a
    * voice call a foot from the microphone, and a lecturer ten metres away is

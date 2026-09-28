@@ -34,6 +34,13 @@ import { useRecordingStore } from '@/lib/state/recordingStore';
 import { stitchWindows, type WindowTranscript } from '@/lib/transcript/stitch';
 import { groupParagraphs } from '@/lib/transcript/paragraphs';
 import { transcriptBlocks } from '@/lib/transcript/document';
+import {
+  correctFromVocabulary,
+  hintTerms,
+  lectureVocabulary,
+  type LectureTerm,
+} from '@/lib/transcript/vocabulary';
+import { loadCourseVocabulary } from '@/lib/vocabulary';
 import { formatOffset } from '@/lib/recording/anchors';
 import { copyAttachmentCommand } from './assetCommands';
 import { createNoteCommand, updateNoteCommand } from './noteCommands';
@@ -72,6 +79,9 @@ export interface TranscriptionOutcome {
   noteId: string;
   /** Highlighted runs of doubtful words. */
   passages: number;
+  /** Doubtful words respelled from the lecture's vocabulary (still
+   * highlighted, so they are also among the passages). */
+  corrected: number;
   language: string | null;
   durationMs: number;
 }
@@ -112,20 +122,29 @@ async function usableLanguages(engine: AsrEngine): Promise<AsrLanguage[]> {
   );
 }
 
-async function vocabulary(
+/**
+ * The lecture's vocabulary: accepted course terms, the lecture note's own
+ * words, the course's harvest. Empty when the student turned it off or the
+ * engine takes no hints — the correction pass then has nothing to go on
+ * either, which is the point of the switch.
+ */
+async function lectureTerms(
   note: Note,
   engine: AsrEngine,
   wanted: boolean,
-): Promise<string[]> {
-  const capabilities = engine.capabilities();
-  if (!wanted || !capabilities.vocabulary || !note.courseId) return [];
-  // Only what the student accepted. A rejected term is on the list precisely
-  // so that it is never offered — or sent — again.
-  const terms = await library.listCourseTerms(note.courseId).catch(() => []);
-  return terms
-    .filter((term) => term.status === 'accepted')
-    .map((term) => term.term)
-    .slice(0, capabilities.maxVocabularyTerms);
+): Promise<LectureTerm[]> {
+  if (!wanted || !engine.capabilities().vocabulary) return [];
+  const [curated, course] = await Promise.all([
+    note.courseId ? library.listCourseTerms(note.courseId).catch(() => []) : [],
+    note.courseId
+      ? loadCourseVocabulary(note.courseId).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+  return lectureVocabulary({
+    curated,
+    note,
+    harvested: course?.harvested ?? [],
+  });
 }
 
 function heading(text: string): DocNode {
@@ -187,7 +206,8 @@ export async function transcribeAttachmentCommand(
     }
     if (candidates.length === 1) language = candidates[0]!;
   }
-  const terms = await vocabulary(note, engine, input.useCourseVocabulary);
+  const vocabulary = await lectureTerms(note, engine, input.useCourseVocabulary);
+  const terms = hintTerms(vocabulary, capabilities.maxVocabularyTerms);
 
   const jobId = newId();
   try {
@@ -247,7 +267,9 @@ export async function transcribeAttachmentCommand(
       onProgress?.({ stage: 'transcribing', done: window.index + 1, total, language });
     }
 
-    const paragraphs = groupParagraphs(stitchWindows(results));
+    const heard = groupParagraphs(stitchWindows(results));
+    // The words the engine hesitated on, checked against the lecture's own.
+    const { paragraphs, corrected } = correctFromVocabulary(heard, vocabulary);
     if (!paragraphs.length) {
       return fail('not_found', 'ASR_NO_SPEECH', { asrCode: 'ASR_NO_SPEECH' });
     }
@@ -269,6 +291,7 @@ export async function transcribeAttachmentCommand(
     return ok({
       noteId: written.value.noteId,
       passages: written.value.passages,
+      corrected,
       language: detected,
       durationMs: job.durationMs,
     });

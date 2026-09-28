@@ -2260,7 +2260,7 @@
     "busy": "Un cours est en cours d’enregistrement ; le test sera disponible à la fin.",
     "processingSection": "Traitement",
     "autoGain": "Niveau automatique",
-    "autoGainHint": "macOS égalise les passages forts et faibles. Désactivez-le si le bruit de la salle remonte pendant les silences.",
+    "autoGainHint": "Égalise la parole faible et forte dès la première seconde, pour qu’un enseignant qui parle bas ne se perde pas. Les silences restent silencieux.",
     "noiseSuppression": "Réduction du bruit",
     "noiseSuppressionHint": "Conçue pour les appels, micro tout proche. Dans un amphithéâtre, elle peut prendre une voix lointaine pour du bruit : elle est donc désactivée par défaut.",
     "appliesNext": "Les changements s’appliquent au prochain enregistrement, pas à celui en cours.",
@@ -2288,7 +2288,7 @@
     "defaultLanguageHint": "Le choix de départ de la fenêtre de transcription. Automatique écoute la première minute.",
     "languageAuto": "Automatique",
     "useCourseVocabulary": "Utiliser le vocabulaire du cours",
-    "useCourseVocabularyHint": "Envoie les termes acceptés du cours avec l’audio, pour que son jargon soit écrit comme il se doit."
+    "useCourseVocabularyHint": "Donne à la reconnaissance les mots de la note du cours et de son cours, et corrige les mots douteux qui en sont proches. Les corrections restent surlignées pour vérification."
   },
   "transcription": {
     "languageQuestion": "Langue",
@@ -2360,6 +2360,8 @@
     "labelInto": "Ajouter à",
     "whereHosted": "Envoyé à Mistral ({{duration}}), facturé sur votre clé.",
     "whereHostedShort": "Envoyé à Mistral, facturé sur votre clé.",
-    "failedShort": "Échec de la transcription"
+    "failedShort": "Échec de la transcription",
+    "corrected_one": "{{count}} mot corrigé d’après le vocabulaire du cours",
+    "corrected_other": "{{count}} mots corrigés d’après le vocabulaire du cours"
   }
 }

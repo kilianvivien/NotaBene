@@ -163,7 +163,13 @@ export function TranscribeControl({
         <button
           type="button"
           className="nb-transcribe-link"
-          title={t('transcription.statusBarDone', { title: noteTitle })}
+          title={[
+            t('transcription.statusBarDone', { title: noteTitle }),
+            job.outcome.corrected > 0 &&
+              t('transcription.corrected', { count: job.outcome.corrected }),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
           onClick={() => void openTranscript()}
         >
           <FileText size={12} aria-hidden />

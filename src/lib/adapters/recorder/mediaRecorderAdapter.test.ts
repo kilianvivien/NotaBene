@@ -147,8 +147,10 @@ describe('createMediaRecorderAdapter', () => {
     const session = await createMediaRecorderAdapter(memorySink()).start({
       id: 'rec-1',
       noteId: 'note-1',
-      input: { deviceId: 'usb-mic', gain: 1, autoGain: false, noiseSuppression: true },
+      input: { deviceId: 'usb-mic', gain: 1, autoGain: true, noiseSuppression: true },
     });
+    // Automatic level is ours, in the graph; the platform's ramps up over
+    // the first seconds of every recording and is never asked for.
     expect(getUserMedia).toHaveBeenCalledWith({
       audio: expect.objectContaining({
         deviceId: { exact: 'usb-mic' },

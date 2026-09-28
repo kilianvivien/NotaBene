@@ -2260,7 +2260,7 @@
     "busy": "A lecture is being recorded; the test is unavailable until it stops.",
     "processingSection": "Processing",
     "autoGain": "Automatic level",
-    "autoGainHint": "macOS evens out loud and quiet passages. Turn it off if the recording pumps up the room noise during pauses.",
+    "autoGainHint": "Evens out quiet and loud speech from the first second, so a soft-spoken lecturer is not lost. Pauses stay quiet.",
     "noiseSuppression": "Noise reduction",
     "noiseSuppressionHint": "Made for calls with the microphone close by. In a lecture hall it can treat a distant voice as noise, so it is off by default.",
     "appliesNext": "Changes apply to the next recording, not one already running.",
@@ -2288,7 +2288,7 @@
     "defaultLanguageHint": "Where the transcribe dialog starts. Automatic listens to the first minute.",
     "languageAuto": "Automatic",
     "useCourseVocabulary": "Use course vocabulary",
-    "useCourseVocabularyHint": "Sends the course’s accepted terms with the audio, so its jargon is spelled its way."
+    "useCourseVocabularyHint": "Gives the recognition the words of the lecture note and its course, and fixes the doubtful words that are near misses of them. The fixes stay highlighted for you to check."
   },
   "transcription": {
     "languageQuestion": "Language",
@@ -2360,6 +2360,8 @@
     "labelInto": "Add to",
     "whereHosted": "Sent to Mistral ({{duration}}), billed to your key.",
     "whereHostedShort": "Sent to Mistral, billed to your key.",
-    "failedShort": "Couldn’t transcribe"
+    "failedShort": "Couldn’t transcribe",
+    "corrected_one": "{{count}} word respelled from the lecture’s vocabulary",
+    "corrected_other": "{{count}} words respelled from the lecture’s vocabulary"
   }
 }

@@ -267,6 +267,64 @@ describe('transcribeAttachmentCommand', () => {
   });
 });
 
+describe('the lecture vocabulary', () => {
+  it('is sent as hints and respells what the engine was unsure of', async () => {
+    const { input } = await lecture();
+    const note = (await library.getNote(input.noteId))!;
+    const typed = 'Les réactions ont lieu dans les thylakoïdes du chloroplaste.';
+    await library.upsertNote({
+      ...note,
+      doc: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: typed }] }],
+      },
+      plainText: typed,
+    });
+    const hints: string[][] = [];
+    vi.spyOn(asrRegistry, 'resolveConfiguredEngine').mockResolvedValue(
+      fakeEngine(async (_job, _window, options) => {
+        hints.push(options.vocabulary);
+        return {
+          language: 'fr',
+          segments: [
+            {
+              start: 1,
+              end: 3,
+              text: 'dans les thyloïdes.',
+              words: [
+                { text: 'dans', start: 1, end: 1.3, confidence: 0.98 },
+                { text: 'les', start: 1.3, end: 1.5, confidence: 0.97 },
+                { text: 'thyloïdes.', start: 1.5, end: 2.2, confidence: 0.31 },
+              ],
+            },
+          ],
+        };
+      }),
+    );
+
+    const result = await transcribeAttachmentCommand({ ...input, destination: 'append' });
+
+    expect(hints[0]).toContain('thylakoïdes');
+    expect(result.ok && result.value.corrected).toBe(2);
+    const text = (await library.getNote(input.noteId))!.plainText;
+    expect(text).toContain('les thylakoïdes.');
+    expect(text).not.toContain('thyloïdes');
+  });
+
+  it('is not used when the student turned course vocabulary off', async () => {
+    const { input } = await lecture();
+    const hints: string[][] = [];
+    vi.spyOn(asrRegistry, 'resolveConfiguredEngine').mockResolvedValue(
+      fakeEngine(async (_job, _window, options) => {
+        hints.push(options.vocabulary);
+        return sentence('Bonjour.', 1);
+      }),
+    );
+    await transcribeAttachmentCommand({ ...input, useCourseVocabulary: false });
+    expect(hints.every((list) => list.length === 0)).toBe(true);
+  });
+});
+
 describe('asrCode', () => {
   it('reads the code a failure starts with', () => {
     expect(asrCode('ASR_APPLE_LANGUAGE_NOT_INSTALLED: fr-FR')).toBe(
