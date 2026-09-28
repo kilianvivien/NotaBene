@@ -211,7 +211,16 @@ pub async fn fetch_page(url: &str) -> Result<FetchedPage, String> {
         }
 
         if !response.status().is_success() {
-            return Err(format!("http_error:{}", response.status().as_u16()));
+            let status = response.status().as_u16();
+            // A bot wall (Cloudflare's "Just a moment…", a 403 for any client
+            // that is not a browser) is the site's decision, not a fault — and
+            // not one NotaBene should try to get past. Naming it lets the
+            // dialog say so instead of a bare "could not save".
+            let challenged = response.headers().contains_key("cf-mitigated");
+            if challenged || matches!(status, 401 | 403 | 429) {
+                return Err(format!("blocked:{status}"));
+            }
+            return Err(format!("http_error:{status}"));
         }
 
         let content_type = response

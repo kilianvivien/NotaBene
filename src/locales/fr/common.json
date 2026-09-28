@@ -187,6 +187,9 @@
     "linkFailed": "Impossible d’enregistrer cette page.",
     "linkRefusedHost": "Cette adresse n’est pas sur le web public.",
     "linkNotHtml": "Cette adresse n’est pas une page web.",
+    "linkBlocked": "Ce site bloque la lecture automatique.",
+    "linkKeptOnly": "Le lien a tout de même été enregistré dans les pièces jointes — ouvrez-le dans le navigateur ou réessayez plus tard.",
+    "linkNotFetched": "Lien seul — page non récupérée",
     "linkTooLarge": "Cette page dépasse ce que NotaBene peut lire.",
     "linkEmpty": "Cette page ne contient aucun texte lisible.",
     "linkNeedsDesktop": "Enregistrer une page web nécessite l’application de bureau."

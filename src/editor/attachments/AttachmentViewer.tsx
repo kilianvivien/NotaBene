@@ -34,6 +34,7 @@ import type { Attachment } from '@/lib/schema';
 import { AttachmentDocumentPreview } from './AttachmentDocumentPreview';
 import { DocumentFindBar } from './DocumentFindBar';
 import { useDocumentSearch } from './useDocumentSearch';
+import { webLinkFailureMessage } from './webLinkMessage';
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 8;
@@ -296,6 +297,17 @@ export function AttachmentViewer({
     window.addEventListener('pointercancel', end);
   }
 
+  async function refetch() {
+    setRefetching(true);
+    setStatus('');
+    setError('');
+    const outcome = await refetchWebLinkCommand(attachment);
+    setRefetching(false);
+    // Success needs no line of its own: the new snapshot replaces the page and
+    // the header's date moves. A failure would otherwise look like nothing.
+    if (!outcome.ok) setError(webLinkFailureMessage(outcome.message, t));
+  }
+
   async function saveOriginal() {
     setSaving(true);
     setStatus('');
@@ -400,16 +412,7 @@ export function AttachmentViewer({
                 <ExternalLink size={14} aria-hidden />
                 {t('editor.openInBrowser')}
               </button>
-              <button
-                type="button"
-                disabled={refetching}
-                onClick={() => {
-                  setRefetching(true);
-                  void refetchWebLinkCommand(attachment).finally(() =>
-                    setRefetching(false),
-                  );
-                }}
-              >
+              <button type="button" disabled={refetching} onClick={() => void refetch()}>
                 <RefreshCw size={14} aria-hidden />
                 {refetching ? t('editor.savingLink') : t('editor.refetchLink')}
               </button>
@@ -421,15 +424,15 @@ export function AttachmentViewer({
           </button>
         </div>
 
-        <span
-          className="nb-attachment-viewer-kind"
-          title={attachment.url ?? mime}
-        >
+        <span className="nb-attachment-viewer-kind" title={attachment.url ?? mime}>
           {attachment.fetchedAt
             ? t('editor.linkSavedOn', {
                 when: new Date(attachment.fetchedAt).toLocaleDateString(),
               })
-            : (attachmentKindLabel(attachment.name, mime) ?? t('editor.attachmentFile'))}
+            : attachment.url
+              ? t('editor.linkNotFetched')
+              : (attachmentKindLabel(attachment.name, mime) ??
+                t('editor.attachmentFile'))}
         </span>
         <button
           type="button"

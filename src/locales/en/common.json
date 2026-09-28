@@ -187,6 +187,9 @@
     "linkFailed": "Could not save that page.",
     "linkRefusedHost": "That address is not on the public web.",
     "linkNotHtml": "That address is not a web page.",
+    "linkBlocked": "That site blocks automated reading.",
+    "linkKeptOnly": "The link was saved in attachments instead — open it in your browser, or fetch it again later.",
+    "linkNotFetched": "Link only — not fetched",
     "linkTooLarge": "That page is larger than NotaBene will read.",
     "linkEmpty": "That page had no readable text.",
     "linkNeedsDesktop": "Saving a web page needs the desktop app."

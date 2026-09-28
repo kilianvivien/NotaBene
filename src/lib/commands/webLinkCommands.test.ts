@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { library, web } from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
-import { attachWebLinkCommand, normaliseUrl, refetchWebLinkCommand } from './webLinkCommands';
+import {
+  attachLinkOnlyCommand,
+  attachWebLinkCommand,
+  canKeepLinkOnly,
+  normaliseUrl,
+  refetchWebLinkCommand,
+} from './webLinkCommands';
 
 const PAGE = `<!doctype html>
 <html>
@@ -69,7 +75,8 @@ describe('attachWebLinkCommand', () => {
     });
 
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.url).toBe('https://www.example.com/second-law?amp=0');
+    if (result.ok)
+      expect(result.value.url).toBe('https://www.example.com/second-law?amp=0');
   });
 
   it('reads a refused host as the student’s mistake, not a broken app', async () => {
@@ -93,6 +100,39 @@ describe('attachWebLinkCommand', () => {
 
     const result = await attachWebLinkCommand({ noteId: note.id, url: 'example.com' });
 
+    expect(result).toMatchObject({ ok: false, code: 'invalid_input' });
+  });
+});
+
+describe('attachLinkOnlyCommand', () => {
+  it('keeps the address of a page a bot wall would not serve', async () => {
+    expect(canKeepLinkOnly('blocked:403')).toBe(true);
+    expect(canKeepLinkOnly('fetch_failed:timed out')).toBe(true);
+    expect(canKeepLinkOnly('refused_host:that address is not on the public web')).toBe(
+      false,
+    );
+
+    const note = memoryLibraryAdapter.seedNote({ title: 'Droit' });
+    const result = await attachLinkOnlyCommand({
+      noteId: note.id,
+      url: 'www.legifrance.gouv.fr/circulaire/id/45575',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.url).toBe('https://www.legifrance.gouv.fr/circulaire/id/45575');
+    // Not fetched, so a later "Fetch again" can still turn it into a snapshot.
+    expect(result.value.fetchedAt).toBeNull();
+    expect(result.value.name).toBe('legifrance.gouv.fr circulaire id 45575.md');
+    expect(await library.listAttachments(note.id)).toHaveLength(1);
+  });
+
+  it('refuses anything that is not a web link', async () => {
+    const note = memoryLibraryAdapter.seedNote({ title: 'Droit' });
+    const result = await attachLinkOnlyCommand({
+      noteId: note.id,
+      url: 'file:///etc/passwd',
+    });
     expect(result).toMatchObject({ ok: false, code: 'invalid_input' });
   });
 });

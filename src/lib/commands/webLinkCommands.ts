@@ -16,13 +16,7 @@ import { assets, library, web } from '@/lib/adapters';
 import { extractPage, snapshotFilename, snapshotMarkdown } from '@/lib/import/webPage';
 import { AttachmentSchema, newId, type Attachment } from '@/lib/schema';
 import { attachmentsChanged } from '@/lib/state/attachmentStore';
-import {
-  fail,
-  ok,
-  USER,
-  type CommandContext,
-  type CommandResult,
-} from './types';
+import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
 
 const LinkInput = z.object({
   noteId: z.string().min(1),
@@ -110,6 +104,68 @@ export async function attachWebLinkCommand(
       // later re-fetch should ask for, and what the citation should credit.
       url: taken.value.finalUrl,
       fetchedAt,
+    });
+    await library.upsertAttachment(attachment);
+    attachmentsChanged();
+    return ok(attachment);
+  } catch (error) {
+    return fail('storage_failed', String(error));
+  }
+}
+
+/**
+ * Failures that say the address itself is wrong. Everything else — a bot wall,
+ * a timeout, being offline, a PDF behind the link — leaves a perfectly good
+ * address the student still wants to keep.
+ */
+const ADDRESS_REFUSALS = ['refused_scheme', 'refused_host', 'invalid_url', 'unsupported'];
+
+/** Whether a failed `attachWebLinkCommand` may still keep the bare link. */
+export function canKeepLinkOnly(message: string): boolean {
+  const code = message.split(':', 1)[0] ?? '';
+  return !ADDRESS_REFUSALS.includes(code);
+}
+
+/**
+ * Keep the address when the page itself could not be read.
+ *
+ * Still an ordinary `.md` attachment, holding only the link, so it lists,
+ * previews and exports like a snapshot. `fetchedAt: null` is what marks it as
+ * not yet fetched, and `url` is what lets "Fetch again" turn it into a real
+ * snapshot later without a second row.
+ */
+export async function attachLinkOnlyCommand(
+  input: AttachWebLinkInput,
+  _context: CommandContext = USER,
+): Promise<CommandResult<Attachment>> {
+  const parsed = LinkInput.safeParse({ ...input, url: normaliseUrl(input.url) });
+  if (!parsed.success) {
+    return fail('invalid_input', 'invalid link', parsed.error.issues);
+  }
+  const url = parsed.data.url;
+  const address = new URL(url);
+  if (!['http:', 'https:'].includes(address.protocol)) {
+    return fail('invalid_input', 'refused_scheme:only web links can be kept');
+  }
+  const label = `${address.hostname.replace(/^www\./, '')}${address.pathname}`.replace(
+    /\/+$/,
+    '',
+  );
+  const markdown = `# ${label}\n\n[${url}](${url})\n`;
+
+  try {
+    const asset = await assets.put(new Blob([markdown], { type: 'text/markdown' }), {
+      mime: 'text/markdown',
+    });
+    const attachment = AttachmentSchema.parse({
+      id: newId(),
+      noteId: parsed.data.noteId,
+      assetId: asset.id,
+      name: snapshotFilename(label),
+      createdAt: new Date().toISOString(),
+      annotations: [],
+      url,
+      fetchedAt: null,
     });
     await library.upsertAttachment(attachment);
     attachmentsChanged();
