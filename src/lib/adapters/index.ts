@@ -176,11 +176,16 @@ export type {
   CompletionSettings,
   FocusSettings,
   PodcastSettings,
+  RecordingSettings,
   SpeechSettings,
   SecretsAdapter,
   SettingsAdapter,
 } from './settings/SettingsAdapter';
-export { COMPLETION_MIN_PREFIX, DEFAULT_SETTINGS } from './settings/SettingsAdapter';
+export {
+  COMPLETION_MIN_PREFIX,
+  DEFAULT_SETTINGS,
+  RECORDING_GAIN,
+} from './settings/SettingsAdapter';
 export {
   LOCAL_MODEL_REVISIONS,
   localTtsModels,
@@ -248,7 +253,9 @@ export type {
   AppleFmStatus,
 } from './appleFm/AppleFmAdapter';
 export type {
+  AudioInputDevice,
   InterruptedRecording,
+  RecordingInput,
   RecorderAdapter,
   RecorderSession,
   RecorderUnavailableReason,

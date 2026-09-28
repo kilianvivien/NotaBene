@@ -18,6 +18,7 @@ import {
   RecorderUnavailableError,
   type InterruptedRecording,
   type RecorderSession,
+  type RecordingInput,
 } from '@/lib/adapters';
 import { AttachmentSchema, newId, type Asset, type Attachment } from '@/lib/schema';
 import { attachmentsChanged } from '@/lib/state/attachmentStore';
@@ -48,6 +49,8 @@ export function recordingFileName(startedAt: Date, mime: string): string {
 
 export interface StartRecordingInput {
   noteId: string;
+  /** Settings → Recording. */
+  input?: RecordingInput;
   onLevel?(level: number): void;
   onFailure?(error: unknown): void;
 }
@@ -69,6 +72,7 @@ export async function startRecordingCommand(
       await recorder.start({
         id: newId(),
         noteId: input.noteId,
+        input: input.input,
         onLevel: input.onLevel,
         onFailure: input.onFailure,
       }),

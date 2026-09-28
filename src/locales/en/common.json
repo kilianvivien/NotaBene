@@ -192,7 +192,8 @@
     "linkNotFetched": "Link only — not fetched",
     "linkTooLarge": "That page is larger than NotaBene will read.",
     "linkEmpty": "That page had no readable text.",
-    "linkNeedsDesktop": "Saving a web page needs the desktop app."
+    "linkNeedsDesktop": "Saving a web page needs the desktop app.",
+    "saveAttachmentAs": "Save “{{name}}” to a file"
   },
   "longForm": {
     "documentMap": "Document map",
@@ -1096,7 +1097,9 @@
     "completionHintHint": "A small Tab key beside the suggestion, and which alternative is shown.",
     "completionHintAuto": "At first",
     "completionHintAlways": "Always",
-    "completionHintNever": "Never"
+    "completionHintNever": "Never",
+    "recording": "Recording",
+    "desc_recording": "How lectures are recorded: which microphone, how loud, and what processing to keep."
   },
   "abbreviations": {
     "trigger": "Type this",
@@ -2213,6 +2216,32 @@
     "stopIn": "Stop recording in “{{title}}”",
     "status": "Recording {{time}}",
     "saving": "Saving recording…",
-    "anchorsElsewhere": "anchors go to “{{title}}”"
+    "anchorsElsewhere": "anchors go to “{{title}}”",
+    "save": "Save recording to a file…"
+  },
+  "recordingSettings": {
+    "desktopOnly": "Recording lectures needs the NotaBene desktop app.",
+    "inputSection": "Microphone",
+    "microphone": "Input",
+    "systemDefault": "System default",
+    "unnamed": "Microphone {{number}}",
+    "namesHint": "macOS shows microphone names once NotaBene has been allowed to use one. Run the level test to allow it.",
+    "gain": "Recording level",
+    "gainHint": "Raises the microphone before the lecture is saved. A limiter keeps a raised level from distorting when the lecturer comes close.",
+    "test": "Level test",
+    "testHint": "Listens without recording. Aim for the bar to reach two-thirds while the lecturer speaks; red means too loud.",
+    "startTest": "Test",
+    "stopTest": "Stop",
+    "level": "Input level",
+    "busy": "A lecture is being recorded; the test is unavailable until it stops.",
+    "processingSection": "Processing",
+    "autoGain": "Automatic level",
+    "autoGainHint": "macOS evens out loud and quiet passages. Turn it off if the recording pumps up the room noise during pauses.",
+    "noiseSuppression": "Noise reduction",
+    "noiseSuppressionHint": "Made for calls with the microphone close by. In a lecture hall it can treat a distant voice as noise, so it is off by default.",
+    "appliesNext": "Changes apply to the next recording, not one already running.",
+    "transcriptionSection": "Transcription",
+    "transcriptionBody": "Turning a recording into text, on this Mac, with no audio sent anywhere.",
+    "transcriptionLater": "Not available yet. When it arrives, its model download and language choice will be here, and a transcript will line up with the paragraphs you typed during the lecture."
   }
 }

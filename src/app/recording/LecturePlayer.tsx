@@ -11,18 +11,19 @@
  * Removing a recording removes the attachment and nothing else. The note keeps
  * its words and its anchors, which fall silent without audio to point at.
  */
-import { Pause, Play, RotateCcw, RotateCw, Trash2 } from 'lucide-react';
+import { Download, Pause, Play, RotateCcw, RotateCw, Trash2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import './recording.css';
 import { GlassIconButton, GlassSelect } from '@/components/glass';
 import { dialog, library } from '@/lib/adapters';
 import { attachmentPreviewKind } from '@/lib/attachments/previewSupport';
-import { deleteAttachmentCommand } from '@/lib/commands';
+import { deleteAttachmentCommand, saveAttachmentCommand } from '@/lib/commands';
 import { formatOffset } from '@/lib/recording/anchors';
 import { useAttachmentStore } from '@/lib/state/attachmentStore';
 import { SKIP_MS, useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { useRecordingStore } from '@/lib/state/recordingStore';
+import { useUiStore } from '@/lib/state/uiStore';
 
 export function LecturePlayer({
   noteId,
@@ -70,6 +71,22 @@ export function LecturePlayer({
   const position = formatOffset(playback.positionMs);
   const duration =
     playback.durationMs === null ? null : formatOffset(playback.durationMs);
+
+  /** A copy on disk — to send to a classmate, or keep outside the library. */
+  async function save() {
+    if (!current) return;
+    const outcome = await saveAttachmentCommand(current);
+    const notice = useUiStore.getState().showStatusNotice;
+    if (outcome.ok) {
+      notice(
+        outcome.value
+          ? t('editor.attachmentSavedAt', { path: outcome.value })
+          : t('editor.attachmentSaved'),
+      );
+    } else if (outcome.code !== 'not_supported') {
+      notice(outcome.message);
+    }
+  }
 
   async function remove() {
     if (!current) return;
@@ -151,6 +168,9 @@ export function LecturePlayer({
         </span>
       )}
 
+      <GlassIconButton label={t('recording.save')} onClick={() => void save()}>
+        <Download size={14} />
+      </GlassIconButton>
       {!readOnly && (
         <GlassIconButton label={t('recording.remove')} onClick={() => void remove()}>
           <Trash2 size={14} />

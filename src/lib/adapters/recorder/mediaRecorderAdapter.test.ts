@@ -140,4 +140,23 @@ describe('createMediaRecorderAdapter', () => {
     expect(sink.discard).toHaveBeenCalledWith('rec-1');
     expect(sink.finish).not.toHaveBeenCalled();
   });
+
+  it('asks for the chosen microphone with the chosen processing', async () => {
+    const getUserMedia = vi.fn(async () => stream);
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
+    const session = await createMediaRecorderAdapter(memorySink()).start({
+      id: 'rec-1',
+      noteId: 'note-1',
+      input: { deviceId: 'usb-mic', gain: 1, autoGain: false, noiseSuppression: true },
+    });
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: expect.objectContaining({
+        deviceId: { exact: 'usb-mic' },
+        autoGainControl: false,
+        noiseSuppression: true,
+        echoCancellation: false,
+      }),
+    });
+    await session.cancel();
+  });
 });

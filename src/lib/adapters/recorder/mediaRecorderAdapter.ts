@@ -13,6 +13,7 @@ import {
   type RecorderAdapter,
   type RecorderSession,
   type RecorderStartRequest,
+  type RecordingInput,
 } from './RecorderAdapter';
 
 export interface RecordingSink {
@@ -61,34 +62,111 @@ function unavailableFrom(error: unknown): RecorderUnavailableError {
   return new RecorderUnavailableError('unsupported', String(error));
 }
 
-/**
- * RMS of the input, a few times a second. Its own `AudioContext` rather than
- * anything shared with playback, and closed with the session, so the meter
- * can never outlive the recording it describes.
- */
-function startMeter(stream: MediaStream, onLevel: (level: number) => void): () => void {
-  const Context =
+/** What a recording uses when Settings has nothing to say — also the
+ * defaults `migrateSettings` fills in. ×2 (+6 dB) because the platform's own
+ * level was found too quiet for a lecture on the first real recording. */
+export const DEFAULT_RECORDING_INPUT: RecordingInput = {
+  deviceId: null,
+  gain: 2,
+  autoGain: true,
+  noiseSuppression: false,
+};
+
+function audioContextClass(): typeof AudioContext | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return (
     window.AudioContext ??
-    (window as unknown as { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext;
-  if (!Context) return () => undefined;
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  );
+}
+
+/** The microphone as configured, and the stream to encode. */
+interface OpenInput {
+  /** The raw microphone: its track ending means the device went away. */
+  microphone: MediaStream;
+  /** What the encoder records — the microphone after gain and limiter. */
+  stream: MediaStream;
+  /** Start reporting level, 0–1, a few times a second. */
+  meter(onLevel: (level: number) => void): () => void;
+  close(): void;
+}
+
+async function openInput(input: RecordingInput): Promise<OpenInput> {
+  let microphone: MediaStream;
+  try {
+    microphone = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        ...(input.deviceId ? { deviceId: { exact: input.deviceId } } : {}),
+        channelCount: 1,
+        echoCancellation: false,
+        autoGainControl: input.autoGain,
+        noiseSuppression: input.noiseSuppression,
+      },
+    });
+  } catch (error) {
+    throw unavailableFrom(error);
+  }
+  const release = () => microphone.getTracks().forEach((track) => track.stop());
+
+  const Context = audioContextClass();
+  if (!Context) {
+    return {
+      microphone,
+      stream: microphone,
+      meter: () => () => undefined,
+      close: release,
+    };
+  }
+
+  // One context per session, closed with it, so neither the gain stage nor
+  // the meter can outlive the recording they belong to.
   const context = new Context();
-  const analyser = context.createAnalyser();
-  analyser.fftSize = 1024;
-  context.createMediaStreamSource(stream).connect(analyser);
-  const samples = new Float32Array(analyser.fftSize);
-  const timer = window.setInterval(() => {
-    analyser.getFloatTimeDomainData(samples);
-    let sum = 0;
-    for (const sample of samples) sum += sample * sample;
-    // Speech sits around 0.02–0.1 RMS; the square root spreads it across the
-    // meter instead of leaving it pinned at the bottom.
-    onLevel(Math.min(1, Math.sqrt(Math.sqrt(sum / samples.length)) * 1.6));
-  }, 120);
-  return () => {
-    window.clearInterval(timer);
-    onLevel(0);
-    void context.close().catch(() => undefined);
+  void context.resume().catch(() => undefined);
+  const source = context.createMediaStreamSource(microphone);
+  let tail: AudioNode = source;
+  let stream = microphone;
+  if (input.gain !== 1) {
+    const gain = context.createGain();
+    gain.gain.value = input.gain;
+    // A limiter, not a compressor: speech at a normal level passes untouched,
+    // and only what the gain would push past full scale is held down.
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.25;
+    const destination = context.createMediaStreamDestination();
+    source.connect(gain).connect(limiter).connect(destination);
+    tail = limiter;
+    stream = destination.stream;
+  }
+
+  return {
+    microphone,
+    stream,
+    meter(onLevel) {
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 1024;
+      tail.connect(analyser);
+      const samples = new Float32Array(analyser.fftSize);
+      const timer = window.setInterval(() => {
+        analyser.getFloatTimeDomainData(samples);
+        let sum = 0;
+        for (const sample of samples) sum += sample * sample;
+        // Speech sits around 0.02–0.1 RMS; the fourth root spreads it across
+        // the meter instead of leaving it pinned at the bottom.
+        onLevel(Math.min(1, Math.sqrt(Math.sqrt(sum / samples.length)) * 1.6));
+      }, 120);
+      return () => {
+        window.clearInterval(timer);
+        onLevel(0);
+      };
+    },
+    close() {
+      release();
+      void context.close().catch(() => undefined);
+    },
   };
 }
 
@@ -102,15 +180,9 @@ export function createMediaRecorderAdapter(sink: RecordingSink): RecorderAdapter
     async start(request: RecorderStartRequest): Promise<RecorderSession> {
       if (!this.supported()) throw new RecorderUnavailableError('unsupported');
 
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { channelCount: 1, echoCancellation: false },
-        });
-      } catch (error) {
-        throw unavailableFrom(error);
-      }
-      const releaseStream = () => stream.getTracks().forEach((track) => track.stop());
+      const opened = await openInput(request.input ?? DEFAULT_RECORDING_INPUT);
+      const { stream } = opened;
+      const releaseStream = () => opened.close();
 
       const requested = chooseMime();
       let recorder: MediaRecorder;
@@ -132,9 +204,7 @@ export function createMediaRecorderAdapter(sink: RecordingSink): RecorderAdapter
         throw error;
       }
 
-      const stopMeter = request.onLevel
-        ? startMeter(stream, request.onLevel)
-        : () => undefined;
+      const stopMeter = request.onLevel ? opened.meter(request.onLevel) : () => undefined;
 
       // Slices are written strictly in order: an MP4 fragment appended ahead
       // of the one before it is a corrupt file.
@@ -157,7 +227,7 @@ export function createMediaRecorderAdapter(sink: RecordingSink): RecorderAdapter
       recorder.addEventListener('error', (event) => fail(event));
       // A microphone unplugged mid-lecture ends the track; say so rather than
       // keep a recording running that is recording nothing.
-      stream
+      opened.microphone
         .getAudioTracks()[0]
         ?.addEventListener('ended', () =>
           fail(new RecorderUnavailableError('no_device', 'input device went away')),
@@ -193,6 +263,24 @@ export function createMediaRecorderAdapter(sink: RecordingSink): RecorderAdapter
           await halt();
           await sink.discard(request.id);
         },
+      };
+    },
+
+    async listInputs() {
+      if (typeof navigator.mediaDevices?.enumerateDevices !== 'function') return [];
+      const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+      return devices
+        .filter((device) => device.kind === 'audioinput' && device.deviceId !== 'default')
+        .map((device) => ({ id: device.deviceId, label: device.label }));
+    },
+
+    async monitor(input, onLevel) {
+      if (!this.supported()) throw new RecorderUnavailableError('unsupported');
+      const opened = await openInput(input);
+      const stopMeter = opened.meter(onLevel);
+      return () => {
+        stopMeter();
+        opened.close();
       };
     },
 

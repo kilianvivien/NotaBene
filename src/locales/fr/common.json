@@ -192,7 +192,8 @@
     "linkNotFetched": "Lien seul — page non récupérée",
     "linkTooLarge": "Cette page dépasse ce que NotaBene peut lire.",
     "linkEmpty": "Cette page ne contient aucun texte lisible.",
-    "linkNeedsDesktop": "Enregistrer une page web nécessite l’application de bureau."
+    "linkNeedsDesktop": "Enregistrer une page web nécessite l’application de bureau.",
+    "saveAttachmentAs": "Enregistrer « {{name}} » dans un fichier"
   },
   "longForm": {
     "documentMap": "Plan du document",
@@ -1096,7 +1097,9 @@
     "completionHintHint": "Une petite touche Tab à côté de la suggestion, et laquelle des alternatives est affichée.",
     "completionHintAuto": "Au début",
     "completionHintAlways": "Toujours",
-    "completionHintNever": "Jamais"
+    "completionHintNever": "Jamais",
+    "recording": "Enregistrement",
+    "desc_recording": "Comment les cours sont enregistrés : quel micro, à quel niveau, avec quel traitement."
   },
   "abbreviations": {
     "trigger": "Vous tapez",
@@ -2213,6 +2216,32 @@
     "stopIn": "Arrêter l’enregistrement dans « {{title}} »",
     "status": "Enregistrement {{time}}",
     "saving": "Sauvegarde de l’enregistrement…",
-    "anchorsElsewhere": "les ancres vont dans « {{title}} »"
+    "anchorsElsewhere": "les ancres vont dans « {{title}} »",
+    "save": "Enregistrer dans un fichier…"
+  },
+  "recordingSettings": {
+    "desktopOnly": "L’enregistrement des cours nécessite l’application NotaBene pour Mac.",
+    "inputSection": "Micro",
+    "microphone": "Entrée",
+    "systemDefault": "Réglage du système",
+    "unnamed": "Micro {{number}}",
+    "namesHint": "macOS n’affiche le nom des micros qu’une fois NotaBene autorisé à en utiliser un. Lancez le test de niveau pour l’autoriser.",
+    "gain": "Niveau d’enregistrement",
+    "gainHint": "Amplifie le micro avant que le cours soit enregistré. Un limiteur empêche la saturation quand l’intervenant se rapproche.",
+    "test": "Test de niveau",
+    "testHint": "Écoute sans enregistrer. Visez une barre aux deux tiers quand l’intervenant parle ; le rouge signale un niveau trop fort.",
+    "startTest": "Tester",
+    "stopTest": "Arrêter",
+    "level": "Niveau d’entrée",
+    "busy": "Un cours est en cours d’enregistrement ; le test sera disponible à la fin.",
+    "processingSection": "Traitement",
+    "autoGain": "Niveau automatique",
+    "autoGainHint": "macOS égalise les passages forts et faibles. Désactivez-le si le bruit de la salle remonte pendant les silences.",
+    "noiseSuppression": "Réduction du bruit",
+    "noiseSuppressionHint": "Conçue pour les appels, micro tout proche. Dans un amphithéâtre, elle peut prendre une voix lointaine pour du bruit : elle est donc désactivée par défaut.",
+    "appliesNext": "Les changements s’appliquent au prochain enregistrement, pas à celui en cours.",
+    "transcriptionSection": "Transcription",
+    "transcriptionBody": "Transformer un enregistrement en texte, sur ce Mac, sans envoyer l’audio nulle part.",
+    "transcriptionLater": "Pas encore disponible. Le téléchargement du modèle et le choix de la langue se feront ici, et la transcription s’alignera sur les paragraphes tapés pendant le cours."
   }
 }

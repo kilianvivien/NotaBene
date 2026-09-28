@@ -7,6 +7,7 @@ import {
   appSettings,
   COMPLETION_MIN_PREFIX,
   DEFAULT_SETTINGS,
+  RECORDING_GAIN,
   LOCAL_MODEL_REVISIONS,
   type AppSettings,
   type CompletionHint,
@@ -164,10 +165,31 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
           ? legacyPodcast.rate
           : DEFAULT_SETTINGS.speech.playbackRate),
     },
+    recording: normalizeRecording(rest.recording),
     podcast: {
       mode: legacyPodcast?.mode ?? DEFAULT_SETTINGS.podcast.mode,
       minutes: legacyPodcast?.minutes ?? DEFAULT_SETTINGS.podcast.minutes,
     },
+  };
+}
+
+/** A hand-edited gain of 40 would be a recording of pure distortion. */
+function normalizeRecording(
+  stored: Partial<AppSettings['recording']> | undefined,
+): AppSettings['recording'] {
+  const defaults = DEFAULT_SETTINGS.recording;
+  const gain = Number(stored?.gain);
+  return {
+    deviceId:
+      typeof stored?.deviceId === 'string' && stored.deviceId ? stored.deviceId : null,
+    gain: Number.isFinite(gain)
+      ? Math.min(RECORDING_GAIN.max, Math.max(RECORDING_GAIN.min, gain))
+      : defaults.gain,
+    autoGain: typeof stored?.autoGain === 'boolean' ? stored.autoGain : defaults.autoGain,
+    noiseSuppression:
+      typeof stored?.noiseSuppression === 'boolean'
+        ? stored.noiseSuppression
+        : defaults.noiseSuppression,
   };
 }
 

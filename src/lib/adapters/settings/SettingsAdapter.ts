@@ -118,6 +118,19 @@ export interface PodcastSettings {
   minutes: number;
 }
 
+/** How a lecture is recorded (plan §10.0). The adapter's `RecordingInput`,
+ * repeated here so settings never import from an adapter implementation. */
+export interface RecordingSettings {
+  /** `null` follows the Mac's input device. */
+  deviceId: string | null;
+  /** ×1–×4, applied before encoding behind a limiter. */
+  gain: number;
+  autoGain: boolean;
+  noiseSuppression: boolean;
+}
+
+export const RECORDING_GAIN = { min: 1, max: 4 } as const;
+
 export interface AppSettings {
   /** Set only after the starter course has been written successfully. Keeping
    * this in settings means deleting that course later does not resurrect it. */
@@ -205,6 +218,7 @@ export interface AppSettings {
   speech: SpeechSettings;
   /** Script-specific podcast preferences. */
   podcast: PodcastSettings;
+  recording: RecordingSettings;
   mcpEnabled: boolean;
   mcpPort: number;
   /** Existing pairings migrate to write; newly minted tokens start read-only. */
@@ -298,6 +312,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     fallbackToSystem: false,
   },
   podcast: { mode: 'narrator', minutes: 6 },
+  // ×2: the platform's own level was too quiet for a lecture on the first
+  // real recording (2026-09-28). Noise suppression off — it is tuned for a
+  // voice a foot away, and takes a distant lecturer for noise.
+  recording: { deviceId: null, gain: 2, autoGain: true, noiseSuppression: false },
   mcpEnabled: false,
   mcpPort: 22600,
   mcpScope: 'write',

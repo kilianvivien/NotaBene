@@ -32,7 +32,33 @@ export class RecorderUnavailableError extends Error {
   }
 }
 
+/**
+ * How the microphone is read — Settings → Recording. Every field has a
+ * default that works in a lecture hall from the second row.
+ */
+export interface RecordingInput {
+  /** `null` follows the system's input device. */
+  deviceId: string | null;
+  /** Linear gain applied before encoding, behind a limiter so a raised
+   * level cannot clip when the lecturer leans into the microphone. */
+  gain: number;
+  /** The platform's automatic level control. */
+  autoGain: boolean;
+  /** The platform's noise suppression. Off by default: it is tuned for a
+   * voice call a foot from the microphone, and a lecturer ten metres away is
+   * exactly what it takes for noise. */
+  noiseSuppression: boolean;
+}
+
+export interface AudioInputDevice {
+  id: string;
+  /** Empty until the microphone has been allowed once — macOS withholds
+   * device names before that. */
+  label: string;
+}
+
 export interface RecorderStartRequest {
+  input?: RecordingInput;
   /** Minted by the caller; becomes the attachment's id when the recording is
    * kept, which is how an anchor finds its audio. */
   id: string;
@@ -71,6 +97,11 @@ export interface RecorderAdapter {
   /** Whether recording can be offered at all. Never prompts. */
   supported(): boolean;
   start(request: RecorderStartRequest): Promise<RecorderSession>;
+  /** The Mac's audio inputs. Never prompts. */
+  listInputs(): Promise<AudioInputDevice[]>;
+  /** Listen without recording — the level test in Settings. Resolves to a
+   * function that stops listening and releases the microphone. */
+  monitor(input: RecordingInput, onLevel: (level: number) => void): Promise<() => void>;
   interrupted(): Promise<InterruptedRecording[]>;
   /** Move an interrupted recording into the asset store, as `stop` would have. */
   recover(id: string): Promise<Asset>;

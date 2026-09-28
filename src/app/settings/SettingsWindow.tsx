@@ -29,6 +29,7 @@ import {
   DatabaseBackup,
   HardDrive,
   Info,
+  Mic,
   Palette,
   Replace,
   SlidersHorizontal,
@@ -70,6 +71,7 @@ import { AiProviderSettings } from './AiProviderSettings';
 import { AgentSettings } from './AgentSettings';
 import { AboutSettings } from './AboutSettings';
 import { SpeechSettings } from './SpeechSettings';
+import { RecordingSettings } from './RecordingSettings';
 import { ensureReminderPermission } from '@/lib/tasks/reminderScheduler';
 
 interface TabEntry {
@@ -93,6 +95,7 @@ const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
     labelKey: 'settings.groupContent',
     tabs: [
       { id: 'speech', icon: Volume2 },
+      { id: 'recording', icon: Mic },
       { id: 'backups', icon: DatabaseBackup },
       // Backups are what NotaBene *does* with the data; this is what is
       // actually sitting on the disk right now. Two questions, two panes.
@@ -571,6 +574,7 @@ export function SettingsWindow() {
             {tab === 'backups' && <BackupSettings />}
             {tab === 'dataStorage' && <DataStorageSettings />}
             {tab === 'speech' && <SpeechSettings />}
+            {tab === 'recording' && <RecordingSettings />}
             {tab === 'aiProviders' && <AiProviderSettings />}
             {tab === 'agent' && <AgentSettings />}
             {tab === 'about' && <AboutSettings />}

@@ -20,6 +20,7 @@ import {
   type CommandResult,
   type RecorderSession,
 } from '@/lib/commands';
+import { useSettingsStore } from './settingsStore';
 import { useUiStore } from './uiStore';
 
 export type RecordingStatus = 'idle' | 'starting' | 'recording' | 'stopping';
@@ -71,6 +72,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     set({ ...IDLE, status: 'starting', noteId, noteTitle });
     const started = await startRecordingCommand({
       noteId,
+      input: useSettingsStore.getState().settings.recording,
       onLevel: (level) => {
         if (get().status === 'recording') set({ level });
       },

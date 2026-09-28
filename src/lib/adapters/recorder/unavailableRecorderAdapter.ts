@@ -10,6 +10,10 @@ export const unavailableRecorderAdapter: RecorderAdapter = {
   start: async () => {
     throw new RecorderUnavailableError('unsupported');
   },
+  listInputs: async () => [],
+  monitor: async () => {
+    throw new RecorderUnavailableError('unsupported');
+  },
   interrupted: async () => [],
   recover: async () => {
     throw new RecorderUnavailableError('unsupported');

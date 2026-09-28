@@ -315,6 +315,10 @@ Lecture audio notes (phase M, plan §10.0) worth knowing before touching it:
   and not inherited on Enter. The extension is in every editor: without the
   attribute in the schema an editor would drop anchors on save. Exports ignore
   it.
+- How the microphone is read lives in `settings.recording` (Settings →
+  Recording): device, a gain stage behind a limiter in the capture graph
+  (default ×2), automatic level, noise reduction. Transcription (§10.3) will
+  get its section in that pane, not a new one.
 - Markers are drawn only for recordings the player found on the open note
   (`lecturePlaybackStore`), which loads audio on first play, not on open.
 

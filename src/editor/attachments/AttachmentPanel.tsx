@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Download,
   Eye,
   File,
   Link2,
@@ -23,6 +24,7 @@ import {
   addAttachmentCommand,
   beginAttachmentImportCommand,
   deleteAttachmentCommand,
+  saveAttachmentCommand,
 } from '@/lib/commands';
 import { documentImportSupported } from '@/lib/import/documentImport';
 import type { Attachment } from '@/lib/schema';
@@ -135,6 +137,23 @@ export function AttachmentPanel({
     }
     await refresh();
     setDeletingId(null);
+  }
+
+  /** Save the original bytes where the student chooses — a lecture recording
+   * above all, which otherwise lives only inside the library. */
+  async function saveCopy(attachment: Attachment) {
+    const outcome = await saveAttachmentCommand(attachment);
+    const notice = useUiStore.getState().showStatusNotice;
+    // `not_supported` is the save panel being cancelled: nothing to say.
+    if (outcome.ok) {
+      notice(
+        outcome.value
+          ? t('editor.attachmentSavedAt', { path: outcome.value })
+          : t('editor.attachmentSaved'),
+      );
+    } else if (outcome.code !== 'not_supported') {
+      notice(outcome.message);
+    }
   }
 
   async function openPreview(attachment: Attachment) {
@@ -291,6 +310,14 @@ export function AttachmentPanel({
                   <FileOutput size={13} />
                 </button>
               )}
+              <button
+                type="button"
+                aria-label={t('editor.saveAttachmentAs', { name: attachment.name })}
+                title={t('editor.saveAttachment')}
+                onClick={() => void saveCopy(attachment)}
+              >
+                <Download size={13} />
+              </button>
               <button
                 type="button"
                 aria-label={t('common.delete')}
