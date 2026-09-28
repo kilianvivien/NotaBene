@@ -619,6 +619,7 @@
     "editCards": "Edit cards",
     "enableLocal": "Use this local runtime",
     "error_context_too_large": "This content is too long for the on-device model. Select a shorter section.",
+    "error_origin_declined": "NotaBene did not contact {{origin}} because you chose not to allow it. To use it, quit and reopen NotaBene, then choose Allow when asked.",
     "error_provider_refusal": "The model declined this request: {{detail}} Try a shorter or more focused selection.",
     "episodeLength": "{{minutes}} min",
     "estimatedLength": "about {{minutes}} min",

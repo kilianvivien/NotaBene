@@ -369,7 +369,7 @@ export async function runAgentCommand(
           : error instanceof AiParseError
             ? i18n.t('agent.invalidModelResponse')
             : error instanceof Error
-              ? error.message
+              ? declinedOrigin(error) ?? error.message
               : String(error);
     record.completedAt = new Date().toISOString();
     record.pendingQuestion = undefined;
@@ -1429,6 +1429,13 @@ function auditValue(value: unknown): unknown {
         : auditValue(entry),
     ]),
   );
+}
+
+/** The student's "don't allow" in the transport's dialog, in their words. */
+function declinedOrigin(error: Error): string | null {
+  if (!error.message.includes('origin_declined:')) return null;
+  const failure = aiFailure(error);
+  return failure.ok ? null : failure.message;
 }
 
 function budgetError(limit: AgentBudgetError['limit']): string {

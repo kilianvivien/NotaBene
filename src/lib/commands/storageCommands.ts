@@ -29,7 +29,7 @@ export async function relocateLibraryCommand(): Promise<CommandResult<boolean>> 
   if (status?.readOnly)
     return fail('storage_failed', i18n.t('storage.moveErrorReadOnly'));
 
-  const destination = await dialog.openFolder();
+  const destination = await dialog.openFolder({ purpose: 'library' });
   if (!destination || destination === status?.libraryDir) return ok(false);
   const confirmed = await dialog.confirm(i18n.t('storage.moveConfirm'), {
     title: i18n.t('storage.changeLocation'),

@@ -178,8 +178,16 @@ pub fn library_access_status(access: State<'_, LibraryAccess>) -> LibraryAccessS
 }
 
 #[tauri::command]
-pub async fn library_relocate(app: AppHandle, destination: String) -> DbResult<String> {
-    let destination = PathBuf::from(destination);
+pub async fn library_relocate(
+    app: AppHandle,
+    grants: State<'_, crate::grants::Grants>,
+    destination: String,
+) -> DbResult<String> {
+    // Only a folder the student picked in the panel this session: a library
+    // moved to a synced or shared folder is a library published.
+    let destination = grants
+        .relocatable(Path::new(&destination))
+        .map_err(DbError::Other)?;
     tauri::async_runtime::spawn_blocking(move || {
         let access = app.state::<LibraryAccess>();
         let source = access.directory().to_path_buf();
@@ -253,9 +261,15 @@ pub fn exports_dir(app: AppHandle) -> DbResult<String> {
 /// List archives. `folder` is the user's chosen folder when they have one;
 /// omitting it reads the folder NotaBene manages.
 #[tauri::command]
-pub async fn backups_list(app: AppHandle, folder: Option<String>) -> DbResult<Vec<BackupFile>> {
+pub async fn backups_list(
+    app: AppHandle,
+    grants: State<'_, crate::grants::Grants>,
+    folder: Option<String>,
+) -> DbResult<Vec<BackupFile>> {
     let dir: PathBuf = match folder {
-        Some(folder) => PathBuf::from(folder),
+        Some(folder) => grants
+            .listable(Path::new(&folder))
+            .map_err(DbError::Other)?,
         None => db::backups_path(&app)?,
     };
     tauri::async_runtime::spawn_blocking(move || read_backups(&dir))
@@ -272,15 +286,23 @@ pub async fn backups_list(app: AppHandle, folder: Option<String>) -> DbResult<Ve
 /// earns the name "backup". Reading through Rust, which wrote the file, keeps
 /// verification working wherever the file went.
 ///
-/// The extension lock is what stops this from being a general file-read over
-/// IPC: the only thing it can ever return is an archive NotaBene wrote.
+/// Two locks stop this from being a general file-read over IPC: the
+/// extension, and `Grants::readable_backup` — the backups folders, the
+/// exports folder, or a file picked in a panel (security review 2026-09).
 #[tauri::command]
-pub async fn backups_read(path: String) -> DbResult<String> {
+pub async fn backups_read(
+    app: AppHandle,
+    grants: State<'_, crate::grants::Grants>,
+    path: String,
+) -> DbResult<String> {
     if !path.ends_with(BACKUP_EXTENSION) {
         return Err(DbError::Other(format!(
             "{path} is not a NotaBene backup archive"
         )));
     }
+    let path = grants
+        .readable_backup(&app, Path::new(&path))
+        .map_err(DbError::Other)?;
     tauri::async_runtime::spawn_blocking(move || {
         let bytes = fs::read(&path).map_err(|error| DbError::Other(error.to_string()))?;
         Ok(base64::engine::general_purpose::STANDARD.encode(bytes))

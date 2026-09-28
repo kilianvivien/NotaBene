@@ -57,7 +57,7 @@ export function BackupSettings() {
   }, [refreshArchives]);
 
   async function chooseFolder() {
-    const folder = await dialog.openFolder();
+    const folder = await dialog.openFolder({ purpose: 'backup' });
     if (folder) await update({ backupFolder: folder });
   }
 

@@ -11,6 +11,7 @@ mod commands;
 mod db;
 mod document_import;
 mod folder_import;
+mod grants;
 mod mcp;
 mod menu;
 mod ocr;
@@ -101,6 +102,7 @@ pub fn run() {
             app.manage(store);
             app.manage(library_access);
             app.manage(folder_import::ImportRoots::default());
+            app.manage(grants::Grants::load(handle));
 
             #[cfg(desktop)]
             app.global_shortcut().register("CmdOrCtrl+Shift+Q")?;
@@ -199,6 +201,9 @@ pub fn run() {
             document_import::document_import_bytes,
             document_import::document_import_pdf_ocr,
             folder_import::folder_import_pick,
+            grants::dialog_pick_files,
+            grants::dialog_pick_save,
+            grants::dialog_pick_folder,
             folder_import::folder_scan,
             folder_import::folder_read,
             ocr::ocr_available,

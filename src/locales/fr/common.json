@@ -619,6 +619,7 @@
     "editCards": "Modifier les fiches",
     "enableLocal": "Utiliser ce moteur local",
     "error_context_too_large": "Ce contenu est trop long pour le modèle embarqué. Sélectionnez une section plus courte.",
+    "error_origin_declined": "NotaBene n’a pas contacté {{origin}}, car vous ne l’avez pas autorisé. Pour l’utiliser, quittez et rouvrez NotaBene, puis choisissez Autoriser.",
     "error_provider_refusal": "Le modèle a refusé cette demande : {{detail}} Essayez une sélection plus courte ou plus précise.",
     "episodeLength": "{{minutes}} min",
     "estimatedLength": "environ {{minutes}} min",

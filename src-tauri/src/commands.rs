@@ -7,7 +7,7 @@
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::location::LibraryAccess;
@@ -555,50 +555,19 @@ pub struct ExportResult {
     error: Option<String>,
 }
 
-fn export_parent_in_scope(app: &AppHandle, parent: &std::path::Path) -> DbResult<()> {
-    let roots = [
-        app.path().app_data_dir(),
-        app.path().document_dir(),
-        app.path().download_dir(),
-        app.path().desktop_dir(),
-    ]
-    .into_iter()
-    .filter_map(Result::ok)
-    .filter_map(|root| std::fs::canonicalize(root).ok())
-    .collect::<Vec<_>>();
-
-    // Validate before creating anything. The nearest existing ancestor exposes
-    // both `..` traversal and symlinks that would otherwise escape a permitted
-    // root after `create_dir_all` had already mutated the filesystem.
-    let existing = parent
-        .ancestors()
-        .find(|ancestor| ancestor.exists())
-        .ok_or_else(|| DbError::Other("export destination has no existing ancestor".into()))?;
-    let canonical_existing = std::fs::canonicalize(existing)
-        .map_err(|error| DbError::Other(format!("invalid export destination: {error}")))?;
-    if !roots
-        .iter()
-        .any(|root| canonical_existing.starts_with(root))
-    {
-        return Err(DbError::Other(
-            "EXPORT_DESTINATION_OUT_OF_SCOPE: exports may only be written to app data, Documents, Downloads, or Desktop".into(),
-        ));
-    }
-
-    std::fs::create_dir_all(parent).map_err(|error| DbError::Other(error.to_string()))?;
-    let canonical_parent = std::fs::canonicalize(parent)
-        .map_err(|error| DbError::Other(format!("invalid export destination: {error}")))?;
-    if roots.iter().any(|root| canonical_parent.starts_with(root)) {
-        Ok(())
-    } else {
-        Err(DbError::Other(
-            "EXPORT_DESTINATION_OUT_OF_SCOPE: export path escaped its permitted root".into(),
-        ))
-    }
-}
-
+/// Write one file where the student said, or into a folder NotaBene owns.
+///
+/// The destination must pass `Grants::writable` — a save-panel answer, the
+/// exports or backups folder, or the chosen backup folder. Before the
+/// 2026-09 review any path under app data, Documents, Downloads or Desktop
+/// was accepted, which put the library database and every document the
+/// student owns one webview call away from being overwritten.
 #[tauri::command]
-pub fn export_write(app: AppHandle, request: ExportRequest) -> DbResult<ExportResult> {
+pub fn export_write(
+    app: AppHandle,
+    grants: State<'_, crate::grants::Grants>,
+    request: ExportRequest,
+) -> DbResult<ExportResult> {
     let Some(file) = request.files.first() else {
         return Ok(ExportResult {
             ok: false,
@@ -620,18 +589,42 @@ pub fn export_write(app: AppHandle, request: ExportRequest) -> DbResult<ExportRe
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&file.data)
         .map_err(|error| DbError::Other(format!("invalid export data: {error}")))?;
-    let path = std::path::PathBuf::from(&destination);
-    if let Some(parent) = path.parent() {
-        export_parent_in_scope(&app, parent)?;
-    }
+    let path = grants
+        .writable(&app, std::path::Path::new(&destination))
+        .map_err(DbError::Other)?;
     let temporary = path.with_extension("notabene-tmp");
-    std::fs::write(&temporary, bytes).map_err(|error| DbError::Other(error.to_string()))?;
+    write_new_file(&temporary, &bytes)?;
     std::fs::rename(&temporary, &path).map_err(|error| DbError::Other(error.to_string()))?;
     Ok(ExportResult {
         ok: true,
         path: Some(destination),
         error: None,
     })
+}
+
+/// Write a file that must not already exist, never through a symlink.
+///
+/// `create_new` is `O_EXCL`, which refuses an existing path — a symlink
+/// planted at the temporary name included — rather than following it. A
+/// regular file left by an interrupted export is ours and is replaced.
+fn write_new_file(path: &std::path::Path, bytes: &[u8]) -> DbResult<()> {
+    use std::io::Write;
+    if let Ok(metadata) = std::fs::symlink_metadata(path) {
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(DbError::Other(format!(
+                "refusing to write through {}",
+                path.display()
+            )));
+        }
+        std::fs::remove_file(path).map_err(|error| DbError::Other(error.to_string()))?;
+    }
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|error| DbError::Other(error.to_string()))?;
+    file.write_all(bytes)
+        .map_err(|error| DbError::Other(error.to_string()))
 }
 
 /// Not a UUID, just a collision-resistant id from the system RNG — the same

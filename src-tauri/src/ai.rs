@@ -13,14 +13,26 @@
 //! `AiTransport` interface in TypeScript one to one, and refuses anything that
 //! is not plain HTTP(S). Prompt construction, key selection, and response
 //! parsing stay in `src/lib/ai/`, which the web build shares.
+//!
+//! **It is not an open proxy** (security review 2026-09, item 8). A request
+//! goes to a hosted provider this file names, to loopback (a local runtime),
+//! or to an origin the student allowed in a native dialog — asked the first
+//! time, remembered in `ai-origins.json`, which only this module writes. The
+//! allowance cannot come from settings: the webview writes those, and a
+//! compromised page that could add its own endpoint would make the check
+//! decorative.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use std::collections::HashSet;
+use std::net::IpAddr;
+
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tokio_util::sync::CancellationToken;
 
 /// Event carrying stream frames back to the webview.
@@ -61,8 +73,53 @@ struct AiStreamFrame {
     data: Option<String>,
 }
 
+/// Hosted providers' origins, from their default base URLs in
+/// `src/lib/ai/providers.ts`. Keep the two in step.
+const BUILT_IN_ORIGINS: &[&str] = &[
+    "https://api.anthropic.com",
+    "https://api.openai.com",
+    "https://api.mistral.ai",
+    "https://generativelanguage.googleapis.com",
+    "https://openrouter.ai",
+];
+
+const ORIGINS_FILE: &str = "ai-origins.json";
+
+/// `scheme://host[:port]`, the unit a student allows.
+fn origin_of(url: &reqwest::Url) -> String {
+    url.origin().ascii_serialization()
+}
+
+/// A local runtime: Ollama, LM Studio, the managed Apple model server.
+fn is_loopback(url: &reqwest::Url) -> bool {
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    // `host_str` keeps an IPv6 literal's brackets (see `web.rs`).
+    let literal = host
+        .strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+        .unwrap_or(host);
+    literal.eq_ignore_ascii_case("localhost")
+        || literal
+            .parse::<IpAddr>()
+            .is_ok_and(|address| address.is_loopback())
+}
+
+#[derive(Default)]
+struct Origins {
+    allowed: HashSet<String>,
+    /// Declined this session. Not remembered across launches: a mistaken
+    /// "no" should not need a settings page to undo.
+    declined: HashSet<String>,
+}
+
 #[derive(Default)]
 pub struct AiShared {
+    origins: Mutex<Origins>,
+    /// One question at a time: a settings page that lists a new endpoint's
+    /// models while testing it would otherwise open two dialogs at once.
+    asking: tokio::sync::Mutex<()>,
     /// Cancellation handles for calls still running, keyed by the id the
     /// webview minted. Streamed and whole-response calls share the map: both
     /// are a request somebody may want to stop, and a local model spends the
@@ -93,7 +150,122 @@ fn unregister(state: &State<'_, AiShared>, id: &str) {
 
 /// Register shared AI state; called once from the Tauri setup hook.
 pub fn init(app: &AppHandle) {
-    app.manage(AiShared::default());
+    let shared = AiShared::default();
+    if let Ok(mut origins) = shared.origins.lock() {
+        origins.allowed = read_allowed(app);
+    }
+    app.manage(shared);
+}
+
+fn origins_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    crate::settings::data_dir(app)
+        .ok()
+        .map(|dir| dir.join(ORIGINS_FILE))
+}
+
+fn read_allowed(app: &AppHandle) -> HashSet<String> {
+    origins_path(app)
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok())
+        .map(|list| list.into_iter().collect())
+        .unwrap_or_default()
+}
+
+fn write_allowed(app: &AppHandle, allowed: &HashSet<String>) {
+    let mut list: Vec<&String> = allowed.iter().collect();
+    list.sort();
+    if let (Some(path), Ok(text)) = (origins_path(app), serde_json::to_string_pretty(&list)) {
+        let _ = std::fs::write(path, text);
+    }
+}
+
+/// Whether the dialog speaks French: the app's own language setting, read
+/// here because Rust cannot ask the webview for words it would then trust.
+fn french(app: &AppHandle) -> bool {
+    crate::settings::data_dir(app)
+        .ok()
+        .and_then(|dir| std::fs::read_to_string(dir.join("settings.json")).ok())
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .and_then(|settings| settings.get("locale")?.as_str().map(str::to_owned))
+        .is_some_and(|locale| locale.starts_with("fr"))
+}
+
+/// May this request leave? Hosted providers and loopback always; anything
+/// else once the student has said so.
+async fn permit(app: &AppHandle, state: &AiShared, url: &reqwest::Url) -> Result<(), String> {
+    let origin = origin_of(url);
+    if is_loopback(url) || BUILT_IN_ORIGINS.contains(&origin.as_str()) {
+        return Ok(());
+    }
+    let decided = |state: &AiShared| -> Result<Option<bool>, String> {
+        let origins = state.origins.lock().map_err(|_| "ai state poisoned")?;
+        Ok(if origins.allowed.contains(&origin) {
+            Some(true)
+        } else if origins.declined.contains(&origin) {
+            Some(false)
+        } else {
+            None
+        })
+    };
+    let declined = || format!("origin_declined:NotaBene was not allowed to contact {origin}");
+    match decided(state)? {
+        Some(true) => return Ok(()),
+        Some(false) => return Err(declined()),
+        None => {}
+    }
+
+    let _asking = state.asking.lock().await;
+    // Another request may have asked while this one waited.
+    match decided(state)? {
+        Some(true) => return Ok(()),
+        Some(false) => return Err(declined()),
+        None => {}
+    }
+
+    let (title, message, allow, deny) = if french(app) {
+        (
+            "Autoriser ce fournisseur d’IA ?".to_string(),
+            format!(
+                "NotaBene va envoyer le contenu de vos notes à :\n\n{origin}\n\nC’est l’adresse d’un fournisseur que vous avez configuré. N’autorisez que si vous la reconnaissez."
+            ),
+            "Autoriser",
+            "Refuser",
+        )
+    } else {
+        (
+            "Allow this AI provider?".to_string(),
+            format!(
+                "NotaBene is about to send the content of your notes to:\n\n{origin}\n\nThis is the address of a provider you configured. Allow it only if you recognise it."
+            ),
+            "Allow",
+            "Don’t allow",
+        )
+    };
+    let dialog = app.clone();
+    let allowed = tauri::async_runtime::spawn_blocking(move || {
+        dialog
+            .dialog()
+            .message(message)
+            .title(title)
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                allow.into(),
+                deny.into(),
+            ))
+            .blocking_show()
+    })
+    .await
+    .map_err(|error| error.to_string())?;
+
+    let mut origins = state.origins.lock().map_err(|_| "ai state poisoned")?;
+    if allowed {
+        origins.allowed.insert(origin);
+        write_allowed(app, &origins.allowed);
+        Ok(())
+    } else {
+        origins.declined.insert(origin.clone());
+        Err(declined())
+    }
 }
 
 /// Build a client per call.
@@ -116,11 +288,16 @@ fn client() -> Result<reqwest::Client, String> {
 /// Without this, a compromised webview could ask the Rust side to read
 /// `file:///` — which is exactly the reach the CSP is there to deny. Failing
 /// here keeps the transport strictly less powerful than the browser's.
-fn build(request: &AiHttpRequest) -> Result<reqwest::RequestBuilder, String> {
+fn parse_url(request: &AiHttpRequest) -> Result<reqwest::Url, String> {
     let url = reqwest::Url::parse(&request.url).map_err(|error| error.to_string())?;
     if !matches!(url.scheme(), "http" | "https") {
         return Err(format!("refusing scheme \"{}\"", url.scheme()));
     }
+    Ok(url)
+}
+
+fn build(request: &AiHttpRequest) -> Result<reqwest::RequestBuilder, String> {
+    let url = parse_url(request)?;
 
     let method = match request.method.to_ascii_uppercase().as_str() {
         "GET" => reqwest::Method::GET,
@@ -163,10 +340,12 @@ fn header_map(response: &reqwest::Response) -> HashMap<String, String> {
 /// student sitting in front of a local model waits minutes for.
 #[tauri::command]
 pub async fn ai_request(
+    app: AppHandle,
     state: State<'_, AiShared>,
     request_id: String,
     request: AiHttpRequest,
 ) -> Result<AiHttpResponse, String> {
+    permit(&app, &state, &parse_url(&request)?).await?;
     let token = register(&state, &request_id)?;
     let result = run_request(request, &token).await;
     unregister(&state, &request_id);
@@ -210,6 +389,10 @@ pub async fn ai_stream(
     stream_id: String,
     request: AiHttpRequest,
 ) -> Result<(), String> {
+    if let Err(message) = permit(&app, &state, &parse_url(&request)?).await {
+        emit(&app, &stream_id, "error", Some(message));
+        return Ok(());
+    }
     let token = register(&state, &stream_id)?;
     let result = run_stream(&app, &stream_id, request, &token).await;
     unregister(&state, &stream_id);
@@ -294,4 +477,53 @@ fn emit(app: &AppHandle, stream_id: &str, kind: &'static str, data: Option<Strin
             data,
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn url(text: &str) -> reqwest::Url {
+        reqwest::Url::parse(text).unwrap()
+    }
+
+    #[test]
+    fn local_runtimes_are_loopback_and_nothing_else_is() {
+        for local in [
+            "http://localhost:11434/v1",
+            "http://127.0.0.1:1976/v1",
+            "http://[::1]:1234/v1",
+            "http://LOCALHOST:8080",
+        ] {
+            assert!(is_loopback(&url(local)), "{local}");
+        }
+        for remote in [
+            "http://192.168.1.10:11434",
+            "https://localhost.evil.com",
+            "https://api.openai.com/v1",
+        ] {
+            assert!(!is_loopback(&url(remote)), "{remote}");
+        }
+    }
+
+    #[test]
+    fn an_origin_is_scheme_host_and_port_only() {
+        assert_eq!(
+            origin_of(&url("https://api.anthropic.com/v1/messages?x=1")),
+            "https://api.anthropic.com"
+        );
+        assert!(BUILT_IN_ORIGINS.contains(
+            &origin_of(&url(
+                "https://generativelanguage.googleapis.com/v1beta/models"
+            ))
+            .as_str()
+        ));
+        // A lookalike is not the provider.
+        assert!(!BUILT_IN_ORIGINS
+            .contains(&origin_of(&url("https://api.openai.com.evil.com/v1")).as_str()));
+        assert_eq!(
+            origin_of(&url("https://gateway.example.edu:8443/v1")),
+            "https://gateway.example.edu:8443"
+        );
+    }
 }

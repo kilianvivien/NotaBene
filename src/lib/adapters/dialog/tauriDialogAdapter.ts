@@ -1,20 +1,26 @@
-import { confirm, open, save } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
 import type { DialogAdapter } from './DialogAdapter';
 
+/**
+ * Every panel opens from Rust (`src-tauri/src/grants.rs`), which records what
+ * the student chose. Commands that write, read or move files outside
+ * NotaBene's own folders accept only a recorded path, so a path this adapter
+ * returns is the only kind that works — and one the webview made up is not.
+ */
 export const tauriDialogAdapter: DialogAdapter = {
   async openFile(options) {
-    const picked = await open({
+    return invoke<string[]>('dialog_pick_files', {
+      filters: options?.filters ?? [],
       multiple: options?.multiple ?? false,
-      filters: options?.filters,
     });
-    if (!picked) return [];
-    return Array.isArray(picked) ? picked : [picked];
   },
 
-  async openFolder() {
-    const picked = await open({ directory: true, multiple: false });
-    return typeof picked === 'string' ? picked : null;
+  async openFolder(options) {
+    return invoke<string | null>('dialog_pick_folder', {
+      purpose: options?.purpose ?? null,
+    });
   },
 
   async readFile(path) {
@@ -22,7 +28,10 @@ export const tauriDialogAdapter: DialogAdapter = {
   },
 
   saveFile: (options) =>
-    save({ defaultPath: options?.defaultPath, filters: options?.filters }),
+    invoke<string | null>('dialog_pick_save', {
+      defaultPath: options?.defaultPath ?? null,
+      filters: options?.filters ?? [],
+    }),
 
   confirm: (message, options) =>
     confirm(message, {

@@ -130,7 +130,11 @@ const KEYCHAIN_SERVICE: &str = "app.notabene.desktop";
 /// name. `security` takes its account after `-a`, so a leading dash is the
 /// whole attack surface; keys are provider ids and never look like this.
 fn valid_key(key: &str) -> bool {
-    !key.is_empty() && !key.starts_with('-') && !key.contains(|c: char| c.is_control())
+    !key.is_empty()
+        && !key.starts_with('-')
+        // Quoted inside `security -i`'s command line, where these two would
+        // end the quote or escape out of it.
+        && !key.contains(|c: char| c.is_control() || c == '"' || c == '\\')
 }
 
 /// Whether secret values can go to the Keychain on this machine.
@@ -151,7 +155,8 @@ fn keychain_available() -> bool {
 #[cfg(target_os = "macos")]
 mod keychain {
     use super::{Result, KEYCHAIN_SERVICE};
-    use std::process::Command;
+    use std::io::Write;
+    use std::process::{Command, Stdio};
 
     fn run(args: &[&str]) -> Result<std::process::Output> {
         Command::new("/usr/bin/security")
@@ -184,21 +189,54 @@ mod keychain {
     /// `-U` updates in place, so re-pasting a rotated key does not leave the
     /// old item behind for `find` to return at random.
     pub fn set(key: &str, value: &str) -> Result<()> {
-        let output = run(&[
-            "add-generic-password",
-            "-s",
-            KEYCHAIN_SERVICE,
-            "-a",
-            key,
-            "-w",
-            value,
-            "-U",
-        ])?;
+        set_in(KEYCHAIN_SERVICE, key, value)
+    }
+
+    /// The command travels on stdin to `security -i`, never on its argv:
+    /// arguments are readable by every user on the Mac through `ps` for as
+    /// long as the process lives, and `-w <key>` put the API key there. The
+    /// value goes as `-X` hex, so nothing in it — quotes, backslashes, spaces
+    /// — can change how the command line is read.
+    pub(super) fn set_in(service: &str, key: &str, value: &str) -> Result<()> {
+        let mut child = Command::new("/usr/bin/security")
+            .arg("-i")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        let hex: String = value.bytes().map(|byte| format!("{byte:02x}")).collect();
+        let command = format!("add-generic-password -s \"{service}\" -a \"{key}\" -X {hex} -U\n");
+        {
+            let mut stdin = child.stdin.take().ok_or("security stdin unavailable")?;
+            stdin
+                .write_all(command.as_bytes())
+                .map_err(|error| error.to_string())?;
+            // Dropped here: EOF is what ends the interactive session.
+        }
+        let output = child
+            .wait_with_output()
+            .map_err(|error| error.to_string())?;
         if output.status.success() {
             Ok(())
         } else {
             Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
         }
+    }
+
+    #[cfg(test)]
+    pub(super) fn get_in(service: &str, key: &str) -> Result<Option<String>> {
+        let output = run(&["find-generic-password", "-s", service, "-a", key, "-w"])?;
+        Ok(output.status.success().then(|| {
+            String::from_utf8_lossy(&output.stdout)
+                .trim_end()
+                .to_string()
+        }))
+    }
+
+    #[cfg(test)]
+    pub(super) fn remove_in(service: &str, key: &str) {
+        let _ = run(&["delete-generic-password", "-s", service, "-a", key]);
     }
 
     pub fn remove(key: &str) -> Result<()> {
@@ -370,4 +408,42 @@ pub fn secrets_list_keys(app: AppHandle) -> Result<Vec<String>> {
     // Nothing indexed: either nothing is stored, or this is a library written
     // before the index existed. The fallback file answers both.
     Ok(read_secret_file(&app)?.into_keys().collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_key_name_cannot_become_an_argument_or_break_its_quotes() {
+        assert!(valid_key("ai.anthropic"));
+        for bad in ["", "-w", "a\"b", "a\\b", "a\nb"] {
+            assert!(!valid_key(bad), "{bad:?} should be refused");
+        }
+    }
+
+    /// Against the real login keychain, under a throwaway service name:
+    /// `cargo test -- --ignored keychain_round_trips`
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "writes a throwaway item to the login keychain"]
+    fn keychain_round_trips_a_value_that_would_break_a_command_line() {
+        const SERVICE: &str = "app.notabene.desktop.selftest";
+        let key = "provider:self test";
+        let value = "sk-ant \"quoted\" \\ back -U -w";
+        keychain::remove_in(SERVICE, key);
+        keychain::set_in(SERVICE, key, value).expect("set");
+        assert_eq!(
+            keychain::get_in(SERVICE, key).unwrap().as_deref(),
+            Some(value)
+        );
+        // `-U` replaces rather than duplicating.
+        keychain::set_in(SERVICE, key, "rotated").expect("update");
+        assert_eq!(
+            keychain::get_in(SERVICE, key).unwrap().as_deref(),
+            Some("rotated")
+        );
+        keychain::remove_in(SERVICE, key);
+        assert_eq!(keychain::get_in(SERVICE, key).unwrap(), None);
+    }
 }

@@ -15,6 +15,7 @@
  * write would only blur where the guards are.
  */
 import { z } from 'zod';
+import i18n from '@/lib/i18n';
 import { markdownToDoc } from '@/editor/markdown';
 import { library } from '@/lib/adapters';
 import {
@@ -118,6 +119,14 @@ export function aiFailure<T>(error: unknown, signal?: AbortSignal): CommandResul
   const message = error instanceof Error ? error.message : String(error);
   if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
     return fail('cancelled', 'cancelled');
+  }
+  // The transport asks before contacting an address it does not know
+  // (`ai.rs`), and the student said no. Their answer, not a fault.
+  const declined = /origin_declined:.*?contact (\S+)/.exec(message);
+  if (declined) {
+    return fail('not_supported', i18n.t('ai.error_origin_declined', { origin: declined[1] }), {
+      aiReason: 'origin_declined',
+    });
   }
   return fail(
     'invalid_input',

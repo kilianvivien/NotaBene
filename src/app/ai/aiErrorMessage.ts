@@ -22,6 +22,7 @@ export function aiErrorMessage(
   if (aiReason === 'provider_refusal') {
     return t('ai.error_provider_refusal', { detail: result.message });
   }
+  if (aiReason === 'origin_declined') return result.message;
   if (result.code === 'not_supported') {
     if (result.message === 'context_too_small') {
       return t('ai.unavailable_context_too_small');

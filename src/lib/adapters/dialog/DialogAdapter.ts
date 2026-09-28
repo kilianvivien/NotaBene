@@ -6,7 +6,13 @@ export interface FileFilter {
 
 export interface DialogAdapter {
   openFile(options?: { filters?: FileFilter[]; multiple?: boolean }): Promise<string[]>;
-  openFolder(): Promise<string | null>;
+  /**
+   * `backup` makes the folder the backup destination, a grant that outlives
+   * a relaunch; `library` is for moving the library, this session only. Under
+   * Tauri the folder is recorded in Rust, and only a recorded folder can be
+   * written to or moved into.
+   */
+  openFolder(options?: { purpose?: 'backup' | 'library' }): Promise<string | null>;
   /** Read a path returned by `openFile`. Browser builds receive an object URL. */
   readFile(path: string): Promise<Blob>;
   saveFile(options?: {
