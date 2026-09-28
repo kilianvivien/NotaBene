@@ -1,5 +1,53 @@
 # Release notes
 
+## NotaBene 1.3.0
+
+- **Record the lecture while you type.** Start or Stop Recording (⌥⌘R) records a
+  lecture in the note you are writing. Every paragraph or heading you start during it
+  remembers the moment, and a quiet marker in the margin plays the lecture
+  from two seconds before. A docked player (⌥⌘/ to play, ⌥⌘, and ⌥⌘. to
+  skip), a level meter in the title bar and an indicator in the status bar
+  keep it in view. Nothing leaves your Mac, and a recording interrupted by
+  a crash or a quit is offered back at the next launch.
+- **Recording settings.** Settings → Recording chooses the microphone, sets
+  its gain with a level test that listens without recording, and turns the
+  automatic level and noise reduction on or off. Recordings are louder by
+  default, so a lecturer at the front of the room comes through.
+- **Save any attachment.** Every attachment, and the lecture player, can
+  save the original to a file of your choosing.
+- **Lighter images.** Pasted, dropped and imported images are resized and
+  re-encoded as they enter a note — photos become WebP, screenshots stay
+  sharp PNG — and lose their location data on the way. Settings → Data &
+  Storage chooses Balanced, Smaller, or leaving them as they are.
+  Attachments keep their original bytes.
+- **The agent can do more.** It can now read an attached paper and its PDF
+  highlights, look through a note's history, and run NotaBene's own study
+  features — flashcards, synthesis, Visualize and Define. What those cost
+  counts against the run's limit, and a step that would not fit is refused
+  before the model is paid. The same tools are available over MCP.
+- **Review bulk changes before they happen.** When the agent moves, tags,
+  archives or trashes more than ten notes, the changes wait in the panel as
+  one list with Apply and Cancel. Applying skips any note you changed in the
+  meantime and says so, and the whole run can still be undone.
+- **Longer agent tasks.** Near the model's input limit the agent condenses
+  what it has done so far and carries on instead of failing. Each step now
+  has a two-minute limit, the panel shows when the agent is checking its
+  result, and an approved plan folds down to the task and one line per step.
+- **A link, even when a page won't open.** Saving a web page that blocks
+  automated readers (such as Légifrance) now keeps the address as a
+  link-only attachment and explains why; Fetch again can still turn it into
+  a snapshot later.
+- **Security hardening.** API keys no longer pass through a command line
+  where other processes could read them. Every open and save panel now
+  comes from the native side, and NotaBene reads and writes only the files
+  and folders you picked. AI requests go only to the built-in providers,
+  your own machine, or an address you allowed in a dialog. HTML export can
+  no longer carry script from a drawing or mind map, and saving a web page
+  is protected against DNS rebinding and oversized responses.
+- **Fixes.** Word completion no longer occasionally types letters into its
+  own suggestion, and the note list no longer shows only five notes after
+  opening on an empty view.
+
 ## NotaBene 1.2.0
 
 - **Bring your library.** File → Import notes from another app… (⇧⌥⌘O)
@@ -35,7 +83,7 @@
   changed (the current version stays in history, marked “before re-import”),
   leave them alone, or import them again as copies.
 - **Where a note came from.** The inspector shows the source of every
-  imported note — *Physics/Week 4.md (Obsidian), 27 September 2026* —
+  imported note — _Physics/Week 4.md (Obsidian), 27 September 2026_ —
   including documents converted with Convert a document to note.
 - **Author and source tags.** Two new tag facets, `author:` and `source:`,
   keep a researcher’s library searchable by who wrote it and where it came
