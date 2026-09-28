@@ -4,7 +4,7 @@
 
 - **Transcribe a lecture.** The lecture player has a Transcribe button
   (⇧⌥⌘R). By default the text lands at the end of the note, under a
-  *Transcript* heading, or as a new note beside it — and every paragraph plays
+  _Transcript_ heading, or as a new note beside it — and every paragraph plays
   the recording from where it was said. Words the recognition was unsure of
   are highlighted for review. It works on any audio attachment, including a
   recording made on a phone and dropped in.
@@ -16,6 +16,18 @@
 - **Or Mistral, if you choose it.** With a Mistral key, Settings → Recording
   can switch to Mistral's transcription. The player says so every time, and
   the recording is billed to your key. It is never used as a fallback.
+- **A microphone warm-up.** Recording now opens the microphone before a
+  five-second countdown. The countdown is not saved; note anchors start when
+  the recording does. NotaBene also asks the microphone to leave automatic
+  gain and echo cancellation off, then applies its own level control.
+
+The app still runs on macOS 13 or newer, but on-device transcription requires
+macOS 26 or newer. On older systems, Mistral transcription requires a key and
+uploads the audio to Mistral. This release does not change the library schema.
+
+**Known issue:** On the built-in Mac microphone, the start of a recording has
+sometimes been quieter than the rest. The countdown is intended to let the
+input settle, but its effect on that microphone has not yet been confirmed.
 
 ## NotaBene 1.3.0
 

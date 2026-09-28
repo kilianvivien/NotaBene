@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.0"><img alt="Latest release: 1.3.0" src="https://img.shields.io/badge/release-1.3.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.5"><img alt="Latest release: 1.3.5" src="https://img.shields.io/badge/release-1.3.5-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -29,7 +29,7 @@ NotaBene follows a class from the lecture to the exam:
 
 1. **In the lecture, write fast** — and record the lecture if you like. Each
    paragraph remembers the moment it was typed, so you can replay what the
-   lecturer said about it.
+   lecturer said about it or turn the recording into a linked transcript.
 2. **After class, file it.** Courses, sections, tags, `[[wiki links]]` and
    attachments. A PDF or Word handout can become an editable note.
 3. **Before the deadline, see what is due.** Tasks with reminders and repeats,
@@ -50,8 +50,10 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.3.0 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.0/NotaBene_1.3.0_aarch64.dmg)**
-— macOS 13 Ventura or newer. Apple Intelligence as a provider needs macOS 27.
+**[NotaBene 1.3.5 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.5/NotaBene_1.3.5_aarch64.dmg)**
+— macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
+on older versions, transcription is available through Mistral with your own
+API key. Apple Intelligence as a provider needs macOS 27.
 
 > [!IMPORTANT]
 > The DMG is ad-hoc signed and not notarized, so Gatekeeper may block it. Go to
@@ -67,7 +69,7 @@ rest.
 | Write                                 | Organize                              | Study                              | Own                              |
 | ------------------------------------- | ------------------------------------- | ---------------------------------- | -------------------------------- |
 | Rich text with Markdown shortcuts     | Courses, sections, and smart folders  | AI summaries and Q&A with sources  | Everything stored on your Mac    |
-| Lecture recording anchored to blocks  | Namespaced tags you can combine       | Flashcards, with Anki export       | API keys in the Keychain         |
+| Lecture recording anchored to blocks  | Namespaced tags you can combine       | Audio transcription and flashcards | API keys in the Keychain         |
 | LaTeX maths, tables, callouts, code   | `[[wiki links]]` and backlinks        | Mind maps and diagrams             | Autosave and version history     |
 | Re-editable Excalidraw drawings       | Tasks, subtasks, and reminders        | Read aloud and note-to-podcast     | Backups and portable exports     |
 | Abbreviations and word completion     | Calendar import and export (`.ics`)   | Define a term in context           | Images stripped of location data |
@@ -82,7 +84,15 @@ each course's vocabulary — Tab to accept, never inserted on its own.
 **Lecture recording.** ⌥⌘R records into the open note. Every paragraph or
 heading started during the recording gets a marker that plays from two
 seconds before it. Audio stays on your Mac as an attachment; Settings →
-Recording picks the microphone and level.
+Recording picks the microphone and level. A five-second microphone warm-up
+precedes recording, so the countdown is not saved in the audio.
+
+**Transcription.** Transcribe a lecture recording or another audio attachment
+from its player (⇧⌥⌘R). Add the transcript to the note or create a linked note;
+each paragraph can play the corresponding audio, and uncertain words are
+highlighted for review. On macOS 26+, Apple's speech recognition runs on this
+Mac after you install its language assets in Settings → Recording. Mistral is
+an optional hosted choice that sends audio to its API using your key.
 
 **Documents and imports.** File → Convert a document to note (⌘⇧O) turns PDF,
 Word, PowerPoint, Excel, OpenDocument, EPUB and more into editable notes,
@@ -117,18 +127,17 @@ Secrets never appear in an export or backup.
 
 No accounts, cloud sync, telemetry, analytics or ads. NotaBene reaches the
 network only when you ask it to: an AI request to the provider you chose (local
-models and Apple Intelligence stay on your Mac), a hosted voice, a one-time
-voice download, saving a web page, or checking for a new version. AI requests
+models and Apple Intelligence stay on your Mac), hosted transcription or voice,
+a one-time voice download, saving a web page, or checking for a new version. AI requests
 go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.3.0** adds lecture recording, lighter images, a more capable
-agent, and security hardening — see the
-[release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.0)
-and [earlier releases](./RELEASE_NOTES.md). Transcription is planned for
-1.3.5. The app is not yet signed with a Developer ID or notarized, and has no
-automatic updates.
+**NotaBene 1.3.5** adds transcription of lectures and other audio attachments,
+on this Mac or through an optional Mistral connection — see the
+[release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.5)
+and [earlier releases](./RELEASE_NOTES.md). The app is not yet signed with a
+Developer ID or notarized, and has no automatic updates.
 
 See also the [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
