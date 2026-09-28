@@ -1,5 +1,22 @@
 # Release notes
 
+## NotaBene 1.3.5
+
+- **Transcribe a lecture.** The lecture player has a Transcribe button
+  (⇧⌥⌘R). By default the text lands at the end of the note, under a
+  *Transcript* heading, or as a new note beside it — and every paragraph plays
+  the recording from where it was said. Words the recognition was unsure of
+  are highlighted for review. It works on any audio attachment, including a
+  recording made on a phone and dropped in.
+- **On this Mac, by default.** Transcription uses macOS's own speech
+  recognition (macOS 26 or later): nothing is uploaded, and French or English
+  is recognised automatically. Settings → Recording installs each language's
+  model and can send the course's vocabulary along, so its terms are spelled
+  its way.
+- **Or Mistral, if you choose it.** With a Mistral key, Settings → Recording
+  can switch to Mistral's transcription. The player says so every time, and
+  the recording is billed to your key. It is never used as a fallback.
+
 ## NotaBene 1.3.0
 
 - **Record the lecture while you type.** Start or Stop Recording (⌥⌘R) records a

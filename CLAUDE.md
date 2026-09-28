@@ -134,7 +134,8 @@ vocabulary review, and an on-demand paragraph check. L (1.2.0, importers and
 calendars) adds importing a Markdown folder, an Obsidian vault or a Notion
 export, with a preview, folder-to-course mapping, idempotent re-import and
 provenance, and tasks to and from `.ics` calendars. M (1.3, in progress) adds
-lecture recording anchored to the blocks typed during it. `docs/plan.md` tracks
+lecture recording anchored to the blocks typed during it. N (1.3.5, on `main`,
+unreleased) adds transcription of any audio attachment. `docs/plan.md` tracks
 what is still open honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
@@ -322,6 +323,36 @@ Lecture audio notes (phase M, plan §10.0) worth knowing before touching it:
   call CrispASR's `set_punc_model`: it downloads a model on first use.
 - Markers are drawn only for recordings the player found on the open note
   (`lecturePlaybackStore`), which loads audio on first play, not on open.
+
+Transcription notes (phase N, plan §10.3) worth knowing before touching it:
+
+- Two engines: `apple-speech` (default) is macOS's `SpeechTranscriber`
+  through `notabene-speech`, a Swift helper in `src-tauri/speech/main.swift`
+  that `build.rs` compiles with `xcrun swiftc` into `binaries/` and Tauri
+  bundles as an `externalBin`. `mistral-api` is opt-in, pinned to
+  `voxtral-mini-2602`. The CrispASR engines of `docs/transcription-1.3.5.md`
+  are not built; they stay gated on §13.1 and the model spike.
+- Audio never crosses IPC. `asr_prepare` reads the asset by id, `afconvert`s
+  it to 16 kHz mono (not TTS's 22.05 kHz — never share that path) in
+  `asr-jobs/{id}/` under app data, swept at launch. Windows are cut in the
+  quietest half-second before the nominal end. A hosted request carries
+  `audio: { jobId, index }` and `ai.rs` builds the multipart body from the
+  file itself — only to a `BUILT_IN_ORIGINS` host, never streamed.
+- Never a fallback: a failing engine reports an `ASR_*` code, translated at
+  the surface (`transcription.error.*`); it is never swapped for another.
+  Nothing downloads except Apple's own language assets, on a click in
+  Settings.
+- The pipeline is `transcribeAttachmentCommand` for every engine; one retry
+  per window, cancel kills the helper (`asr_cancel`), release in `finally`.
+  `confidence` is `null` where an engine has none, and only real numbers
+  under 0.5 become review highlights.
+- A new transcript note anchors to a *copy* of the attachment whose id is
+  minted before the note exists (`copyAttachmentCommand(…, id)`); the lecture
+  and transcript are matched by backlink + shared `assetId`, never by
+  attachment id. Appending anchors to the attachment already there.
+- The UI is a popover in the lecture player, not a dialog, by the owner's
+  choice — the one deliberate exception to the `ChoiceGroup` convention.
+  The job lives in `transcriptionStore` and outlives the popover.
 
 ## House rules
 

@@ -321,6 +321,73 @@
   -webkit-box-decoration-break: clone;
 }
 
+/* Record: the transcript under the note and the player that plays it. */
+.wl-transcript-heading {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wl-transcript {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--nb-text-2);
+}
+
+.wl-anchor {
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--nb-accent);
+}
+
+.wl-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 6px 10px;
+  border: 0.5px solid var(--nb-control-border);
+  border-radius: 10px;
+  background: var(--nb-menu-surface);
+  font-size: 11px;
+  color: var(--nb-text-2);
+}
+
+.wl-rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--nb-danger);
+}
+
+.wl-player-time {
+  font-family: var(--nb-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-scrub {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--nb-divider);
+}
+
+.wl-scrub > span {
+  position: absolute;
+  inset: 0 58% 0 0;
+  border-radius: inherit;
+  background: var(--nb-accent);
+}
+
 /* A wiki link, drawn as the editor draws one. */
 .wl-link {
   padding: 0 2px;

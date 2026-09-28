@@ -52,6 +52,22 @@ pub struct AiHttpRequest {
     headers: HashMap<String, String>,
     #[serde(default)]
     body: Option<String>,
+    /// A transcription window to send as `multipart/form-data` (plan §10.3).
+    /// It *names* the audio — a job and a window — and Rust reads the file,
+    /// so a lecture never passes through the webview on its way out.
+    #[serde(default)]
+    audio: Option<AiAudioBody>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiAudioBody {
+    /// Plain form fields, in order. A name may repeat — that is how a list
+    /// such as `context_bias` travels in a form.
+    fields: Vec<(String, String)>,
+    file_field: String,
+    job_id: String,
+    index: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -296,7 +312,72 @@ fn parse_url(request: &AiHttpRequest) -> Result<reqwest::Url, String> {
     Ok(url)
 }
 
-fn build(request: &AiHttpRequest) -> Result<reqwest::RequestBuilder, String> {
+/// A form field name: nothing that could close the quoted parameter it sits
+/// in, or start a header of its own.
+fn check_field_name(name: &str) -> Result<(), String> {
+    let valid = (1..=64).contains(&name.len())
+        && name
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '[' | ']'));
+    if valid {
+        Ok(())
+    } else {
+        Err(format!("invalid form field {name:?}"))
+    }
+}
+
+/// `multipart/form-data` by hand: the fields, then the window as
+/// `window.m4a`. The boundary is random, so no field value can forge one.
+fn multipart_body(audio: &AiAudioBody, file: &[u8]) -> Result<(String, Vec<u8>), String> {
+    check_field_name(&audio.file_field)?;
+    let boundary = format!("notabene-{:032x}", rand::random::<u128>());
+    let mut body = Vec::with_capacity(file.len() + 1024);
+    for (name, value) in &audio.fields {
+        check_field_name(name)?;
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+            )
+            .as_bytes(),
+        );
+    }
+    body.extend_from_slice(
+        format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"{}\"; filename=\"window.m4a\"\r\nContent-Type: audio/mp4\r\n\r\n",
+            audio.file_field
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(file);
+    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+    Ok((format!("multipart/form-data; boundary={boundary}"), body))
+}
+
+/// The encoded window and its form, when the request carries audio. Audio
+/// goes only to a hosted provider this file names: a transcription engine
+/// is chosen from a fixed list, and no configured endpoint is one of them.
+async fn audio_body(
+    app: &AppHandle,
+    request: &AiHttpRequest,
+    url: &reqwest::Url,
+) -> Result<Option<(String, Vec<u8>)>, String> {
+    let Some(audio) = &request.audio else {
+        return Ok(None);
+    };
+    if !BUILT_IN_ORIGINS.contains(&origin_of(url).as_str()) {
+        return Err("audio is only sent to a built-in provider".into());
+    }
+    if request.body.is_some() {
+        return Err("a request carries a body or audio, not both".into());
+    }
+    let file = crate::asr::window_aac(app, &audio.job_id, audio.index).await?;
+    multipart_body(audio, &file).map(Some)
+}
+
+fn build(
+    request: &AiHttpRequest,
+    multipart: Option<(String, Vec<u8>)>,
+) -> Result<reqwest::RequestBuilder, String> {
     let url = parse_url(request)?;
 
     let method = match request.method.to_ascii_uppercase().as_str() {
@@ -307,9 +388,17 @@ fn build(request: &AiHttpRequest) -> Result<reqwest::RequestBuilder, String> {
 
     let mut builder = client()?.request(method, url);
     for (name, value) in &request.headers {
+        // The form sets its own type, boundary included.
+        if multipart.is_some() && name.eq_ignore_ascii_case("content-type") {
+            continue;
+        }
         builder = builder.header(name, value);
     }
-    if let Some(body) = &request.body {
+    if let Some((content_type, bytes)) = multipart {
+        builder = builder
+            .header(reqwest::header::CONTENT_TYPE, content_type)
+            .body(bytes);
+    } else if let Some(body) = &request.body {
         builder = builder.body(body.clone());
     }
     Ok(builder)
@@ -345,20 +434,23 @@ pub async fn ai_request(
     request_id: String,
     request: AiHttpRequest,
 ) -> Result<AiHttpResponse, String> {
-    permit(&app, &state, &parse_url(&request)?).await?;
+    let url = parse_url(&request)?;
+    permit(&app, &state, &url).await?;
+    let multipart = audio_body(&app, &request, &url).await?;
     let token = register(&state, &request_id)?;
-    let result = run_request(request, &token).await;
+    let result = run_request(request, multipart, &token).await;
     unregister(&state, &request_id);
     result
 }
 
 async fn run_request(
     request: AiHttpRequest,
+    multipart: Option<(String, Vec<u8>)>,
     token: &CancellationToken,
 ) -> Result<AiHttpResponse, String> {
     let response = tokio::select! {
         _ = token.cancelled() => return Err(CANCELLED.into()),
-        sent = build(&request)?.send() => sent.map_err(|error| error.to_string())?,
+        sent = build(&request, multipart)?.send() => sent.map_err(|error| error.to_string())?,
     };
 
     let status = response.status().as_u16();
@@ -389,6 +481,10 @@ pub async fn ai_stream(
     stream_id: String,
     request: AiHttpRequest,
 ) -> Result<(), String> {
+    if request.audio.is_some() {
+        emit(&app, &stream_id, "error", Some("audio is not streamed".into()));
+        return Ok(());
+    }
     if let Err(message) = permit(&app, &state, &parse_url(&request)?).await {
         emit(&app, &stream_id, "error", Some(message));
         return Ok(());
@@ -412,7 +508,7 @@ async fn run_stream(
 ) -> Result<(), String> {
     let response = tokio::select! {
         _ = token.cancelled() => return Err(CANCELLED.into()),
-        sent = build(&request)?.send() => sent.map_err(|error| error.to_string())?,
+        sent = build(&request, None)?.send() => sent.map_err(|error| error.to_string())?,
     };
 
     // An error status arrives as a normal body, not a stream, and the caller
@@ -504,6 +600,50 @@ mod tests {
         ] {
             assert!(!is_loopback(&url(remote)), "{remote}");
         }
+    }
+
+    fn audio(fields: &[(&str, &str)]) -> AiAudioBody {
+        AiAudioBody {
+            fields: fields
+                .iter()
+                .map(|(name, value)| (name.to_string(), value.to_string()))
+                .collect(),
+            file_field: "file".into(),
+            job_id: "job1".into(),
+            index: 0,
+        }
+    }
+
+    #[test]
+    fn a_form_repeats_list_fields_and_carries_the_window_last() {
+        let (content_type, body) = multipart_body(
+            &audio(&[
+                ("model", "voxtral-mini-2602"),
+                ("context_bias", "Calvin"),
+                ("context_bias", "photosynthèse"),
+            ]),
+            b"AUDIO",
+        )
+        .unwrap();
+        let boundary = content_type
+            .strip_prefix("multipart/form-data; boundary=")
+            .unwrap();
+        let text = String::from_utf8(body).unwrap();
+        assert_eq!(text.matches("name=\"context_bias\"").count(), 2);
+        assert!(text.contains("photosynthèse"));
+        let file = text.find("filename=\"window.m4a\"").unwrap();
+        assert!(text.find("name=\"model\"").unwrap() < file);
+        assert!(text.ends_with(&format!("AUDIO\r\n--{boundary}--\r\n")));
+    }
+
+    #[test]
+    fn a_field_name_cannot_break_out_of_its_header() {
+        for bad in ["x\"; filename=\"y", "a\r\nb", "", "a b"] {
+            assert!(multipart_body(&audio(&[(bad, "v")]), b"").is_err(), "{bad:?}");
+        }
+        let mut body = audio(&[]);
+        body.file_field = "file\"".into();
+        assert!(multipart_body(&body, b"").is_err());
     }
 
     #[test]

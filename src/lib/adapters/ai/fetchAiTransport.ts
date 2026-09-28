@@ -6,6 +6,10 @@ import { SseBuffer } from './sse';
 
 export const fetchAiTransport: AiTransport = {
   async request(request: AiRequest): Promise<AiResponse> {
+    // The audio is read by Rust; the browser has no file to attach.
+    if (request.audio) {
+      throw new Error('ASR_UNSUPPORTED: transcription needs the desktop app');
+    }
     const response = await fetch(request.url, {
       method: request.method,
       headers: request.headers,

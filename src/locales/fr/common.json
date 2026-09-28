@@ -1263,7 +1263,8 @@
     "toggleRecording": "Démarrer ou arrêter l’enregistrement",
     "lecturePlayPause": "Lire ou mettre en pause le cours",
     "lectureBack": "Reculer le cours de 10 secondes",
-    "lectureForward": "Avancer le cours de 10 secondes"
+    "lectureForward": "Avancer le cours de 10 secondes",
+    "transcribeRecording": "Transcrire l’enregistrement…"
   },
   "import": {
     "attachmentMissing": "Les données de la pièce jointe sont introuvables.",
@@ -1604,6 +1605,10 @@
         "title": "Écrire",
         "description": "Encadrés, dessins et cartes mentales."
       },
+      "record": {
+        "title": "Enregistrer",
+        "description": "Enregistrez le cours, puis transcrivez-le sur ce Mac."
+      },
       "organize": {
         "title": "Ranger",
         "description": "Cours, sections et étiquettes."
@@ -1663,7 +1668,11 @@
       "deckTitle": "Fiches : amortissement",
       "cardFront2": "Qu’évite l’amortissement critique ?",
       "answerLabel": "Réponse",
-      "studyAnki": "Export Anki"
+      "studyAnki": "Export Anki",
+      "transcriptHeading": "Transcription",
+      "transcriptA": "Le frottement retire de l’énergie au système à chaque cycle.",
+      "transcriptB": "Les trois régimes d’amortissement seront",
+      "transcriptExam": "à l’examen"
     },
     "import": {
       "title": "Apporter mes notes",
@@ -2230,7 +2239,9 @@
     "status": "Enregistrement {{time}}",
     "saving": "Sauvegarde de l’enregistrement…",
     "anchorsElsewhere": "les ancres vont dans « {{title}} »",
-    "save": "Enregistrer dans un fichier…"
+    "save": "Enregistrer dans un fichier…",
+    "transcribe": "Transcrire l’enregistrement",
+    "openTranscript": "Ouvrir la transcription à ce moment"
   },
   "recordingSettings": {
     "desktopOnly": "L’enregistrement des cours nécessite l’application NotaBene pour Mac.",
@@ -2254,7 +2265,101 @@
     "noiseSuppressionHint": "Conçue pour les appels, micro tout proche. Dans un amphithéâtre, elle peut prendre une voix lointaine pour du bruit : elle est donc désactivée par défaut.",
     "appliesNext": "Les changements s’appliquent au prochain enregistrement, pas à celui en cours.",
     "transcriptionSection": "Transcription",
-    "transcriptionBody": "Transformer un enregistrement en texte, sur ce Mac, sans envoyer l’audio nulle part.",
-    "transcriptionLater": "Pas encore disponible. Le téléchargement du modèle et le choix de la langue se feront ici, et la transcription s’alignera sur les paragraphes tapés pendant le cours."
+    "transcriptionBody": "Transformer un enregistrement en une note dont chaque paragraphe relance le cours à l’endroit où il a été dit.",
+    "engine": "Moteur",
+    "engineApple": "Sur ce Mac (reconnaissance vocale de macOS)",
+    "engineMistral": "Mistral — Voxtral Mini Transcribe",
+    "engineMistralNoKey": "Mistral — connectez d’abord Mistral AI",
+    "privacyLocal": "Transcrit entièrement sur ce Mac. L’audio n’est jamais envoyé nulle part.",
+    "privacyMistral": "Chaque enregistrement que vous transcrivez est envoyé à Mistral avec votre clé et facturé sur celle-ci. Rien n’est envoyé tant que vous ne lancez pas de transcription.",
+    "languagesSection": "Langues sur ce Mac",
+    "languagesBody": "macOS télécharge une fois le modèle vocal de chaque langue depuis Apple, comme pour la dictée.",
+    "languageFr": "Français",
+    "languageEn": "Anglais",
+    "statusInstalled": "Installé",
+    "statusSupported": "Non installé",
+    "statusDownloading": "Téléchargement…",
+    "statusUnsupported": "Non disponible",
+    "install": "Installer",
+    "installing": "Installation… {{percent}} %",
+    "installFailed": "Le modèle vocal n’a pas pu être installé.",
+    "unsupportedOs": "Transcrire sur ce Mac nécessite macOS 26 ou plus récent. Mistral peut toujours transcrire avec votre clé.",
+    "defaultLanguage": "Langue",
+    "defaultLanguageHint": "Le choix de départ de la fenêtre de transcription. Automatique écoute la première minute.",
+    "languageAuto": "Automatique",
+    "useCourseVocabulary": "Utiliser le vocabulaire du cours",
+    "useCourseVocabularyHint": "Envoie les termes acceptés du cours avec l’audio, pour que son jargon soit écrit comme il se doit."
+  },
+  "transcription": {
+    "languageQuestion": "Langue",
+    "languageAuto": "Automatique",
+    "languageFr": "Français",
+    "languageEn": "Anglais",
+    "languageHosted": "Détectée par Mistral",
+    "destinationQuestion": "Où mettre le texte",
+    "destinationNew": "Nouvelle note",
+    "destinationAppend": "Cette note",
+    "start": "Transcrire",
+    "stop": "Arrêter",
+    "open": "Ouvrir la transcription",
+    "busyElsewhere": "Une transcription de « {{title}} » est déjà en cours.",
+    "stage": {
+      "preparing": "Lecture de l’enregistrement…",
+      "language": "Reconnaissance de la langue…",
+      "transcribing": "Transcription",
+      "writing": "Écriture de la note…"
+    },
+    "statusBar": "Transcription de « {{title}} » · {{percent}} %",
+    "statusBarDone": "Transcription de « {{title}} » prête",
+    "statusBarFailed": "Échec de la transcription de « {{title}} »",
+    "notifyTitle": "Transcription prête",
+    "notifyBody": "« {{title}} » a été transcrit.",
+    "noteTitle": "Transcription — {{title}}",
+    "heading": "Transcription",
+    "provenanceOf": "Transcription de",
+    "language": {
+      "fr": "français",
+      "en": "anglais"
+    },
+    "engineName": {
+      "apple-speech": "transcrit sur ce Mac",
+      "mistral-api": "transcrit par Mistral"
+    },
+    "failedAt": "Échec à {{start}}–{{end}}.",
+    "error": {
+      "ASR_RECORDING_BUSY": "Arrêtez d’abord l’enregistrement — la transcription attend que le cours soit conservé.",
+      "ASR_AUDIO_MISSING": "Cet enregistrement n’est plus sur cette note.",
+      "ASR_AUDIO_UNSUPPORTED": "Ce format audio n’a pas pu être lu.",
+      "ASR_AUDIO_TOO_LONG": "Les enregistrements de plus de dix heures ne sont pas transcrits.",
+      "ASR_AUDIO_EMPTY": "L’enregistrement ne contient aucun son.",
+      "ASR_NO_SPEECH": "Aucune parole n’a été reconnue dans cet enregistrement.",
+      "ASR_UNSUPPORTED": "La transcription nécessite l’application NotaBene pour Mac.",
+      "ASR_UNSUPPORTED_OS": "Transcrire sur ce Mac nécessite macOS 26 ou plus récent.",
+      "ASR_LANGUAGE_NOT_INSTALLED": "Le modèle vocal de cette langue n’est pas installé. Installez-le dans Réglages → Enregistrement.",
+      "ASR_APPLE_LANGUAGE_NOT_INSTALLED": "Le modèle vocal de cette langue n’est pas installé. Installez-le dans Réglages → Enregistrement.",
+      "ASR_APPLE_LANGUAGE_UNSUPPORTED": "macOS ne sait pas transcrire cette langue.",
+      "ASR_APPLE_AUDIO_UNREADABLE": "macOS n’a pas pu lire cet enregistrement.",
+      "ASR_APPLE_UNSUPPORTED_OS": "Transcrire sur ce Mac nécessite macOS 26 ou plus récent.",
+      "ASR_API_KEY_MISSING": "Connectez d’abord Mistral AI dans Réglages → IA.",
+      "ASR_API_ERROR": "Mistral n’a pas pu transcrire l’enregistrement : {{detail}}",
+      "ASR_INVALID_RESPONSE": "La transcription est revenue sous une forme que NotaBene n’a pas pu lire.",
+      "ASR_TIMEOUT": "La reconnaissance vocale ne répond plus.",
+      "ASR_JOB_MISSING": "La transcription a été interrompue.",
+      "generic": "L’enregistrement n’a pas pu être transcrit."
+    },
+    "inline": "Transcription · {{percent}} %",
+    "doneHere": "Transcription ajoutée",
+    "dismiss": "Fermer",
+    "retry": "Réessayer",
+    "reviewShort_one": "{{count}} à revoir",
+    "reviewShort_other": "{{count}} à revoir",
+    "popoverTitle": "Transcrire",
+    "badgeLocal": "Sur ce Mac",
+    "badgeHosted": "Mistral",
+    "labelLanguage": "Langue",
+    "labelInto": "Ajouter à",
+    "whereHosted": "Envoyé à Mistral ({{duration}}), facturé sur votre clé.",
+    "whereHostedShort": "Envoyé à Mistral, facturé sur votre clé.",
+    "failedShort": "Échec de la transcription"
   }
 }

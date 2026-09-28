@@ -56,6 +56,11 @@ import { tauriFolderImportAdapter } from './folderImport/tauriFolderImportAdapte
 import { memoryFolderImportAdapter } from './folderImport/memoryFolderImportAdapter';
 import { tauriRecorderAdapter } from './recorder/tauriRecorderAdapter';
 import { unavailableRecorderAdapter } from './recorder/unavailableRecorderAdapter';
+import { tauriAsrAdapter } from './asr/tauriAsrAdapter';
+import { unavailableAsrAdapter } from './asr/unavailableAsrAdapter';
+import { createAppleAsrEngine } from './asr/appleAsrEngine';
+import { createMistralAsrEngine } from './asr/mistralAsrEngine';
+import { createAsrEngineRegistry } from './asr/asrEngineRegistry';
 import { isTauri } from '@/lib/platform/runtime';
 import {
   browserAppLifecycleAdapter,
@@ -81,6 +86,7 @@ import type { OcrAdapter } from './ocr/OcrAdapter';
 import type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
 import type { AppleFmAdapter } from './appleFm/AppleFmAdapter';
 import type { RecorderAdapter } from './recorder/RecorderAdapter';
+import type { AsrAdapter } from './asr/AsrAdapter';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -147,6 +153,11 @@ export const ttsRegistry = createTtsEngineRegistry(
   mistralTtsEngine,
   geminiTtsEngine,
 );
+export const asr: AsrAdapter = isTauri ? tauriAsrAdapter : unavailableAsrAdapter;
+export const asrRegistry = createAsrEngineRegistry(
+  createAppleAsrEngine(asr),
+  createMistralAsrEngine(aiTransport, secrets),
+);
 /** Compatibility alias while callers migrate to the registry. */
 export const tts = activeSystemTtsEngine;
 
@@ -179,6 +190,7 @@ export type {
   RecordingSettings,
   SpeechSettings,
   SecretsAdapter,
+  TranscriptionSettings,
   SettingsAdapter,
 } from './settings/SettingsAdapter';
 export {
@@ -202,7 +214,22 @@ export type {
   NoteExportFormat,
 } from './export/ExportAdapter';
 export type { MenuAdapter, MenuNode, MenuRole } from './menu/MenuAdapter';
-export type { AiRequest, AiResponse, AiTransport } from './ai/AiTransport';
+export type { AiAudioBody, AiRequest, AiResponse, AiTransport } from './ai/AiTransport';
+export type { AsrAdapter, AsrPrepareRequest } from './asr/AsrAdapter';
+export type {
+  AsrEngine,
+  AsrEngineCapabilities,
+  AsrEngineId,
+  AsrEngineRegistry,
+  AsrEngineState,
+  AsrEngineSummary,
+  AsrJob,
+  AsrLanguage,
+  AsrWindow,
+  AsrWindowOptions,
+  AsrWindowResult,
+} from './asr/AsrEngine';
+export { APPLE_LOCALES } from './asr/appleAsrEngine';
 export type { ExternalLinkAdapter } from './external/ExternalLinkAdapter';
 export type { WindowAdapter } from './window/WindowAdapter';
 export type {

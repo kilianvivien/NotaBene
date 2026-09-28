@@ -7,6 +7,7 @@
 
 mod ai;
 mod apple_fm;
+mod asr;
 mod commands;
 mod db;
 mod document_import;
@@ -117,6 +118,7 @@ pub fn run() {
             }
 
             ai::init(handle);
+            asr::init(handle);
             apple_fm::init(handle);
             app.manage(tts::VoxtralManager::new(handle).map_err(std::io::Error::other)?);
             app.manage(tts::KokoroManager::new(handle).map_err(std::io::Error::other)?);
@@ -225,6 +227,13 @@ pub fn run() {
             ai::ai_request,
             ai::ai_stream,
             ai::ai_cancel,
+            asr::asr_prepare,
+            asr::asr_cancel,
+            asr::asr_release,
+            asr::asr_apple_status,
+            asr::asr_apple_install,
+            asr::asr_apple_detect,
+            asr::asr_apple_transcribe,
             apple_fm::apple_fm_preflight,
             apple_fm::apple_fm_start,
             apple_fm::apple_fm_stop,

@@ -25,6 +25,8 @@ import {
   KeyRound,
   ListChecks,
   MessageCircleQuestion,
+  Mic,
+  AudioLines,
   Pause,
   PenLine,
   Play,
@@ -51,11 +53,12 @@ import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import './welcome.css';
 
-const FEATURES = ['write', 'organize', 'find', 'study', 'plan', 'ask'] as const;
+const FEATURES = ['write', 'record', 'organize', 'find', 'study', 'plan', 'ask'] as const;
 type Feature = (typeof FEATURES)[number];
 
 const FEATURE_ICONS: Record<Feature, LucideIcon> = {
   write: PenLine,
+  record: Mic,
   organize: FolderTree,
   find: Search,
   study: Layers,
@@ -358,6 +361,44 @@ function Scene({ feature }: { feature: Feature }) {
               <span className="wl-node is-leaf wl-pop" style={at(3.6)}>
                 {s('mapC')}
               </span>
+            </div>
+          </div>
+        </div>
+      );
+
+    // The lecture recorded under the note, and its transcript arriving
+    // paragraph by paragraph, each with the marker that plays it back.
+    case 'record':
+      return (
+        <div className="wl-scene">
+          <div className="wl-page">
+            <p className="wl-crumb">
+              <span className="wl-dot" style={{ background: PHYSICS }} />
+              {s('course')} › {s('week')}
+            </p>
+            <h3 className="wl-note-title">
+              <span className="wl-type">{s('noteTitle')}</span>
+            </h3>
+            <p className="wl-transcript-heading wl-step" style={at(1.4)}>
+              {s('transcriptHeading')}
+            </p>
+            <p className="wl-transcript wl-step" style={at(1.8)}>
+              <span className="wl-anchor" aria-hidden />
+              <span>{s('transcriptA')}</span>
+            </p>
+            <p className="wl-transcript wl-step" style={at(2.3)}>
+              <span className="wl-anchor" aria-hidden />
+              <span>
+                {s('transcriptB')} <mark className="wl-mark">{s('transcriptExam')}</mark>.
+              </span>
+            </p>
+            <div className="wl-player wl-step" style={at(0.6)} aria-hidden>
+              <span className="wl-rec-dot" />
+              <span className="wl-player-time">12:48</span>
+              <span className="wl-scrub">
+                <span />
+              </span>
+              <AudioLines size={12} />
             </div>
           </div>
         </div>

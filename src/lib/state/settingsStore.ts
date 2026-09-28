@@ -195,6 +195,31 @@ function normalizeRecording(
       typeof stored?.noiseSuppression === 'boolean'
         ? stored.noiseSuppression
         : defaults.noiseSuppression,
+    transcription: normalizeTranscription(stored?.transcription),
+  };
+}
+
+/** A 1.3 settings file has no transcription block; a hand-edited one may
+ * name an engine this build does not have. */
+function normalizeTranscription(
+  stored: Partial<AppSettings['recording']['transcription']> | undefined,
+): AppSettings['recording']['transcription'] {
+  const defaults = DEFAULT_SETTINGS.recording.transcription;
+  return {
+    engineId: (['apple-speech', 'mistral-api'] as const).includes(
+      stored?.engineId as AppSettings['recording']['transcription']['engineId'],
+    )
+      ? stored!.engineId!
+      : defaults.engineId,
+    language: (['auto', 'fr', 'en'] as const).includes(
+      stored?.language as AppSettings['recording']['transcription']['language'],
+    )
+      ? stored!.language!
+      : defaults.language,
+    useCourseVocabulary:
+      typeof stored?.useCourseVocabulary === 'boolean'
+        ? stored.useCourseVocabulary
+        : defaults.useCourseVocabulary,
   };
 }
 

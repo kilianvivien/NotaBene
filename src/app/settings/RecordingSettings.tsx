@@ -6,8 +6,8 @@
  * without recording, so a student can set the level in the room before the
  * lecture starts rather than discover afterwards that it was too quiet.
  *
- * Transcription will live here too (plan §10.3). Its section says so now, in
- * one line, rather than pretending the feature exists.
+ * Transcription (plan §10.3) is its own section at the foot of the pane —
+ * `TranscriptionSettings`.
  */
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -29,6 +29,7 @@ import {
 } from '@/lib/adapters';
 import { useRecordingStore } from '@/lib/state/recordingStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { TranscriptionSettings } from './TranscriptionSettings';
 
 /** Gain as the student reads it: "+6 dB" means something; "×2" less so. */
 function decibels(gain: number): string {
@@ -84,8 +85,10 @@ export function RecordingSettings() {
     }
   }
 
-  // A running test follows every change, so the meter answers the slider.
-  const settingsKey = JSON.stringify(settings);
+  // A running test follows every input change, so the meter answers the
+  // slider — and not a transcription choice, which has nothing to do with it.
+  const { transcription: _transcription, ...input } = settings;
+  const settingsKey = JSON.stringify(input);
   const lastKey = useRef(settingsKey);
   useEffect(() => {
     if (lastKey.current === settingsKey) return;
@@ -221,12 +224,7 @@ export function RecordingSettings() {
         <FieldNote>{t('recordingSettings.appliesNext')}</FieldNote>
       </FieldSection>
 
-      <FieldSection
-        title={t('recordingSettings.transcriptionSection')}
-        description={t('recordingSettings.transcriptionBody')}
-      >
-        <FieldNote tone="notice">{t('recordingSettings.transcriptionLater')}</FieldNote>
-      </FieldSection>
+      <TranscriptionSettings />
     </div>
   );
 }

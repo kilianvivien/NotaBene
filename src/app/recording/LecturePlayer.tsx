@@ -11,19 +11,35 @@
  * Removing a recording removes the attachment and nothing else. The note keeps
  * its words and its anchors, which fall silent without audio to point at.
  */
-import { Download, Pause, Play, RotateCcw, RotateCw, Trash2 } from 'lucide-react';
-import { useEffect } from 'react';
+import {
+  Download,
+  FileSearch,
+  Pause,
+  Play,
+  RotateCcw,
+  RotateCw,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import './recording.css';
 import { GlassIconButton, GlassSelect } from '@/components/glass';
 import { dialog, library } from '@/lib/adapters';
 import { attachmentPreviewKind } from '@/lib/attachments/previewSupport';
-import { deleteAttachmentCommand, saveAttachmentCommand } from '@/lib/commands';
+import {
+  deleteAttachmentCommand,
+  findTranscriptCommand,
+  saveAttachmentCommand,
+} from '@/lib/commands';
 import { formatOffset } from '@/lib/recording/anchors';
 import { useAttachmentStore } from '@/lib/state/attachmentStore';
 import { SKIP_MS, useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { useRecordingStore } from '@/lib/state/recordingStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { useEditorStore } from '@/lib/state/editorStore';
+import { useTranscriptionStore } from '@/lib/state/transcriptionStore';
+import { openTranscriptAt } from './openTranscriptAt';
+import { TranscribeControl } from './TranscribeControl';
 
 export function LecturePlayer({
   noteId,
@@ -56,6 +72,31 @@ export function LecturePlayer({
       cancelled = true;
     };
   }, [noteId, revision]);
+
+  // The transcript of the chosen recording, if one exists — found again
+  // whenever a transcription finishes or the attachments change.
+  const currentAssetId = playback.recordings.find(
+    (recording) => recording.id === playback.currentId,
+  )?.assetId;
+  const finished = useTranscriptionStore((state) => state.status === 'done');
+  const noteTitle = useEditorStore((state) =>
+    state.note?.id === noteId ? state.note.title : '',
+  );
+  const [transcript, setTranscript] = useState<{
+    noteId: string;
+    attachmentId: string;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setTranscript(null);
+    if (!currentAssetId) return;
+    void findTranscriptCommand(noteId, currentAssetId).then((found) => {
+      if (!cancelled) setTranscript(found);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [noteId, currentAssetId, revision, finished]);
 
   // Leaving the note stops its lecture; a note you are not looking at should
   // not be talking.
@@ -138,6 +179,9 @@ export function LecturePlayer({
         disabled={playback.durationMs === null}
         aria-label={t('recording.position')}
         aria-valuetext={duration ? `${position} / ${duration}` : position}
+        // With one recording its name is only worth a hover: in the row it
+        // was an ellipsis taking the scrubber's room.
+        title={current?.name}
         onChange={(event) => void playback.seek(Number(event.target.value))}
       />
 
@@ -156,11 +200,7 @@ export function LecturePlayer({
             </option>
           ))}
         </GlassSelect>
-      ) : (
-        <span className="nb-lecture-name" title={current?.name}>
-          {current?.name}
-        </span>
-      )}
+      ) : null}
 
       {playback.error && (
         <span role="status" className="text-[11px] text-[var(--nb-danger)]">
@@ -168,6 +208,21 @@ export function LecturePlayer({
         </span>
       )}
 
+      {transcript && (
+        <GlassIconButton
+          label={t('recording.openTranscript')}
+          onClick={() => void openTranscriptAt(transcript, playback.positionMs)}
+        >
+          <FileSearch size={14} />
+        </GlassIconButton>
+      )}
+      {!readOnly && current && (
+        <TranscribeControl
+          noteId={noteId}
+          noteTitle={noteTitle}
+          attachmentId={current.id}
+        />
+      )}
       <GlassIconButton label={t('recording.save')} onClick={() => void save()}>
         <Download size={14} />
       </GlassIconButton>

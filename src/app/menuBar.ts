@@ -145,6 +145,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('recording.playPause', t),
         command('recording.skipBack', t),
         command('recording.skipForward', t),
+        command('recording.transcribe', t),
         separator,
         { kind: 'predefined', role: 'fullscreen', label: t('menu.fullscreen') },
       ],

@@ -124,6 +124,9 @@ function markerElement(anchor: AudioAnchor, options: LectureAnchorsOptions): HTM
   // A play triangle drawn in CSS: no icon font, and nothing for a screen
   // reader to announce beyond the label.
   button.innerHTML = '<span aria-hidden="true"></span>';
+  // How the player finds "the paragraph at this moment" in a transcript.
+  button.dataset.recordingId = anchor.recordingId;
+  button.dataset.offsetMs = String(anchor.offsetMs);
   // Keep the caret where it was: the student is listening, not editing.
   button.addEventListener('mousedown', (event) => event.preventDefault());
   button.addEventListener('click', (event) => {

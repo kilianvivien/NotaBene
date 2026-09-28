@@ -29,6 +29,7 @@ function wire(request: AiRequest) {
     method: request.method,
     headers: request.headers,
     body: request.body ?? null,
+    audio: request.audio ?? null,
   };
 }
 

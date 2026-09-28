@@ -16,6 +16,8 @@ src-tauri/gen
 # CrispASR is rebuilt from the pinned release by the preparation script. Native
 # libraries and the upstream checkout are release inputs, not source artifacts.
 src-tauri/native/crispasr/
+# Built from src-tauri/speech/main.swift by build.rs on every build.
+src-tauri/binaries/
 
 # Test / coverage artifacts
 coverage

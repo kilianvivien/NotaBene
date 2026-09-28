@@ -99,29 +99,193 @@
   color: var(--nb-text-2);
 }
 
+/* Buttons keep their size; the scrubber and the name give way instead, so a
+   narrow page never squeezes a control below its hit area. */
+.nb-lecture-player > button {
+  flex-shrink: 0;
+}
+
 .nb-lecture-player-hint {
   gap: 8px;
   padding: 8px 12px;
 }
 
 .nb-lecture-time {
-  min-width: 5.5rem;
   flex-shrink: 0;
-  padding: 0 4px;
+  padding: 0 6px 0 4px;
   font-family: var(--nb-font-mono);
   font-variant-numeric: tabular-nums;
 }
 
 .nb-lecture-scrubber {
-  min-width: 4rem;
+  min-width: 6rem;
   flex: 1 1 auto;
+  margin: 0 8px 0 2px;
   accent-color: var(--nb-accent);
 }
 
-.nb-lecture-name {
-  max-width: 14rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* Transcription, inside the player (plan §10.3): one button, a small glass
+   popover above it, and the job's progress in the row. */
+.nb-transcribe-popover {
+  position: absolute;
+  right: -6px;
+  bottom: calc(100% + 10px);
+  z-index: 20;
+  display: flex;
+  width: 15.5rem;
+  flex-direction: column;
+  border: 0.5px solid var(--nb-control-border);
+  border-radius: 12px;
+  background: var(--nb-menu-surface);
+  box-shadow: var(--nb-shadow-lg);
+  font-size: 12px;
+  transform-origin: calc(100% - 20px) 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-transcribe-popover {
+    animation: nb-transcribe-in var(--nb-t-fast) ease-out;
+  }
+}
+
+@keyframes nb-transcribe-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+/* The tail, pointing at the button that opened it. */
+.nb-transcribe-popover::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  border-right: 0.5px solid var(--nb-control-border);
+  border-bottom: 0.5px solid var(--nb-control-border);
+  background: var(--nb-menu-surface);
+  transform: rotate(45deg);
+}
+
+.nb-transcribe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px 7px 12px;
+  font-weight: 600;
+  color: var(--nb-text);
+}
+
+.nb-transcribe-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--nb-active);
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 500;
   color: var(--nb-text-3);
+}
+
+.nb-transcribe-badge.nb-hosted {
+  color: var(--nb-accent);
+}
+
+/* Label, value — a two-column form that reads down its left edge. */
+.nb-transcribe-rows {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 1px;
+  padding: 0 6px 6px 12px;
+}
+
+.nb-transcribe-rows > button,
+.nb-transcribe-fixed {
+  justify-self: end;
+  max-width: 100%;
+}
+
+.nb-transcribe-label {
+  color: var(--nb-text-3);
+}
+
+.nb-transcribe-fixed {
+  padding: 0 6px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--nb-text-3);
+}
+
+.nb-transcribe-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 2px 8px 8px;
+}
+
+.nb-transcribe-where {
+  padding: 0 4px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--nb-text-2);
+}
+
+.nb-transcribe-status {
+  display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  padding-left: 4px;
+  font-size: 11px;
+}
+
+.nb-transcribe-bar {
+  position: relative;
+  height: 3px;
+  width: 3.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--nb-divider);
+}
+
+.nb-transcribe-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--nb-accent);
+  transition: width var(--nb-t-fast);
+}
+
+.nb-transcribe-link {
+  display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--nb-radius-xs);
+  padding: 2px 4px;
+  color: var(--nb-accent);
+  font-weight: 500;
+}
+
+.nb-transcribe-link:hover {
+  background: var(--nb-hover);
+}
+
+.nb-transcribe-link.nb-danger,
+.nb-transcribe-where.nb-danger {
+  color: var(--nb-danger);
+}
+
+.nb-transcribe-status > button {
+  flex-shrink: 0;
 }

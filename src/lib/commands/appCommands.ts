@@ -23,7 +23,7 @@ import { useRecordingStore } from '@/lib/state/recordingStore';
 import { SKIP_MS, useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docStats } from '@/lib/notes/docText';
-import { appWindow, externalLinks } from '@/lib/adapters';
+import { appWindow, asr, externalLinks } from '@/lib/adapters';
 import { createNoteCommand } from './noteCommands';
 import { createCourseCommand } from './organizationCommands';
 import { beginDocumentImportCommand } from './importCommands';
@@ -69,6 +69,7 @@ export const APP_COMMAND_IDS = [
   'recording.playPause',
   'recording.skipBack',
   'recording.skipForward',
+  'recording.transcribe',
   'view.toggleSidebar',
   'view.toggleInspector',
   'view.documentMap',
@@ -96,7 +97,7 @@ export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
 
 /** The phase a command becomes real. `A` means it works today. */
 export type CommandPhase =
-  'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M';
+  'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N';
 
 export interface AppCommand {
   id: AppCommandId;
@@ -626,6 +627,30 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     accelerator: 'CmdOrCtrl+Alt+Period',
     landsIn: 'M',
     run: () => lectureAction((playback) => playback.skip(SKIP_MS)),
+  },
+  /**
+   * Transcription (plan §10.3, phase N). The recording the player has chosen,
+   * or else the note's newest audio. It opens the player's small transcribe
+   * popover; nothing is sent or decoded until Transcribe is pressed there.
+   */
+  'recording.transcribe': {
+    id: 'recording.transcribe',
+    labelKey: 'menu.transcribeRecording',
+    // ⇧ on the record shortcut: the same lecture, turned into words.
+    accelerator: 'CmdOrCtrl+Shift+Alt+R',
+    landsIn: 'N',
+    run: () => {
+      if (!asr.supported())
+        return fail('not_supported', translate('transcription.error.ASR_UNSUPPORTED'));
+      const noteId = useEditorStore.getState().note?.id;
+      const playback = useLecturePlaybackStore.getState();
+      if (!noteId || playback.noteId !== noteId || !playback.recordings.length) {
+        return fail('not_found', translate('recording.noAudio'));
+      }
+      const attachmentId = playback.currentId ?? playback.recordings[0]!.id;
+      useUiStore.getState().setTranscribeTarget({ noteId, attachmentId });
+      return ok(undefined);
+    },
   },
 
   /** Both open a dialog: an export says how many tasks and which are left

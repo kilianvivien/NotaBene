@@ -18,7 +18,35 @@ describe('recording settings', () => {
       gain: 4,
       autoGain: true,
       noiseSuppression: true,
+      transcription: DEFAULT_SETTINGS.recording.transcription,
     });
     expect(migrateSettings({ recording: { gain: 0.1 } } as never).recording.gain).toBe(1);
+  });
+
+  it('transcribe on this Mac unless the student chose otherwise', () => {
+    expect(migrateSettings({}).recording.transcription).toEqual({
+      engineId: 'apple-speech',
+      language: 'auto',
+      useCourseVocabulary: true,
+    });
+    const kept = migrateSettings({
+      recording: {
+        transcription: {
+          engineId: 'mistral-api',
+          language: 'fr',
+          useCourseVocabulary: false,
+        },
+      },
+    } as never).recording.transcription;
+    expect(kept).toEqual({
+      engineId: 'mistral-api',
+      language: 'fr',
+      useCourseVocabulary: false,
+    });
+    const edited = migrateSettings({
+      recording: { transcription: { engineId: 'whisper', language: 'de' } },
+    } as never).recording.transcription;
+    expect(edited.engineId).toBe('apple-speech');
+    expect(edited.language).toBe('auto');
   });
 });

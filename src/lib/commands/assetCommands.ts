@@ -59,14 +59,17 @@ export async function addAttachmentCommand(
   }
 }
 
-/** Point another note at the same immutable asset bytes. */
+/** Point another note at the same immutable asset bytes. `id` lets a caller
+ * that must name the copy before it exists — a transcript's anchors — mint
+ * it first. */
 export async function copyAttachmentCommand(
   attachment: Attachment,
   noteId: string,
+  id: string = newId(),
 ): Promise<CommandResult<Attachment>> {
   const parsed = AttachmentSchema.safeParse({
     ...attachment,
-    id: newId(),
+    id,
     noteId,
     createdAt: new Date().toISOString(),
   });

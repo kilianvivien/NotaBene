@@ -1263,7 +1263,8 @@
     "toggleRecording": "Start or Stop Recording",
     "lecturePlayPause": "Play or Pause Lecture",
     "lectureBack": "Lecture Back 10 Seconds",
-    "lectureForward": "Lecture Forward 10 Seconds"
+    "lectureForward": "Lecture Forward 10 Seconds",
+    "transcribeRecording": "Transcribe Recording…"
   },
   "import": {
     "attachmentMissing": "The attachment data could not be found.",
@@ -1604,6 +1605,10 @@
         "title": "Write",
         "description": "Callouts, drawings and mind maps."
       },
+      "record": {
+        "title": "Record",
+        "description": "Record the lecture, then transcribe it on this Mac."
+      },
       "organize": {
         "title": "Organise",
         "description": "Courses, sections and tags."
@@ -1663,7 +1668,11 @@
       "deckTitle": "Flashcards: damping",
       "cardFront2": "What does critical damping avoid?",
       "answerLabel": "Answer",
-      "studyAnki": "Anki export"
+      "studyAnki": "Anki export",
+      "transcriptHeading": "Transcript",
+      "transcriptA": "Friction takes energy out of the system on every cycle.",
+      "transcriptB": "The three damping regimes will be",
+      "transcriptExam": "on the exam"
     },
     "import": {
       "title": "Bring my notes",
@@ -2230,7 +2239,9 @@
     "status": "Recording {{time}}",
     "saving": "Saving recording…",
     "anchorsElsewhere": "anchors go to “{{title}}”",
-    "save": "Save recording to a file…"
+    "save": "Save recording to a file…",
+    "transcribe": "Transcribe recording",
+    "openTranscript": "Open the transcript at this moment"
   },
   "recordingSettings": {
     "desktopOnly": "Recording lectures needs the NotaBene desktop app.",
@@ -2254,7 +2265,101 @@
     "noiseSuppressionHint": "Made for calls with the microphone close by. In a lecture hall it can treat a distant voice as noise, so it is off by default.",
     "appliesNext": "Changes apply to the next recording, not one already running.",
     "transcriptionSection": "Transcription",
-    "transcriptionBody": "Turning a recording into text, on this Mac, with no audio sent anywhere.",
-    "transcriptionLater": "Not available yet. When it arrives, its model download and language choice will be here, and a transcript will line up with the paragraphs you typed during the lecture."
+    "transcriptionBody": "Turn a recording into a note whose paragraphs play the lecture from where they were said.",
+    "engine": "Engine",
+    "engineApple": "On this Mac (macOS speech recognition)",
+    "engineMistral": "Mistral — Voxtral Mini Transcribe",
+    "engineMistralNoKey": "Mistral — connect Mistral AI first",
+    "privacyLocal": "Transcribed entirely on this Mac. The audio is never sent anywhere.",
+    "privacyMistral": "Each recording you transcribe is sent to Mistral with your key and billed to it. Nothing is sent unless you start a transcription.",
+    "languagesSection": "Languages on this Mac",
+    "languagesBody": "macOS downloads each language’s speech model from Apple once, the way it does for dictation.",
+    "languageFr": "French",
+    "languageEn": "English",
+    "statusInstalled": "Installed",
+    "statusSupported": "Not installed",
+    "statusDownloading": "Downloading…",
+    "statusUnsupported": "Not available",
+    "install": "Install",
+    "installing": "Installing… {{percent}}%",
+    "installFailed": "The speech model could not be installed.",
+    "unsupportedOs": "Transcribing on this Mac needs macOS 26 or later. Mistral can still transcribe with your key.",
+    "defaultLanguage": "Language",
+    "defaultLanguageHint": "Where the transcribe dialog starts. Automatic listens to the first minute.",
+    "languageAuto": "Automatic",
+    "useCourseVocabulary": "Use course vocabulary",
+    "useCourseVocabularyHint": "Sends the course’s accepted terms with the audio, so its jargon is spelled its way."
+  },
+  "transcription": {
+    "languageQuestion": "Language",
+    "languageAuto": "Automatic",
+    "languageFr": "French",
+    "languageEn": "English",
+    "languageHosted": "Detected by Mistral",
+    "destinationQuestion": "Where the text goes",
+    "destinationNew": "New note",
+    "destinationAppend": "This note",
+    "start": "Transcribe",
+    "stop": "Stop",
+    "open": "Open transcript",
+    "busyElsewhere": "A transcription of “{{title}}” is already running.",
+    "stage": {
+      "preparing": "Reading the recording…",
+      "language": "Recognising the language…",
+      "transcribing": "Transcribing",
+      "writing": "Writing the note…"
+    },
+    "statusBar": "Transcribing “{{title}}” · {{percent}}%",
+    "statusBarDone": "Transcript of “{{title}}” ready",
+    "statusBarFailed": "Transcription of “{{title}}” failed",
+    "notifyTitle": "Transcript ready",
+    "notifyBody": "“{{title}}” has been transcribed.",
+    "noteTitle": "Transcript — {{title}}",
+    "heading": "Transcript",
+    "provenanceOf": "Transcript of",
+    "language": {
+      "fr": "French",
+      "en": "English"
+    },
+    "engineName": {
+      "apple-speech": "transcribed on this Mac",
+      "mistral-api": "transcribed by Mistral"
+    },
+    "failedAt": "Failed at {{start}}–{{end}}.",
+    "error": {
+      "ASR_RECORDING_BUSY": "Stop the recording first — a transcription waits until the lecture is kept.",
+      "ASR_AUDIO_MISSING": "That recording is no longer on this note.",
+      "ASR_AUDIO_UNSUPPORTED": "This audio format could not be read.",
+      "ASR_AUDIO_TOO_LONG": "Recordings over ten hours are not transcribed.",
+      "ASR_AUDIO_EMPTY": "The recording holds no audio.",
+      "ASR_NO_SPEECH": "No speech was recognised in this recording.",
+      "ASR_UNSUPPORTED": "Transcription needs the NotaBene desktop app.",
+      "ASR_UNSUPPORTED_OS": "Transcribing on this Mac needs macOS 26 or later.",
+      "ASR_LANGUAGE_NOT_INSTALLED": "The speech model for this language is not installed. Install it in Settings → Recording.",
+      "ASR_APPLE_LANGUAGE_NOT_INSTALLED": "The speech model for this language is not installed. Install it in Settings → Recording.",
+      "ASR_APPLE_LANGUAGE_UNSUPPORTED": "macOS cannot transcribe this language.",
+      "ASR_APPLE_AUDIO_UNREADABLE": "macOS could not read this recording.",
+      "ASR_APPLE_UNSUPPORTED_OS": "Transcribing on this Mac needs macOS 26 or later.",
+      "ASR_API_KEY_MISSING": "Connect Mistral AI in Settings → AI first.",
+      "ASR_API_ERROR": "Mistral could not transcribe the recording: {{detail}}",
+      "ASR_INVALID_RESPONSE": "The transcription came back in a form NotaBene could not read.",
+      "ASR_TIMEOUT": "Speech recognition stopped responding.",
+      "ASR_JOB_MISSING": "The transcription was interrupted.",
+      "generic": "The recording could not be transcribed."
+    },
+    "inline": "Transcribing · {{percent}}%",
+    "doneHere": "Transcript added",
+    "dismiss": "Dismiss",
+    "retry": "Try again",
+    "reviewShort_one": "{{count}} to review",
+    "reviewShort_other": "{{count}} to review",
+    "popoverTitle": "Transcribe",
+    "badgeLocal": "On this Mac",
+    "badgeHosted": "Mistral",
+    "labelLanguage": "Language",
+    "labelInto": "Add to",
+    "whereHosted": "Sent to Mistral ({{duration}}), billed to your key.",
+    "whereHostedShort": "Sent to Mistral, billed to your key.",
+    "failedShort": "Couldn’t transcribe"
   }
 }

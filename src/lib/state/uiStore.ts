@@ -131,6 +131,8 @@ interface UiState {
   aiVisualizeOpen: boolean;
   aiFlashcardsOpen: boolean;
   aiPodcastOpen: boolean;
+  /** The recording whose transcribe popover is open in the player (plan §10.3). */
+  transcribeTarget: { noteId: string; attachmentId: string } | null;
   /** A deep link from an agent run to the exact before-version it created. */
   requestedSnapshotId: string | null;
   settingsOpen: boolean;
@@ -226,6 +228,7 @@ interface UiState {
   setAiVisualizeOpen(open: boolean): void;
   setAiFlashcardsOpen(open: boolean): void;
   setAiPodcastOpen(open: boolean): void;
+  setTranscribeTarget(target: { noteId: string; attachmentId: string } | null): void;
   requestVersionSnapshot(snapshotId: string | null): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
@@ -281,6 +284,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiVisualizeOpen ||
     state.aiFlashcardsOpen ||
     state.aiPodcastOpen ||
+    state.transcribeTarget !== null ||
     state.taskDraft !== null ||
     state.taskPickerOpen ||
     state.wikipediaOpen ||
@@ -349,6 +353,7 @@ export const useUiStore = create<UiState>()(
     aiVisualizeOpen: false,
     aiFlashcardsOpen: false,
     aiPodcastOpen: false,
+    transcribeTarget: null,
     requestedSnapshotId: null,
     settingsOpen: false,
     settingsTab: 'general',
@@ -722,6 +727,12 @@ export const useUiStore = create<UiState>()(
     setAiPodcastOpen(open) {
       set((state) => {
         state.aiPodcastOpen = open;
+      });
+    },
+
+    setTranscribeTarget(target) {
+      set((state) => {
+        state.transcribeTarget = target;
       });
     },
 

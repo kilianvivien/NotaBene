@@ -1,4 +1,5 @@
 import type { TtsEngineId } from '../tts/TtsEngine';
+import type { AsrEngineId } from '../asr/AsrEngine';
 import type { McpClientId } from '../mcp/McpAdapter';
 
 /**
@@ -127,6 +128,18 @@ export interface RecordingSettings {
   gain: number;
   autoGain: boolean;
   noiseSuppression: boolean;
+  transcription: TranscriptionSettings;
+}
+
+/** Turning a recording into text (plan §10.3). */
+export interface TranscriptionSettings {
+  /** Apple's on-device recogniser by default. A hosted engine is only ever
+   * here because the student chose it. */
+  engineId: AsrEngineId;
+  /** The dialog's starting answer; `auto` listens to the first minute. */
+  language: 'auto' | 'fr' | 'en';
+  /** Send the course's accepted terms, so its jargon is spelled its way. */
+  useCourseVocabulary: boolean;
 }
 
 export const RECORDING_GAIN = { min: 1, max: 4 } as const;
@@ -317,7 +330,17 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // ×2: the platform's own level was too quiet for a lecture on the first
   // real recording (2026-09-28). Noise suppression off — it is tuned for a
   // voice a foot away, and takes a distant lecturer for noise.
-  recording: { deviceId: null, gain: 2, autoGain: true, noiseSuppression: false },
+  recording: {
+    deviceId: null,
+    gain: 2,
+    autoGain: true,
+    noiseSuppression: false,
+    transcription: {
+      engineId: 'apple-speech',
+      language: 'auto',
+      useCourseVocabulary: true,
+    },
+  },
   // On: a pasted phone photo is 5 MB shown at 640 px and carries its GPS
   // position, and a student would never think to look for this switch.
   imageOptimization: 'balanced',

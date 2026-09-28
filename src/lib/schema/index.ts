@@ -6,3 +6,4 @@ export * from './modelListApi';
 export * from './wikipediaApi';
 export * from './importedDocument';
 export * from './agent';
+export * from './transcript';
