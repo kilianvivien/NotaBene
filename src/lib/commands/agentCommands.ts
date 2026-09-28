@@ -360,9 +360,20 @@ export async function runAgentCommand(
   } catch (error) {
     const cancelled = options.signal?.aborted;
     const scopeDenied = error instanceof AgentScopeError;
+    // Stopped, timed out or garbled on the turn after the last planned step:
+    // the work is in the notes, and "cancelled" alone reads as if it were not.
+    // Still not `completed` — the model never gave its verdict.
+    const workDone =
+      !scopeDenied &&
+      !(error instanceof AgentBudgetError) &&
+      !(error instanceof AgentCompletionError) &&
+      record.calls.some((call) => call.status === 'succeeded') &&
+      !record.calls.some((call) => call.status === 'running') &&
+      missingSuccessfulPlanTools(record.plan, record.calls).length === 0;
     record.status = cancelled ? 'cancelled' : 'failed';
-    record.error =
-      error instanceof AgentBudgetError
+    record.error = workDone
+      ? i18n.t('agent.stoppedAfterWork')
+      : error instanceof AgentBudgetError
         ? budgetError(error.limit)
         : error instanceof AgentCompletionError
           ? i18n.t('agent.incompletePlan')

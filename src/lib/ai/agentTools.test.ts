@@ -235,6 +235,17 @@ describe('native decisions', () => {
     expect(toolResponseDecision({ text: 'I think…', calls: [] })).toBeNull();
   });
 
+  it('accepts a finish whose verdict arrives as the string "true"', () => {
+    expect(
+      toolResponseDecision({
+        text: '',
+        calls: [
+          { id: '1', name: 'finish', arguments: { outcomeAchieved: 'true', summary: 'Done' } },
+        ],
+      }),
+    ).toEqual({ action: 'done', outcomeAchieved: true, summary: 'Done' });
+  });
+
   it('nudges once when the model answers in prose, and carries standing instructions', async () => {
     const { aiTransport } = await import('@/lib/adapters');
     const bodies = [

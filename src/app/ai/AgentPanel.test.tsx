@@ -239,6 +239,35 @@ describe('AgentPanel review gate', () => {
     view.unmount();
     expect(useAiStore.getState().running).toBe('agent');
   });
+
+  it('says it is finishing, not done, while the model decides after the last step', () => {
+    const active = plannedRun();
+    active.status = 'running';
+    active.calls = ['list_notes', 'read_note'].map((tool, index) => ({
+      id: `call-${index}`,
+      tool: tool as 'list_notes' | 'read_note',
+      arguments: {},
+      rationale: 'Read the course notes before making changes.',
+      status: 'succeeded' as const,
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    }));
+    active.touchedNotes = [
+      { noteId: 'note-1', title: 'Limits', snapshotId: 'snapshot-1', created: false },
+    ];
+    useAgentStore.setState({ runs: [active], activeRunId: active.id });
+    useAiStore.setState({ running: 'agent' });
+
+    render(<AgentPanel noteId="note-1" />);
+
+    expect(screen.getByRole('status').textContent).toBe(
+      'Checking the result before finishing…',
+    );
+    // The result waits for the run to end, so a live run never looks finished.
+    expect(screen.queryByText('Result')).toBeNull();
+    // Once approved, the ceilings sentence has done its job.
+    expect(screen.queryByText(/Stops by itself/)).toBeNull();
+  });
 });
 
 describe('AgentPanel changeset review', () => {

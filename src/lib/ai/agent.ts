@@ -48,6 +48,12 @@ const DECISION_MAX_TOKENS = 8_192;
  * does, and on a four-thousand ceiling it spent most of the allowance on
  * thought before writing a five-step plan. */
 const PLAN_MAX_TOKENS = 8_192;
+/** One model turn may take this long, however much of the run's wall clock is
+ * left. Handing a turn the whole remaining clock meant a provider that stalled
+ * on the last turn — the one that only says "finished" — kept the panel on
+ * "Running" for up to ten minutes over work that was already done. The client
+ * retries a timeout, so a dropped connection costs two minutes, not the run. */
+const TURN_TIMEOUT_MS = 120_000;
 const MAX_TOOL_RESULT_CHARS = 16_000;
 /** A long note is source material, not an activity preview. Keeping enough of
  * it for the next decision prevents the agent from summarising only the first
@@ -469,6 +475,8 @@ export async function runAgentLoop(
     );
   };
   arm();
+  const turnTimeout = () =>
+    Math.max(1, Math.min(TURN_TIMEOUT_MS, deadline - runtime.now()));
 
   let transcript: unknown[] = [];
   let toolCalls = 0;
@@ -515,7 +523,7 @@ export async function runAgentLoop(
         const progress = await condense(request, condensedCalls, runtime, {
           ...options,
           signal: controller.signal,
-          timeoutMs: Math.max(1, deadline - runtime.now()),
+          timeoutMs: turnTimeout(),
         });
         tokensUsed += summaryInput + estimateTokens(JSON.stringify(progress));
         transcript = [
@@ -537,7 +545,7 @@ export async function runAgentLoop(
       const decision = await runtime.decide(request, view, {
         ...options,
         signal: controller.signal,
-        timeoutMs: Math.max(1, deadline - runtime.now()),
+        timeoutMs: turnTimeout(),
       });
       tokensUsed += inputTokens + estimateTokens(JSON.stringify(decision));
       request.onUsage?.({ tokensUsed, toolCalls });
@@ -842,7 +850,11 @@ export function toolResponseDecision(response: AiToolResponse): AgentDecision | 
   let ask: AgentDecision | null = null;
   for (const call of response.calls) {
     if (call.name === FINISH_TOOL) {
-      const parsed = AgentDecisionSchema.safeParse({ action: 'done', ...call.arguments });
+      const parsed = AgentDecisionSchema.safeParse({
+        action: 'done',
+        ...call.arguments,
+        outcomeAchieved: looseBoolean(call.arguments.outcomeAchieved),
+      });
       if (parsed.success) finish = parsed.data;
       continue;
     }
@@ -871,6 +883,15 @@ export function toolResponseDecision(response: AiToolResponse): AgentDecision | 
       : { action: 'batch', calls: calls.slice(0, 8) };
   }
   return ask ?? finish;
+}
+
+/** Some open models served over OpenAI-compatible endpoints write a boolean
+ * argument as the string "true". Refusing that turned a run that had finished
+ * its work into a failed one. Anything else is left for the schema to reject. */
+function looseBoolean(value: unknown): unknown {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
 }
 
 async function requestDecision(

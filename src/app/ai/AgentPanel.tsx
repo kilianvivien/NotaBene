@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Bot,
   Check,
+  ChevronRight,
   FileClock,
   Loader2,
   Plus,
@@ -41,6 +42,9 @@ import {
   undoAgentRunCommand,
 } from '@/lib/commands';
 import { summarizeChangeset } from '@/lib/commands/agentChangeset';
+// The same test the command layer applies before it accepts "done", so the
+// live line can say the agent is wrapping up rather than looking for work.
+import { missingSuccessfulPlanTools } from '@/lib/commands/agentCommands';
 import { tagLabel } from '@/lib/notes/tagLabel';
 import { TAG_NAMESPACES, type TagNamespace } from '@/lib/schema';
 import type { AgentRunRecord, AgentScope } from '@/lib/schema';
@@ -528,130 +532,142 @@ function RunView({
 }) {
   const { t } = useTranslation();
   const planSummary = userFacingAgentText(planText(run.plan, run.plan.summary));
+  const gate = run.status === 'planned';
+  // Between two calls the run is waiting on the model, and nothing in the list
+  // moves. Saying so is what separates "still working" from "stuck" — without
+  // it, a finished-looking list over a Stop button read as a run that had
+  // already ended.
+  const waiting =
+    running && !run.pendingQuestion && !run.calls.some((call) => call.status === 'running');
+
+  const steps = (
+    <ol className="space-y-1.5">
+      {run.plan.steps.map((step, index) => {
+        const titles = planStepTitles(run.plan, step);
+        const description = userFacingAgentText(planText(run.plan, step.description));
+        return (
+          <li key={index} className="flex gap-1.5 text-[11.5px] leading-relaxed">
+            <span className="mt-[3px] grid size-[15px] shrink-0 place-items-center rounded-full bg-[var(--nb-hover)] text-[9px] text-nb-text-3">
+              {index + 1}
+            </span>
+            <span className="min-w-0 text-nb-text-2">
+              {description}
+              {titles.length > 0 && (
+                <span className="ml-1 text-[10.5px] text-nb-text-3">
+                  {titles.map((title) => `“${title}”`).join(' · ')}
+                </span>
+              )}
+              {gate && step.expectedTools.length > 0 && (
+                <span className="ml-1 text-[10.5px] text-nb-text-3">
+                  {step.expectedTools.map((tool) => toolLabel(tool, t)).join(' · ')}
+                </span>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
 
   return (
     <>
-      <section className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-paper)] px-3 py-2.5">
-        <Eyebrow>{t(run.parentRunId ? 'agent.followUp' : 'agent.asked')}</Eyebrow>
-        <p className="mt-0.5 text-[11.5px] leading-relaxed text-nb-text-3">
-          {run.instruction}
-        </p>
+      {gate ? (
+        <section className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-paper)] px-3 py-2.5">
+          <Eyebrow>{t(run.parentRunId ? 'agent.followUp' : 'agent.asked')}</Eyebrow>
+          <p className="mt-0.5 text-[11.5px] leading-relaxed text-nb-text-3">
+            {run.instruction}
+          </p>
 
-        <p className="mt-2.5 text-[12.5px] font-semibold leading-snug">
-          {planSummary ?? t('agent.planFallback')}
-        </p>
-        <ol className="mt-2 space-y-1.5">
-          {run.plan.steps.map((step, index) => {
-            const titles = planStepTitles(run.plan, step);
-            const description = userFacingAgentText(planText(run.plan, step.description));
-            return (
-              <li key={index} className="flex gap-1.5 text-[11.5px] leading-relaxed">
-                <span className="mt-[3px] grid size-[15px] shrink-0 place-items-center rounded-full bg-[var(--nb-hover)] text-[9px] text-nb-text-3">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 text-nb-text-2">
-                  {description}
-                  {titles.length > 0 && (
-                    <span className="ml-1 text-[10.5px] text-nb-text-3">
-                      {titles.map((title) => `“${title}”`).join(' · ')}
-                    </span>
-                  )}
-                  {step.expectedTools.length > 0 && (
-                    <span className="ml-1 text-[10.5px] text-nb-text-3">
-                      {step.expectedTools.map((tool) => toolLabel(tool, t)).join(' · ')}
-                    </span>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+          <p className="mt-2.5 text-[12.5px] font-semibold leading-snug">
+            {planSummary ?? t('agent.planFallback')}
+          </p>
+          <div className="mt-2">{steps}</div>
 
-        {/* The ceilings, as a sentence. They were a four-column grid of numbers
-            headed "Token ceiling", which is a unit nobody outside this file
-            thinks in — the exact figures moved to the details disclosure. */}
-        <p className="mt-2.5 rounded-nb-xs bg-[var(--nb-inset-surface)] px-2 py-1.5 text-[10.5px] leading-relaxed text-nb-text-3">
-          {limitsSentence(run, t)}
-        </p>
-        {/* On the gate, so a plan's origin is legible: a step the student did
-            not ask for may have come from a convention they set weeks ago. */}
-        {run.standingInstructions && (
-          <details className="mt-2 text-[10.5px] leading-relaxed text-nb-text-3">
-            <summary className="cursor-pointer">
-              {t('agent.instructions.applied')}
+          {/* The ceilings, as a sentence. They were a four-column grid of numbers
+              headed "Token ceiling", which is a unit nobody outside this file
+              thinks in — the exact figures moved to the details disclosure. */}
+          <p className="mt-2.5 rounded-nb-xs bg-[var(--nb-inset-surface)] px-2 py-1.5 text-[10.5px] leading-relaxed text-nb-text-3">
+            {limitsSentence(run, t)}
+          </p>
+          {/* On the gate, so a plan's origin is legible: a step the student did
+              not ask for may have come from a convention they set weeks ago. */}
+          {run.standingInstructions && (
+            <details className="mt-2 text-[10.5px] leading-relaxed text-nb-text-3">
+              <summary className="cursor-pointer">
+                {t('agent.instructions.applied')}
+              </summary>
+              <p className="mt-1 whitespace-pre-wrap rounded-nb-xs bg-[var(--nb-inset-surface)] px-2 py-1.5">
+                {run.standingInstructions}
+              </p>
+              <button
+                type="button"
+                className="mt-1 text-[var(--nb-accent)] underline-offset-2 hover:underline"
+                onClick={() => {
+                  useUiStore.getState().setSettingsTab('agent');
+                  useUiStore.getState().setSettingsOpen(true);
+                }}
+              >
+                {t('agent.instructions.edit')}
+              </button>
+            </details>
+          )}
+        </section>
+      ) : (
+        // Once the plan was approved it is context, not a decision: the task and
+        // the plan's one-line summary, with the steps a click away.
+        <section className="px-1">
+          <p
+            className="line-clamp-2 text-[11.5px] leading-relaxed text-nb-text-3"
+            title={run.instruction}
+          >
+            {run.instruction}
+          </p>
+          <details className="group mt-1">
+            <summary className="flex cursor-pointer list-none items-baseline gap-1.5 text-[12px] font-semibold leading-snug [&::-webkit-details-marker]:hidden">
+              <ChevronRight
+                size={11}
+                aria-hidden
+                className="shrink-0 translate-y-[1px] text-nb-text-3 transition-transform duration-[var(--nb-t-fast)] group-open:rotate-90"
+              />
+              <span className="min-w-0">{planSummary ?? t('agent.planFallback')}</span>
+              <span className="ml-auto shrink-0 text-[10px] font-normal text-nb-text-3">
+                {t('agent.planSteps', { count: run.plan.steps.length })}
+              </span>
             </summary>
-            <p className="mt-1 whitespace-pre-wrap rounded-nb-xs bg-[var(--nb-inset-surface)] px-2 py-1.5">
-              {run.standingInstructions}
-            </p>
-            <button
-              type="button"
-              className="mt-1 text-[var(--nb-accent)] underline-offset-2 hover:underline"
-              onClick={() => {
-                useUiStore.getState().setSettingsTab('agent');
-                useUiStore.getState().setSettingsOpen(true);
-              }}
-            >
-              {t('agent.instructions.edit')}
-            </button>
+            <div className="mt-1.5 pl-4">{steps}</div>
           </details>
-        )}
-      </section>
+        </section>
+      )}
 
       {running && run.pendingQuestion && <QuestionCard run={run} />}
 
-      {run.status !== 'planned' && (
+      {!gate && (
         <section>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 px-1">
             <Eyebrow>{t(running ? 'agent.activityLive' : 'agent.activityDone')}</Eyebrow>
             <StatusLabel status={run.status} />
           </div>
-          {run.calls.length ? (
-            <ul className="mt-1.5 space-y-1">
-              {run.calls.map((call) => {
-                const outcome = callOutcome(call, run, t);
-                const rationale = userFacingAgentText(call.rationale);
-                const callError = call.error
-                  ? (agentErrorText(call.error) ?? t('agent.stepErrorFallback'))
-                  : null;
-                return (
-                  <li
-                    key={call.id}
-                    className="rounded-nb-xs border border-[var(--nb-divider)] bg-[var(--nb-paper)] px-2 py-1.5"
-                  >
-                    <div className="flex items-start gap-1.5">
-                      <span className="mt-[1px] shrink-0">
-                        <CallIcon status={call.status} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11.5px] font-medium leading-snug text-nb-text-2">
-                          {toolLabel(call.tool, t)}
-                        </p>
-                        {rationale && (
-                          <p className="mt-0.5 text-[11px] leading-relaxed text-nb-text-3">
-                            {rationale}
-                          </p>
-                        )}
-                        {(outcome || callError) && (
-                          <p
-                            className={cn(
-                              'mt-0.5 text-[10.5px] leading-relaxed',
-                              callError ? 'text-[var(--nb-danger)]' : 'text-nb-text-3',
-                            )}
-                          >
-                            {callError ?? outcome}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : running ? (
-            <p className="mt-1.5 flex items-center gap-2 text-[11.5px] text-nb-text-3">
-              <Loader2 size={12} className="animate-spin" /> {t('agent.thinking')}
-            </p>
-          ) : null}
+          <ul className="mt-1 divide-y divide-[var(--nb-divider)] rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-paper)] empty:hidden">
+            {run.calls.map((call) => (
+              <CallRow key={call.id} call={call} run={run} />
+            ))}
+            {waiting && (
+              <li
+                role="status"
+                className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-nb-text-3"
+              >
+                <Loader2 size={11} className="shrink-0 animate-spin text-[var(--nb-accent)]" />
+                <span className="truncate">
+                  {t(
+                    run.calls.some((call) => call.status === 'succeeded') &&
+                      !missingSuccessfulPlanTools(run.plan, run.calls).length
+                      ? 'agent.finishing'
+                      : 'agent.thinking',
+                  )}
+                </span>
+              </li>
+            )}
+          </ul>
           {(run.questions ?? []).length > 0 && (
             <ul className="mt-1.5 space-y-1">
               {(run.questions ?? []).map((entry, index) => (
@@ -674,7 +690,9 @@ function RunView({
         <ChangesetCard changeset={run.changeset} />
       )}
 
-      {(run.summary || run.error || run.touchedNotes.length > 0) && (
+      {/* Not while running: a Result box under a live run is what made one look
+          finished while the agent was still deciding whether it was. */}
+      {!running && (run.summary || run.error || run.touchedNotes.length > 0) && (
         <section className="rounded-nb-sm bg-[var(--nb-inset-surface)] px-3 py-2.5">
           <Eyebrow>{t('agent.result')}</Eyebrow>
           {run.summary && (
@@ -722,6 +740,67 @@ function RunView({
         </section>
       )}
     </>
+  );
+}
+
+/**
+ * One call, on one line: what happened when it did ("Read “Journée
+ * Outre-mer”"), what it was doing when it has not finished. The model's
+ * rationale — usually a paragraph restating the plan step — is a click away;
+ * as three lines under every call it filled the column with the plan twice.
+ * An error stays visible, because it is the line the student needs.
+ */
+function CallRow({
+  call,
+  run,
+}: {
+  call: AgentRunRecord['calls'][number];
+  run: AgentRunRecord;
+}) {
+  const { t } = useTranslation();
+  const outcome = callOutcome(call, run, t);
+  const rationale = userFacingAgentText(call.rationale);
+  const callError = call.error
+    ? (agentErrorText(call.error) ?? t('agent.stepErrorFallback'))
+    : null;
+  const line = outcome ?? toolLabel(call.tool, t);
+  const head = (
+    <>
+      <span className="shrink-0 translate-y-[1px]">
+        <CallIcon status={call.status} />
+      </span>
+      <span className="min-w-0 flex-1 truncate">{line}</span>
+    </>
+  );
+
+  return (
+    <li className="px-2 py-1.5 text-[11px] leading-snug text-nb-text-2">
+      {rationale ? (
+        <details className="group">
+          <summary
+            title={rationale}
+            className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"
+          >
+            {head}
+            <ChevronRight
+              size={10}
+              aria-hidden
+              className="shrink-0 text-nb-text-3 opacity-60 transition-transform duration-[var(--nb-t-fast)] group-open:rotate-90"
+            />
+          </summary>
+          <p className="mt-1 pl-[17px] text-[10.5px] leading-relaxed text-nb-text-3">
+            {rationale}
+          </p>
+        </details>
+      ) : (
+        <div className="flex items-center gap-1.5">{head}</div>
+      )}
+      {callError && (
+        <p className="mt-0.5 pl-[17px] text-[10.5px] leading-relaxed text-[var(--nb-danger)]">
+          {callError}
+        </p>
+      )}
+    </li>
   );
 }
 
