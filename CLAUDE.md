@@ -133,9 +133,9 @@ completion from a per-course vocabulary, curated course terms, an AI
 vocabulary review, and an on-demand paragraph check. L (1.2.0, importers and
 calendars) adds importing a Markdown folder, an Obsidian vault or a Notion
 export, with a preview, folder-to-course mapping, idempotent re-import and
-provenance, and tasks to and from `.ics` calendars. M (1.3, in progress) adds
-lecture recording anchored to the blocks typed during it. N (1.3.5, on `main`,
-unreleased) adds transcription of any audio attachment. `docs/plan.md` tracks
+provenance, and tasks to and from `.ics` calendars. M (1.3.0) adds lecture
+recording anchored to the blocks typed during it. N (1.3.5) adds
+transcription of any audio attachment. `docs/plan.md` tracks
 what is still open honestly — read it before assuming something works.
 
 Phase G notes worth knowing before touching it:
@@ -318,8 +318,8 @@ Lecture audio notes (phase M, plan §10.0) worth knowing before touching it:
   it.
 - How the microphone is read lives in `settings.recording` (Settings →
   Recording): device, a gain stage behind a limiter in the capture graph
-  (default ×2), automatic level, noise reduction. Transcription is planned
-  for 1.3.5 (§10.3) and gets its section in that pane, not a new one. Never
+  (default ×2), automatic level, noise reduction. Transcription in 1.3.5
+  (§10.3) has its section in that pane, not a new one. Never
   call CrispASR's `set_punc_model`: it downloads a model on first use.
 - Markers are drawn only for recordings the player found on the open note
   (`lecturePlaybackStore`), which loads audio on first play, not on open.
