@@ -27,6 +27,7 @@ export interface RecordingSink {
 /** Short enough that a crash loses seconds, long enough that a ninety-minute
  * lecture is about 1,350 writes rather than tens of thousands. */
 export const SLICE_MS = 4_000;
+export const COUNTDOWN_SECONDS = 5;
 
 /** Speech, mono: 64 kb/s AAC is about 43 MB for ninety minutes. */
 const BITS_PER_SECOND = 64_000;
@@ -136,7 +137,13 @@ async function openInput(input: RecordingInput): Promise<OpenInput> {
   // One context per session, closed with it, so neither the gain stage nor
   // the meter can outlive the recording they belong to.
   const context = new Context();
-  void context.resume().catch(() => undefined);
+  try {
+    await context.resume();
+  } catch (error) {
+    release();
+    void context.close().catch(() => undefined);
+    throw unavailableFrom(error);
+  }
   const source = context.createMediaStreamSource(microphone);
   let tail: AudioNode = source;
   let stream = microphone;
@@ -213,6 +220,22 @@ export function createMediaRecorderAdapter(sink: RecordingSink): RecorderAdapter
       const opened = await openInput(request.input ?? DEFAULT_RECORDING_INPUT);
       const { stream } = opened;
       const releaseStream = () => opened.close();
+
+      // Warm the same microphone and processing graph that will be recorded.
+      // The countdown is not encoded, and anchors start at the encoder's zero.
+      try {
+        for (let seconds = COUNTDOWN_SECONDS; seconds > 0; seconds--) {
+          request.onCountdown?.(seconds);
+          await new Promise<void>((resolve) => setTimeout(resolve, 1_000));
+          if (opened.microphone.getAudioTracks()[0]?.readyState === 'ended') {
+            throw new RecorderUnavailableError('no_device', 'input device went away');
+          }
+        }
+        request.onCountdown?.(0);
+      } catch (error) {
+        releaseStream();
+        throw error;
+      }
 
       const requested = chooseMime();
       let recorder: MediaRecorder;

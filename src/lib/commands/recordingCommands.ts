@@ -52,6 +52,7 @@ export interface StartRecordingInput {
   /** Settings → Recording. */
   input?: RecordingInput;
   onLevel?(level: number): void;
+  onCountdown?(seconds: number): void;
   onFailure?(error: unknown): void;
 }
 
@@ -74,6 +75,7 @@ export async function startRecordingCommand(
         noteId: input.noteId,
         input: input.input,
         onLevel: input.onLevel,
+        onCountdown: input.onCountdown,
         onFailure: input.onFailure,
       }),
     );

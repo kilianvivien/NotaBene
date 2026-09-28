@@ -66,6 +66,7 @@ function memorySink() {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
   vi.stubGlobal('MediaRecorder', FakeRecorder);
   vi.stubGlobal('navigator', {
     mediaDevices: { getUserMedia: vi.fn(async () => stream) },
@@ -73,23 +74,74 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   FakeRecorder.last = null;
 });
 
 describe('createMediaRecorderAdapter', () => {
+  it('opens the microphone for the countdown but starts encoding and anchors only at zero', async () => {
+    const sink = memorySink();
+    const onCountdown = vi.fn();
+    const before = Date.now();
+    const pending = createMediaRecorderAdapter(sink).start({
+      id: 'rec-1',
+      noteId: 'note-1',
+      onCountdown,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledOnce();
+    expect(onCountdown).toHaveBeenLastCalledWith(5);
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(FakeRecorder.last).toBeNull();
+    expect(sink.begin).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    const session = await pending;
+    expect(onCountdown.mock.calls.map(([seconds]) => seconds)).toEqual([
+      5, 4, 3, 2, 1, 0,
+    ]);
+    expect(session.startedAt).toBe(before + 5_000);
+    expect(FakeRecorder.last?.state).toBe('recording');
+    await session.cancel();
+  });
+
+  it('does not create a recording when the microphone ends during preparation', async () => {
+    const stop = vi.fn();
+    const endedTrack = { stop, readyState: 'ended' };
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn(async () => ({
+          getTracks: () => [endedTrack],
+          getAudioTracks: () => [endedTrack],
+        })),
+      },
+    });
+    const sink = memorySink();
+    const pending = createMediaRecorderAdapter(sink)
+      .start({ id: 'rec-1', noteId: 'note-1' })
+      .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(await pending).toMatchObject({ reason: 'no_device' });
+    expect(stop).toHaveBeenCalledOnce();
+    expect(sink.begin).not.toHaveBeenCalled();
+  });
+
   it('records AAC in slices and writes them in order before finishing', async () => {
     const sink = memorySink();
     const adapter = createMediaRecorderAdapter(sink);
 
-    const session = await adapter.start({ id: 'rec-1', noteId: 'note-1' });
+    const pending = adapter.start({ id: 'rec-1', noteId: 'note-1' });
+    await vi.advanceTimersByTimeAsync(5_000);
+    const session = await pending;
     expect(session.mime).toBe('audio/mp4');
     expect(sink.begin).toHaveBeenCalledWith('rec-1', 'note-1', 'audio/mp4');
     expect(FakeRecorder.last?.timeslice).toBe(SLICE_MS);
 
     FakeRecorder.last!.emit('1');
     FakeRecorder.last!.emit('22');
-    const asset = await session.stop();
+    const stopped = session.stop();
+    await vi.advanceTimersByTimeAsync(20);
+    const asset = await stopped;
 
     expect(sink.written).toEqual([1, 2, 3]);
     expect(sink.finish).toHaveBeenCalledWith('rec-1');
@@ -122,7 +174,9 @@ describe('createMediaRecorderAdapter', () => {
     });
     const onFailure = vi.fn();
     const adapter = createMediaRecorderAdapter(sink);
-    await adapter.start({ id: 'rec-1', noteId: 'note-1', onFailure });
+    const pending = adapter.start({ id: 'rec-1', noteId: 'note-1', onFailure });
+    await vi.advanceTimersByTimeAsync(5_000);
+    await pending;
 
     FakeRecorder.last!.emit('one');
     FakeRecorder.last!.emit('two');
@@ -132,10 +186,12 @@ describe('createMediaRecorderAdapter', () => {
 
   it('throws the audio away only on cancel', async () => {
     const sink = memorySink();
-    const session = await createMediaRecorderAdapter(sink).start({
+    const pending = createMediaRecorderAdapter(sink).start({
       id: 'rec-1',
       noteId: 'note-1',
     });
+    await vi.advanceTimersByTimeAsync(5_000);
+    const session = await pending;
     await session.cancel();
     expect(sink.discard).toHaveBeenCalledWith('rec-1');
     expect(sink.finish).not.toHaveBeenCalled();
@@ -144,11 +200,13 @@ describe('createMediaRecorderAdapter', () => {
   it('asks for the chosen microphone with the chosen processing', async () => {
     const getUserMedia = vi.fn(async () => stream);
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
-    const session = await createMediaRecorderAdapter(memorySink()).start({
+    const pending = createMediaRecorderAdapter(memorySink()).start({
       id: 'rec-1',
       noteId: 'note-1',
       input: { deviceId: 'usb-mic', gain: 1, autoGain: true, noiseSuppression: true },
     });
+    await vi.advanceTimersByTimeAsync(5_000);
+    const session = await pending;
     // Automatic level is ours, in the graph; the platform's ramps up over
     // the first seconds of every recording and is never asked for.
     expect(getUserMedia).toHaveBeenCalledWith({

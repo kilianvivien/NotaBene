@@ -2237,6 +2237,8 @@
     "anchorsHint": "Recording. Each paragraph you start now remembers when it was written.",
     "stopIn": "Stop recording in “{{title}}”",
     "status": "Recording {{time}}",
+    "countdown": "Recording starts in {{seconds}}…",
+    "preparing": "Preparing microphone…",
     "saving": "Saving recording…",
     "anchorsElsewhere": "anchors go to “{{title}}”",
     "save": "Save recording to a file…",

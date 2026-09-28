@@ -53,12 +53,26 @@ export function RecordButton() {
   const { t } = useTranslation();
   const status = useRecordingStore((state) => state.status);
   const noteTitle = useRecordingStore((state) => state.noteTitle);
+  const countdown = useRecordingStore((state) => state.countdown);
   const hasNote = useEditorStore((state) => state.note !== null);
   const readOnly = useLibraryAccessStore((state) => state.status?.readOnly === true);
   const elapsed = useRecordingElapsed();
 
   // The browser shell cannot record; a button that can only fail is noise.
   if (!recorder.supported()) return null;
+
+  if (status === 'starting') {
+    return (
+      <span className="nb-recording-pill" role="status" aria-live="polite">
+        <Mic size={14} aria-hidden />
+        <span className="tabular-nums">
+          {countdown !== null && countdown > 0
+            ? t('recording.countdown', { seconds: countdown })
+            : t('recording.preparing')}
+        </span>
+      </span>
+    );
+  }
 
   if (status === 'recording' || status === 'stopping') {
     const label = t('recording.stopIn', { title: noteTitle || t('noteList.untitled') });
@@ -82,7 +96,7 @@ export function RecordButton() {
   return (
     <GlassIconButton
       label={t('menu.recordLecture')}
-      disabled={!hasNote || readOnly || status === 'starting'}
+      disabled={!hasNote || readOnly}
       onClick={() => void runAppCommand('recording.toggle')}
     >
       <Mic size={16} />

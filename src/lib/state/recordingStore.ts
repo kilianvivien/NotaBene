@@ -39,6 +39,7 @@ interface RecordingState {
   /** Captured at the start so the status bar can name the note from any view. */
   noteTitle: string;
   startedAt: number | null;
+  countdown: number | null;
   /** 0–1, for the meter. */
   level: number;
   start(noteId: string, noteTitle: string): Promise<CommandResult<unknown>>;
@@ -56,6 +57,7 @@ const IDLE = {
   noteId: null,
   noteTitle: '',
   startedAt: null,
+  countdown: null,
   level: 0,
 };
 
@@ -73,6 +75,9 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const started = await startRecordingCommand({
       noteId,
       input: useSettingsStore.getState().settings.recording,
+      onCountdown: (countdown) => {
+        if (get().status === 'starting') set({ countdown });
+      },
       onLevel: (level) => {
         if (get().status === 'recording') set({ level });
       },
@@ -92,6 +97,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     session = started.value;
     set({
       status: 'recording',
+      countdown: null,
       recordingId: started.value.id,
       startedAt: started.value.startedAt,
     });

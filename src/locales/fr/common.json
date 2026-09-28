@@ -2237,6 +2237,8 @@
     "anchorsHint": "Enregistrement en cours. Chaque paragraphe commencé maintenant retient le moment où il a été écrit.",
     "stopIn": "Arrêter l’enregistrement dans « {{title}} »",
     "status": "Enregistrement {{time}}",
+    "countdown": "L’enregistrement commence dans {{seconds}}…",
+    "preparing": "Préparation du micro…",
     "saving": "Sauvegarde de l’enregistrement…",
     "anchorsElsewhere": "les ancres vont dans « {{title}} »",
     "save": "Enregistrer dans un fichier…",

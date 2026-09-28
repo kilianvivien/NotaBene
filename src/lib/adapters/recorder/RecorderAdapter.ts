@@ -66,6 +66,8 @@ export interface RecorderStartRequest {
   noteId: string;
   /** Input level, 0–1, a few times a second — the title bar's meter. */
   onLevel?(level: number): void;
+  /** Microphone is open; encoding starts after the countdown reaches zero. */
+  onCountdown?(seconds: number): void;
   /**
    * Capture or the disk failed mid-recording. Everything acknowledged so far
    * is on disk and will be offered back; the session is over.
