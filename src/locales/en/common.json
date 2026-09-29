@@ -2365,5 +2365,28 @@
     "failedShort": "Couldn’t transcribe",
     "corrected_one": "{{count}} word respelled from the lecture’s vocabulary",
     "corrected_other": "{{count}} words respelled from the lecture’s vocabulary"
+  },
+  "contextMenu": {
+    "selection": "Selected text",
+    "editing": "Edit note",
+    "pastePlain": "Paste as plain text",
+    "correct": "Correct selection…",
+    "rewrite": "Rewrite selection…",
+    "assistTitle": "Work on selected text",
+    "assistDescription": "Only this passage is sent to your chosen AI provider. Review the result before replacing it.",
+    "correctDescription": "Fix spelling, grammar and punctuation while keeping your wording.",
+    "rewriteDescription": "Improve clarity and flow without changing the meaning.",
+    "original": "Original selection",
+    "proposal": "Suggested replacement",
+    "generate": "Generate suggestion",
+    "generating": "Working…",
+    "apply": "Replace selection",
+    "formattingNote": "Replacement uses plain text; inline formatting may change. You can undo it with ⌘Z.",
+    "changed": "The note changed. Close this dialog, select the passage again and retry.",
+    "selectionLimit": "Select up to 4,000 characters of prose, without tables, code or embedded objects.",
+    "clipboardChanged": "The selection changed before pasting. Please paste again.",
+    "clipboardEmpty": "No text found on the clipboard. Use ⌘V to paste images or files.",
+    "clipboardFailed": "Clipboard access was unavailable. Use the keyboard shortcut to copy, cut or paste.",
+    "saveFailed": "The change is in the editor but could not be saved. Check the save status and retry."
   }
 }

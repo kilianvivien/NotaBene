@@ -1,5 +1,23 @@
 # Release notes
 
+## NotaBene 1.3.6 — Unreleased
+
+- **Edit where you write.** The note editor has its own right-click menu,
+  with clipboard actions, plain-text paste, undo/redo, formatting, links and
+  contextual vocabulary tools. It follows the app’s theme and accent and
+  supports keyboard navigation. Shift-right-click retains the native menu.
+- **AI for a selected passage.** Correct selection and Rewrite selection
+  send only the selected prose to your configured provider. Review the original
+  and proposal before replacing it; stale results are refused, an AI version
+  is saved, and the edit can be undone. Selections are limited to 4,000
+  characters; replacements use plain text.
+- **One autocomplete preview.** Disable WebKit’s native inline predictions in
+  the editor so they cannot add a second grey suffix beside NotaBene’s own
+  completion. The reported “publiqueque” display still needs confirmation in
+  the macOS dev window; automated tests cover the suffix and Tab insertion.
+
+No library schema change.
+
 ## NotaBene 1.3.5
 
 - **Transcribe a lecture.** The lecture player has a Transcribe button

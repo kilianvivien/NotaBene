@@ -4,6 +4,8 @@
  * Editor instance in global state or teaching the command layer about React.
  */
 export type EditorCommand =
+  | 'correctSelection'
+  | 'rewriteSelection'
   | 'bold'
   | 'italic'
   | 'underline'

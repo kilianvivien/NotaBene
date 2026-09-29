@@ -158,6 +158,8 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('ai.agent', t),
         separator,
         command('ai.rewrite', t),
+        command('ai.correctSelection', t),
+        command('ai.rewriteSelection', t),
         command('ai.synthesize', t),
         command('ai.define', t),
         command('ai.vocabularyReview', t),

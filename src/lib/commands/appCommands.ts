@@ -75,6 +75,8 @@ export const APP_COMMAND_IDS = [
   'view.documentMap',
   'view.focusMode',
   'ai.rewrite',
+  'ai.correctSelection',
+  'ai.rewriteSelection',
   'ai.synthesize',
   'ai.ask',
   'ai.visualize',
@@ -141,7 +143,9 @@ async function openQuickNote(): Promise<CommandResult<unknown>> {
 /** Playback acts on the open note's audio; with none there is nothing to do,
  * and saying so beats a shortcut that silently does nothing. */
 async function lectureAction(
-  action: (playback: ReturnType<typeof useLecturePlaybackStore.getState>) => Promise<void>,
+  action: (
+    playback: ReturnType<typeof useLecturePlaybackStore.getState>,
+  ) => Promise<void>,
 ): Promise<CommandResult<unknown>> {
   const playback = useLecturePlaybackStore.getState();
   const noteId = useEditorStore.getState().note?.id;
@@ -763,6 +767,20 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     },
   },
 
+  'ai.correctSelection': {
+    id: 'ai.correctSelection',
+    labelKey: 'contextMenu.correct',
+    accelerator: 'CmdOrCtrl+Alt+Shift+K',
+    landsIn: 'E',
+    run: editorAction('correctSelection'),
+  },
+  'ai.rewriteSelection': {
+    id: 'ai.rewriteSelection',
+    labelKey: 'contextMenu.rewrite',
+    accelerator: 'CmdOrCtrl+Alt+Shift+J',
+    landsIn: 'E',
+    run: editorAction('rewriteSelection'),
+  },
   'ai.rewrite': {
     id: 'ai.rewrite',
     labelKey: 'ai.rewrite',

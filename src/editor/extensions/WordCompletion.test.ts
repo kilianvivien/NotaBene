@@ -24,6 +24,7 @@ const INDEX: CompletionIndex = buildCompletionIndex(
     { term: 'Schrödinger', status: 'accepted' },
     { term: 'cellule', status: 'accepted' },
     { term: 'cellulaire', status: 'accepted' },
+    { term: 'publique', status: 'accepted' },
   ],
 );
 
@@ -103,6 +104,31 @@ function text(current: Editor): string {
 }
 
 describe('word completion', () => {
+  it('owns inline predictions and renders only one shrinking suffix for publique', () => {
+    const current = open('<p></p>');
+    expect(current.view.dom.getAttribute('writingsuggestions')).toBe('false');
+    type(current, 'Innovation publi');
+    expect(currentCompletion(current.state)?.rest).toBe('que');
+    const ghosts = () =>
+      current.view.dom.querySelectorAll<HTMLElement>('.nb-completion-ghost');
+    expect(ghosts()).toHaveLength(1);
+    expect(ghosts()[0]?.dataset.rest).toBe('que');
+    expect(ghosts()[0]?.textContent).toBe('');
+    type(current, 'q');
+    expect(ghosts()).toHaveLength(1);
+    expect(ghosts()[0]?.dataset.rest).toBe('ue');
+    press(current, 'Tab');
+    expect(text(current)).toBe('Innovation publique');
+    expect(ghosts()).toHaveLength(0);
+  });
+
+  it('keeps native predictions off when app completion is disabled', () => {
+    enabled = false;
+    const current = open('<p></p>');
+    type(current, 'publi');
+    expect(current.view.dom.getAttribute('writingsuggestions')).toBe('false');
+    expect(currentCompletion(current.state)).toBeNull();
+  });
   it('draws the rest of the word after the caret without writing it', () => {
     const current = open('<p></p>');
     type(current, 'La mito');
@@ -340,7 +366,8 @@ describe('word completion', () => {
     const current = open('<p></p>');
     type(current, 'mito');
     expect(
-      current.view.dom.querySelector<HTMLElement>('.nb-completion-hint kbd')?.dataset.label,
+      current.view.dom.querySelector<HTMLElement>('.nb-completion-hint kbd')?.dataset
+        .label,
     ).toBe('tab');
     // Beside the ghost text, never in the note.
     expect(text(current)).toBe('mito');

@@ -51,9 +51,9 @@ describe('the command table', () => {
   });
 
   it('assigns each accelerator to at most one command', () => {
-    const accelerators = APP_COMMAND_IDS.map((id) => APP_COMMANDS[id].accelerator).filter(
-      Boolean,
-    );
+    const accelerators = APP_COMMAND_IDS.map((id) => APP_COMMANDS[id].accelerator)
+      .filter(Boolean)
+      .map((value) => value!.split('+').sort().join('+'));
     expect(new Set(accelerators).size).toBe(accelerators.length);
   });
 

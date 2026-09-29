@@ -124,9 +124,13 @@ export function aiFailure<T>(error: unknown, signal?: AbortSignal): CommandResul
   // (`ai.rs`), and the student said no. Their answer, not a fault.
   const declined = /origin_declined:.*?contact (\S+)/.exec(message);
   if (declined) {
-    return fail('not_supported', i18n.t('ai.error_origin_declined', { origin: declined[1] }), {
-      aiReason: 'origin_declined',
-    });
+    return fail(
+      'not_supported',
+      i18n.t('ai.error_origin_declined', { origin: declined[1] }),
+      {
+        aiReason: 'origin_declined',
+      },
+    );
   }
   return fail(
     'invalid_input',
@@ -441,4 +445,33 @@ export async function saveAnswerAsNoteCommand(
     },
     AI,
   );
+}
+
+/** Selection reviews keep the editor transaction (and its undo history) while
+ * preserving the durable pre-AI version before any accepted text is inserted. */
+export async function applyEditorAiSelectionCommand(
+  noteId: string,
+  apply: () => boolean,
+): Promise<CommandResult<void>> {
+  const store = useEditorStore;
+  await store.getState().flush();
+  if (
+    store.getState().note?.id !== noteId ||
+    store.getState().saveState === 'error' ||
+    store.getState().conflict
+  ) {
+    return fail('conflict', i18n.t('contextMenu.changed'));
+  }
+  try {
+    await library.createSnapshot(noteId, AI.source);
+    if (store.getState().note?.id !== noteId || !apply()) {
+      return fail('conflict', i18n.t('contextMenu.changed'));
+    }
+    await store.getState().flush();
+    if (store.getState().saveState === 'error')
+      return fail('storage_failed', i18n.t('contextMenu.saveFailed'));
+    return ok(undefined);
+  } catch (error) {
+    return fail('storage_failed', error instanceof Error ? error.message : String(error));
+  }
 }

@@ -64,6 +64,12 @@ import {
 import { registerEditorPrompt, type EditorPromptRequest } from './editorPrompt';
 import { EditorPromptDialog } from './EditorPromptDialog';
 import { TableControls } from './TableControls';
+import { EditorContextMenu } from './EditorContextMenu';
+import {
+  SelectionAssistDialog,
+  type SelectionAssistRequest,
+} from './SelectionAssistDialog';
+import { selectionTarget } from './selectionTarget';
 import { Toolbar } from './Toolbar';
 import { SlashMenu, type SlashState } from './SlashMenu';
 import { WikiLinkMenu, type WikiLinkState } from './WikiLinkMenu';
@@ -97,6 +103,8 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   const closeWikipedia = useUiStore((state) => state.closeWikipedia);
   const defineRequest = useUiStore((state) => state.defineRequest);
   const closeDefine = useUiStore((state) => state.closeDefine);
+  const [assistRequest, setAssistRequest] = useState<SelectionAssistRequest | null>(null);
+  const closeAssist = useCallback(() => setAssistRequest(null), []);
   const [findOpen, setFindOpen] = useState(false);
   const [prompt, setPrompt] = useState<EditorPromptRequest | null>(null);
   const resolvePromptRef = useRef<((value: string | null) => void) | null>(null);
@@ -408,6 +416,20 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
       if (!current) return false;
 
       switch (command) {
+        case 'correctSelection':
+        case 'rewriteSelection': {
+          const target = selectionTarget(current);
+          if (!current.isEditable || !target) {
+            useUiStore.getState().showStatusNotice(t('contextMenu.selectionLimit'));
+            return false;
+          }
+          setAssistRequest({
+            target,
+            mode: command === 'correctSelection' ? 'correct' : 'rewrite',
+            noteId: useEditorStore.getState().note?.id,
+          });
+          return true;
+        }
         case 'bold':
           return current.chain().focus().toggleBold().run();
         case 'italic':
@@ -724,6 +746,14 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
         </div>
       )}
       <EditorContent editor={editor} />
+      <EditorContextMenu key={noteId} editor={editor} />
+      {assistRequest && (
+        <SelectionAssistDialog
+          editor={editor}
+          request={assistRequest}
+          onClose={closeAssist}
+        />
+      )}
       {editable && <TableControls editor={editor} />}
       <input
         ref={inputRef}

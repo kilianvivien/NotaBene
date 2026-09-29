@@ -133,6 +133,9 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
+Development version: **1.3.6**. The editor context menu, selection AI tools
+and autocomplete display fix are described in the [unreleased notes](./RELEASE_NOTES.md).
+
 **NotaBene 1.3.5** adds transcription of lectures and other audio attachments,
 on this Mac or through an optional Mistral connection — see the
 [release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.5)

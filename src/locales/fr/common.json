@@ -2365,5 +2365,28 @@
     "failedShort": "Échec de la transcription",
     "corrected_one": "{{count}} mot corrigé d’après le vocabulaire du cours",
     "corrected_other": "{{count}} mots corrigés d’après le vocabulaire du cours"
+  },
+  "contextMenu": {
+    "selection": "Texte sélectionné",
+    "editing": "Modifier la note",
+    "pastePlain": "Coller en texte brut",
+    "correct": "Corriger la sélection…",
+    "rewrite": "Reformuler la sélection…",
+    "assistTitle": "Travailler le texte sélectionné",
+    "assistDescription": "Seul ce passage est envoyé à votre fournisseur d’IA. Vérifiez le résultat avant de le remplacer.",
+    "correctDescription": "Corriger l’orthographe, la grammaire et la ponctuation en conservant vos mots.",
+    "rewriteDescription": "Améliorer la clarté et la fluidité sans changer le sens.",
+    "original": "Sélection originale",
+    "proposal": "Remplacement proposé",
+    "generate": "Générer une proposition",
+    "generating": "Traitement…",
+    "apply": "Remplacer la sélection",
+    "formattingNote": "Le remplacement utilise du texte brut ; la mise en forme peut changer. Vous pouvez annuler avec ⌘Z.",
+    "changed": "La note a changé. Fermez cette fenêtre, sélectionnez à nouveau le passage et réessayez.",
+    "selectionLimit": "Sélectionnez jusqu’à 4 000 caractères de texte, sans tableau, code ni objet intégré.",
+    "clipboardChanged": "La sélection a changé avant le collage. Réessayez.",
+    "clipboardEmpty": "Le presse-papiers ne contient pas de texte. Utilisez ⌘V pour coller des images ou des fichiers.",
+    "clipboardFailed": "Le presse-papiers est inaccessible. Utilisez le raccourci clavier pour copier, couper ou coller.",
+    "saveFailed": "La modification est dans l’éditeur mais n’a pas pu être enregistrée. Vérifiez l’état d’enregistrement et réessayez."
   }
 }

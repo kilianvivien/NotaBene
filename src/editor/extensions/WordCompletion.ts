@@ -428,6 +428,10 @@ export const WordCompletion = Extension.create<WordCompletionOptions>({
         },
 
         props: {
+          // WebKit's native inline predictions otherwise draw a second grey
+          // suffix beside ours. NotaBene owns completion (including its off
+          // setting); spellcheck remains available independently.
+          attributes: { writingsuggestions: 'false' },
           decorations(state) {
             const plugin = wordCompletionPluginKey.getState(state);
             if (!plugin) return null;

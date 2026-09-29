@@ -36,6 +36,7 @@ export interface ContextMenuItem {
   selected?: boolean;
   /** Optional persisted color, used for tag entries without sacrificing text contrast. */
   swatch?: string;
+  shortcut?: string;
   onSelect(): void;
 }
 
@@ -50,12 +51,17 @@ export function ContextMenu({
   items,
   onClose,
   header,
+  toolbar,
+  keyboard = false,
 }: {
   point: ContextPoint;
   items: ContextMenuEntry[];
   onClose(): void;
   /** Optional label above the items — which course you right-clicked. */
   header?: ReactNode;
+  toolbar?: ReactNode;
+  /** Editor menus opt into focus without changing existing popup callers. */
+  keyboard?: boolean;
 }) {
   const panel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<ContextPoint>(point);
@@ -76,6 +82,11 @@ export function ContextMenu({
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [onClose]);
+
+  useEffect(() => {
+    if (keyboard)
+      panel.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  }, [keyboard]);
 
   // Flip rather than clamp: a menu opened near the bottom edge should grow
   // upwards from the pointer, not slide up the screen away from it.
@@ -114,12 +125,40 @@ export function ContextMenu({
         'shadow-[var(--nb-shadow-lg)]',
       )}
       style={{ left: position.x, top: position.y }}
+      onKeyDown={(event) => {
+        if (
+          !keyboard ||
+          !['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(
+            event.key,
+          )
+        )
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        const buttons = [
+          ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+            'button:not(:disabled)',
+          ),
+        ];
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const next =
+          event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? buttons.length - 1
+              : (index +
+                  (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1) +
+                  buttons.length) %
+                buttons.length;
+        buttons[next]?.focus();
+      }}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
     >
       {header && (
         <p className="truncate px-2 pb-1 pt-0.5 text-[11px] text-nb-text-3">{header}</p>
       )}
+      {toolbar}
       {visible.map((entry, index) =>
         entry === null ? (
           <div
@@ -137,7 +176,7 @@ export function ContextMenu({
             aria-label={entry.ariaLabel}
             title={entry.title}
             className={cn(
-              'flex h-8 w-full items-center gap-2 rounded-nb-xs px-2 text-left text-[13px]',
+              'flex h-8 w-full items-center gap-2 rounded-nb-xs px-2 text-left text-[13px] focus-visible:outline-2 focus-visible:outline-[var(--nb-accent)]',
               // A disabled row keeps its pointer events, so a `title` saying why
               // it is disabled can still be read; `disabled` refuses the click.
               // It drops the hover styling instead, because a row that lights up
@@ -169,6 +208,11 @@ export function ContextMenu({
               entry.icon && <entry.icon size={14} className="shrink-0" aria-hidden />
             )}
             <span className="truncate">{entry.label}</span>
+            {entry.shortcut && (
+              <span aria-hidden className="ml-auto pl-4 text-[11px] text-nb-text-3">
+                {entry.shortcut}
+              </span>
+            )}
           </button>
         ),
       )}
