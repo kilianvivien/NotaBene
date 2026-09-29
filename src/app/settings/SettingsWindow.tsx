@@ -157,6 +157,7 @@ export function SettingsWindow() {
       // Tailwind group, so a plain width was silently clamped and the sheet
       // never reached the size its columns were laid out for.
       className="max-w-[880px]"
+      closeButton
     >
       {/* Capped, not fixed. The nav sets the floor, so Appearance is a short
           sheet and Editor a tall one. */}
@@ -200,7 +201,8 @@ export function SettingsWindow() {
         </nav>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="shrink-0 border-b border-[var(--nb-divider)] px-6 py-3.5">
+          {/* Right padding clears the sheet's ✕. */}
+          <header className="shrink-0 border-b border-[var(--nb-divider)] py-3.5 pl-6 pr-14">
             <h2 className="text-[15px] font-semibold leading-tight">
               {t(`settings.${tab}`)}
             </h2>
@@ -579,12 +581,6 @@ export function SettingsWindow() {
             {tab === 'agent' && <AgentSettings />}
             {tab === 'about' && <AboutSettings />}
           </GlassScrollArea>
-
-          <div className="flex shrink-0 justify-end border-t border-[var(--nb-divider)] px-6 py-2.5">
-            <GlassButton size="sm" onClick={() => setOpen(false)}>
-              {t('common.close')}
-            </GlassButton>
-          </div>
         </div>
       </div>
     </ModalOverlay>

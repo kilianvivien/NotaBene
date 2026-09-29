@@ -1680,7 +1680,6 @@
     },
     "sample": "Découvrir un cours d’exemple",
     "empty": "Partir de zéro",
-    "close": "Fermer",
     "failed": "NotaBene n’a pas pu enregistrer votre choix. Réessayez ou redémarrez l’application."
   },
   "help": {
@@ -1688,7 +1687,6 @@
     "topicsLabel": "Rubriques d’aide",
     "tour": "Revoir la présentation",
     "github": "NotaBene sur GitHub",
-    "close": "Fermer",
     "search": "Rechercher dans l’aide",
     "noResults": "Rien dans l’aide ne correspond à « {{query}} ».",
     "results": "Résultats pour « {{query}} »",

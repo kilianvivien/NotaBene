@@ -177,6 +177,8 @@
 .wl-stage-wrap {
   position: relative;
   min-width: 0;
+  /* Clears the sheet's ✕, which sits in the top-right corner above it. */
+  margin-top: 22px;
 }
 
 .wl-stage {

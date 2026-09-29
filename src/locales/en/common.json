@@ -1680,7 +1680,6 @@
     },
     "sample": "Explore a sample course",
     "empty": "Start with an empty library",
-    "close": "Close",
     "failed": "NotaBene could not save your choice. Try again, or restart the app."
   },
   "help": {
@@ -1688,7 +1687,6 @@
     "topicsLabel": "Help topics",
     "tour": "Show the welcome tour",
     "github": "NotaBene on GitHub",
-    "close": "Close",
     "search": "Search help",
     "noResults": "Nothing in help matches “{{query}}”.",
     "results": "Results for “{{query}}”",

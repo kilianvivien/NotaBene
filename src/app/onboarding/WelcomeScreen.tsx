@@ -154,6 +154,8 @@ export function WelcomeScreen() {
       label={t('welcome.label')}
       placement="center"
       className="nb-welcome max-w-[960px]"
+      closeButton
+      closeDisabled={busy !== null}
     >
       <div className="wl-body">
         <section className="wl-intro">
@@ -275,11 +277,7 @@ export function WelcomeScreen() {
               {t('welcome.sample')}
             </GlassButton>
           </>
-        ) : (
-          <GlassButton size="sm" onClick={close}>
-            {t('welcome.close')}
-          </GlassButton>
-        )}
+        ) : null}
         <GlassButton
           size="sm"
           variant="accent"

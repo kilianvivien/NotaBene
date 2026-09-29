@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { GlassIconButton } from './GlassIconButton';
 import { GlassPanel } from './GlassPanel';
 
 /** Must match `--nb-t-fast`, which is how long the exit animation runs. The
@@ -18,6 +21,11 @@ interface ModalOverlayProps {
   /** `top` sits a form where the eye expects it, a little below the title
    * bar; `center` is for a screen that is the only thing to look at. */
   placement?: 'top' | 'center';
+  /** Draw the ✕ in the top-right corner. For sheets with their own layout —
+   * Settings, Help, Welcome; `Dialog` puts its ✕ on its title line instead. */
+  closeButton?: boolean;
+  /** While something must finish first; `onClose` should refuse too. */
+  closeDisabled?: boolean;
 }
 
 function prefersReducedMotion(): boolean {
@@ -31,7 +39,10 @@ export function ModalOverlay({
   children,
   className,
   placement = 'top',
+  closeButton = false,
+  closeDisabled = false,
 }: ModalOverlayProps) {
+  const { t } = useTranslation();
   // Closing is a state, not an event: the panel outlives `open` by one
   // animation, so it can be seen leaving rather than simply ceasing to exist.
   const [mounted, setMounted] = useState(open);
@@ -161,7 +172,7 @@ export function ModalOverlay({
         aria-label={label}
         tabIndex={-1}
         className={cn(
-          'w-full max-w-[680px] shrink-0 overflow-hidden',
+          'relative w-full max-w-[680px] shrink-0 overflow-hidden',
           // Auto margins rather than `items-center`: they centre while there
           // is room and fall back to top-aligned scrolling when there is not,
           // where `items-center` would push the top out of reach.
@@ -171,6 +182,21 @@ export function ModalOverlay({
         )}
       >
         {children}
+        {closeButton && (
+          // Last in the DOM so the opening focus reaches the sheet's own
+          // content first; skipped by it outright so Return cannot close a
+          // sheet the student has only just opened.
+          <div className="absolute right-3 top-3 z-10" data-modal-focus="skip">
+            <GlassIconButton
+              label={t('common.close')}
+              className="size-7"
+              disabled={closeDisabled}
+              onClick={onClose}
+            >
+              <X size={15} aria-hidden />
+            </GlassIconButton>
+          </div>
+        )}
       </GlassPanel>
     </div>
   );

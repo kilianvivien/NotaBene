@@ -171,6 +171,7 @@ export function HelpDialog() {
       label={t('help.title')}
       placement="center"
       className="nb-help max-w-[860px]"
+      closeButton
     >
       <div className="hl-body">
         <aside className="hl-side">
@@ -276,9 +277,6 @@ export function HelpDialog() {
         <GlassButton size="sm" variant="ghost" onClick={() => run('help.github')}>
           {t('help.github')}
           <ArrowUpRight size={12} aria-hidden />
-        </GlassButton>
-        <GlassButton size="sm" className="ml-auto" onClick={() => setOpen(false)}>
-          {t('help.close')}
         </GlassButton>
       </footer>
     </ModalOverlay>
