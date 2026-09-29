@@ -1,22 +1,37 @@
 # Release notes
 
-## NotaBene 1.3.6 — Unreleased
+## NotaBene 1.3.6 — 29 September 2026
 
-- **Edit where you write.** The note editor has its own right-click menu,
-  with clipboard actions, plain-text paste, undo/redo, formatting, links and
-  contextual vocabulary tools. It follows the app’s theme and accent and
-  supports keyboard navigation. Shift-right-click retains the native menu.
+- **Edit where you write.** Right-click in a note for clipboard actions,
+  plain-text paste, formatting, links, Define and course vocabulary tools.
+  Right-clicking a word selects it; right-clicking inside a selection keeps it. The menu
+  supports keyboard navigation and typing to select an action. Shift-right-click
+  opens the native macOS menu for spelling and system services.
 - **AI for a selected passage.** Correct selection and Rewrite selection
-  send only the selected prose to your configured provider. Review the original
-  and proposal before replacing it; stale results are refused, an AI version
-  is saved, and the edit can be undone. Selections are limited to 4,000
-  characters; replacements use plain text.
-- **One autocomplete preview.** Disable WebKit’s native inline predictions in
-  the editor so they cannot add a second grey suffix beside NotaBene’s own
-  completion. The reported “publiqueque” display still needs confirmation in
-  the macOS dev window; automated tests cover the suffix and Tab insertion.
+  work on the selected prose only. A proposal is generated when the dialog
+  opens; compare it with the original, try again, or apply it. Results are
+  refused if the note or selection has changed, and applied edits keep version
+  history and undo. Selections are limited to 4,000 characters; replacements
+  use plain text and may simplify inline formatting.
+- **Simpler dialog controls.** Dialogs, Settings, Help and the reopened
+  welcome tour now close with a × in the title area. Primary actions stay in
+  the footer, without a duplicate Close or Cancel button.
+- **One key per AI provider.** Gemini text-to-speech uses your main Gemini
+  API key, and hosted Voxtral text-to-speech uses your main Mistral API key.
+  Speech settings links to AI Providers instead of asking you to enter keys
+  again, matching transcription.
+- **A single autocomplete preview.** WebKit's native inline predictions are
+  disabled in the note editor so NotaBene's course-vocabulary completion can
+  show its own suggestion.
 
-No library schema change.
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription still requires macOS 26 or newer; Apple Intelligence
+as an AI provider requires macOS 27.
+
+**Known issues:** The previously reported duplicated autocomplete suffix still
+needs confirmation in the macOS app. The built-in microphone can also start a
+recording more quietly than it continues; the five-second warm-up introduced
+in 1.3.5 remains in place, but its effect on that microphone is not yet confirmed.
 
 ## NotaBene 1.3.5
 

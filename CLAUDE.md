@@ -135,8 +135,11 @@ calendars) adds importing a Markdown folder, an Obsidian vault or a Notion
 export, with a preview, folder-to-course mapping, idempotent re-import and
 provenance, and tasks to and from `.ics` calendars. M (1.3.0) adds lecture
 recording anchored to the blocks typed during it. N (1.3.5) adds
-transcription of any audio attachment. `docs/plan.md` tracks
-what is still open honestly — read it before assuming something works.
+transcription of any audio attachment. The 1.3.6 release adds the editor
+context menu, selection-only AI correction/rewrite, title-area dialog close
+controls, and shared main Gemini/Mistral keys for hosted speech.
+`docs/plan.md` tracks what is still open honestly — read it before assuming
+something works.
 
 Phase G notes worth knowing before touching it:
 

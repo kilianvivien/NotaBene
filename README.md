@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.5"><img alt="Latest release: 1.3.5" src="https://img.shields.io/badge/release-1.3.5-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.6"><img alt="Latest release: 1.3.6" src="https://img.shields.io/badge/release-1.3.6-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.3.5 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.5/NotaBene_1.3.5_aarch64.dmg)**
+**[NotaBene 1.3.6 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.6/NotaBene_1.3.6_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
@@ -80,6 +80,9 @@ rest.
 document map, and word-count targets. Abbreviations expand as you type
 (`tvi` → "théorème des valeurs intermédiaires"), and word completion learns
 each course's vocabulary — Tab to accept, never inserted on its own.
+Right-click a word or selection for clipboard, formatting, links and vocabulary
+commands, or use Correct selection and Rewrite selection to review an AI
+proposal for just that passage. Shift-right-click opens the native macOS menu.
 
 **Lecture recording.** ⌥⌘R records into the open note. Every paragraph or
 heading started during the recording gets a marker that plays from two
@@ -109,7 +112,9 @@ commands beside notes.
 LM Studio, Apple Intelligence on-device, or any OpenAI-compatible endpoint —
 or none. Every edit a model proposes is shown before it reaches a note, and
 anything it returns is validated. Voices can be macOS system voices, on-device
-neural voices (Kokoro, Voxtral), or opt-in hosted ones.
+neural voices (Kokoro, Voxtral), or opt-in hosted ones. Gemini text-to-speech
+uses the main Gemini API key, and hosted Voxtral uses the main Mistral API key;
+configure each key once in Settings → AI Providers.
 
 **Agent and MCP.** A local, token-protected
 [Model Context Protocol](https://modelcontextprotocol.io/) server lets an
@@ -133,12 +138,10 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-Development version: **1.3.6**. The editor context menu, selection AI tools
-and autocomplete display fix are described in the [unreleased notes](./RELEASE_NOTES.md).
-
-**NotaBene 1.3.5** adds transcription of lectures and other audio attachments,
-on this Mac or through an optional Mistral connection — see the
-[release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.5)
+**NotaBene 1.3.6** adds an editor right-click menu, AI correction and rewriting
+for selected passages, simpler dialog controls, and shared provider keys for
+hosted speech — see the
+[release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.6)
 and [earlier releases](./RELEASE_NOTES.md). The app is not yet signed with a
 Developer ID or notarized, and has no automatic updates.
 
