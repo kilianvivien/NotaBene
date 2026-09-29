@@ -133,13 +133,9 @@ export function SynthesisDialog() {
       headerAction={<AiDialogStatus feature="synthesis" onLeave={close} />}
       footer={
         <>
-          {running ? (
+          {running && (
             <GlassButton size="sm" onClick={() => cancelRun('synthesis')}>
               {t('ai.cancel')}
-            </GlassButton>
-          ) : (
-            <GlassButton size="sm" onClick={() => setOpen(false)}>
-              {t('common.cancel')}
             </GlassButton>
           )}
           <GlassButton

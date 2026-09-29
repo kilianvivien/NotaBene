@@ -24,7 +24,7 @@ export interface SelectedTerm {
  * faire"), an apostrophe of either shape ("l'État" — the selection keeps the
  * article, and the model returns the headword), and the combining marks a
  * decomposed "é" arrives as. */
-const WORD_CHAR = /[\p{L}\p{N}\p{M}'’-]/u;
+export const WORD_CHAR = /[\p{L}\p{N}\p{M}'’-]/u;
 
 /**
  * The word containing `offset`, or the one just before it.

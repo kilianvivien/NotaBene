@@ -12,8 +12,15 @@
  *    body scrolls under it rather than pushing the buttons off screen.
  *
  * Rows inside the body come from `FieldRow`, which Settings uses too.
+ *
+ * Dismissal is the ✕ at the end of the title line, as in a macOS sheet's
+ * toolbar, plus Escape and the scrim. A footer therefore holds only what the
+ * dialog is *for* — no Cancel or Close button repeating the ✕.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
+import { GlassIconButton } from './GlassIconButton';
 import { GlassScrollArea } from './GlassScrollArea';
 import { ModalOverlay } from './ModalOverlay';
 
@@ -42,6 +49,12 @@ export interface DialogProps {
   /** Trailing element on the title line — an AI status pill, typically. */
   headerAction?: ReactNode;
   footer?: ReactNode;
+  /** Label for the ✕ when closing also stops something — "Stop and close"
+   * while a model is running. Defaults to "Close". */
+  closeLabel?: string;
+  /** While something must finish before the dialog may go — an import
+   * writing notes. The dialog's own `onClose` refuses too; this says so. */
+  closeDisabled?: boolean;
   children: ReactNode;
 }
 
@@ -53,8 +66,11 @@ export function Dialog({
   size = 'md',
   headerAction,
   footer,
+  closeLabel,
+  closeDisabled = false,
   children,
 }: DialogProps) {
+  const { t } = useTranslation();
   return (
     <ModalOverlay open={open} onClose={onClose} label={title} className={WIDTHS[size]}>
       <div className="flex max-h-[min(720px,84vh)] flex-col">
@@ -70,11 +86,22 @@ export function Dialog({
           {/* A status readout, not a control the dialog is for. It stays
               reachable by Tab; it just stops being what Return activates the
               moment the dialog opens. */}
-          {headerAction && (
-            <div className="shrink-0 pt-0.5" data-modal-focus="skip">
-              {headerAction}
-            </div>
-          )}
+          <div
+            className="-mr-2 -mt-1 flex shrink-0 items-center gap-1"
+            data-modal-focus="skip"
+          >
+            {headerAction}
+            {/* Skipped by the opening focus with the status pill: Return must
+                not close a dialog the student has only just opened. */}
+            <GlassIconButton
+              label={closeLabel ?? t('common.close')}
+              className="size-7"
+              disabled={closeDisabled}
+              onClick={onClose}
+            >
+              <X size={15} aria-hidden />
+            </GlassIconButton>
+          </div>
         </header>
 
         <GlassScrollArea className="px-5 py-4">{children}</GlassScrollArea>

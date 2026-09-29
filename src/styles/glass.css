@@ -108,14 +108,26 @@
   }
 }
 
+/* Right-click menus: the floating toolbar's frost, over a denser tint. */
+.nb-menu-frost {
+  background: var(--nb-menu-float);
+  backdrop-filter: blur(var(--nb-blur-sm)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--nb-blur-sm)) saturate(160%);
+}
+
 /* NotaBene's surfaces are already opaque; this explicit override protects
  * that contract if a future visual treatment adds blur or translucency. */
 @media (prefers-reduced-transparency: reduce) {
   .glass,
   .glass-strong,
-  .glass-thin {
+  .glass-thin,
+  .nb-menu-frost {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+  }
+
+  .nb-menu-frost {
+    background: var(--nb-menu-surface);
   }
 }
 

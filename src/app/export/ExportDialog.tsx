@@ -85,9 +85,6 @@ export function ExportDialog() {
       size="md"
       footer={
         <>
-          <GlassButton size="sm" onClick={() => setOpen(false)}>
-            {t('common.cancel')}
-          </GlassButton>
           <GlassButton
             size="sm"
             variant="accent"

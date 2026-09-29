@@ -9,6 +9,7 @@ export {
   type ContextMenuEntry,
   type ContextMenuItem,
   type ContextPoint,
+  type ContextToolbarItem,
 } from './ContextMenu';
 export { GlassScrollArea } from './GlassScrollArea';
 export { ModalOverlay } from './ModalOverlay';

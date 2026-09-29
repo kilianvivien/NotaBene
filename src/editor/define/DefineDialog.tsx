@@ -121,13 +121,9 @@ export function DefineDialog({
       headerAction={<AiDialogStatus feature="define" onLeave={close} />}
       footer={
         <>
-          {running ? (
+          {running && (
             <GlassButton size="sm" onClick={() => cancelRun('define')}>
               {t('ai.cancel')}
-            </GlassButton>
-          ) : (
-            <GlassButton size="sm" variant="ghost" onClick={close}>
-              {t('common.cancel')}
             </GlassButton>
           )}
           <GlassButton

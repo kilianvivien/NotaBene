@@ -124,13 +124,9 @@ export function TaskBreakdownDialog() {
       headerAction={<AiDialogStatus feature="tasks" onLeave={dismiss} />}
       footer={
         <>
-          {running ? (
+          {running && (
             <GlassButton size="sm" onClick={() => cancelRun('taskPlan')}>
               {t('ai.cancel')}
-            </GlassButton>
-          ) : (
-            <GlassButton size="sm" onClick={dismiss}>
-              {t('common.cancel')}
             </GlassButton>
           )}
           <GlassButton

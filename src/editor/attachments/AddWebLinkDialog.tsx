@@ -69,24 +69,16 @@ export function AddWebLinkDialog({
       title={t('editor.addLinkTitle')}
       description={t('editor.addLinkHint')}
       size="sm"
+      closeDisabled={busy}
       footer={
-        keptLinkOnly ? (
-          <GlassButton variant="accent" onClick={onClose}>
-            {t('common.close')}
+        keptLinkOnly ? undefined : (
+          <GlassButton
+            variant="accent"
+            disabled={!url.trim() || busy}
+            onClick={() => void save()}
+          >
+            {busy ? t('editor.savingLink') : t('common.save')}
           </GlassButton>
-        ) : (
-          <>
-            <GlassButton variant="ghost" onClick={onClose} disabled={busy}>
-              {t('common.cancel')}
-            </GlassButton>
-            <GlassButton
-              variant="accent"
-              disabled={!url.trim() || busy}
-              onClick={() => void save()}
-            >
-              {busy ? t('editor.savingLink') : t('common.save')}
-            </GlassButton>
-          </>
         )
       }
     >

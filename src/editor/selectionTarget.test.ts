@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import { applySelectionText, selectionTarget, textSlice } from './selectionTarget';
+import {
+  applySelectionText,
+  selectionTarget,
+  textSlice,
+  wordRangeAt,
+} from './selectionTarget';
 
 let editor: Editor;
 afterEach(() => editor?.destroy());
@@ -83,5 +88,33 @@ describe('selection-scoped editing', () => {
     const target = selectionTarget(editor)!;
     editor.setEditable(false);
     expect(applySelectionText(editor, target, 'no')).toBe(false);
+  });
+});
+
+describe('context-click word selection', () => {
+  function wordAt(html: string, pos: number): string | null {
+    editor = new Editor({ extensions: [StarterKit], content: html });
+    const range = wordRangeAt(editor.state.doc, pos);
+    return range ? editor.state.doc.textBetween(range.from, range.to) : null;
+  }
+
+  it('selects the word under the click, joiners included', () => {
+    // <p> opens at 0, so text offset n is position n + 1.
+    expect(wordAt('<p>le laissez-faire d’État</p>', 8)).toBe('laissez-faire');
+    expect(wordAt('<p>le laissez-faire d’État</p>', 22)).toBe('d’État');
+  });
+
+  it('drops quotes and dashes at the edges', () => {
+    expect(wordAt("<p>'cellule' -mitose</p>", 4)).toBe('cellule');
+    expect(wordAt("<p>'cellule' -mitose</p>", 16)).toBe('mitose');
+  });
+
+  it('finds the word across marks and returns nothing in spaces', () => {
+    expect(wordAt('<p>une <strong>cel</strong>lule</p>', 7)).toBe('cellule');
+    expect(wordAt('<p>a , b</p>', 4)).toBeNull();
+  });
+
+  it('keeps a caret in code', () => {
+    expect(wordAt('<pre><code>const value</code></pre>', 3)).toBeNull();
   });
 });

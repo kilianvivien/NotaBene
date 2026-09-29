@@ -277,7 +277,6 @@ export function CheckDialog() {
           canRun={canRun}
           task={task}
           onBack={clearReview}
-          onClose={close}
           onRun={run}
           rewrite={
             result && blocks.length
@@ -659,7 +658,6 @@ function Footer({
   canRun,
   task,
   onBack,
-  onClose,
   onRun,
   rewrite,
   paragraph,
@@ -669,7 +667,6 @@ function Footer({
   canRun: boolean;
   task: Task;
   onBack(): void;
-  onClose(): void;
   onRun(): void;
   rewrite?: {
     total: number;
@@ -685,17 +682,17 @@ function Footer({
   if (!reviewing) {
     return (
       <>
-        <GlassButton
-          size="sm"
-          onClick={() => {
-            if (busy) {
+        {busy && (
+          <GlassButton
+            size="sm"
+            onClick={() => {
               cancelRun('rewrite');
               cancelRun('proofread');
-            } else onClose();
-          }}
-        >
-          {busy ? t('ai.cancel') : t('common.cancel')}
-        </GlassButton>
+            }}
+          >
+            {t('ai.cancel')}
+          </GlassButton>
+        )}
         <GlassButton size="sm" variant="accent" disabled={!canRun} onClick={onRun}>
           {busy ? (
             <Loader2 size={12} className="animate-spin" />
@@ -731,9 +728,6 @@ function Footer({
         <span className="mr-auto text-[11px] text-nb-text-3">
           {t('ai.acceptedCount', { count: rewrite.accepted, total: rewrite.total })}
         </span>
-        <GlassButton size="sm" onClick={onClose}>
-          {t('common.cancel')}
-        </GlassButton>
         <GlassButton
           size="sm"
           variant="accent"
@@ -759,7 +753,7 @@ function Footer({
           {busy ? t('ai.running') : t('proofread.checkAgain')}
         </GlassButton>
       )}
-      {paragraph ? (
+      {paragraph && (
         <GlassButton
           size="sm"
           variant="accent"
@@ -768,10 +762,6 @@ function Footer({
         >
           <Check size={12} aria-hidden />
           {t('proofread.apply', { count: paragraph.chosen })}
-        </GlassButton>
-      ) : (
-        <GlassButton size="sm" variant="accent" onClick={onClose}>
-          {t('common.close')}
         </GlassButton>
       )}
     </>

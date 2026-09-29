@@ -50,13 +50,15 @@ export function SelectionAssistDialog({
     if (note?.id !== request.noteId) close();
   }, [note?.id, request.noteId, close]);
 
-  async function generate() {
+  async function generate(which = mode) {
+    controller.current?.abort();
     const run = new AbortController();
     controller.current = run;
     setBusy(true);
     setError('');
+    setProposal(null);
     const result = await proposeSelectionAssistCommand(
-      { text: request.target.text, mode },
+      { text: request.target.text, mode: which },
       { signal: run.signal },
     );
     if (run.signal.aborted) return;
@@ -64,6 +66,16 @@ export function SelectionAssistDialog({
     if (result.ok) setProposal(result.value);
     else setError(aiErrorMessage(result, t));
   }
+
+  // The menu item already said which of the two the student wants; asking
+  // again before starting would make a one-click action a three-click one.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !availability.available) return;
+    started.current = true;
+    void generate(request.mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
+  }, [availability.available]);
 
   return (
     <Dialog
@@ -75,64 +87,70 @@ export function SelectionAssistDialog({
       headerAction={<AiDialogStatus feature={feature} onLeave={close} />}
       footer={
         <div className="flex w-full items-center justify-end gap-2">
-          <GlassButton variant="ghost" onClick={close}>
-            {t('common.cancel')}
-          </GlassButton>
           {proposal === null ? (
             <GlassButton
+              variant="accent"
               disabled={busy || !availability.available}
               onClick={() => void generate()}
             >
               {t(busy ? 'contextMenu.generating' : 'contextMenu.generate')}
             </GlassButton>
           ) : (
-            <GlassButton
-              disabled={busy}
-              onClick={() => {
-                if (!request.noteId || proposal === null) return;
-                setBusy(true);
-                void applyEditorAiSelectionCommand(request.noteId, () =>
-                  applySelectionText(editor, request.target, proposal),
-                ).then((result) => {
-                  setBusy(false);
-                  if (result.ok) close();
-                  else setError(result.message);
-                });
-              }}
-            >
-              {t('contextMenu.apply')}
-            </GlassButton>
+            <>
+              <GlassButton
+                variant="ghost"
+                disabled={busy}
+                onClick={() => void generate()}
+              >
+                {t('contextMenu.tryAgain')}
+              </GlassButton>
+              <GlassButton
+                variant="accent"
+                disabled={busy}
+                onClick={() => {
+                  if (!request.noteId || proposal === null) return;
+                  setBusy(true);
+                  void applyEditorAiSelectionCommand(request.noteId, () =>
+                    applySelectionText(editor, request.target, proposal),
+                  ).then((result) => {
+                    setBusy(false);
+                    if (result.ok) close();
+                    else setError(result.message);
+                  });
+                }}
+              >
+                {t('contextMenu.apply')}
+              </GlassButton>
+            </>
           )}
         </div>
       }
     >
       <Sources count={1} titles={[note?.title || t('contextMenu.selection')]} />
-      {proposal === null && (
-        <ChoiceGroup
-          label={t('contextMenu.assistTitle')}
-          value={mode}
-          disabled={busy}
-          onChange={(next) => {
-            setMode(next);
-            setError('');
-          }}
-          options={[
-            {
-              value: 'correct',
-              title: t('contextMenu.correct'),
-              description: t('contextMenu.correctDescription'),
-              icon: SpellCheck2,
-            },
-            {
-              value: 'rewrite',
-              title: t('contextMenu.rewrite'),
-              description: t('contextMenu.rewriteDescription'),
-              icon: PenLine,
-            },
-          ]}
-        />
-      )}
-      <div className={proposal === null ? 'mt-4' : 'grid gap-4 sm:grid-cols-2'}>
+      <ChoiceGroup
+        label={t('contextMenu.assistTitle')}
+        value={mode}
+        disabled={busy}
+        onChange={(next) => {
+          setMode(next);
+          void generate(next);
+        }}
+        options={[
+          {
+            value: 'correct',
+            title: t('contextMenu.correct'),
+            description: t('contextMenu.correctDescription'),
+            icon: SpellCheck2,
+          },
+          {
+            value: 'rewrite',
+            title: t('contextMenu.rewrite'),
+            description: t('contextMenu.rewriteDescription'),
+            icon: PenLine,
+          },
+        ]}
+      />
+      <div className={proposal === null ? 'mt-4' : 'mt-4 grid gap-4 sm:grid-cols-2'}>
         {[
           { label: t('contextMenu.original'), text: request.target.text },
           ...(proposal === null

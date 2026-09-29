@@ -113,6 +113,9 @@ html[data-theme='light'] {
      colour under `prefers-reduced-transparency`. */
   --nb-toolbar-float: rgb(248 247 244 / 50%);
   --nb-menu-surface: #fbfaf7;
+  /* Menus frost like the floating toolbar, but stay denser: they are read
+   * row by row, and a note's text must not show through a label. */
+  --nb-menu-float: rgb(251 250 247 / 78%);
   --nb-control-surface: #f6f5f2;
   --nb-control-border: #d5d1ca;
   --nb-code-surface: #f3f1ec;
@@ -166,6 +169,7 @@ html[data-theme='dark'] {
   --nb-toolbar-surface: #161615;
   --nb-toolbar-float: rgb(22 22 21 / 50%);
   --nb-menu-surface: #171716;
+  --nb-menu-float: rgb(23 23 22 / 76%);
   --nb-control-surface: #171716;
   --nb-control-border: #32302d;
   --nb-code-surface: #151514;

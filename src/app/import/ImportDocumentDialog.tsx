@@ -256,9 +256,7 @@ export function ImportDocumentDialog() {
     // not a failure — say it plainly rather than leaving the note quietly
     // shorter than the PDF.
     setWarning(
-      result.value.blank
-        ? t('import.ocrBlankPages', { count: result.value.blank })
-        : '',
+      result.value.blank ? t('import.ocrBlankPages', { count: result.value.blank }) : '',
     );
   }
 
@@ -370,15 +368,13 @@ export function ImportDocumentDialog() {
     <Dialog
       open={source !== null}
       onClose={close}
+      closeDisabled={creating}
       title={t('import.title')}
       description={t('import.description')}
       size="lg"
       headerAction={<AiDialogStatus feature="importFormat" onLeave={close} />}
       footer={
         <>
-          <GlassButton size="sm" disabled={creating} onClick={close}>
-            {completed ? t('common.close') : t('common.cancel')}
-          </GlassButton>
           <GlassButton
             size="sm"
             variant="accent"

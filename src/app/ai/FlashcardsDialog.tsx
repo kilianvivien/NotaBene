@@ -207,13 +207,9 @@ export function FlashcardsDialog() {
       headerAction={<AiDialogStatus feature="flashcards" onLeave={close} />}
       footer={
         <>
-          {running ? (
+          {running && (
             <GlassButton size="sm" onClick={() => cancelRun('flashcards')}>
               {t('ai.cancel')}
-            </GlassButton>
-          ) : (
-            <GlassButton size="sm" onClick={() => setOpen(false)}>
-              {t('common.cancel')}
             </GlassButton>
           )}
           <GlassButton

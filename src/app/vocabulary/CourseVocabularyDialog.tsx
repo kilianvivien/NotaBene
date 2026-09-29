@@ -247,15 +247,7 @@ function VocabularyDialogBody({
           <AiDialogStatus feature="vocabulary" onLeave={handleClose} />
         ) : undefined
       }
-      footer={
-        tab === 'review' ? (
-          review.renderFooter(handleClose)
-        ) : (
-          <GlassButton size="sm" onClick={handleClose}>
-            {t('common.close')}
-          </GlassButton>
-        )
-      }
+      footer={tab === 'review' ? review.renderFooter() : undefined}
     >
       <GlassSegmentedControl<Tab>
         fill
@@ -598,16 +590,12 @@ function useReview(courseId: string, reload: () => Promise<void>, visible: boole
     );
   }
 
-  function renderFooter(onClose: () => void) {
+  function renderFooter() {
     return (
       <>
-        {running ? (
+        {running && (
           <GlassButton size="sm" onClick={() => cancelRun('vocabulary')}>
             {t('ai.cancel')}
-          </GlassButton>
-        ) : (
-          <GlassButton size="sm" variant="ghost" onClick={onClose}>
-            {t('common.close')}
           </GlassButton>
         )}
         {proposal ? (

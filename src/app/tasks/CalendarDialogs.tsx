@@ -108,14 +108,12 @@ export function CalendarExportDialog() {
     <Dialog
       open={open}
       onClose={close}
+      closeDisabled={working}
       title={t('calendar.exportTitle')}
       description={t('calendar.exportDescription')}
       size="md"
       footer={
         <>
-          <GlassButton size="sm" disabled={working} onClick={close}>
-            {message?.tone === 'notice' ? t('common.close') : t('common.cancel')}
-          </GlassButton>
           <GlassButton
             size="sm"
             variant="accent"
@@ -264,14 +262,12 @@ export function CalendarImportDialog() {
     <Dialog
       open={open}
       onClose={close}
+      closeDisabled={working}
       title={t('calendar.importTitle')}
       description={t('calendar.importDescription')}
       size="lg"
       footer={
         <>
-          <GlassButton size="sm" disabled={working} onClick={close}>
-            {summary ? t('common.close') : t('common.cancel')}
-          </GlassButton>
           {!file && (
             <GlassButton size="sm" variant="accent" onClick={() => void choose()}>
               {t('calendar.chooseFile')}

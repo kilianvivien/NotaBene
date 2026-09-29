@@ -1,6 +1,6 @@
 import { FileStack } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Dialog, GlassButton } from '@/components/glass';
+import { Dialog } from '@/components/glass';
 import { createNoteFromTemplateCommand } from '@/lib/commands';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
@@ -24,11 +24,6 @@ export function TemplatePicker() {
       title={t('organization.templatePickerTitle')}
       description={t('organization.templatePickerHint')}
       size="md"
-      footer={
-        <GlassButton size="sm" onClick={() => setOpen(false)}>
-          {t('common.close')}
-        </GlassButton>
-      }
     >
       <div className="space-y-1">
         {templates.length ? (

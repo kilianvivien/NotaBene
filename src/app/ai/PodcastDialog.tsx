@@ -452,9 +452,6 @@ export function PodcastDialog() {
             </GlassButton>
           ) : (
             <>
-              <GlassButton size="sm" onClick={() => setOpen(false)}>
-                {t('common.close')}
-              </GlassButton>
               <GlassButton
                 size="sm"
                 variant={script ? 'ghost' : 'accent'}

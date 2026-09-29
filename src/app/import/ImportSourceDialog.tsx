@@ -301,13 +301,9 @@ export function ImportSourceDialog() {
           {t('importSource.back')}
         </GlassButton>
       )}
-      {stage === 'scanning' ? (
+      {stage === 'scanning' && (
         <GlassButton size="sm" onClick={() => run.current?.abort()}>
-          {t('common.cancel')}
-        </GlassButton>
-      ) : (
-        <GlassButton size="sm" disabled={stage === 'importing'} onClick={close}>
-          {stage === 'done' ? t('common.close') : t('common.cancel')}
+          {t('importSource.stopScan')}
         </GlassButton>
       )}
       {stage === 'choose' && (
@@ -353,6 +349,7 @@ export function ImportSourceDialog() {
     <Dialog
       open={open}
       onClose={close}
+      closeDisabled={stage === 'importing'}
       title={t('importSource.title')}
       description={t('importSource.description')}
       size="lg"

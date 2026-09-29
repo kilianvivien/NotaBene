@@ -74,9 +74,6 @@ export function EditorPromptDialog({ request, onResolve }: EditorPromptDialogPro
       size="md"
       footer={
         <>
-          <GlassButton size="sm" onClick={cancel}>
-            {t('common.cancel')}
-          </GlassButton>
           <GlassButton form={PROMPT_FORM} type="submit" size="sm" variant="accent">
             {t('common.confirm')}
           </GlassButton>
@@ -114,9 +111,7 @@ export function EditorPromptDialog({ request, onResolve }: EditorPromptDialogPro
         )}
       </form>
 
-      {request?.math && (
-        <div className="nb-math-preview" ref={setPreview} aria-hidden />
-      )}
+      {request?.math && <div className="nb-math-preview" ref={setPreview} aria-hidden />}
     </Dialog>
   );
 }

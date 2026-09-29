@@ -1994,6 +1994,7 @@
     "reviewApplied": "Saved {{terms}} vocabulary changes and {{abbreviations}} abbreviations."
   },
   "importSource": {
+    "stopScan": "Stop scanning",
     "title": "Import from another app",
     "description": "Bring an existing library into NotaBene. Everything is read on this Mac, and nothing is written until you confirm.",
     "sourceLabel": "Where your notes are now",
@@ -2367,8 +2368,15 @@
     "corrected_other": "{{count}} words respelled from the lecture’s vocabulary"
   },
   "contextMenu": {
+    "tryAgain": "Try Again",
     "selection": "Selected text",
-    "editing": "Edit note",
+    "openLink": "Open Link",
+    "copyLink": "Copy Link",
+    "editLink": "Edit Link…",
+    "removeLink": "Remove Link",
+    "defineTerm": "Define “{{term}}”",
+    "addTerm": "Add “{{term}}” to Vocabulary",
+    "spellingHint": "⇧ right-click for spelling suggestions",
     "pastePlain": "Paste as plain text",
     "correct": "Correct selection…",
     "rewrite": "Rewrite selection…",

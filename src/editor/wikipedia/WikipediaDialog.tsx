@@ -140,11 +140,7 @@ export function WikipediaDialog({
       title={t('wikipedia.title')}
       description={t('wikipedia.hint')}
       size="md"
-      footer={
-        <GlassButton variant="ghost" onClick={onClose} disabled={saving !== null}>
-          {t('common.cancel')}
-        </GlassButton>
-      }
+      closeDisabled={saving !== null}
     >
       <div className="flex items-center gap-2">
         <div className="relative flex min-w-0 flex-1 items-center">
@@ -180,7 +176,10 @@ export function WikipediaDialog({
         />
       </div>
 
-      <ul className="mt-2 max-h-[320px] min-h-[80px] overflow-y-auto" aria-busy={searching}>
+      <ul
+        className="mt-2 max-h-[320px] min-h-[80px] overflow-y-auto"
+        aria-busy={searching}
+      >
         {searching && hits.length === 0 ? (
           <li className="flex items-center gap-2 px-2 py-3 text-[12px] text-nb-text-3">
             <Loader2 size={13} className="animate-spin" aria-hidden />
@@ -235,7 +234,9 @@ export function WikipediaDialog({
                   ) : (
                     <BookOpen size={12} aria-hidden />
                   )}
-                  {saving === hit.url ? t('wikipedia.saving') : t('wikipedia.saveArticle')}
+                  {saving === hit.url
+                    ? t('wikipedia.saving')
+                    : t('wikipedia.saveArticle')}
                 </GlassButton>
               </div>
             </li>

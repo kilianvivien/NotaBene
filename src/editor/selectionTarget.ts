@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core';
 import { Fragment, Slice, type Node as PmNode } from '@tiptap/pm/model';
 import { AllSelection, TextSelection } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
+import { WORD_CHAR } from './define/selectedTerm';
 
 export interface SelectionTarget {
   from: number;
@@ -64,3 +65,31 @@ export function applySelectionText(
   editor.commands.focus();
   return true;
 }
+
+/**
+ * The word a context click at `pos` lands in, as document positions — what
+ * AppKit selects when you right-click a word outside the selection.
+ *
+ * Joiners count inside a word ("laissez-faire", "l’État") but not at its
+ * edges, so a quoted or dash-led word comes back without its punctuation.
+ * Code is left alone: a click there means a caret, not a token.
+ */
+export function wordRangeAt(doc: PmNode, pos: number): { from: number; to: number } | null {
+  const $pos = doc.resolve(pos);
+  const parent = $pos.parent;
+  if (!parent.isTextblock || parent.type.spec.code) return null;
+  // One placeholder character per inline leaf keeps string offsets equal to
+  // positions; any other inline structure would not, so give up on it.
+  const text = parent.textBetween(0, parent.content.size, undefined, '￼');
+  if (text.length !== parent.content.size) return null;
+  const offset = $pos.parentOffset;
+  let start = offset;
+  let end = offset;
+  while (end < text.length && WORD_CHAR.test(text[end] ?? '')) end += 1;
+  while (start > 0 && WORD_CHAR.test(text[start - 1] ?? '')) start -= 1;
+  while (start < end && JOINER.test(text[start] ?? '')) start += 1;
+  while (end > start && JOINER.test(text[end - 1] ?? '')) end -= 1;
+  return end > start ? { from: $pos.start() + start, to: $pos.start() + end } : null;
+}
+
+const JOINER = /['’-]/;

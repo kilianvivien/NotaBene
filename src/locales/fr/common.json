@@ -1994,6 +1994,7 @@
     "reviewApplied": "{{terms}} modifications du vocabulaire et {{abbreviations}} abréviations enregistrées."
   },
   "importSource": {
+    "stopScan": "Arrêter l’analyse",
     "title": "Importer depuis une autre app",
     "description": "Apportez une bibliothèque existante dans NotaBene. Tout est lu sur ce Mac, et rien n’est écrit avant votre confirmation.",
     "sourceLabel": "Où se trouvent vos notes",
@@ -2367,8 +2368,15 @@
     "corrected_other": "{{count}} mots corrigés d’après le vocabulaire du cours"
   },
   "contextMenu": {
+    "tryAgain": "Réessayer",
     "selection": "Texte sélectionné",
-    "editing": "Modifier la note",
+    "openLink": "Ouvrir le lien",
+    "copyLink": "Copier le lien",
+    "editLink": "Modifier le lien…",
+    "removeLink": "Supprimer le lien",
+    "defineTerm": "Définir « {{term}} »",
+    "addTerm": "Ajouter « {{term}} » au vocabulaire",
+    "spellingHint": "⇧ + clic droit : suggestions d’orthographe",
     "pastePlain": "Coller en texte brut",
     "correct": "Corriger la sélection…",
     "rewrite": "Reformuler la sélection…",

@@ -392,7 +392,7 @@ describe('ImportDocumentDialog study hand-off', () => {
     await userEvent.click(
       screen.getByRole('switch', { name: 'Turn it into study notes' }),
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(createImportedNoteCommand).not.toHaveBeenCalled();
     expect(handedOff()).toBe(false);

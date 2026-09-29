@@ -173,9 +173,11 @@ export function VisualizeDialog() {
           </>
         ) : (
           <>
-            <GlassButton size="sm" onClick={busy ? () => cancelRun(kind) : close}>
-              {busy ? t('ai.cancel') : t('common.cancel')}
-            </GlassButton>
+            {busy && (
+              <GlassButton size="sm" onClick={() => cancelRun(kind)}>
+                {t('ai.cancel')}
+              </GlassButton>
+            )}
             <GlassButton
               size="sm"
               variant="accent"

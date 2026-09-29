@@ -116,9 +116,6 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
               {t('common.delete')}
             </GlassButton>
           )}
-          <GlassButton size="sm" onClick={onClose}>
-            {t('common.cancel')}
-          </GlassButton>
           <GlassButton form={COURSE_FORM} type="submit" size="sm" variant="accent">
             {t('common.confirm')}
           </GlassButton>
@@ -257,17 +254,7 @@ export function TagManagerDialog({ open, onClose }: { open: boolean; onClose(): 
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={t('organization.tagManager')}
-      size="lg"
-      footer={
-        <GlassButton size="sm" onClick={onClose}>
-          {t('common.close')}
-        </GlassButton>
-      }
-    >
+    <Dialog open={open} onClose={onClose} title={t('organization.tagManager')} size="lg">
       <form
         onSubmit={(event) => void add(event)}
         className="mb-3 grid grid-cols-[140px_minmax(0,1fr)_auto_auto] items-end gap-2"
@@ -429,9 +416,6 @@ export function NameDialog({
       size="sm"
       footer={
         <>
-          <GlassButton size="sm" onClick={onClose}>
-            {t('common.cancel')}
-          </GlassButton>
           <GlassButton form={NAME_FORM} type="submit" size="sm" variant="accent">
             {t('common.confirm')}
           </GlassButton>
@@ -483,9 +467,6 @@ export function SavedSearchDialog({
       size="md"
       footer={
         <>
-          <GlassButton size="sm" onClick={onClose}>
-            {t('common.cancel')}
-          </GlassButton>
           <GlassButton form={SAVED_SEARCH_FORM} type="submit" size="sm" variant="accent">
             {t('common.confirm')}
           </GlassButton>

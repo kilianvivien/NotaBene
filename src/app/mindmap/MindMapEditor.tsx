@@ -48,9 +48,6 @@ export function MindMapEditor({
       size="lg"
       footer={
         <>
-          <GlassButton size="sm" onClick={onClose}>
-            {t('common.cancel')}
-          </GlassButton>
           <GlassButton
             size="sm"
             variant="accent"
@@ -117,7 +114,9 @@ export function MindMapEditor({
                 setDraft({
                   ...draft,
                   nodes: draft.nodes.map((entry) =>
-                    entry.id === node.id ? { ...entry, label: event.target.value } : entry,
+                    entry.id === node.id
+                      ? { ...entry, label: event.target.value }
+                      : entry,
                   ),
                 })
               }

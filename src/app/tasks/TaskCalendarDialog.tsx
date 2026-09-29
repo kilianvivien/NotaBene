@@ -43,8 +43,9 @@ export function TaskCalendarDialog() {
     [tasks],
   );
   const undatedCount = useMemo(
-    () => tasks.filter((task) => !task.trashedAt && !task.dueAt && task.status !== 'done')
-      .length,
+    () =>
+      tasks.filter((task) => !task.trashedAt && !task.dueAt && task.status !== 'done')
+        .length,
     [tasks],
   );
 
@@ -93,7 +94,11 @@ export function TaskCalendarDialog() {
           >
             <ChevronRight size={15} aria-hidden />
           </button>
-          <GlassButton size="sm" variant="ghost" onClick={() => setMonth(startOfDay(new Date()))}>
+          <GlassButton
+            size="sm"
+            variant="ghost"
+            onClick={() => setMonth(startOfDay(new Date()))}
+          >
             {t('tasks.today')}
           </GlassButton>
         </div>
@@ -105,9 +110,6 @@ export function TaskCalendarDialog() {
               ? t('tasks.calendarUndated', { count: undatedCount })
               : t('tasks.calendarAllDated')}
           </span>
-          <GlassButton variant="ghost" onClick={() => setOpen(false)}>
-            {t('common.close')}
-          </GlassButton>
         </>
       }
     >

@@ -6,7 +6,8 @@ import type {
 } from '@excalidraw/excalidraw/types';
 import '@excalidraw/excalidraw/index.css';
 import { useTranslation } from 'react-i18next';
-import { GlassButton } from '@/components/glass';
+import { X } from 'lucide-react';
+import { GlassButton, GlassIconButton } from '@/components/glass';
 
 type DrawingData = ExcalidrawInitialDataState;
 type SceneChange = NonNullable<ExcalidrawProps['onChange']>;
@@ -67,12 +68,12 @@ export default function DrawingEditor({ data, onCancel, onSave }: DrawingEditorP
       <div className="nb-drawing-modal-bar">
         <span className="nb-drawing-modal-title">{t('editor.drawing')}</span>
         <span className="flex-1" />
-        <GlassButton size="sm" onClick={onCancel}>
-          {t('common.cancel')}
-        </GlassButton>
         <GlassButton size="sm" variant="accent" onClick={() => void save()}>
           {t('common.confirm')}
         </GlassButton>
+        <GlassIconButton label={t('common.close')} className="size-7" onClick={onCancel}>
+          <X size={15} aria-hidden />
+        </GlassIconButton>
       </div>
       <div className="nb-excalidraw-shell">
         <Excalidraw
