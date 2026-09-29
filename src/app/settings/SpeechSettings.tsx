@@ -1,4 +1,4 @@
-import { Cloud, ExternalLink, Loader2, Volume2 } from 'lucide-react';
+import { Cloud, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -10,16 +10,15 @@ import {
   GlassSelect,
 } from '@/components/glass';
 import {
-  secrets,
   ttsRegistry,
   type TtsEngineId,
   type TtsEngineSummary,
   type TtsVoice,
 } from '@/lib/adapters';
-import { secretKeyFor } from '@/lib/ai';
 import { listPodcastVoicesCommand } from '@/lib/commands';
 import { useSpeechStore } from '@/lib/state/speechStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { useUiStore } from '@/lib/state/uiStore';
 import { LocalSpeechModelCard } from './LocalSpeechModelCard';
 
 const DISPLAYED_ENGINES: TtsEngineId[] = [
@@ -36,13 +35,9 @@ export function SpeechSettings() {
   const speech = useSettingsStore((state) => state.settings.speech);
   const locale = useSettingsStore((state) => state.settings.locale);
   const update = useSettingsStore((state) => state.update);
+  const openSettingsTab = useUiStore((state) => state.setSettingsTab);
   const [engines, setEngines] = useState<TtsEngineSummary[]>([]);
-  const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
-  const [mistralKey, setMistralKey] = useState('');
-  const [keySaved, setKeySaved] = useState(false);
-  const [geminiKey, setGeminiKey] = useState('');
-  const [geminiKeySaved, setGeminiKeySaved] = useState(false);
   const [voices, setVoices] = useState<TtsVoice[]>([]);
 
   const refresh = useCallback(async () => {
@@ -104,42 +99,6 @@ export function SpeechSettings() {
   async function selectEngine(engineId: TtsEngineId) {
     if (engineId !== speech.engineId) useSpeechStore.getState().stop();
     await update({ speech: { ...speech, engineId } });
-  }
-
-  async function saveMistralKey() {
-    const key = mistralKey.trim();
-    if (!key) return;
-    setWorking(true);
-    setError('');
-    setKeySaved(false);
-    try {
-      await secrets.set(secretKeyFor('mistral'), key);
-      setMistralKey('');
-      setKeySaved(true);
-      await refresh();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  async function saveGeminiKey() {
-    const key = geminiKey.trim();
-    if (!key) return;
-    setWorking(true);
-    setError('');
-    setGeminiKeySaved(false);
-    try {
-      await secrets.set(secretKeyFor('gemini'), key);
-      setGeminiKey('');
-      setGeminiKeySaved(true);
-      await refresh();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
-      setWorking(false);
-    }
   }
 
   return (
@@ -255,169 +214,103 @@ export function SpeechSettings() {
       >
         <div className="space-y-2">
           <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-nb-xs bg-[var(--nb-active)] p-2 text-nb-text-2">
-              <Cloud size={16} aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-medium">Voxtral TTS API</p>
-                  <p className="text-[11px] text-nb-text-3">
-                    {t('speech.mistralPricing')}
-                  </p>
-                </div>
-                <span className="rounded-full bg-[var(--nb-active)] px-2 py-0.5 text-[10px] text-nb-text-2">
-                  {t(`speech.state_${mistralConfigured ? 'ready' : 'not_configured'}`)}
-                </span>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-nb-xs bg-[var(--nb-active)] p-2 text-nb-text-2">
+                <Cloud size={16} aria-hidden />
               </div>
-
-              <p className="mt-2 text-[11px] leading-snug text-nb-text-2">
-                {t('speech.mistralPrivacy')}
-              </p>
-
-              <div className="mt-3 flex gap-1.5">
-                <input
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={mistralKey}
-                  placeholder={
-                    mistralConfigured
-                      ? t('speech.mistralKeyStored')
-                      : t('speech.mistralKeyPlaceholder')
-                  }
-                  onChange={(event) => {
-                    setMistralKey(event.target.value);
-                    setKeySaved(false);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') void saveMistralKey();
-                  }}
-                  aria-label={t('speech.mistralKey')}
-                  className="h-8 min-w-0 flex-1 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
-                />
-                <GlassButton
-                  size="sm"
-                  disabled={!mistralKey.trim() || working}
-                  onClick={() => void saveMistralKey()}
-                >
-                  {working ? <Loader2 size={12} className="animate-spin" /> : null}
-                  {t('speech.saveKey')}
-                </GlassButton>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {mistralConfigured && (
-                  <GlassButton
-                    size="sm"
-                    variant="accent"
-                    onClick={() => void selectEngine('mistral-api')}
-                  >
-                    <Volume2 size={12} />
-                    {t('speech.useMistral')}
-                  </GlassButton>
-                )}
-                <a
-                  href="https://console.mistral.ai/api-keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] text-nb-text-3 hover:text-nb-text-2"
-                >
-                  {t('speech.getMistralKey')}
-                  <ExternalLink size={10} aria-hidden />
-                </a>
-                {keySaved && (
-                  <span className="text-[11px] text-nb-text-3">
-                    {t('speech.keySaved')}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium">Voxtral TTS API</p>
+                    <p className="text-[11px] text-nb-text-3">
+                      {t('speech.mistralPricing')}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[var(--nb-active)] px-2 py-0.5 text-[10px] text-nb-text-2">
+                    {t(`speech.state_${mistralConfigured ? 'ready' : 'not_configured'}`)}
                   </span>
-                )}
+                </div>
+
+                <p className="mt-2 text-[11px] leading-snug text-nb-text-2">
+                  {t('speech.mistralPrivacy')}
+                </p>
+
+                <p className="mt-2 text-[11px] leading-snug text-nb-text-2">
+                  {t('speech.mistralSharedKey')}{' '}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => openSettingsTab('aiProviders')}
+                  >
+                    {t('settings.aiProviders')}
+                  </button>
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {mistralConfigured && (
+                    <GlassButton
+                      size="sm"
+                      variant="accent"
+                      onClick={() => void selectEngine('mistral-api')}
+                    >
+                      <Volume2 size={12} />
+                      {t('speech.useMistral')}
+                    </GlassButton>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
           </div>
 
           <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-nb-xs bg-[var(--nb-active)] p-2 text-nb-text-2">
-              <Cloud size={16} aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-medium">Gemini 3.1 Flash TTS Preview</p>
-                  <p className="text-[11px] text-nb-text-3">
-                    {t('speech.geminiPricing')}
-                  </p>
-                </div>
-                <span className="rounded-full bg-[var(--nb-active)] px-2 py-0.5 text-[10px] text-nb-text-2">
-                  {t(`speech.state_${geminiConfigured ? 'ready' : 'not_configured'}`)}
-                </span>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-nb-xs bg-[var(--nb-active)] p-2 text-nb-text-2">
+                <Cloud size={16} aria-hidden />
               </div>
-
-              <p className="mt-2 text-[11px] leading-snug text-nb-text-2">
-                {t('speech.geminiPrivacy')}
-              </p>
-
-              <div className="mt-3 flex gap-1.5">
-                <input
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={geminiKey}
-                  placeholder={
-                    geminiConfigured
-                      ? t('speech.geminiKeyStored')
-                      : t('speech.geminiKeyPlaceholder')
-                  }
-                  onChange={(event) => {
-                    setGeminiKey(event.target.value);
-                    setGeminiKeySaved(false);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') void saveGeminiKey();
-                  }}
-                  aria-label={t('speech.geminiKey')}
-                  className="h-8 min-w-0 flex-1 rounded-nb-xs border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[12px]"
-                />
-                <GlassButton
-                  size="sm"
-                  disabled={!geminiKey.trim() || working}
-                  onClick={() => void saveGeminiKey()}
-                >
-                  {working ? <Loader2 size={12} className="animate-spin" /> : null}
-                  {t('speech.saveKey')}
-                </GlassButton>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {geminiConfigured && (
-                  <GlassButton
-                    size="sm"
-                    variant="accent"
-                    onClick={() => void selectEngine('gemini-api')}
-                  >
-                    <Volume2 size={12} />
-                    {t('speech.useGemini')}
-                  </GlassButton>
-                )}
-                <a
-                  href="https://aistudio.google.com/apikey"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] text-nb-text-3 hover:text-nb-text-2"
-                >
-                  {t('speech.getGeminiKey')}
-                  <ExternalLink size={10} aria-hidden />
-                </a>
-                {geminiKeySaved && (
-                  <span className="text-[11px] text-nb-text-3">
-                    {t('speech.keySaved')}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium">
+                      Gemini 3.1 Flash TTS Preview
+                    </p>
+                    <p className="text-[11px] text-nb-text-3">
+                      {t('speech.geminiPricing')}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[var(--nb-active)] px-2 py-0.5 text-[10px] text-nb-text-2">
+                    {t(`speech.state_${geminiConfigured ? 'ready' : 'not_configured'}`)}
                   </span>
-                )}
+                </div>
+
+                <p className="mt-2 text-[11px] leading-snug text-nb-text-2">
+                  {t('speech.geminiPrivacy')}
+                </p>
+
+                <p className="mt-2 text-[11px] leading-snug text-nb-text-2">
+                  {t('speech.geminiSharedKey')}{' '}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => openSettingsTab('aiProviders')}
+                  >
+                    {t('settings.aiProviders')}
+                  </button>
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {geminiConfigured && (
+                    <GlassButton
+                      size="sm"
+                      variant="accent"
+                      onClick={() => void selectEngine('gemini-api')}
+                    >
+                      <Volume2 size={12} />
+                      {t('speech.useGemini')}
+                    </GlassButton>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
           </div>
         </div>
       </FieldSection>

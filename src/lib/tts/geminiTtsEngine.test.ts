@@ -5,8 +5,8 @@ import { createGeminiTtsEngine } from '@/lib/adapters/tts/geminiTtsEngine';
 
 function fakeSecrets(key: string | null): SecretsAdapter {
   return {
-    async get() {
-      return key;
+    async get(name) {
+      return name === 'ai.gemini.apiKey' ? key : null;
     },
     async set() {},
     async remove() {},

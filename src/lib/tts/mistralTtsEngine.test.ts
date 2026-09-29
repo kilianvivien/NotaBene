@@ -6,8 +6,8 @@ import { encodeWav } from '@/lib/podcast/wav';
 
 function fakeSecrets(key: string | null): SecretsAdapter {
   return {
-    async get() {
-      return key;
+    async get(name) {
+      return name === 'ai.mistral.apiKey' ? key : null;
     },
     async set() {},
     async remove() {},

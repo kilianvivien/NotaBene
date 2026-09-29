@@ -6,8 +6,8 @@
  * this Mac, each installed on the student's click (Apple's download, like a
  * dictation language); and the two defaults the dialog starts from.
  *
- * Mistral uses the key already set for the AI provider and speech. This pane
- * does not grow a third key field; it points at the one that exists.
+ * Mistral shares the main AI provider key with speech synthesis. This pane
+ * points at AI Providers to configure it.
  */
 import { Download, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
