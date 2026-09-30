@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { aiTransport } from '@/lib/adapters';
 import { AiDiagramPlanSchema, AiMindMapPlanSchema, MindMapSchema } from '@/lib/schema';
-import { layoutMindMap } from '@/lib/mindmap/layout';
+import { layoutMindMap, mindMapToSvg } from '@/lib/mindmap/layout';
 import { markdownToDoc } from '@/editor/markdown';
 import { requestMindMap } from './mindmap';
 import { requestDiagram } from './diagram';
@@ -154,6 +154,45 @@ describe('editorial visualization plans', () => {
     expect(plannedMermaid(plan).split('\n')).toHaveLength(6);
     expect(plan.nodes).toHaveLength(3);
     expect(SHORT_NOTE.markdown).toContain('reviewer');
+  });
+
+  it('repairs an empty node list rather than throwing from schema validation', async () => {
+    const empty = { ...SHORT_PLAN, nodes: [], edges: [] };
+    expect(AiDiagramPlanSchema.safeParse(empty).success).toBe(false);
+    const transport = vi
+      .spyOn(aiTransport, 'request')
+      .mockResolvedValueOnce(answered(empty))
+      .mockResolvedValueOnce(answered(SHORT_PLAN));
+    conversion.mockResolvedValue({
+      svg: '<svg/>',
+      data: { elements: [], appState: {}, files: {} },
+    });
+    const result = await requestDiagram({
+      provider,
+      source: { title: SHORT_NOTE.title, doc: markdownToDoc(SHORT_NOTE.markdown) },
+      language: 'en',
+    });
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(result.answer.mermaid).toBe(plannedMermaid(SHORT_PLAN));
+  });
+
+  it('renders full glosses as visible, escaped text within the exported SVG bounds', () => {
+    const map = plannedMindMap(MEMORY_PLAN);
+    map.nodes[1]!.note = 'Only when <ready> & approved. '.repeat(12) + 'Final condition.';
+    const svg = new DOMParser().parseFromString(mindMapToSvg(map), 'image/svg+xml');
+    expect(svg.querySelector('parsererror')).toBeNull();
+    expect(svg.querySelector('ready')).toBeNull();
+    const text = [...svg.querySelectorAll('text')]
+      .map((element) => element.textContent)
+      .join(' ');
+    for (const node of map.nodes.filter((node) => node.note)) {
+      expect(text).toContain(node.note);
+    }
+    const bounds = svg.documentElement.getAttribute('viewBox')!.split(' ').map(Number);
+    const bottom = bounds[1]! + bounds[3]!;
+    for (const element of svg.querySelectorAll('text')) {
+      expect(Number(element.getAttribute('y'))).toBeLessThan(bottom);
+    }
   });
 
   it('revises a rejected diagram plan once and retains the editorial focus', async () => {

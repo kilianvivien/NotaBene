@@ -57,7 +57,7 @@ const MARGIN = 36;
 
 /** Greedy word wrap. Long single words are broken rather than allowed to run
  * out of their box — a chemical name is still more use truncated than absent. */
-function wrap(label: string, limit = CHARACTERS_PER_LINE): string[] {
+function wrap(label: string, limit = CHARACTERS_PER_LINE, maxLines = 3): string[] {
   const lines: string[] = [];
   let line = '';
 
@@ -76,7 +76,7 @@ function wrap(label: string, limit = CHARACTERS_PER_LINE): string[] {
     }
   }
   if (line) lines.push(line);
-  return lines.length ? lines.slice(0, 3) : [''];
+  return lines.length ? lines.slice(0, maxLines) : [''];
 }
 
 /**
@@ -258,6 +258,29 @@ export function renderMindMapSvg(layout: MindMapLayout): string {
   const halfWidth = layout.width / 2;
   const halfHeight = layout.height / 2;
 
+  // Keep explanations in a readable key below the tree: enlarging radial
+  // boxes for paragraph-length glosses would make neighbouring nodes overlap.
+  const glosses = layout.nodes.filter((node) => node.note?.trim());
+  const glossLimit = Math.max(1, Math.floor((layout.width - MARGIN * 2) / 6.6));
+  let glossY = halfHeight;
+  const explanations = glosses
+    .map((node) => {
+      const lines = [
+        ...wrap(node.label, glossLimit, Infinity).map((text) => ({ text, bold: true })),
+        ...wrap(node.note!, glossLimit, Infinity).map((text) => ({ text, bold: false })),
+      ];
+      const text = lines
+        .map((line) => {
+          glossY += LINE_HEIGHT;
+          return `<text x="${-halfWidth + MARGIN}" y="${glossY}" font-size="11.5" font-weight="${line.bold ? 600 : 400}" fill="#1c1b19">${escapeXml(line.text)}</text>`;
+        })
+        .join('');
+      glossY += PADDING_Y;
+      return text;
+    })
+    .join('');
+  const height = glosses.length ? halfHeight + glossY + MARGIN : layout.height;
+
   const paths = layout.edges
     .map((edge) => {
       const color = RING_COLORS[(edge.to.depth - 1) % RING_COLORS.length];
@@ -301,12 +324,13 @@ export function renderMindMapSvg(layout: MindMapLayout): string {
     .join('');
 
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-halfWidth} ${-halfHeight} ${layout.width} ${layout.height}" ` +
-    `width="${layout.width}" height="${layout.height}" role="img" aria-label="${escapeXml(layout.title)}">` +
-    `<rect x="${-halfWidth}" y="${-halfHeight}" width="${layout.width}" height="${layout.height}" fill="#fbfaf8"/>` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-halfWidth} ${-halfHeight} ${layout.width} ${height}" ` +
+    `width="${layout.width}" height="${height}" role="img" aria-label="${escapeXml(layout.title)}">` +
+    `<rect x="${-halfWidth}" y="${-halfHeight}" width="${layout.width}" height="${height}" fill="#fbfaf8"/>` +
     paths +
     labels +
     boxes +
+    `<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">${explanations}</g>` +
     `</svg>`
   );
 }

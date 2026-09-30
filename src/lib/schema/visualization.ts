@@ -112,6 +112,8 @@ export const AiDiagramPlanSchema = z
       }
     }
     // Convergence and feedback are valid; disconnected decorative boxes are not.
+    // Array length issues do not stop Zod refinements; leave them repairable.
+    if (!plan.nodes.length) return;
     const reached = new Set([plan.nodes[0]!.id]);
     for (let pass = 0; pass < plan.nodes.length; pass += 1) {
       for (const edge of plan.edges) {
