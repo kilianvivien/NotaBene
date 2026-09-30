@@ -138,11 +138,9 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.3.6** adds an editor right-click menu, AI correction and rewriting
-for selected passages, simpler dialog controls, and shared provider keys for
-hosted speech — see the
-[release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.6)
-and [earlier releases](./RELEASE_NOTES.md). The app is not yet signed with a
+**NotaBene 1.3.7** improves note visualizations with selective mind maps,
+more explanatory diagrams and a preview of the editorial choices — see the
+[release notes](./RELEASE_NOTES.md). The app is not yet signed with a
 Developer ID or notarized, and has no automatic updates.
 
 See also the [security policy](./SECURITY.md) and

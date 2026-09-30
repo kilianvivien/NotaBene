@@ -1886,14 +1886,16 @@
     "title": "Visualize this note",
     "intro": "Turn the note into a picture you can revise from. Pick a style — you will see it before anything goes into the note.",
     "what": "Style of picture",
-    "mindMapHint": "The note’s concepts as a tree, branching out from one central idea.",
+    "mindMapHint": "The essential ideas, grouped into a few memorable branches around one focus.",
     "mindMapOutput": "Becomes a mind map you can open full-window and edit as a tree.",
-    "diagramHint": "What causes, precedes or leads to what: a process, a sequence, a structure.",
+    "diagramHint": "An explanation of the key mechanism, with its steps, conditions and meaningful connections.",
     "diagramOutput": "Becomes a drawing you can rearrange and annotate freely.",
     "makeMindMap": "Generate mind map",
     "makeDiagram": "Generate diagram",
-    "drawingMap": "Mapping the note’s concepts…",
-    "drawingDiagram": "Drawing the diagram…"
+    "drawingMap": "Selecting and organizing the essential ideas…",
+    "editorialChoices": "Why this picture?",
+    "leftOut": "Left out:",
+    "drawingDiagram": "Planning the explanation and drawing its relationships…"
   },
   "check": {
     "title": "Check & correct",

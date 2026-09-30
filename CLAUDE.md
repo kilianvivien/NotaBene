@@ -137,7 +137,9 @@ provenance, and tasks to and from `.ics` calendars. M (1.3.0) adds lecture
 recording anchored to the blocks typed during it. N (1.3.5) adds
 transcription of any audio attachment. The 1.3.6 release adds the editor
 context menu, selection-only AI correction/rewrite, title-area dialog close
-controls, and shared main Gemini/Mistral keys for hosted speech.
+controls, and shared main Gemini/Mistral keys for hosted speech. The 1.3.7
+release adds editorial visualization plans: selective shallow mind maps and
+relationship diagrams compiled locally from validated graphs.
 `docs/plan.md` tracks what is still open honestly — read it before assuming
 something works.
 

@@ -30,6 +30,13 @@ vi.mock('@/lib/commands', () => ({
 const MAP = {
   svg: '<svg xmlns="http://www.w3.org/2000/svg"/>',
   map: { title: 'Cell', nodes: [{ id: 'a' }, { id: 'b' }], edges: [] },
+  editorial: {
+    title: 'Cell',
+    focus: 'How is the cell organized?',
+    takeaway: 'Three systems work together.',
+    rationale: 'The branches group functions rather than every term.',
+    omitted: ['History: outside the focus.'],
+  },
 };
 const DIAGRAM = {
   scene: { svg: '<svg xmlns="http://www.w3.org/2000/svg"/>' },
@@ -73,6 +80,11 @@ describe('VisualizeDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Generate mind map/ }));
     await screen.findByText(/Cell · 2 nodes/);
+    expect(screen.getByText('How is the cell organized?')).toBeTruthy();
+    await userEvent.click(screen.getByText('Why this picture?'));
+    expect(screen.getByText(/History: outside the focus/).closest('details')?.open).toBe(
+      true,
+    );
     expect(proposeDiagramCommand).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole('button', { name: 'Insert into note' }));

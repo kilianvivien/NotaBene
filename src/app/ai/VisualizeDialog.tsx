@@ -29,6 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { MindMapViewer } from '@/app/mindmap/MindMapViewer';
 import { ChoiceGroup, Dialog, FieldNote, GlassButton } from '@/components/glass';
 import type { DiagramResult, MindMapResult } from '@/lib/ai';
+import type { VisualizationEditorial } from '@/lib/schema';
 import {
   insertDiagramCommand,
   insertMindMapCommand,
@@ -257,6 +258,8 @@ export function VisualizeDialog() {
         )
       )}
 
+      {result?.editorial && <EditorialPreview editorial={result.editorial} />}
+
       {busy && !result && (
         <p className="mt-3 flex items-center justify-center gap-2 text-[12px] text-nb-text-3">
           <Loader2 size={13} className="animate-spin" aria-hidden />
@@ -265,6 +268,26 @@ export function VisualizeDialog() {
       )}
       {error && <FieldNote tone="danger">{error}</FieldNote>}
     </Dialog>
+  );
+}
+
+function EditorialPreview({ editorial }: { editorial: VisualizationEditorial }) {
+  const { t } = useTranslation();
+  return (
+    <div className="mt-3 space-y-1.5 text-[12px] leading-relaxed text-nb-text-2">
+      <p className="font-medium text-nb-text">{editorial.focus}</p>
+      <p>{editorial.takeaway}</p>
+      <details className="text-nb-text-3">
+        <summary className="cursor-pointer">{t('visualize.editorialChoices')}</summary>
+        <p className="mt-1.5">{editorial.rationale}</p>
+        {editorial.omitted.length > 0 && (
+          <p className="mt-1.5">
+            <span className="font-medium">{t('visualize.leftOut')} </span>
+            {editorial.omitted.join(' · ')}
+          </p>
+        )}
+      </details>
+    </div>
   );
 }
 

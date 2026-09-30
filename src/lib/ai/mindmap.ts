@@ -9,13 +9,19 @@
  * The SVG is rendered here rather than in the node view, so that the string
  * stored on the node is the same string every export path emits.
  */
-import { docToMarkdown } from '@/editor/markdown';
 import { mindMapToSvg } from '@/lib/mindmap/layout';
-import { AiMindMapResponseSchema, type MindMap, type Note } from '@/lib/schema';
+import {
+  AiMindMapPlanSchema,
+  VisualizationEditorialSchema,
+  type MindMap,
+  type Note,
+  type VisualizationEditorial,
+} from '@/lib/schema';
 import type { AiRunOptions } from './client';
 import { runStructured } from './structured';
 import { mindMapPrompt } from './prompts';
 import type { ResolvedProvider } from './protocols';
+import { plannedMindMap, visualizationMarkdown } from './visualization';
 
 export interface MindMapRequest {
   provider: ResolvedProvider;
@@ -26,18 +32,19 @@ export interface MindMapRequest {
 export interface MindMapResult {
   map: MindMap;
   svg: string;
+  editorial?: VisualizationEditorial;
 }
 
 export async function requestMindMap(
   request: MindMapRequest,
   options: AiRunOptions = {},
 ): Promise<MindMapResult> {
-  const map = await runStructured(
+  const plan = await runStructured(
     {
       provider: request.provider,
       messages: mindMapPrompt({
         title: request.source.title,
-        markdown: docToMarkdown(request.source.doc),
+        markdown: visualizationMarkdown(request.source.doc),
         language: request.language,
       }),
       maxTokens: 4_000,
@@ -46,8 +53,13 @@ export async function requestMindMap(
       // contain.
       temperature: 0.2,
     },
-    AiMindMapResponseSchema,
+    AiMindMapPlanSchema,
     options,
   );
-  return { map, svg: mindMapToSvg(map) };
+  const map = plannedMindMap(plan);
+  return {
+    map,
+    svg: mindMapToSvg(map),
+    editorial: VisualizationEditorialSchema.parse(plan),
+  };
 }

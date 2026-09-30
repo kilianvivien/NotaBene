@@ -1886,14 +1886,16 @@
     "title": "Visualiser la note",
     "intro": "Transformez la note en image pour réviser. Choisissez un style : vous le verrez avant que quoi que ce soit n’entre dans la note.",
     "what": "Style d’image",
-    "mindMapHint": "Les concepts de la note en arbre, à partir d’une idée centrale.",
+    "mindMapHint": "Les idées essentielles, regroupées en quelques branches autour d’un axe de révision.",
     "mindMapOutput": "Devient une carte mentale à ouvrir en plein écran et à modifier comme un arbre.",
-    "diagramHint": "Ce qui cause, précède ou mène à quoi : un processus, une séquence, une structure.",
+    "diagramHint": "Une explication du mécanisme central, avec ses étapes, ses conditions et les liens utiles.",
     "diagramOutput": "Devient un dessin que vous pouvez réorganiser et annoter librement.",
     "makeMindMap": "Générer la carte mentale",
     "makeDiagram": "Générer le schéma",
-    "drawingMap": "Cartographie des concepts…",
-    "drawingDiagram": "Dessin du schéma…"
+    "drawingMap": "Sélection et organisation des idées essentielles…",
+    "editorialChoices": "Pourquoi cette représentation ?",
+    "leftOut": "Éléments écartés :",
+    "drawingDiagram": "Préparation de l’explication et dessin des relations…"
   },
   "check": {
     "title": "Vérifier et corriger",

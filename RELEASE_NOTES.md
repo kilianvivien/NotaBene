@@ -1,5 +1,22 @@
 # Release notes
 
+## NotaBene 1.3.7 — 30 September 2026
+
+- **Mind maps with a focus.** Visualize selects and groups the essential ideas
+  into a shallow tree instead of cataloguing every concept. Generated maps
+  have at most five main branches, two levels and 18 nodes; useful qualifications
+  stay in node glosses. Existing and manually edited maps retain their freedom.
+- **Diagrams that explain.** Steps, conditions, alternative outcomes, converging
+  dependencies and feedback loops can stay in the picture. Relationships carry
+  informative labels; simple notes still produce simple diagrams.
+- **Visible editorial choices.** The preview shows the learning question and
+  takeaway, with an expandable explanation of the structure and what was left
+  out. The model supplies one structured plan; NotaBene builds the tree or
+  Mermaid locally, reducing syntax work for smaller models. Existing pictures
+  are excluded from the source sent for regeneration.
+
+No library schema change. Both outputs remain editable and export as before.
+
 ## NotaBene 1.3.6 — 29 September 2026
 
 - **Edit where you write.** Right-click in a note for clipboard actions,

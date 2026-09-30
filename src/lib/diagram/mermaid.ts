@@ -5,7 +5,7 @@
  * open the block, drag a box, recolour an arrow, and the diagram is theirs from
  * then on. That is the reason this goes through `mermaid-to-excalidraw` instead
  * of rendering Mermaid to SVG directly, and the reason `schema.ts` restricts
- * the model to the three diagram types that convert to elements — the others
+ * the model to the two diagram types that convert to elements — the others
  * arrive as a raster image welded into the scene.
  *
  * Both halves are loaded on demand. Excalidraw and Mermaid together are the

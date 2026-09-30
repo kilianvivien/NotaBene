@@ -3,6 +3,7 @@ import {
   askPrompt,
   diagramPrompt,
   mermaidRepairPrompt,
+  mindMapPrompt,
   reformatPrompt,
   rewritePrompt,
   synthesisPrompt,
@@ -210,16 +211,18 @@ describe('Diagram prompt', () => {
    * itself it draws every heading, every aside and every cross-reference; these
    * are the caps that keep the picture to something worth looking at.
    */
-  it('caps the size, the branching and the labels', () => {
+  it('bounds complexity without dropping explanatory relationships', () => {
     const content = prompt[0]?.content ?? '';
-    expect(content).toContain('6 to 12 nodes');
-    expect(content).toContain('branch at most three ways');
-    expect(content).toContain('at most four words');
-    expect(content).toContain('Draw one idea, not the whole note');
+    expect(content).toContain('6 to 14 nodes');
+    expect(content).toContain('at most 18');
+    expect(content).toContain('multiple incoming edges');
+    expect(content).toContain('feedback loop');
+    expect(content).toContain('Do not simplify away');
   });
 
-  it('refuses a code fence, which would break the parser downstream', () => {
-    expect(prompt[0]?.content).toContain('Do not wrap it in a code fence');
+  it('asks for a plan the app can compile rather than model-written Mermaid', () => {
+    expect(prompt[0]?.content).toContain('describe nodes and relations as JSON');
+    expect(prompt[0]?.content).toContain('no Markdown code fence');
   });
 
   it('passes the note through with its title', () => {
@@ -246,5 +249,29 @@ describe('Mermaid repair prompt', () => {
       content: '{"kind":"flowchart"}',
     });
     expect(repair.at(-1)?.content).toContain('Parse error on line 2');
+  });
+});
+
+describe('Visualization editorial planning', () => {
+  for (const makePrompt of [mindMapPrompt, diagramPrompt]) {
+    it(`requires a focus, selection and a source-grounded self-check for ${makePrompt.name}`, () => {
+      const system = makePrompt({ title: 'T', markdown: 'Body', language: 'fr' })[0]!
+        .content;
+      expect(system).toContain('Answer in French');
+      expect(system).toContain('Rank by explanatory value');
+      expect(system).toContain('"omitted"');
+      expect(system).toContain('every fact and relationship is supported by the note');
+      expect(system).toContain('not targets');
+      expect(system).toContain('not a transcript of your reasoning');
+    });
+  }
+
+  it('asks for a selective shallow map instead of a catalogue', () => {
+    const system = mindMapPrompt({ title: 'T', markdown: 'Body', language: 'en' })[0]!
+      .content;
+    expect(system).toContain('two to four distinct branches');
+    expect(system).toContain('Only two levels below the root');
+    expect(system).toContain('Put useful qualifications in the optional "note"');
+    expect(system).toContain('a catalogue of examples cannot');
   });
 });

@@ -7,3 +7,4 @@ export * from './wikipediaApi';
 export * from './importedDocument';
 export * from './agent';
 export * from './transcript';
+export * from './visualization';

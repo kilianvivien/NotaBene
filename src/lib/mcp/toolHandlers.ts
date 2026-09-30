@@ -1105,14 +1105,20 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
         signal: context.signal,
       });
       if (!map.ok) return map;
-      reportModelUsage(context, sources, map.value.map);
+      reportModelUsage(context, sources, {
+        map: map.value.map,
+        editorial: map.value.editorial,
+      });
       return insertMindMapCommand(parsed.data.noteId, map.value, write);
     }
     const diagram = await proposeDiagramCommand(parsed.data.noteId, {
       signal: context.signal,
     });
     if (!diagram.ok) return diagram;
-    reportModelUsage(context, sources, diagram.value.answer);
+    reportModelUsage(context, sources, {
+      answer: diagram.value.answer,
+      editorial: diagram.value.editorial,
+    });
     return insertDiagramCommand(parsed.data.noteId, diagram.value, write);
   },
 
