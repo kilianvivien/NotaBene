@@ -14,8 +14,28 @@
   out. The model supplies one structured plan; NotaBene builds the tree or
   Mermaid locally, reducing syntax work for smaller models. Existing pictures
   are excluded from the source sent for regeneration.
+- **Complete explanations and safer retries.** Longer mind-map glosses appear
+  in a readable key below the tree, including in exports. An empty diagram
+  plan now triggers validation and the repair path instead of crashing.
 
 No library schema change. Both outputs remain editable and export as before.
+The Apple silicon build runs on macOS 13 or newer. On-device transcription
+requires macOS 26 or newer; Apple Intelligence as an AI provider requires
+macOS 27.
+
+**Known issues:** The previously reported duplicated autocomplete suffix and
+the quieter start of some built-in microphone recordings still need
+confirmation in the macOS app. Live-provider visualization quality and Tauri
+visual checks remain to be confirmed.
+
+**Download:** [NotaBene 1.3.7 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.7/NotaBene_1.3.7_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `7a042977d6d94c160917a8e85a5ae61d61141c689dd04cb62282c2eb63121895`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.3.6...v1.3.7)
 
 ## NotaBene 1.3.6 — 29 September 2026
 

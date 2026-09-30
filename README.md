@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.6"><img alt="Latest release: 1.3.6" src="https://img.shields.io/badge/release-1.3.6-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.7"><img alt="Latest release: 1.3.7" src="https://img.shields.io/badge/release-1.3.7-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.3.6 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.6/NotaBene_1.3.6_aarch64.dmg)**
+**[NotaBene 1.3.7 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.7/NotaBene_1.3.7_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
@@ -107,6 +107,13 @@ duplicating.
 **Search.** Titles, bodies, tags and courses, accent-insensitive, with
 filters such as `course:Analysis has:drawing after:2026-01-01`. ⌘K finds
 commands beside notes.
+
+**Visualize.** Turn a note into a focused mind map or a diagram that explains
+steps, decisions, dependencies or feedback loops. The preview shows the
+learning question and takeaway, with the reasoning behind the structure and
+what was left out. Generated mind maps stay shallow and selective; longer
+explanations appear below the tree. Both outputs remain editable and export
+with the note.
 
 **AI, on your terms.** Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama,
 LM Studio, Apple Intelligence on-device, or any OpenAI-compatible endpoint —
