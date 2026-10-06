@@ -123,6 +123,9 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     // generation, which is the right default for a list we cannot update
     // between releases.
     models: [
+      // Large 4 is a public preview with its own explicit API names.
+      'mistral-large-4',
+      'mistral-large-4-0',
       'mistral-large-latest',
       'mistral-large-2512',
       'mistral-medium-latest',

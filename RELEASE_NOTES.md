@@ -1,5 +1,13 @@
 # Release notes
 
+## NotaBene 1.3.8 — Unreleased
+
+- **Mistral Large 4 preview.** The Mistral AI model picker now offers
+  `mistral-large-4` and `mistral-large-4-0`, using the existing Mistral API key
+  and support for structured outputs and agent function calling.
+
+No library schema change.
+
 ## NotaBene 1.3.7 — 30 September 2026
 
 - **Mind maps with a focus.** Visualize selects and groups the essential ideas
