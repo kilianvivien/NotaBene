@@ -1,12 +1,28 @@
 # Release notes
 
-## NotaBene 1.3.8 — Unreleased
+## NotaBene 1.3.8 — 6 October 2026
 
 - **Mistral Large 4 preview.** The Mistral AI model picker now offers
   `mistral-large-4` and `mistral-large-4-0`, using the existing Mistral API key
   and support for structured outputs and agent function calling.
 
-No library schema change.
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27.
+
+**Known issues:** The previously reported duplicated autocomplete suffix and
+quieter start of some built-in microphone recordings still need confirmation
+in the macOS app. Live-provider visualization quality and the new Mistral
+preview model remain to be confirmed with a real API key.
+
+**Download:** [NotaBene 1.3.8 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.8/NotaBene_1.3.8_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `7731b4d9f072d67b2e68086fdaafe6cf66aa2221684e832dcfd7933cf5ad76b5`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.3.7...v1.3.8)
 
 ## NotaBene 1.3.7 — 30 September 2026
 
