@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.8"><img alt="Latest release: 1.3.8" src="https://img.shields.io/badge/release-1.3.8-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.9"><img alt="Latest release: 1.3.9" src="https://img.shields.io/badge/release-1.3.9-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.3.8 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.8/NotaBene_1.3.8_aarch64.dmg)**
+**[NotaBene 1.3.9 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.9/NotaBene_1.3.9_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
@@ -145,7 +145,8 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.3.8** adds Mistral Large 4 preview to the AI model picker — see the
+**NotaBene 1.3.9** is a maintenance release: security fixes and updated
+foundations, with no feature changes — see the
 [release notes](./RELEASE_NOTES.md). The app is not yet signed with a
 Developer ID or notarized, and has no automatic updates.
 

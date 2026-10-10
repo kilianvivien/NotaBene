@@ -1,5 +1,21 @@
 # Release notes
 
+## NotaBene 1.3.9 — Unreleased
+
+- **Security updates.** DOMPurify and KaTeX, which sanitise and render diagrams
+  and maths, move to versions that fix reported sanitisation and trust-setting
+  issues. The TLS and HTTP libraries behind AI requests and saved web pages are
+  updated as well.
+- **Updated foundations.** The app now builds on Tauri 2.12, React 19.3,
+  pdf.js 6.4 and TipTap 3.31.4. No feature changes.
+
+No library schema change.
+
+**Known issues:** The menu bar, dialogs, notifications and PDF attachments
+remain to be confirmed in the macOS app after the Tauri 2.12 update. The
+previously reported duplicated autocomplete suffix and quieter start of some
+built-in microphone recordings still need confirmation there too.
+
 ## NotaBene 1.3.8 — 6 October 2026
 
 - **Mistral Large 4 preview.** The Mistral AI model picker now offers
