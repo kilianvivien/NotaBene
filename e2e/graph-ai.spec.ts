@@ -68,6 +68,7 @@ async function enableStubbedProvider(page: Page) {
     .click();
   await page.getByRole('checkbox', { name: 'Use this local runtime' }).check();
   await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeHidden();
 }
 
 /**
@@ -327,4 +328,55 @@ test('cancels a quick summary and enables another run', async ({ page }) => {
   await detail.getByRole('button', { name: 'Quick summary' }).click();
   await detail.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(detail.getByRole('button', { name: 'Quick summary' })).toBeEnabled();
+});
+
+test('graph settings control the next request and opening defaults', async ({ page }) => {
+  const stub = await stubProvider(page, { links: [] });
+  await openApp(page, 'empty');
+  await enableStubbedProvider(page);
+  await seedUnlinkedNotes(page);
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  const graph = page.getByRole('dialog', { name: 'Graph' });
+  await graph.getByRole('button', { name: 'Settings', exact: true }).click();
+  const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+  await expect(
+    settings.getByRole('heading', { name: 'Graph', exact: true }),
+  ).toBeVisible();
+  await settings
+    .getByRole('combobox', { name: 'Output allowance (tokens)' })
+    .selectOption('32768');
+  await settings.getByRole('slider', { name: 'Notes to consider' }).fill('2');
+  await settings.getByRole('slider', { name: 'Excerpt length (characters)' }).fill('120');
+  await settings.getByRole('slider', { name: 'Suggestions per request' }).fill('3');
+  await settings.getByRole('switch', { name: 'Show unlinked mentions' }).click();
+  await expect(
+    settings.getByRole('switch', { name: 'Show unlinked mentions' }),
+  ).toHaveAttribute('aria-checked', 'true');
+  await settings.getByRole('button', { name: 'Close', exact: true }).click();
+
+  await graph.getByRole('button', { name: 'Suggest links', exact: true }).click();
+  const panel = graph.getByRole('complementary', { name: 'Suggested links' });
+  await expect(
+    panel.getByText(/Based on your 2 most recently edited notes, out of 3/),
+  ).toBeVisible();
+  const sent = JSON.parse(stub.prompts.at(-1)!);
+  expect(sent.max_tokens).toBe(32768);
+  expect(sent.messages[0].content).toContain('At most 3 links');
+  expect(sent.messages[1].content).not.toContain('[2]');
+  await graph.getByRole('button', { name: 'Close', exact: true }).last().click();
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  await expect(
+    graph.getByRole('button', { name: 'Mentions', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await graph.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(
+    settings.getByRole('combobox', { name: 'Output allowance (tokens)' }),
+  ).toHaveValue('32768');
+  await settings.getByRole('button', { name: 'Reset graph settings' }).click();
+  await expect(
+    settings.getByRole('combobox', { name: 'Output allowance (tokens)' }),
+  ).toHaveValue('16384');
+  await expect(
+    settings.getByRole('switch', { name: 'Show unlinked mentions' }),
+  ).toHaveAttribute('aria-checked', 'false');
 });

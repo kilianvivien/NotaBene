@@ -227,6 +227,7 @@ export interface AppSettings {
   /** Per-provider configuration that is *not* a secret. Keys live in the
    * Keychain and have no representation here — see the schema note in §1.6. */
   aiProviders: Record<string, AiProviderSettings>;
+  graph: GraphSettings;
   /** Speech configuration is shared by read-aloud and podcast playback. */
   speech: SpeechSettings;
   /** Script-specific podcast preferences. */
@@ -263,6 +264,23 @@ export interface SecretsAdapter {
    * configured without pulling secrets into the webview. */
   listKeys(): Promise<string[]>;
 }
+
+export interface GraphSettings {
+  showMentions: boolean;
+  linkedOnly: boolean;
+  maxNotes: number;
+  excerptChars: number;
+  maxSuggestions: number;
+  /** Includes reasoning as well as the final answer. */
+  maxOutputTokens: number;
+}
+
+export const GRAPH_LIMITS = {
+  maxNotes: { min: 2, max: 120 },
+  excerptChars: { min: 120, max: 2_000 },
+  maxSuggestions: { min: 1, max: 24 },
+  maxOutputTokens: { min: 4_096, max: 65_536 },
+} as const;
 
 export const DEFAULT_SETTINGS: AppSettings = {
   onboardingCompleted: false,
@@ -319,6 +337,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   agentInstructions: '',
   aiFeatureModels: {},
   aiProviders: {},
+  graph: {
+    showMentions: false,
+    linkedOnly: false,
+    maxNotes: 60,
+    excerptChars: 360,
+    maxSuggestions: 12,
+    maxOutputTokens: 16_384,
+  },
   speech: {
     engineId: 'system',
     voicesByEngine: {},

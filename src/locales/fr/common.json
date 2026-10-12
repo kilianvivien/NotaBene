@@ -780,7 +780,8 @@
     "feature_vocabulary": "Révision du vocabulaire",
     "feature_proofread": "Vérifier le paragraphe",
     "askScopeLinked": "Cette note et ses liens",
-    "askScopeHint_linked": "Les réponses peuvent s’appuyer sur cette note et sur toutes celles qui lui sont liées, et indiqueront lesquelles ont servi."
+    "askScopeHint_linked": "Les réponses peuvent s’appuyer sur cette note et sur toutes celles qui lui sont liées, et indiqueront lesquelles ont servi.",
+    "error_output_truncated": "Le modèle a atteint sa limite de sortie avant de terminer sa réponse. Réduisez la demande ou augmentez le nombre de tokens de sortie."
   },
   "tags": {
     "facet_topic": "Thème",
@@ -1035,7 +1036,8 @@
       "linkAll_other": "Lier les {{count}}",
       "partial": "À partir de vos {{considered}} notes les plus récemment modifiées, sur {{total}}.",
       "hidden": "{{count}} suggestions sont masquées par les filtres actuels. Effacez les filtres pour les afficher.",
-      "invalidResponse": "Le fournisseur IA n’a pas pu renvoyer des suggestions de liens valides. Réessayez ou choisissez un autre modèle dans les réglages."
+      "invalidResponse": "Le fournisseur IA n’a pas pu renvoyer des suggestions de liens valides. Réessayez ou choisissez un autre modèle dans les réglages.",
+      "outputTruncated": "Le modèle a atteint sa limite de sortie avant de terminer. Augmentez la limite dans Réglages → Graphe, puis réessayez."
     },
     "retry": "Réessayer"
   },
@@ -1216,7 +1218,28 @@
     "completionHintAlways": "Toujours",
     "completionHintNever": "Jamais",
     "recording": "Enregistrement",
-    "desc_recording": "Comment les cours sont enregistrés : quel micro, à quel niveau, avec quel traitement."
+    "desc_recording": "Comment les cours sont enregistrés : quel micro, à quel niveau, avec quel traitement.",
+    "graph": "Graphe",
+    "graphView": "Affichage par défaut",
+    "graphViewHint": "Ces choix s’appliquent à la prochaine ouverture du graphe. Ses filtres restent modifiables pendant l’exploration.",
+    "graphShowMentions": "Afficher les mentions sans lien",
+    "graphShowMentionsHint": "Tracer des lignes pointillées lorsqu’une note en cite une autre sans créer de lien.",
+    "graphLinkedOnly": "Afficher uniquement les notes reliées",
+    "graphLinkedOnlyHint": "Masquer les notes isolées à l’ouverture. Sans aucun lien, le graphe peut être vide.",
+    "graphAi": "Suggestions de liens par l’IA",
+    "graphAiHint": "Ces réglages s’appliquent à tous les fournisseurs IA. Vous examinez les suggestions avant toute modification. Des limites plus élevées peuvent prendre plus de temps et consommer davantage de crédit.",
+    "graphMaxOutputTokens": "Limite de sortie (tokens)",
+    "graphMaxOutputTokensHint": "Place disponible pour le raisonnement du modèle et sa réponse finale. Augmentez cette limite si la génération s’arrête trop tôt. La limite de contexte du fournisseur reste applicable.",
+    "graphReset": "Réinitialiser les réglages du graphe",
+    "graphLimits": {
+      "maxNotes": "Notes à examiner",
+      "maxNotesHint": "Examiner au maximum ce nombre de notes, parmi les plus récemment modifiées correspondant aux filtres du graphe.",
+      "excerptChars": "Longueur des extraits (caractères)",
+      "excerptCharsHint": "Part du début de chaque note envoyée au modèle. Des extraits plus longs lui donnent davantage de contexte.",
+      "maxSuggestions": "Suggestions par demande",
+      "maxSuggestionsHint": "Nombre maximal de liens proposés. Le modèle peut en proposer moins si les liens sont peu pertinents."
+    },
+    "desc_graph": "Choisissez les options d’ouverture du graphe et la façon dont l’IA propose des liens entre vos notes."
   },
   "abbreviations": {
     "trigger": "Vous tapez",

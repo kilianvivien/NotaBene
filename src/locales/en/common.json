@@ -780,7 +780,8 @@
     "feature_vocabulary": "Vocabulary review",
     "feature_proofread": "Check paragraph",
     "askScopeLinked": "This note and its links",
-    "askScopeHint_linked": "Answers may draw on this note and every note linked to or from it, and will say which ones they used."
+    "askScopeHint_linked": "Answers may draw on this note and every note linked to or from it, and will say which ones they used.",
+    "error_output_truncated": "The model reached its output limit before finishing its answer. Try a shorter request or allow more output tokens."
   },
   "tags": {
     "facet_topic": "Topic",
@@ -1035,7 +1036,8 @@
       "linkAll_other": "Link all {{count}}",
       "partial": "Based on your {{considered}} most recently edited notes, out of {{total}}.",
       "hidden": "{{count}} suggestions are hidden by the current filters. Clear the filters to see them.",
-      "invalidResponse": "The AI provider could not return valid link suggestions. Try again, or choose another model in Settings."
+      "invalidResponse": "The AI provider could not return valid link suggestions. Try again, or choose another model in Settings.",
+      "outputTruncated": "The model reached its output limit before finishing. Increase the output allowance in Settings → Graph and try again."
     },
     "retry": "Retry"
   },
@@ -1216,7 +1218,28 @@
     "completionHintAlways": "Always",
     "completionHintNever": "Never",
     "recording": "Recording",
-    "desc_recording": "How lectures are recorded: which microphone, how loud, and what processing to keep."
+    "desc_recording": "How lectures are recorded: which microphone, how loud, and what processing to keep.",
+    "graph": "Graph",
+    "graphView": "View defaults",
+    "graphViewHint": "These defaults apply next time you open the graph. You can still change its filters while exploring.",
+    "graphShowMentions": "Show unlinked mentions",
+    "graphShowMentionsHint": "Draw dashed lines where a note names another without linking to it.",
+    "graphLinkedOnly": "Show connected notes only",
+    "graphLinkedOnlyHint": "Hide isolated notes when the graph opens. With no links, the graph may be empty.",
+    "graphAi": "AI link suggestions",
+    "graphAiHint": "Applies to every AI provider. Suggestions are reviewed before any note changes. Larger allowances can take longer and use more of your provider balance.",
+    "graphMaxOutputTokens": "Output allowance (tokens)",
+    "graphMaxOutputTokensHint": "Room for the model’s reasoning and its final answer. Raise this if generation stops early. The provider’s context limit still applies.",
+    "graphReset": "Reset graph settings",
+    "graphLimits": {
+      "maxNotes": "Notes to consider",
+      "maxNotesHint": "Use up to this many of the most recently edited notes matching the graph filters.",
+      "excerptChars": "Excerpt length (characters)",
+      "excerptCharsHint": "How much of each note’s beginning the model sees. Longer excerpts give it more context.",
+      "maxSuggestions": "Suggestions per request",
+      "maxSuggestionsHint": "The maximum number of proposed links. The model can return fewer when connections are weak."
+    },
+    "desc_graph": "Choose how the graph opens and how AI suggests connections between your notes."
   },
   "abbreviations": {
     "trigger": "Type this",

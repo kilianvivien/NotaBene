@@ -18,6 +18,7 @@ import {
   parseStreamError,
   parseStreamFrame,
   ProviderRefusalError,
+  ProviderTruncationError,
 } from './protocols';
 import type { AiCall, ResolvedProvider } from './protocols';
 
@@ -43,7 +44,7 @@ export class AiError extends Error {
     message: string,
     readonly status?: number,
     readonly retryable = false,
-    readonly code?: 'context_too_large' | 'provider_refusal',
+    readonly code?: 'context_too_large' | 'provider_refusal' | 'output_truncated',
   ) {
     super(message);
     this.name = 'AiError';
@@ -221,8 +222,7 @@ async function attemptCall<T>(
  */
 function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const stop = () =>
-      reject(signal.reason ?? new DOMException('aborted', 'AbortError'));
+    const stop = () => reject(signal.reason ?? new DOMException('aborted', 'AbortError'));
     if (signal.aborted) stop();
     else signal.addEventListener('abort', stop, { once: true });
     work.then(resolve, reject).finally(() => signal.removeEventListener('abort', stop));
@@ -285,7 +285,9 @@ async function readStream(
  */
 function errorNamed(error: unknown, name: string): boolean {
   return (
-    typeof error === 'object' && error !== null && (error as { name?: unknown }).name === name
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { name?: unknown }).name === name
   );
 }
 
@@ -294,6 +296,9 @@ function asAiError(error: unknown): AiError {
   if (error instanceof AiError) return error;
   if (error instanceof ProviderRefusalError) {
     return new AiError(error.detail, undefined, false, 'provider_refusal');
+  }
+  if (error instanceof ProviderTruncationError) {
+    return new AiError(error.message, undefined, false, 'output_truncated');
   }
   if (errorNamed(error, 'AbortError')) {
     return new AiError('cancelled');

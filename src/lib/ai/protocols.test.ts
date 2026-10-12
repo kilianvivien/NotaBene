@@ -105,6 +105,46 @@ describe('openAiRequest', () => {
 describe('parseResponse', () => {
   const mistral = resolved('mistral', 'zai-glm-5-3');
 
+  it.each([
+    [
+      'mistral',
+      {
+        choices: [
+          {
+            finish_reason: 'length',
+            message: {
+              content: [
+                {
+                  type: 'thinking',
+                  thinking: [{ type: 'text', text: 'private analysis' }],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+    [
+      'anthropic',
+      { stop_reason: 'max_tokens', content: [{ type: 'text', text: '{"links":[' }] },
+    ],
+    [
+      'gemini',
+      {
+        candidates: [
+          { finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"links":[' }] } },
+        ],
+      },
+    ],
+  ])(
+    'reports a %s output cutoff before attempting to parse its text',
+    (providerId, body) => {
+      expect(() =>
+        parseResponse(resolved(providerId as string), JSON.stringify(body)),
+      ).toThrow(/output token limit/);
+    },
+  );
+
   it('reads a plain string answer', () => {
     const body = JSON.stringify({
       choices: [{ message: { role: 'assistant', content: '{"title":"T"}' } }],
@@ -142,7 +182,9 @@ describe('parseResponse', () => {
 
   it("surfaces an OpenAI-compatible provider's refusal in its own words", () => {
     const body = JSON.stringify({
-      choices: [{ message: { role: 'assistant', content: null, refusal: 'I cannot do that.' } }],
+      choices: [
+        { message: { role: 'assistant', content: null, refusal: 'I cannot do that.' } },
+      ],
     });
     expect(() => parseResponse(resolved('apple', 'system'), body)).toThrow(
       'I cannot do that.',

@@ -51,6 +51,32 @@ afterEach(() => {
 });
 
 describe('a structured call', () => {
+  it('recognises a reasoning-only token cutoff and does not send a JSON repair', async () => {
+    const { aiTransport } = await import('@/lib/adapters');
+    const request = vi.spyOn(aiTransport, 'request').mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: JSON.stringify({
+        choices: [
+          {
+            finish_reason: 'length',
+            message: {
+              content: [
+                {
+                  type: 'thinking',
+                  thinking: [{ type: 'text', text: 'private analysis' }],
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    });
+    await expect(
+      runStructured({ ...call, provider: mistral }, Simple),
+    ).rejects.toMatchObject({ code: 'output_truncated', retryable: false });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it('asks once when the answer parses', async () => {
     const { aiTransport } = await import('@/lib/adapters');
     const request = vi

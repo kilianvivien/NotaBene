@@ -7,6 +7,7 @@ import {
   appSettings,
   COMPLETION_MIN_PREFIX,
   DEFAULT_SETTINGS,
+  GRAPH_LIMITS,
   RECORDING_GAIN,
   LOCAL_MODEL_REVISIONS,
   type AppSettings,
@@ -93,6 +94,30 @@ function normalizeCompletion(value: unknown): AppSettings['completion'] {
 /** Long enough for a page of conventions; every run resends it each turn. */
 export const MAX_AGENT_INSTRUCTIONS = 2_000;
 
+function normalizeGraph(value: unknown): AppSettings['graph'] {
+  const stored = (value ?? {}) as Partial<AppSettings['graph']>;
+  const defaults = DEFAULT_SETTINGS.graph;
+  const integer = (key: keyof typeof GRAPH_LIMITS): number => {
+    const value = stored[key];
+    const range = GRAPH_LIMITS[key];
+    return typeof value === 'number' && Number.isFinite(value)
+      ? Math.round(Math.min(range.max, Math.max(range.min, value)))
+      : defaults[key];
+  };
+  return {
+    showMentions:
+      typeof stored.showMentions === 'boolean'
+        ? stored.showMentions
+        : defaults.showMentions,
+    linkedOnly:
+      typeof stored.linkedOnly === 'boolean' ? stored.linkedOnly : defaults.linkedOnly,
+    maxNotes: integer('maxNotes'),
+    excerptChars: integer('excerptChars'),
+    maxSuggestions: integer('maxSuggestions'),
+    maxOutputTokens: integer('maxOutputTokens'),
+  };
+}
+
 export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
   // `focusMode` was a persisted boolean nothing ever read. Concentration mode
   // is window state and stays in `uiStore`; what belongs in settings is how the
@@ -143,6 +168,7 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
     abbreviations: normalizeAbbreviations(rest.abbreviations),
     focus: { ...DEFAULT_SETTINGS.focus, ...rest.focus },
     completion: normalizeCompletion(rest.completion),
+    graph: normalizeGraph(rest.graph),
     speech: {
       ...DEFAULT_SETTINGS.speech,
       ...storedSpeech,
@@ -287,6 +313,7 @@ export const useSettingsStore = create<SettingsState>()(
 
     async update(patch) {
       const merged = { ...get().settings, ...patch };
+      if (patch.graph) merged.graph = normalizeGraph(patch.graph);
       applySettingsToDom(merged);
       set((state) => {
         state.settings = merged;

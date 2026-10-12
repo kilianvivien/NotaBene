@@ -115,8 +115,66 @@ describe('link suggestion provider requests', () => {
       ).toEqual(['from', 'to', 'reason']);
       expect(sent.messages[0].content).toContain('[{"from":2,"to":3}]');
       expect(sent.stream).not.toBe(true);
+      if (model === 'zai-glm-5-3') expect(sent.reasoning_effort).toBe('low');
+      if (model === 'mistral-large-4') expect(sent.reasoning_effort).toBe('none');
+      if (id !== 'apple') expect(sent.max_tokens).toBe(16_384);
     },
   );
+
+  it.each(['ollama', 'openai', 'anthropic', 'gemini'])(
+    'uses the larger output allowance for %s too',
+    async (id) => {
+      const definition = providerById(id)!;
+      const text = '{"links":[]}';
+      const body =
+        definition.protocol === 'anthropic'
+          ? { content: [{ type: 'text', text }] }
+          : definition.protocol === 'gemini'
+            ? { candidates: [{ content: { parts: [{ text }] } }] }
+            : { choices: [{ message: { content: text } }] };
+      const request = vi
+        .spyOn(aiTransport, 'request')
+        .mockResolvedValue({ status: 200, headers: {}, body: JSON.stringify(body) });
+      await requestLinkSuggestions({
+        provider: {
+          definition,
+          model: 'test-model',
+          baseUrl: 'http://localhost:1234/v1',
+          apiKey: null,
+        },
+        notes: NOTES,
+        linked: new Set(),
+        language: 'en',
+      });
+      const sent = JSON.parse(String(request.mock.calls[0]![0].body));
+      expect(
+        sent.max_tokens ??
+          sent.max_completion_tokens ??
+          sent.generationConfig?.maxOutputTokens,
+      ).toBe(16_384);
+      expect(sent.reasoning_effort).toBeUndefined();
+    },
+  );
+
+  it('honours the configured token and suggestion limits in the prompt, wire schema and result', async () => {
+    const run = answering([
+      { from: 0, to: 1, reason: 'first' },
+      { from: 0, to: 2, reason: 'second' },
+    ]);
+    const result = await requestLinkSuggestions({
+      provider: {} as ResolvedProvider,
+      notes: NOTES,
+      linked: new Set(),
+      language: 'en',
+      limits: { maxOutputTokens: 32_768, maxSuggestions: 1 },
+    });
+    expect(result).toHaveLength(1);
+    expect(run.mock.calls[0]![0]).toMatchObject({
+      maxTokens: 32_768,
+      jsonSchema: { schema: { properties: { links: { maxItems: 1 } } } },
+    });
+    expect(run.mock.calls[0]![0].messages[0]!.content).toContain('At most 1 links');
+  });
 
   it('repairs a prose answer once with the same schema', async () => {
     const response = (content: string) => ({

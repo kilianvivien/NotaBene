@@ -37,6 +37,7 @@ import {
   TextCursorInput,
   Type,
   Volume2,
+  Waypoints,
   type LucideIcon,
 } from 'lucide-react';
 import { Fragment, useState } from 'react';
@@ -52,6 +53,7 @@ import {
   ModalOverlay,
 } from '@/components/glass';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { GraphSettings } from './GraphSettings';
 import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils/cn';
@@ -94,6 +96,7 @@ const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
   {
     labelKey: 'settings.groupContent',
     tabs: [
+      { id: 'graph', icon: Waypoints },
       { id: 'speech', icon: Volume2 },
       { id: 'recording', icon: Mic },
       { id: 'backups', icon: DatabaseBackup },
@@ -577,6 +580,7 @@ export function SettingsWindow() {
             {tab === 'dataStorage' && <DataStorageSettings />}
             {tab === 'speech' && <SpeechSettings />}
             {tab === 'recording' && <RecordingSettings />}
+            {tab === 'graph' && <GraphSettings />}
             {tab === 'aiProviders' && <AiProviderSettings />}
             {tab === 'agent' && <AgentSettings />}
             {tab === 'about' && <AboutSettings />}

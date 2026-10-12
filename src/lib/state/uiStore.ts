@@ -45,6 +45,7 @@ export type SettingsTab =
   | 'abbreviations'
   | 'speech'
   | 'recording'
+  | 'graph'
   | 'dataStorage'
   | 'aiProviders'
   | 'backups'

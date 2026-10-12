@@ -19,6 +19,7 @@ export function aiErrorMessage(
   if (limit) return t(`ai.limit_${limit}`, { max: MAX_AI_SOURCES });
   const aiReason = (result.details as { aiReason?: string } | undefined)?.aiReason;
   if (aiReason === 'context_too_large') return t('ai.error_context_too_large');
+  if (aiReason === 'output_truncated') return t('ai.error_output_truncated');
   if (aiReason === 'provider_refusal') {
     return t('ai.error_provider_refusal', { detail: result.message });
   }

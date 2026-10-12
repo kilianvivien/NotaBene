@@ -42,6 +42,8 @@ export interface AiCall {
     schema: Record<string, unknown>;
   };
   stream: boolean;
+  /** Only set for a model whose endpoint supports this reasoning level. */
+  reasoningEffort?: 'none' | 'low' | 'high' | 'max';
   /**
    * Native function calling (plan §3.2, item 2). When present the model is
    * offered these tools and, with `required`, must answer with at least one
@@ -158,6 +160,7 @@ function openAiRequest(call: AiCall): AiRequest {
       model: call.provider.model,
       messages: call.messages,
       [tokenField]: call.maxTokens,
+      ...(call.reasoningEffort ? { reasoning_effort: call.reasoningEffort } : {}),
       ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
       ...(call.tools ? {} : openAiResponseFormat(call)),
       ...(call.stream || quirks.explicitStream ? { stream: call.stream } : {}),
@@ -306,6 +309,8 @@ export function parseToolResponse(
   }
   const error = providerError(payload);
   if (error) throw new Error(error);
+
+  throwIfOutputTruncated(payload);
   if (!isRecord(payload)) throw new Error('provider returned an empty response');
 
   const calls: AiToolCall[] = [];
@@ -402,6 +407,7 @@ export function parseResponse(provider: ResolvedProvider, body: string): string 
   const error = providerError(payload);
   if (error) throw new Error(error);
 
+  throwIfOutputTruncated(payload);
   const text = extractText(provider.definition.protocol, payload);
   if (text === null) {
     throw new Error(`could not find text in provider response: ${body.slice(0, 200)}`);
@@ -414,6 +420,25 @@ export class ProviderRefusalError extends Error {
     super(detail);
     this.name = 'ProviderRefusalError';
   }
+}
+
+export class ProviderTruncationError extends Error {
+  constructor() {
+    super('the model reached the output token limit before completing its answer');
+    this.name = 'ProviderTruncationError';
+  }
+}
+
+function throwIfOutputTruncated(payload: unknown): void {
+  if (!isRecord(payload)) return;
+  const first = Array.isArray(payload.choices) ? payload.choices[0] : null;
+  const candidate = Array.isArray(payload.candidates) ? payload.candidates[0] : null;
+  if (
+    payload.stop_reason === 'max_tokens' ||
+    (isRecord(first) && first.finish_reason === 'length') ||
+    (isRecord(candidate) && candidate.finishReason === 'MAX_TOKENS')
+  )
+    throw new ProviderTruncationError();
 }
 
 function providerError(payload: unknown): string | null {

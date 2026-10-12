@@ -8,6 +8,10 @@
  * a command.
  */
 import { AiLinkSuggestionsResponseSchema } from '@/lib/schema';
+import {
+  DEFAULT_SETTINGS,
+  type GraphSettings,
+} from '@/lib/adapters/settings/SettingsAdapter';
 import type { AiRunOptions } from './client';
 import { linkSuggestionPrompt } from './prompts';
 import type { ResolvedProvider } from './protocols';
@@ -15,11 +19,11 @@ import { runStructured } from './structured';
 
 /** The most notes shown to the model at once. Past this the excerpts stop
  * fitting a small context window, and the model stops reading the far end. */
-export const MAX_LINK_SUGGESTION_NOTES = 60;
+export const MAX_LINK_SUGGESTION_NOTES = DEFAULT_SETTINGS.graph.maxNotes;
 /** The most suggestions kept. A list longer than this is not read. */
-export const MAX_LINK_SUGGESTIONS = 12;
+export const MAX_LINK_SUGGESTIONS = DEFAULT_SETTINGS.graph.maxSuggestions;
 /** How much of each note the model sees. */
-export const LINK_EXCERPT_CHARS = 360;
+export const LINK_EXCERPT_CHARS = DEFAULT_SETTINGS.graph.excerptChars;
 
 // JSON mode alone only guarantees syntax. Providers such as Mistral and
 // Apple Intelligence need the shape too, before downstream Zod validation.
@@ -74,6 +78,7 @@ export interface LinkSuggestionRequest {
   /** Pairs that are already linked, as `source>target`, in either order. */
   linked: Set<string>;
   language: string;
+  limits?: Pick<GraphSettings, 'maxOutputTokens' | 'maxSuggestions'>;
 }
 
 export async function requestLinkSuggestions(
@@ -81,12 +86,30 @@ export async function requestLinkSuggestions(
   options: AiRunOptions = {},
 ): Promise<LinkSuggestion[]> {
   if (request.notes.length < 2) return [];
+  const limits = { ...DEFAULT_SETTINGS.graph, ...request.limits };
+  // GLM defaults can spend the entire allowance thinking. Low is its minimum
+  // supported level; Mistral's own reasoning models also support none.
+  const { definition, model } = request.provider;
+  const reasoningEffort =
+    definition?.id === 'mistral'
+      ? model === 'zai-glm-5-3'
+        ? ('low' as const)
+        : [
+              'mistral-large-4',
+              'mistral-large-4-0',
+              'mistral-medium-3-5',
+              'mistral-small-latest',
+              'mistral-small-2603',
+            ].includes(model)
+          ? ('none' as const)
+          : undefined
+      : undefined;
   const response = await runStructured(
     {
       provider: request.provider,
       messages: linkSuggestionPrompt({
         notes: request.notes,
-        max: MAX_LINK_SUGGESTIONS,
+        max: limits.maxSuggestions,
         language: request.language,
         linked: request.notes.flatMap((source, from) =>
           request.notes.flatMap((target, to) =>
@@ -98,8 +121,20 @@ export async function requestLinkSuggestions(
           ),
         ),
       }),
-      jsonSchema: LINK_SUGGESTIONS_JSON_SCHEMA,
-      maxTokens: 4_000,
+      jsonSchema: {
+        ...LINK_SUGGESTIONS_JSON_SCHEMA,
+        schema: {
+          ...LINK_SUGGESTIONS_JSON_SCHEMA.schema,
+          properties: {
+            links: {
+              ...LINK_SUGGESTIONS_JSON_SCHEMA.schema.properties.links,
+              maxItems: limits.maxSuggestions,
+            },
+          },
+        },
+      },
+      maxTokens: limits.maxOutputTokens,
+      reasoningEffort,
       temperature: 0.2,
     },
     AiLinkSuggestionsResponseSchema,
@@ -126,7 +161,7 @@ export async function requestLinkSuggestions(
     }
     seen.add(pair);
     suggestions.push({ sourceId: source.id, targetId: target.id, reason: link.reason });
-    if (suggestions.length >= MAX_LINK_SUGGESTIONS) break;
+    if (suggestions.length >= limits.maxSuggestions) break;
   }
   return suggestions;
 }

@@ -11,8 +11,7 @@ import { library } from '@/lib/adapters';
 import i18n from '@/lib/i18n';
 import {
   AiParseError,
-  LINK_EXCERPT_CHARS,
-  MAX_LINK_SUGGESTION_NOTES,
+  AiError,
   requestLinkSuggestions,
   type AiRunOptions,
   type LinkSuggestion,
@@ -30,6 +29,7 @@ import {
 } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { aiFailure, language, providerFor } from './aiCommands';
 import { applyNoteUpdate, updateNoteCommand } from './noteCommands';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
@@ -365,10 +365,12 @@ export async function suggestLinksCommand(
   const total = candidates.length;
   if (total < 2) return ok({ suggestions: [], considered: total, total });
 
+  const preferences = useSettingsStore.getState().settings.graph;
+
   const chosen = [...candidates]
     .filter((node) => node.title.trim())
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, MAX_LINK_SUGGESTION_NOTES);
+    .slice(0, preferences.maxNotes);
   const courses = new Map(
     useLibraryStore.getState().courses.map((course) => [course.id, course.name]),
   );
@@ -383,7 +385,10 @@ export async function suggestLinksCommand(
         id: note.id,
         title: note.title.trim(),
         course: note.courseId ? (courses.get(note.courseId) ?? null) : null,
-        excerpt: note.plainText.replace(/\s+/g, ' ').trim().slice(0, LINK_EXCERPT_CHARS),
+        excerpt: note.plainText
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, preferences.excerptChars),
       });
     }
     const suggestions = await requestLinkSuggestions(
@@ -394,11 +399,19 @@ export async function suggestLinksCommand(
           graph.value.edges.map((edge) => `${edge.sourceId}>${edge.targetId}`),
         ),
         language: language(),
+        limits: preferences,
       },
       options,
     );
     return ok({ suggestions, considered: notes.length, total });
   } catch (error) {
+    if (
+      error instanceof AiError &&
+      error.code === 'output_truncated' &&
+      !options.signal?.aborted
+    ) {
+      return fail('invalid_input', i18n.t('graph.suggest.outputTruncated'));
+    }
     if (error instanceof AiParseError && !options.signal?.aborted) {
       return fail('invalid_input', i18n.t('graph.suggest.invalidResponse'));
     }

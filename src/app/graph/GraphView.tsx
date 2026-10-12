@@ -68,6 +68,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { GraphDetail, type DetailNote } from './GraphDetail';
 import { GraphSuggestions, type SuggestionRow } from './GraphSuggestions';
 import {
@@ -655,7 +656,14 @@ export function GraphView() {
   const [hasMentions, setHasMentions] = useState(false);
   const [error, setError] = useState('');
   const [readAttempt, setReadAttempt] = useState(0);
-  const [filters, setFilters] = useState<GraphFilters>(DEFAULT_GRAPH_FILTERS);
+  const [filters, setFilters] = useState<GraphFilters>(() => {
+    const preferences = useSettingsStore.getState().settings.graph;
+    return {
+      ...DEFAULT_GRAPH_FILTERS,
+      mentions: preferences.showMentions,
+      linkedOnly: preferences.linkedOnly,
+    };
+  });
   const [query, setQuery] = useState('');
   const [hovered, setHovered] = useState<number | null>(null);
   /** The note whose detail card is open — an id, so it survives a re-read. */
@@ -1639,7 +1647,10 @@ export function GraphView() {
           className="nb-map-viewer-close"
           aria-label={t('settings.title')}
           title={t('settings.title')}
-          onClick={() => void runAppCommand('app.settings')}
+          onClick={() => {
+            useUiStore.getState().setSettingsTab('graph');
+            void runAppCommand('app.settings');
+          }}
         >
           <Settings size={15} aria-hidden />
         </button>

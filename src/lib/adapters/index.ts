@@ -186,6 +186,7 @@ export type {
   CompletionPresence,
   CompletionSettings,
   FocusSettings,
+  GraphSettings,
   PodcastSettings,
   RecordingSettings,
   SpeechSettings,
@@ -196,6 +197,7 @@ export type {
 export {
   COMPLETION_MIN_PREFIX,
   DEFAULT_SETTINGS,
+  GRAPH_LIMITS,
   RECORDING_GAIN,
 } from './settings/SettingsAdapter';
 export {
