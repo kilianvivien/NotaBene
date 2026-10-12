@@ -1,6 +1,14 @@
 # Release notes
 
-## NotaBene 1.3.9 — Unreleased
+## NotaBene 1.4.0 — Unreleased
+
+- **Updated foundations.** Tauri 2.12.3 with its dialog, file, notification,
+  opener and updater plugins, docx 9.10, and the in-range Rust dependencies.
+  No feature changes yet.
+
+No library schema change.
+
+## NotaBene 1.3.9 — 10 October 2026
 
 - **Security updates.** DOMPurify and KaTeX, which sanitise and render diagrams
   and maths, move to versions that fix reported sanitisation and trust-setting
@@ -9,12 +17,22 @@
 - **Updated foundations.** The app now builds on Tauri 2.12, React 19.3,
   pdf.js 6.4 and TipTap 3.31.4. No feature changes.
 
-No library schema change.
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27.
 
-**Known issues:** The menu bar, dialogs, notifications and PDF attachments
-remain to be confirmed in the macOS app after the Tauri 2.12 update. The
-previously reported duplicated autocomplete suffix and quieter start of some
-built-in microphone recordings still need confirmation there too.
+**Known issues:** The previously reported duplicated autocomplete suffix and
+quieter start of some built-in microphone recordings still need confirmation
+in the macOS app.
+
+**Download:** [NotaBene 1.3.9 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.9/NotaBene_1.3.9_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `9a8785764bc65a746269c910fa56d0bd5affb0006f9a6bd2957d9acabe17b469`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.3.8...v1.3.9)
 
 ## NotaBene 1.3.8 — 6 October 2026
 
