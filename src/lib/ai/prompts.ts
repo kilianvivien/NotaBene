@@ -862,6 +862,7 @@ export function linkSuggestionPrompt(options: {
   notes: LinkPromptNote[];
   max: number;
   language: string;
+  linked?: { from: number; to: number }[];
 }): AiMessage[] {
   const list = options.notes
     .map(
@@ -878,13 +879,15 @@ ${languageRule(options.language)}
 
 - Propose a link only when one note would help someone reading the other: a concept and a lecture that uses it, a cause and its consequence, two treatments of the same question.
 - Two notes being in the same course, or sharing a common word, is not a reason.
-- "from" is the note the link would be written in; "to" is the note it points at. Choose as "from" the note whose reader most needs the other.
+- "from" and "to" are zero-based integer positions in the numbered list. "from" is the note the link would be written in; "to" is the note it points at. Choose as "from" the note whose reader most needs the other.
 - "reason" is one short sentence, addressed to the student, saying what connects the two notes. Name the idea; do not just repeat the titles.
 - At most ${options.max} links, the strongest first. Fewer is better than weaker. If nothing genuinely connects, return an empty list — that is a correct answer.
 - Never link a note to itself, and never propose the same pair twice.
+- Do not propose a pair that is already linked in either direction: ${JSON.stringify(options.linked ?? [])}.
 
-${JSON_ONLY} It must match:
-{"links": [{"from": <number>, "to": <number>, "reason": "<one sentence>"}]}`,
+${JSON_ONLY} Example of the required shape:
+{"links": [{"from": 0, "to": 1, "reason": "The second note explains a concept used in the first."}]}
+When there are no useful new links, return exactly {"links": []}.`,
     },
     { role: 'user', content: list },
   ];

@@ -64,7 +64,7 @@ export async function runStructured<S extends z.ZodTypeAny>(
     // "the model returned nothing" with something far less true.
     if (!raw.trim()) throw error;
 
-    const second = await runAi(
+    const second = await runWithSchemaFallback(
       {
         ...call,
         messages: jsonRepairPrompt(call.messages, raw, error.message),
@@ -72,8 +72,6 @@ export async function runStructured<S extends z.ZodTypeAny>(
         // again is a transcription task, and the providers that refuse a
         // temperature drop it in `protocols.ts`.
         temperature: 0,
-        json: true,
-        stream: false,
       },
       options,
     );

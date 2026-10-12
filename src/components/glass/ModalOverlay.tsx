@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
@@ -118,7 +119,21 @@ export function ModalOverlay({
       overlay.current?.querySelector<HTMLElement>('[role="dialog"]')
     )?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeRef.current();
+      // Settings can be opened from another dialog. Only the uppermost
+      // modal owns Escape and the focus trap.
+      if (
+        document
+          .querySelectorAll('[data-nb-modal]')
+          .item(document.querySelectorAll('[data-nb-modal]').length - 1) !==
+        overlay.current
+      )
+        return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeRef.current();
+        return;
+      }
       if (event.key !== 'Tab') return;
       // The trap keeps every focusable in the cycle, including the ones the
       // opening focus skips: declining to be focused *first* is not the same as
@@ -146,11 +161,14 @@ export function ModalOverlay({
 
   if (!mounted) return null;
 
-  return (
+  // Viewers portal to the body at z-index 200. Dialogs must share that
+  // stacking context and sit above them, including when opened by a menu.
+  return createPortal(
     <div
       ref={overlay}
+      data-nb-modal
       className={cn(
-        'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-5 pb-5',
+        'fixed inset-0 z-[300] flex items-start justify-center overflow-y-auto px-5 pb-5',
         placement === 'top' ? 'pt-[12vh]' : 'pt-5',
         closing ? 'scrim-anim-out' : 'scrim-anim',
       )}
@@ -198,6 +216,7 @@ export function ModalOverlay({
           </div>
         )}
       </GlassPanel>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -11,8 +11,8 @@
  * stopped it with "maximum update depth exceeded".
  */
 import { useState } from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { ModalOverlay } from './ModalOverlay';
 
 function Harness({ open, tick }: { open: boolean; tick: number }) {
@@ -32,6 +32,27 @@ function Harness({ open, tick }: { open: boolean; tick: number }) {
 }
 
 describe('ModalOverlay', () => {
+  it('portals outside the shell and only closes the uppermost modal on Escape', () => {
+    const closeLower = vi.fn();
+    const closeUpper = vi.fn();
+    const { container } = render(
+      <>
+        <ModalOverlay open onClose={closeLower} label="Summary">
+          <button>Summarize</button>
+        </ModalOverlay>
+        <ModalOverlay open onClose={closeUpper} label="Settings">
+          <button>Appearance</button>
+        </ModalOverlay>
+      </>,
+    );
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Appearance' }),
+    );
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    expect(closeUpper).toHaveBeenCalledOnce();
+    expect(closeLower).not.toHaveBeenCalled();
+  });
   it('focuses the claimed field as soon as the panel is on screen', () => {
     const { rerender } = render(<Harness open={false} tick={0} />);
     screen.getByTestId('opener').focus();

@@ -20,6 +20,7 @@ export interface SuggestionRow extends LinkSuggestion {
 
 interface GraphSuggestionsProps {
   rows: SuggestionRow[];
+  hiddenCount: number;
   /** Notes the model was shown, and how many there are in all. */
   considered: number;
   total: number;
@@ -43,6 +44,7 @@ function Dot({ colour }: { colour: string }) {
 
 export function GraphSuggestions({
   rows,
+  hiddenCount,
   considered,
   total,
   busy,
@@ -74,6 +76,7 @@ export function GraphSuggestions({
           className="nb-graph-detail-close"
           aria-label={t('graph.suggest.close')}
           title={t('graph.suggest.close')}
+          disabled={busy !== null}
           onClick={onClose}
         >
           <X size={13} />
@@ -82,7 +85,11 @@ export function GraphSuggestions({
 
       <div className="nb-graph-suggest-body">
         {rows.length === 0 ? (
-          <p className="nb-graph-suggest-none">{t('graph.suggest.none')}</p>
+          <p className="nb-graph-suggest-none">
+            {hiddenCount > 0
+              ? t('graph.suggest.hidden', { count: hiddenCount })
+              : t('graph.suggest.none')}
+          </p>
         ) : (
           <>
             <p className="nb-graph-suggest-lead">{t('graph.suggest.lead')}</p>

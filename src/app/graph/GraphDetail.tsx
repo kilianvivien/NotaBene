@@ -362,7 +362,13 @@ export function GraphDetail({
                 )}
                 <div>
                   {summarizing ? (
-                    <button type="button" onClick={() => summaryRun.current?.abort()}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        summaryRun.current?.abort();
+                        setSummarizing(false);
+                      }}
+                    >
                       <Loader2 size={12} className="animate-spin" />
                       {t('ai.cancel')}
                     </button>

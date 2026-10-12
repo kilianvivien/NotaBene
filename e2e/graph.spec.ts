@@ -63,3 +63,23 @@ test('escape backs out one layer at a time', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(graph).toBeHidden();
 });
+
+test('settings opens above the graph and owns Escape and Tab', async ({ page }) => {
+  const { graph, find } = await openGraph(page);
+  await find.fill('start');
+  const settingsButton = graph.getByRole('button', { name: 'Settings', exact: true });
+  await settingsButton.click();
+  const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+  await expect(settings).toBeVisible();
+  // A real click fails if the graph still covers the modal.
+  await settings.getByRole('button', { name: 'Editor', exact: true }).click();
+  await page.keyboard.press('Shift+Tab');
+  await expect(settings).toContainText('Editor');
+  await page.keyboard.press('Escape');
+  await expect(settings).toBeHidden();
+  await expect(graph).toBeVisible();
+  await expect(find).toHaveValue('start');
+  await expect(settingsButton).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(find).toHaveValue('');
+});

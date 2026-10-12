@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { aiTransport } from '@/lib/adapters';
 import { requestLinkSuggestions, MAX_LINK_SUGGESTIONS } from './linkSuggestions';
 import type { ResolvedProvider } from './protocols';
 import * as structured from './structured';
+import { providerById } from './providers';
+
+afterEach(() => vi.restoreAllMocks());
 
 const NOTES = ['Damping', 'Resonance', 'Week 4', 'Lab 3'].map((title, index) => ({
   id: `n${index}`,
@@ -64,5 +68,95 @@ describe('requestLinkSuggestions', () => {
     }));
     answering(many);
     expect((await suggest()).length).toBeLessThanOrEqual(MAX_LINK_SUGGESTIONS);
+  });
+});
+
+describe('link suggestion provider requests', () => {
+  it.each(['mistral-large-4', 'zai-glm-5-3', 'apple', 'lmstudio'])(
+    'sends a constrained JSON document for %s and validates the response',
+    async (model) => {
+      const id = model === 'apple' || model === 'lmstudio' ? model : 'mistral';
+      const request = vi.spyOn(aiTransport, 'request').mockResolvedValue({
+        status: 200,
+        headers: {},
+        body: JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  links: [
+                    { from: 1, to: 0, reason: 'The concept explains the lecture.' },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      });
+      const result = await requestLinkSuggestions({
+        provider: {
+          definition: providerById(id)!,
+          model,
+          baseUrl: 'http://localhost:1234/v1',
+          apiKey: null,
+        },
+        notes: NOTES,
+        linked: new Set(['n2>n3']),
+        language: 'en',
+      });
+      expect(result).toEqual([
+        { sourceId: 'n1', targetId: 'n0', reason: 'The concept explains the lecture.' },
+      ]);
+      const sent = JSON.parse(String(request.mock.calls[0]![0].body));
+      expect(sent.response_format.type).toBe('json_schema');
+      expect(sent.response_format.json_schema.schema.required).toEqual(['links']);
+      expect(
+        sent.response_format.json_schema.schema.properties.links.items.required,
+      ).toEqual(['from', 'to', 'reason']);
+      expect(sent.messages[0].content).toContain('[{"from":2,"to":3}]');
+      expect(sent.stream).not.toBe(true);
+    },
+  );
+
+  it('repairs a prose answer once with the same schema', async () => {
+    const response = (content: string) => ({
+      status: 200,
+      headers: {},
+      body: JSON.stringify({ choices: [{ message: { content } }] }),
+    });
+    const request = vi
+      .spyOn(aiTransport, 'request')
+      .mockResolvedValueOnce(response('These notes could be related.'))
+      .mockResolvedValueOnce(response('{"links":[]}'));
+    await expect(
+      requestLinkSuggestions({
+        provider: {
+          definition: providerById('mistral')!,
+          model: 'zai-glm-5-3',
+          baseUrl: 'http://localhost:1234/v1',
+          apiKey: null,
+        },
+        notes: NOTES,
+        linked: new Set(),
+        language: 'en',
+      }),
+    ).resolves.toEqual([]);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(request.mock.calls[1]![0].body)).response_format.type).toBe(
+      'json_schema',
+    );
+  });
+
+  it('does not pay for a call with fewer than two candidates', async () => {
+    const request = vi.spyOn(aiTransport, 'request');
+    await expect(
+      requestLinkSuggestions({
+        provider: {} as ResolvedProvider,
+        notes: NOTES.slice(0, 1),
+        linked: new Set(),
+        language: 'en',
+      }),
+    ).resolves.toEqual([]);
+    expect(request).not.toHaveBeenCalled();
   });
 });

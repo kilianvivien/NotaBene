@@ -119,6 +119,27 @@ describe('a structured call', () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
+  it('also drops an unsupported schema when repairing a malformed answer', async () => {
+    const { aiTransport } = await import('@/lib/adapters');
+    const request = vi
+      .spyOn(aiTransport, 'request')
+      .mockResolvedValueOnce({ status: 400, headers: {}, body: 'unsupported schema' })
+      .mockResolvedValueOnce(answered('not JSON'))
+      .mockResolvedValueOnce({ status: 400, headers: {}, body: 'unsupported schema' })
+      .mockResolvedValueOnce(answered('{"title":"T"}'));
+    await expect(
+      runStructured(
+        {
+          ...call,
+          provider: mistral,
+          jsonSchema: { name: 'answer', schema: { type: 'object' } },
+        },
+        Simple,
+      ),
+    ).resolves.toEqual({ title: 'T' });
+    expect(request).toHaveBeenCalledTimes(4);
+  });
+
   it('gives up after the second try, reporting what came back last', async () => {
     const { aiTransport } = await import('@/lib/adapters');
     const request = vi

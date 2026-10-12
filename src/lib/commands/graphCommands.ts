@@ -8,7 +8,9 @@
  * undoable from the version list like anything typed.
  */
 import { library } from '@/lib/adapters';
+import i18n from '@/lib/i18n';
 import {
+  AiParseError,
   LINK_EXCERPT_CHARS,
   MAX_LINK_SUGGESTION_NOTES,
   requestLinkSuggestions,
@@ -16,6 +18,7 @@ import {
   type LinkSuggestion,
 } from '@/lib/ai';
 import { findMention } from '@/lib/graph/mentions';
+import { selectGraph, type GraphFilters } from '@/lib/graph/selection';
 import {
   LibraryGraphSchema,
   UnlinkedMentionSchema,
@@ -348,18 +351,22 @@ export interface LinkSuggestionsResult {
  */
 export async function suggestLinksCommand(
   options: AiRunOptions = {},
+  filters?: GraphFilters,
 ): Promise<CommandResult<LinkSuggestionsResult>> {
   await useEditorStore.getState().flush();
   const lookup = await providerFor('default');
   if (!lookup.ok) return fail('not_supported', lookup.reason);
 
-  const graph = await readGraphCommand({ mentions: false });
+  const graph = await readGraphCommand({ mentions: filters?.mentions ?? false });
   if (!graph.ok) return graph;
-  const total = graph.value.nodes.length;
+  const candidates = filters
+    ? selectGraph(graph.value, filters).nodes
+    : graph.value.nodes;
+  const total = candidates.length;
   if (total < 2) return ok({ suggestions: [], considered: total, total });
 
-  const chosen = [...graph.value.nodes]
-    .filter((node) => node.title.trim() && node.size > 0)
+  const chosen = [...candidates]
+    .filter((node) => node.title.trim())
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, MAX_LINK_SUGGESTION_NOTES);
   const courses = new Map(
@@ -369,6 +376,7 @@ export async function suggestLinksCommand(
   try {
     const notes = [];
     for (const node of chosen) {
+      if (options.signal?.aborted) return fail('cancelled', 'cancelled');
       const note = await library.getNote(node.id);
       if (!note) continue;
       notes.push({
@@ -391,6 +399,9 @@ export async function suggestLinksCommand(
     );
     return ok({ suggestions, considered: notes.length, total });
   } catch (error) {
+    if (error instanceof AiParseError && !options.signal?.aborted) {
+      return fail('invalid_input', i18n.t('graph.suggest.invalidResponse'));
+    }
     return aiFailure(error, options.signal);
   }
 }

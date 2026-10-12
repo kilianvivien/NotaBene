@@ -280,3 +280,51 @@ test('summarises the selected note in its card, and saves nothing', async ({ pag
   expect(stub.prompts.at(-1)).not.toContain('Milk, bread');
   await expect(graph.getByText(/3 notes · 0 links/)).toBeVisible();
 });
+
+test('suggestions remain available after the first link is accepted', async ({
+  page,
+}) => {
+  await stubProvider(page, {
+    links: [{ from: 2, to: 1, reason: 'The case explains the basics.' }],
+  });
+  await openApp(page, 'empty');
+  await enableStubbedProvider(page);
+  await seedUnlinkedNotes(page);
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  const graph = page.getByRole('dialog', { name: 'Graph' });
+  await graph.getByRole('button', { name: 'Suggest links', exact: true }).click();
+  const panel = graph.getByRole('complementary', { name: 'Suggested links' });
+  await panel.getByRole('button', { name: 'Link', exact: true }).click();
+  await expect(graph.getByText(/3 notes · 1 link/)).toBeVisible();
+  await panel.getByRole('button', { name: 'Put the suggestions away' }).click();
+  await graph.getByRole('button', { name: 'Suggest links', exact: true }).click();
+  await expect(panel).toBeVisible();
+  // Editing a note changes its position in the next model request.
+  await expect(panel.getByText('The case explains the basics.')).toBeVisible();
+});
+
+test('cancels link suggestions and lets the student try again', async ({ page }) => {
+  await page.route('**/chat/completions', () => undefined);
+  await openApp(page, 'empty');
+  await enableStubbedProvider(page);
+  await seedUnlinkedNotes(page);
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  const graph = page.getByRole('dialog', { name: 'Graph' });
+  await graph.getByRole('button', { name: 'Suggest links', exact: true }).click();
+  await graph.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(
+    graph.getByRole('button', { name: 'Suggest links', exact: true }),
+  ).toBeEnabled();
+  await expect(graph.getByRole('alert')).toHaveCount(0);
+});
+
+test('cancels a quick summary and enables another run', async ({ page }) => {
+  await page.route('**/chat/completions', () => undefined);
+  await openApp(page, 'empty');
+  await enableStubbedProvider(page);
+  await seedUnlinkedNotes(page);
+  const { detail } = await openGraphOn(page, 'Cyclone debrief');
+  await detail.getByRole('button', { name: 'Quick summary' }).click();
+  await detail.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(detail.getByRole('button', { name: 'Quick summary' })).toBeEnabled();
+});

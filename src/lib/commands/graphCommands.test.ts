@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as ai from '@/lib/ai';
+import * as aiCommands from './aiCommands';
+import { DEFAULT_GRAPH_FILTERS } from '@/lib/graph/selection';
 import { library } from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import type { DocNode, NoteDoc } from '@/lib/schema';
@@ -11,6 +14,7 @@ import {
   linkMentionsCommand,
   listUnlinkedMentionsCommand,
   readGraphCommand,
+  suggestLinksCommand,
 } from './graphCommands';
 import { createNoteCommand, trashNoteCommand, updateNoteCommand } from './noteCommands';
 
@@ -35,6 +39,49 @@ async function create(title: string, doc: NoteDoc, courseId: string | null = nul
 
 beforeEach(() => {
   memoryLibraryAdapter.reset();
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+describe('suggestLinksCommand', () => {
+  it('honours the active course filter and includes title-only notes', async () => {
+    vi.spyOn(aiCommands, 'providerFor').mockResolvedValue({
+      ok: true,
+      provider: {
+        definition: ai.providerById('mistral')!,
+        baseUrl: 'https://api.mistral.ai/v1',
+        model: 'mistral-large-4',
+        apiKey: null,
+      },
+    });
+    const suggest = vi.spyOn(ai, 'requestLinkSuggestions').mockResolvedValue([]);
+    const first = await create('Lecture outline', paragraph(), 'physics');
+    const second = await create('Waves', paragraph(text('Wave motion.')), 'physics');
+    await create('Shopping', paragraph(text('Milk.')), 'personal');
+    const result = await suggestLinksCommand(
+      {},
+      { ...DEFAULT_GRAPH_FILTERS, course: 'course:physics' },
+    );
+    expect(result.ok && [result.value.considered, result.value.total]).toEqual([2, 2]);
+    expect(suggest.mock.calls[0]![0].notes.map((note) => note.id).sort()).toEqual(
+      [first.id, second.id].sort(),
+    );
+  });
+
+  it('returns a translated, actionable error for an invalid model response', async () => {
+    vi.spyOn(aiCommands, 'providerFor').mockResolvedValue({
+      ok: true,
+      provider: {} as ai.ResolvedProvider,
+    });
+    await create('Waves', paragraph(text('Wave motion.')));
+    await create('Damping', paragraph(text('Energy loss.')));
+    vi.spyOn(ai, 'requestLinkSuggestions').mockRejectedValue(
+      new ai.AiParseError('the model did not return JSON', 'prose'),
+    );
+    const result = await suggestLinksCommand();
+    expect(!result.ok && result.message).toMatch(/Try again/);
+    expect(!result.ok && result.code).toBe('invalid_input');
+  });
 });
 
 describe('readGraphCommand', () => {

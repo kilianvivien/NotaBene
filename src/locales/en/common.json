@@ -1028,13 +1028,16 @@
       "title": "Suggested links",
       "close": "Put the suggestions away",
       "lead": "Each one adds a “See also” line to the first note. Nothing changes until you accept it.",
-      "none": "Nothing stood out as belonging together. That is a fair answer for a small library.",
+      "none": "No suggestions left. Ask for more links or change the filters.",
       "ignore": "Ignore",
       "linkHint": "Add this link to “{{title}}”",
       "linkAll_one": "Link it",
       "linkAll_other": "Link all {{count}}",
-      "partial": "Based on your {{considered}} most recently edited notes, out of {{total}}."
-    }
+      "partial": "Based on your {{considered}} most recently edited notes, out of {{total}}.",
+      "hidden": "{{count}} suggestions are hidden by the current filters. Clear the filters to see them.",
+      "invalidResponse": "The AI provider could not return valid link suggestions. Try again, or choose another model in Settings."
+    },
+    "retry": "Retry"
   },
   "mcp": {
     "enable": "Enable",

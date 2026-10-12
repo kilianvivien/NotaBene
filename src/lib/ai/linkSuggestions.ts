@@ -21,6 +21,33 @@ export const MAX_LINK_SUGGESTIONS = 12;
 /** How much of each note the model sees. */
 export const LINK_EXCERPT_CHARS = 360;
 
+// JSON mode alone only guarantees syntax. Providers such as Mistral and
+// Apple Intelligence need the shape too, before downstream Zod validation.
+const LINK_SUGGESTIONS_JSON_SCHEMA = {
+  name: 'notabene_link_suggestions',
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['links'],
+    properties: {
+      links: {
+        type: 'array',
+        maxItems: MAX_LINK_SUGGESTIONS,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['from', 'to', 'reason'],
+          properties: {
+            from: { type: 'integer', minimum: 0 },
+            to: { type: 'integer', minimum: 0 },
+            reason: { type: 'string', minLength: 1, maxLength: 300 },
+          },
+        },
+      },
+    },
+  },
+};
+
 export interface LinkCandidateNote {
   id: string;
   title: string;
@@ -35,7 +62,9 @@ export interface LinkSuggestion {
 }
 
 /** One suggestion's identity: which note would be written in, and to what. */
-export function suggestionKey(link: Pick<LinkSuggestion, 'sourceId' | 'targetId'>): string {
+export function suggestionKey(
+  link: Pick<LinkSuggestion, 'sourceId' | 'targetId'>,
+): string {
   return `${link.sourceId}>${link.targetId}`;
 }
 
@@ -51,6 +80,7 @@ export async function requestLinkSuggestions(
   request: LinkSuggestionRequest,
   options: AiRunOptions = {},
 ): Promise<LinkSuggestion[]> {
+  if (request.notes.length < 2) return [];
   const response = await runStructured(
     {
       provider: request.provider,
@@ -58,8 +88,18 @@ export async function requestLinkSuggestions(
         notes: request.notes,
         max: MAX_LINK_SUGGESTIONS,
         language: request.language,
+        linked: request.notes.flatMap((source, from) =>
+          request.notes.flatMap((target, to) =>
+            from < to &&
+            (request.linked.has(`${source.id}>${target.id}`) ||
+              request.linked.has(`${target.id}>${source.id}`))
+              ? [{ from, to }]
+              : [],
+          ),
+        ),
       }),
-      maxTokens: 2_000,
+      jsonSchema: LINK_SUGGESTIONS_JSON_SCHEMA,
+      maxTokens: 4_000,
       temperature: 0.2,
     },
     AiLinkSuggestionsResponseSchema,

@@ -31,6 +31,7 @@ import {
   Minus,
   Plus,
   Search,
+  Settings,
   Sparkles,
   Unlink,
   Waypoints,
@@ -46,6 +47,7 @@ import { MAX_AI_SOURCES, suggestionKey, type LinkSuggestion } from '@/lib/ai';
 import {
   acceptSuggestedLinkCommand,
   readGraphCommand,
+  runAppCommand,
   suggestLinksCommand,
 } from '@/lib/commands';
 import { createLayout, spreadFor, type GraphLayout } from '@/lib/graph/layout';
@@ -652,6 +654,7 @@ export function GraphView() {
   /** Whether `graph` was read with its unlinked mentions. */
   const [hasMentions, setHasMentions] = useState(false);
   const [error, setError] = useState('');
+  const [readAttempt, setReadAttempt] = useState(0);
   const [filters, setFilters] = useState<GraphFilters>(DEFAULT_GRAPH_FILTERS);
   const [query, setQuery] = useState('');
   const [hovered, setHovered] = useState<number | null>(null);
@@ -690,13 +693,16 @@ export function GraphView() {
     return () => {
       active = false;
     };
-  }, [graph, hasMentions, filters.mentions]);
+  }, [graph, hasMentions, filters.mentions, readAttempt]);
 
   /** Read the graph again after a link was made from here. */
   const reload = useCallback(() => {
+    setHovered(null);
     void readGraphCommand({ mentions: hasMentions }).then((result) => {
-      if (result.ok) setGraph(result.value);
-      else setError(result.message);
+      if (result.ok) {
+        setError('');
+        setGraph(result.value);
+      } else setError(result.message);
     });
   }, [hasMentions]);
 
@@ -1012,6 +1018,8 @@ export function GraphView() {
   selectedRef.current = selectedId;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // A dialog opened over the graph owns its keys, including Escape.
+      if (document.querySelector('[data-nb-modal]')) return;
       // ⌘F means "find" wherever it is pressed; here that is the find field,
       // and it must not also reach the note search behind the graph.
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
@@ -1159,7 +1167,7 @@ export function GraphView() {
     suggestRun.current = run;
     setSuggesting(true);
     setSuggestError('');
-    const result = await suggestLinksCommand({ signal: run.signal });
+    const result = await suggestLinksCommand({ signal: run.signal }, filters);
     if (run.signal.aborted) return;
     setSuggesting(false);
     if (!result.ok) {
@@ -1183,6 +1191,11 @@ export function GraphView() {
           ),
         },
     );
+
+  function cancelSuggestions() {
+    suggestRun.current?.abort();
+    setSuggesting(false);
+  }
 
   async function acceptSuggestions(links: LinkSuggestion[], busy: string) {
     setSuggestBusy(busy);
@@ -1238,7 +1251,7 @@ export function GraphView() {
     if (matches) return new Set(matches);
     const focus = hovered ?? selected;
     if (focus !== null && index) {
-      return new Set([focus, ...index.neighbours[focus]!]);
+      return new Set([focus, ...(index.neighbours[focus] ?? [])]);
     }
     return null;
   }, [matches, hovered, selected, index]);
@@ -1379,15 +1392,19 @@ export function GraphView() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [graph, tags, t]);
 
-  const set = (patch: Partial<GraphFilters>) =>
+  const set = (patch: Partial<GraphFilters>) => {
+    setHovered(null);
+    cancelSuggestions();
+    setSuggestError('');
     setFilters((current) => ({ ...current, ...patch }));
+  };
   const narrowed =
     filters.course !== 'all' ||
     filters.tagId !== null ||
     filters.since !== 'any' ||
     filters.linkedOnly;
   const clearFilters = () =>
-    setFilters((current) => ({ ...DEFAULT_GRAPH_FILTERS, mentions: current.mentions }));
+    set({ ...DEFAULT_GRAPH_FILTERS, mentions: filters.mentions });
 
   const shown = selection?.nodes.length ?? 0;
   /** Notes, and not one link between any of them. */
@@ -1620,6 +1637,15 @@ export function GraphView() {
         <button
           type="button"
           className="nb-map-viewer-close"
+          aria-label={t('settings.title')}
+          title={t('settings.title')}
+          onClick={() => void runAppCommand('app.settings')}
+        >
+          <Settings size={15} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className="nb-map-viewer-close"
           aria-label={t('common.close')}
           title={t('common.close')}
           onClick={onClose}
@@ -1657,7 +1683,7 @@ export function GraphView() {
               <button
                 type="button"
                 className="is-primary"
-                disabled={suggesting}
+                disabled={suggesting || shown < 2 || suggestBusy !== null}
                 title={t('graph.unlinked.suggestHint')}
                 onClick={() => void suggestLinks()}
               >
@@ -1671,16 +1697,29 @@ export function GraphView() {
                   : t('graph.unlinked.suggest')}
               </button>
             )}
+            {suggesting && (
+              <button type="button" onClick={cancelSuggestions}>
+                {t('ai.cancel')}
+              </button>
+            )}
           </div>
           <button
             type="button"
             className="nb-graph-detail-close"
             aria-label={t('common.close')}
             title={t('common.close')}
-            onClick={() => setBannerDismissed(true)}
+            onClick={() => {
+              cancelSuggestions();
+              setBannerDismissed(true);
+            }}
           >
             <X size={13} />
           </button>
+        </div>
+      )}
+      {suggestError && !suggestions && (!unlinked || bannerDismissed) && (
+        <div className="nb-graph-banner" role="alert">
+          <p className="nb-graph-detail-error">{suggestError}</p>
         </div>
       )}
       <div
@@ -1713,6 +1752,7 @@ export function GraphView() {
         {suggestions && (
           <GraphSuggestions
             rows={suggestionRows}
+            hiddenCount={suggestions.links.length - suggestionRows.length}
             considered={suggestions.considered}
             total={suggestions.total}
             busy={suggestBusy}
@@ -1765,6 +1805,22 @@ export function GraphView() {
           aria-live="polite"
         >
           {summary && !error && <span className="nb-graph-summary">{summary}</span>}
+          {canSuggest && shown > 1 && (!unlinked || bannerDismissed || suggestions) && (
+            <button
+              type="button"
+              className="nb-graph-agent"
+              disabled={suggestBusy !== null}
+              title={t('graph.unlinked.suggestHint')}
+              onClick={() => (suggesting ? cancelSuggestions() : void suggestLinks())}
+            >
+              {suggesting ? (
+                <Loader2 size={11} className="animate-spin" />
+              ) : (
+                <Sparkles size={11} aria-hidden />
+              )}
+              {suggesting ? t('ai.cancel') : t('graph.unlinked.suggest')}
+            </button>
+          )}
           {canRunAgent &&
             filters.mentions &&
             hasMentions &&
@@ -1781,6 +1837,19 @@ export function GraphView() {
               </button>
             )}
           <span className="nb-graph-notice">{notice}</span>
+          {error && (
+            <button
+              type="button"
+              className="nb-graph-agent"
+              onClick={() => {
+                setError('');
+                if (graph) reload();
+                else setReadAttempt((attempt) => attempt + 1);
+              }}
+            >
+              {t('graph.retry')}
+            </button>
+          )}
         </p>
         {/* The legend is also the fastest course filter: the colour you are
             looking at is the thing you click. */}

@@ -1028,13 +1028,16 @@
       "title": "Liens suggérés",
       "close": "Ranger les suggestions",
       "lead": "Chacun ajoute une ligne « Voir aussi » à la première note. Rien ne change tant que vous ne l’acceptez pas.",
-      "none": "Rien ne s’est imposé comme allant ensemble. C’est une réponse honnête pour une petite bibliothèque.",
+      "none": "Il ne reste aucune suggestion. Demandez d’autres liens ou changez les filtres.",
       "ignore": "Ignorer",
       "linkHint": "Ajouter ce lien à « {{title}} »",
       "linkAll_one": "Lier",
       "linkAll_other": "Lier les {{count}}",
-      "partial": "À partir de vos {{considered}} notes les plus récemment modifiées, sur {{total}}."
-    }
+      "partial": "À partir de vos {{considered}} notes les plus récemment modifiées, sur {{total}}.",
+      "hidden": "{{count}} suggestions sont masquées par les filtres actuels. Effacez les filtres pour les afficher.",
+      "invalidResponse": "Le fournisseur IA n’a pas pu renvoyer des suggestions de liens valides. Réessayez ou choisissez un autre modèle dans les réglages."
+    },
+    "retry": "Réessayer"
   },
   "mcp": {
     "enable": "Activer",
