@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.3.9"><img alt="Latest release: 1.3.9" src="https://img.shields.io/badge/release-1.3.9-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.0"><img alt="Latest release: 1.4.0" src="https://img.shields.io/badge/release-1.4.0-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.3.9 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.3.9/NotaBene_1.3.9_aarch64.dmg)**
+**[NotaBene 1.4.0 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.0/NotaBene_1.4.0_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
@@ -70,7 +70,7 @@ rest.
 | ------------------------------------- | ------------------------------------- | ---------------------------------- | -------------------------------- |
 | Rich text with Markdown shortcuts     | Courses, sections, and smart folders  | AI summaries and Q&A with sources  | Everything stored on your Mac    |
 | Lecture recording anchored to blocks  | Namespaced tags you can combine       | Audio transcription and flashcards | API keys in the Keychain         |
-| LaTeX maths, tables, callouts, code   | `[[wiki links]]` and backlinks        | Mind maps and diagrams             | Autosave and version history     |
+| LaTeX maths, tables, callouts, code   | Graph, wiki links, and unlinked mentions | Mind maps and diagrams             | Autosave and version history     |
 | Re-editable Excalidraw drawings       | Tasks, subtasks, and reminders        | Read aloud and note-to-podcast     | Backups and portable exports     |
 | Abbreviations and word completion     | Calendar import and export (`.ics`)   | Define a term in context           | Images stripped of location data |
 | PDF, Word, and slides as notes (+OCR) | Bulk select, move, tag, and merge     | Study tools over a whole selection | No account, no telemetry         |
@@ -108,6 +108,16 @@ duplicating.
 filters such as `course:Analysis has:drawing after:2026-01-01`. ⌘K finds
 commands beside notes.
 
+**Connect your notes.** View → Graph (⌥⇧⌘G) maps your library by course,
+with links between notes, named course areas, and larger dots for longer notes.
+Pan, zoom, filter by course, tag or last edit, and find a note by name. Click
+for its details and connections; double-click or press Return to open it.
+Unlinked mentions in the graph and the inspector's Links tab show where one
+note names another, with a **Link** button to connect them. With an AI provider,
+the graph can suggest links for an unlinked library, show a quick summary,
+and open Ask or Synthesise over a note and its links. You review suggested
+links before accepting them; the graph and mention detection work offline.
+
 **Visualize.** Turn a note into a focused mind map or a diagram that explains
 steps, decisions, dependencies or feedback loops. The preview shows the
 learning question and takeaway, with the reasoning behind the structure and
@@ -130,6 +140,7 @@ checks and history as your own typing, and never delete permanently. The
 in-app Agent uses the same 31 tools: it plans first, can run the study
 features, asks when a job is ambiguous, holds large bulk changes for your
 approval, and undoes as one step.
+It can also find unlinked mentions and turn them into links in bulk.
 
 **Exports.** Markdown, HTML, PDF, DOCX and Anki, for a note, a course or a
 selection. Manuscript export adds a title page, contents and numbering.
@@ -145,8 +156,8 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.3.9** is a maintenance release: security fixes and updated
-foundations, with no feature changes — see the
+**NotaBene 1.4.0** adds a library graph, unlinked mentions, optional AI link
+suggestions, and two new agent and MCP tools — see the
 [release notes](./RELEASE_NOTES.md). The app is not yet signed with a
 Developer ID or notarized, and has no automatic updates.
 

@@ -1,6 +1,6 @@
 # Release notes
 
-## NotaBene 1.4.0 — Unreleased
+## NotaBene 1.4.0 — 12 October 2026
 
 - **Graph view.** See the whole library as a map: every note is a dot coloured
   by its course, every link between two notes a line. Open it from
@@ -32,7 +32,25 @@
   notification, opener and updater plugins, docx 9.10, and the in-range Rust
   dependencies.
 
-No library schema change.
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27. The graph and mention detection work offline;
+AI features use the provider you configure.
+
+**Known issues and verification limits:** The previously reported duplicated
+autocomplete suffix and quieter start of some built-in microphone recordings
+still need confirmation in the macOS app. Graph trackpad gestures and native
+menu integration, large-library mention performance, and the new graph AI
+features with live providers remain to be confirmed in the desktop build.
+
+**Download:** [NotaBene 1.4.0 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.0/NotaBene_1.4.0_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `5ef3d5a2418d2159b5db090c89d42a32d6d76ba2bf079689a911ab255ee75416`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.3.9...v1.4.0)
 
 ## NotaBene 1.3.9 — 10 October 2026
 
