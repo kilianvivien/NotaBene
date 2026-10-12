@@ -10,6 +10,7 @@ function node(id: string, courseId: string | null, daysAgo = 1, tagIds: string[]
     title: id,
     courseId,
     tagIds,
+    size: 0,
     updatedAt: new Date(NOW - daysAgo * 86_400_000).toISOString(),
   };
 }

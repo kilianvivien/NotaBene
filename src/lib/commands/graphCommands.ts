@@ -8,6 +8,13 @@
  * undoable from the version list like anything typed.
  */
 import { library } from '@/lib/adapters';
+import {
+  LINK_EXCERPT_CHARS,
+  MAX_LINK_SUGGESTION_NOTES,
+  requestLinkSuggestions,
+  type AiRunOptions,
+  type LinkSuggestion,
+} from '@/lib/ai';
 import { findMention } from '@/lib/graph/mentions';
 import {
   LibraryGraphSchema,
@@ -20,6 +27,7 @@ import {
 } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
+import { aiFailure, language, providerFor } from './aiCommands';
 import { applyNoteUpdate, updateNoteCommand } from './noteCommands';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
 
@@ -320,4 +328,147 @@ export async function linkMentionsCommand(
 
 function pair(link: { sourceId: string; targetId: string }) {
   return { sourceId: link.sourceId, targetId: link.targetId };
+}
+
+export interface LinkSuggestionsResult {
+  suggestions: LinkSuggestion[];
+  /** How many notes the model was shown, and how many there are. When the
+   * second is larger, the most recently edited were the ones shown. */
+  considered: number;
+  total: number;
+}
+
+/**
+ * Ask the model which notes belong together. Writes nothing.
+ *
+ * For a library with few or no links, where there is nothing for the graph
+ * to draw and no mention to offer. The model sees titles, courses and how
+ * each note begins — not whole notes: sixty of those would not fit a small
+ * context, and the opening of a class note is where it says what it is about.
+ */
+export async function suggestLinksCommand(
+  options: AiRunOptions = {},
+): Promise<CommandResult<LinkSuggestionsResult>> {
+  await useEditorStore.getState().flush();
+  const lookup = await providerFor('default');
+  if (!lookup.ok) return fail('not_supported', lookup.reason);
+
+  const graph = await readGraphCommand({ mentions: false });
+  if (!graph.ok) return graph;
+  const total = graph.value.nodes.length;
+  if (total < 2) return ok({ suggestions: [], considered: total, total });
+
+  const chosen = [...graph.value.nodes]
+    .filter((node) => node.title.trim() && node.size > 0)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, MAX_LINK_SUGGESTION_NOTES);
+  const courses = new Map(
+    useLibraryStore.getState().courses.map((course) => [course.id, course.name]),
+  );
+
+  try {
+    const notes = [];
+    for (const node of chosen) {
+      const note = await library.getNote(node.id);
+      if (!note) continue;
+      notes.push({
+        id: note.id,
+        title: note.title.trim(),
+        course: note.courseId ? (courses.get(note.courseId) ?? null) : null,
+        excerpt: note.plainText.replace(/\s+/g, ' ').trim().slice(0, LINK_EXCERPT_CHARS),
+      });
+    }
+    const suggestions = await requestLinkSuggestions(
+      {
+        provider: lookup.provider,
+        notes,
+        linked: new Set(
+          graph.value.edges.map((edge) => `${edge.sourceId}>${edge.targetId}`),
+        ),
+        language: language(),
+      },
+      options,
+    );
+    return ok({ suggestions, considered: notes.length, total });
+  } catch (error) {
+    return aiFailure(error, options.signal);
+  }
+}
+
+/**
+ * Add a link to `target` at the foot of a note, under a "See also" line.
+ *
+ * A suggested link has no words in the note to become a link — that is what
+ * distinguishes it from a mention — so it is appended rather than placed. A
+ * note that already ends with a see-also line gains the link on that line,
+ * instead of a new paragraph per accepted suggestion.
+ */
+export function appendSeeAlso(
+  doc: NoteDoc,
+  target: Pick<Note, 'id' | 'title'>,
+  label: string,
+): NoteDoc {
+  const link: DocNode = {
+    type: 'wikiLink',
+    attrs: { noteId: target.id, title: target.title.trim(), label: null },
+  };
+  const lead = `${label} `;
+  const last = doc.content[doc.content.length - 1];
+  if (
+    last?.type === 'paragraph' &&
+    last.content?.[0]?.type === 'text' &&
+    last.content[0].text === lead
+  ) {
+    return {
+      ...doc,
+      content: [
+        ...doc.content.slice(0, -1),
+        { ...last, content: [...last.content, { type: 'text', text: ', ' }, link] },
+      ],
+    };
+  }
+  return {
+    ...doc,
+    content: [
+      ...doc.content,
+      { type: 'paragraph', content: [{ type: 'text', text: lead }, link] },
+    ],
+  };
+}
+
+/**
+ * Accept one suggested link. An AI write: it carries `source: 'ai'`, so the
+ * version before it is kept and labelled as such.
+ */
+export async function acceptSuggestedLinkCommand(input: {
+  sourceId: string;
+  targetId: string;
+  /** The translated "See also:" the line starts with. */
+  label: string;
+}): Promise<CommandResult<Note>> {
+  if (input.sourceId === input.targetId) {
+    return fail('invalid_input', 'a note cannot link to itself');
+  }
+  const editor = useEditorStore.getState();
+  if (editor.note?.id === input.sourceId) await editor.flush();
+  let source: Note | null;
+  let target: Note | null;
+  try {
+    [source, target] = await Promise.all([
+      library.getNote(input.sourceId),
+      library.getNote(input.targetId),
+    ]);
+  } catch (error) {
+    return fail('storage_failed', error instanceof Error ? error.message : String(error));
+  }
+  if (!source || source.trashedAt) return fail('not_found', `no note ${input.sourceId}`);
+  if (!target || target.trashedAt) return fail('not_found', `no note ${input.targetId}`);
+  return updateNoteCommand(
+    {
+      noteId: source.id,
+      doc: appendSeeAlso(source.doc, target, input.label),
+      baseUpdatedAt: source.updatedAt,
+    },
+    { source: 'ai' },
+  );
 }

@@ -24,14 +24,35 @@ function sseBody(text: string): string {
 
 const ANSWER = 'Friction takes the energy out.';
 
-async function stubProvider(page: Page): Promise<{ prompts: string[] }> {
+/**
+ * Streamed features (Ask, the quick summary) get the fixed sentence as an SSE
+ * stream; structured ones (link suggestions) are not streamed and get
+ * `structured` as a plain completion.
+ */
+async function stubProvider(
+  page: Page,
+  structured: unknown = {},
+): Promise<{ prompts: string[] }> {
   const prompts: string[] = [];
   await page.route('**/chat/completions', async (route) => {
-    prompts.push(route.request().postData() ?? '');
+    const sent = route.request().postData() ?? '';
+    prompts.push(sent);
+    if ((JSON.parse(sent) as { stream?: boolean }).stream) {
+      await route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+        body: sseBody(ANSWER),
+      });
+      return;
+    }
     await route.fulfill({
       status: 200,
-      headers: { 'content-type': 'text/event-stream' },
-      body: sseBody(ANSWER),
+      contentType: 'application/json',
+      body: JSON.stringify({
+        choices: [
+          { message: { role: 'assistant', content: JSON.stringify(structured) } },
+        ],
+      }),
     });
   });
   return { prompts };
@@ -176,4 +197,86 @@ test('writes the agent a task for the mentions on screen, and starts nothing', a
   );
   // A drafted task is not a run: the model has not been called.
   expect(stub.prompts).toHaveLength(0);
+});
+
+/** Notes in two courses that say nothing of each other: no link, no mention. */
+async function seedUnlinkedNotes(page: Page) {
+  await page.evaluate(async () => {
+    const path = '/src/lib/commands/index.ts';
+    const commands = await import(/* @vite-ignore */ path);
+    const note = (title: string, body: string) =>
+      commands.createNoteCommand({
+        title,
+        doc: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: body }] }],
+        },
+      });
+    await note('Crisis basics', 'How a command post is organised in the first hours.');
+    await note('Cyclone debrief', 'What the island learned after the storm.');
+    await note('Shopping', 'Milk, bread.');
+  });
+}
+
+test('says so when nothing is linked, and offers no AI without a provider', async ({
+  page,
+}) => {
+  await openApp(page, 'empty');
+  await seedUnlinkedNotes(page);
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  const graph = page.getByRole('dialog', { name: 'Graph' });
+
+  await expect(graph.getByText('Your notes are not linked yet')).toBeVisible();
+  await expect(graph.getByText(/Type \[\[ in a note/)).toBeVisible();
+  await expect(graph.getByRole('button', { name: 'Suggest links' })).toHaveCount(0);
+});
+
+test('suggests links for a library with none, and writes only the one accepted', async ({
+  page,
+}) => {
+  // The model names notes by their position in the list it was shown, which
+  // is most recently edited first: Shopping, Cyclone debrief, Crisis basics.
+  const stub = await stubProvider(page, {
+    links: [
+      { from: 2, to: 1, reason: 'The debrief is the case these basics explain.' },
+      { from: 0, to: 9, reason: 'A note that does not exist.' },
+    ],
+  });
+  await openApp(page, 'empty');
+  await enableStubbedProvider(page);
+  await seedUnlinkedNotes(page);
+
+  await page.getByRole('button', { name: 'Graph', exact: true }).click();
+  const graph = page.getByRole('dialog', { name: 'Graph' });
+  await graph.getByRole('button', { name: 'Suggest links' }).click();
+
+  const panel = graph.getByRole('complementary', { name: 'Suggested links' });
+  await expect(
+    panel.getByText('The debrief is the case these basics explain.'),
+  ).toBeVisible();
+  // The invented note never reaches the student.
+  await expect(panel.getByText('A note that does not exist.')).toHaveCount(0);
+  // Titles and openings went to the model; nothing has been written yet.
+  expect(stub.prompts.at(-1)).toContain('How a command post is organised');
+  await expect(graph.getByText(/3 notes · 0 links/)).toBeVisible();
+
+  await panel.getByRole('button', { name: 'Link', exact: true }).click();
+  await expect(graph.getByText(/3 notes · 1 link/)).toBeVisible();
+  await expect(panel.getByText('The debrief is the case')).toHaveCount(0);
+});
+
+test('summarises the selected note in its card, and saves nothing', async ({ page }) => {
+  const stub = await stubProvider(page);
+  await openApp(page, 'empty');
+  await enableStubbedProvider(page);
+  await seedUnlinkedNotes(page);
+
+  const { graph, detail } = await openGraphOn(page, 'Cyclone debrief');
+  await detail.getByRole('button', { name: 'Quick summary' }).click();
+  await expect(detail.getByText(ANSWER)).toBeVisible({ timeout: 10_000 });
+
+  // The note alone was sent, and the library is as it was.
+  expect(stub.prompts.at(-1)).toContain('What the island learned after the storm');
+  expect(stub.prompts.at(-1)).not.toContain('Milk, bread');
+  await expect(graph.getByText(/3 notes · 0 links/)).toBeVisible();
 });

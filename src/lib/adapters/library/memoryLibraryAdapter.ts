@@ -502,6 +502,7 @@ class MemoryLibraryAdapter implements LibraryAdapter {
         courseId: note.courseId,
         tagIds: [...note.tagIds],
         updatedAt: note.updatedAt,
+        size: note.plainText.length,
       })),
       edges,
       mentions: mentions ? this.graphMentions(edges) : [],

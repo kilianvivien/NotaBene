@@ -392,7 +392,21 @@ Graph view notes (phase O, plan §5) worth knowing before touching it:
 - One click selects (detail card), a double-click or Enter opens. Escape backs
   out a layer at a time: find field, card, graph. The window keydown listener
   is in the capture phase so ⌘F and Escape are decided before the app's own.
-- AI in the graph is three hand-offs, and nothing runs in the graph itself:
+- The graph has to say something with no links at all, which is how a real
+  library starts. So: each course is a named, tinted patch (`regionCircles`),
+  a dot's size is the note's length (`GraphNode.size`, then its links), a
+  small library gets more room per note (`spreadFor`) and every note its
+  name, and a strip above the stage says nothing is linked yet, counts the
+  mentions it found unasked, and offers *Suggest links*.
+- Two AI features do run in the graph, both writing nothing by themselves:
+  the card's *Quick summary* (Ask at note scope with the question already
+  asked; shown in the card, saved nowhere) and *Suggest links*
+  (`suggestLinksCommand` → `requestLinkSuggestions`). The model names notes
+  by position in the list it was shown, never by id, and anything that does
+  not map back to two different, unlinked notes is dropped. Accepting one is
+  `acceptSuggestedLinkCommand`: a "See also" line at the foot of the note,
+  `source: 'ai'`. This is not embeddings, which stay gated.
+- AI in the graph is otherwise three hand-offs:
   *Synthesise* (the note and its links go to `SynthesisDialog` through
   `uiStore.aiSources`), *Ask* (opens the note with Ask's `linked` scope), and
   *Link them with the agent* (drafts a task into `uiStore.agentDraft`; the

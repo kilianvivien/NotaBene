@@ -3,6 +3,8 @@ import { library } from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import type { DocNode, NoteDoc } from '@/lib/schema';
 import {
+  acceptSuggestedLinkCommand,
+  appendSeeAlso,
   findMentionsCommand,
   linkFirstMention,
   linkMentionCommand,
@@ -276,5 +278,70 @@ describe('linkMentionsCommand', () => {
     expect(!result.ok && result.code).toBe('conflict');
     // Nothing was written — not even the note whose token was good.
     expect(await library.listBacklinks(damping.id)).toEqual([]);
+  });
+});
+
+describe('appendSeeAlso', () => {
+  const damping = { id: 'n_damping', title: 'Damping' };
+  const resonance = { id: 'n_resonance', title: 'Resonance' };
+  const link = (target: { id: string; title: string }) => ({
+    type: 'wikiLink',
+    attrs: { noteId: target.id, title: target.title, label: null },
+  });
+
+  it('adds a see-also line at the foot of the note', () => {
+    const doc = appendSeeAlso(paragraph(text('Body.')), damping, 'See also:');
+    expect(doc.content).toHaveLength(2);
+    expect(doc.content[1]).toEqual({
+      type: 'paragraph',
+      content: [text('See also: '), link(damping)],
+    });
+  });
+
+  it('extends the line that is already there instead of adding another', () => {
+    const once = appendSeeAlso(paragraph(text('Body.')), damping, 'See also:');
+    const twice = appendSeeAlso(once, resonance, 'See also:');
+    expect(twice.content).toHaveLength(2);
+    expect(twice.content[1]!.content).toEqual([
+      text('See also: '),
+      link(damping),
+      text(', '),
+      link(resonance),
+    ]);
+  });
+});
+
+describe('acceptSuggestedLinkCommand', () => {
+  it('writes the link as an AI edit, with the version before it kept', async () => {
+    const damping = await create('Damping', paragraph(text('The target.')));
+    const week = await create('Week 4', paragraph(text('Nothing names it here.')));
+
+    const result = await acceptSuggestedLinkCommand({
+      sourceId: week.id,
+      targetId: damping.id,
+      label: 'See also:',
+    });
+    if (!result.ok) throw new Error(result.message);
+    expect((await library.listBacklinks(damping.id)).map((l) => l.sourceId)).toEqual([
+      week.id,
+    ]);
+    const versions = await library.listSnapshots(week.id);
+    expect(versions.map((version) => version.cause)).toEqual(['ai']);
+  });
+
+  it('refuses a note that is gone, and a note linking to itself', async () => {
+    const damping = await create('Damping', paragraph(text('x')));
+    const self = await acceptSuggestedLinkCommand({
+      sourceId: damping.id,
+      targetId: damping.id,
+      label: 'See also:',
+    });
+    expect(!self.ok && self.code).toBe('invalid_input');
+    const gone = await acceptSuggestedLinkCommand({
+      sourceId: 'nope',
+      targetId: damping.id,
+      label: 'See also:',
+    });
+    expect(!gone.ok && gone.code).toBe('not_found');
   });
 });

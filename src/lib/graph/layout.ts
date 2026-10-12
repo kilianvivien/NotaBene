@@ -52,17 +52,20 @@ export interface GraphLayout {
 
 export const LAYOUT_ITERATIONS = 300;
 
-const SPACING = 26;
-const GROUP_GAP = 90;
+const BASE_SPACING = 46;
+const BASE_GROUP_GAP = 150;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-const LINK_DISTANCE = 48;
-const REPULSION = 70;
-const REPEL_RANGE = 150;
-const ANCHOR_STRENGTH = 0.045;
+const BASE_LINK_DISTANCE = 84;
+const BASE_REPULSION = 190;
+const BASE_REPEL_RANGE = 240;
+const ANCHOR_STRENGTH = 0.06;
 const VELOCITY_KEEP = 0.6;
 const ALPHA_MIN = 0.001;
 const ALPHA_DECAY = 1 - Math.pow(ALPHA_MIN, 1 / LAYOUT_ITERATIONS);
-const BOUNDS_PADDING = 40;
+const BASE_BOUNDS_PADDING = 40;
+const CROSS_COURSE_PULL = 0.12;
+const RING_STRETCH_X = 1.3;
+const RING_STRETCH_Y = 0.82;
 
 function now(): number {
   return typeof performance === 'undefined' ? Date.now() : performance.now();
@@ -79,10 +82,42 @@ const WARM_ALPHA = 0.25;
  * again. The picture it settles into is then a continuation of the one on
  * screen, not the canonical one — reopening the graph gives that.
  */
+export interface LayoutOptions {
+  /** Start from an earlier layout of the same notes; see above. */
+  warm?: { x: Float32Array; y: Float32Array };
+  /**
+   * How much room each note gets, as a multiple of the default. A small
+   * library is given more: its notes are drawn with their names, and a name
+   * needs several times the room a dot does. The distances *within* a
+   * course scale; the gap between courses does not, so the room goes to the
+   * notes and not to the space between their patches.
+   */
+  spread?: number;
+}
+
+/** The room a library of this size gives each note. */
+export function spreadFor(count: number): number {
+  if (count <= 40) return 2.6;
+  if (count <= 160) return 1.7;
+  if (count <= 500) return 1.25;
+  return 1;
+}
+
 export function createLayout(
   graph: LayoutGraph,
-  warm?: { x: Float32Array; y: Float32Array },
+  options: LayoutOptions = {},
 ): GraphLayout {
+  const { warm } = options;
+  const spread = options.spread ?? 1;
+  const SPACING = BASE_SPACING * spread;
+  const GROUP_GAP = BASE_GROUP_GAP;
+  const LINK_DISTANCE = BASE_LINK_DISTANCE * spread;
+  const REPEL_RANGE = BASE_REPEL_RANGE * spread;
+  // The anchors pull in proportion to distance and repulsion falls off with
+  // it, so the distance they balance at grows with the square root of the
+  // strength: to spread by `spread`, push by its square.
+  const REPULSION = BASE_REPULSION * spread * spread;
+  const BOUNDS_PADDING = BASE_BOUNDS_PADDING * spread;
   const { count, groups, groupCount, links } = graph;
   const x = new Float32Array(count);
   const y = new Float32Array(count);
@@ -123,8 +158,10 @@ export function createLayout(
     // Start at twelve o'clock and go clockwise, the order the sidebar lists
     // courses in.
     const angle = ((travelled + arc / 2) / (perimeter || 1)) * 2 * Math.PI - Math.PI / 2;
-    centreX[group] = ring * Math.cos(angle);
-    centreY[group] = ring * Math.sin(angle);
+    // An ellipse, wider than tall: the window this is drawn in always is,
+    // and a circle of courses leaves its two sides empty.
+    centreX[group] = ring * RING_STRETCH_X * Math.cos(angle);
+    centreY[group] = ring * RING_STRETCH_Y * Math.sin(angle);
     travelled += arc;
   }
   const placed = new Uint32Array(groupCount + 1);
@@ -207,7 +244,7 @@ export function createLayout(
             }
             // Floored so two notes that start almost touching are pushed
             // apart firmly instead of fired across the canvas.
-            const push = strength / Math.max(distance2, 16);
+            const push = strength / Math.max(distance2, 16 * spread * spread);
             vx[node]! -= offsetX * push;
             vy[node]! -= offsetY * push;
             vx[peer]! += offsetX * push;
@@ -228,7 +265,12 @@ export function createLayout(
       // A hub's links are each weaker, or a note with forty backlinks would
       // collapse them all onto itself.
       const weight = 1 / Math.min(degree[source]!, degree[target]!);
-      const stretch = ((distance - LINK_DISTANCE) / distance) * alpha * weight;
+      // A link between two courses is drawn, but pulls far less: each note
+      // stays in its own course's patch, and the line crosses the gap. Pulled
+      // at full strength, one such link drags a note halfway to the other
+      // course and its patch stretches to follow it.
+      const across = groups[source] === groups[target] ? 1 : CROSS_COURSE_PULL;
+      const stretch = ((distance - LINK_DISTANCE) / distance) * alpha * weight * across;
       offsetX *= stretch;
       offsetY *= stretch;
       // The better-connected end moves less.

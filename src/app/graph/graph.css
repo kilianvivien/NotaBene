@@ -6,7 +6,44 @@
 }
 
 .nb-graph .nb-map-viewer-bar {
-  gap: 8px;
+  height: 52px;
+  gap: 10px;
+}
+
+/* The mind map's bar is a toolbar over a picture; this one is the control
+   surface of a view people work in, and is set a size up from it. */
+.nb-graph .nb-map-viewer-title {
+  font-size: 14.5px;
+}
+
+.nb-graph .nb-map-viewer-controls button {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+
+.nb-graph .nb-map-viewer-controls svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nb-graph .nb-map-viewer-scale {
+  font-size: 12.5px;
+}
+
+.nb-graph .nb-map-viewer-close {
+  width: 32px;
+  height: 32px;
+}
+
+.nb-graph .nb-map-viewer-close svg {
+  width: 17px;
+  height: 17px;
+}
+
+.nb-graph-select select {
+  height: 32px;
+  font-size: 13px;
 }
 
 /* The title never gives way: it is the only thing saying what this window is.
@@ -22,8 +59,8 @@
   position: relative;
   display: flex;
   min-width: 132px;
-  max-width: 300px;
-  height: 28px;
+  max-width: 320px;
+  height: 32px;
   margin-right: auto;
   margin-left: 8px;
   padding: 0 8px;
@@ -49,8 +86,14 @@
   min-width: 0;
   color: var(--nb-text);
   background: transparent;
-  font-size: 12px;
+  font-size: 13px;
   outline: none;
+}
+
+.nb-graph-find > svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
 }
 
 .nb-graph-find input::placeholder {
@@ -92,13 +135,13 @@
 .nb-graph-results button {
   display: flex;
   width: 100%;
-  height: 28px;
-  padding: 0 8px;
+  height: 32px;
+  padding: 0 9px;
   border-radius: 7px;
   color: var(--nb-text);
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 9px;
+  font-size: 13px;
   text-align: left;
 }
 
@@ -131,8 +174,8 @@
 }
 
 .nb-graph-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   flex: none;
 }
@@ -149,7 +192,7 @@
 /* A select is as wide as its longest option, and a course can be called
    anything. Capped here; the platform truncates the chosen label itself. */
 .nb-graph-select {
-  max-width: 156px;
+  max-width: 170px;
 }
 
 .nb-graph .nb-map-viewer-controls button:focus-visible,
@@ -216,7 +259,7 @@
   top: 12px;
   right: 12px;
   display: flex;
-  width: 308px;
+  width: 324px;
   max-height: calc(100% - 24px);
   border: 1px solid var(--nb-control-border);
   border-radius: 12px;
@@ -275,7 +318,7 @@
 }
 
 .nb-graph-detail h3 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 650;
   line-height: 1.3;
   letter-spacing: -0.01em;
@@ -285,7 +328,7 @@
 .nb-graph-detail-meta {
   margin-top: 3px;
   color: var(--nb-text-3);
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -311,7 +354,7 @@
   margin-top: 10px;
   overflow: hidden;
   color: var(--nb-text-2);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 5;
@@ -326,7 +369,7 @@
 .nb-graph-detail-open {
   display: flex;
   width: 100%;
-  height: 30px;
+  height: 32px;
   margin-top: 12px;
   border-radius: 8px;
   color: var(--nb-text-on-accent);
@@ -334,7 +377,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
   transition: background var(--nb-t-fast);
 }
@@ -353,38 +396,44 @@
 }
 
 .nb-graph-detail-ai {
+  display: flex;
   margin-top: 8px;
-  padding: 8px 10px 10px;
+  padding: 10px;
   border: 1px solid var(--nb-divider);
-  border-radius: 9px;
+  border-radius: 10px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.nb-graph-detail-ai p {
+.nb-graph-detail-ai > div {
   display: flex;
-  color: var(--nb-text-3);
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-}
-
-.nb-graph-detail-ai div {
-  display: flex;
-  margin-top: 7px;
   gap: 6px;
+}
+
+.nb-graph-detail-ai-caption {
+  margin-top: 2px;
+  color: var(--nb-text-3);
+  font-size: 11.5px;
+}
+
+.nb-graph-detail-summary {
+  color: var(--nb-text);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .nb-graph-detail-ai button {
   display: flex;
-  height: 26px;
+  height: 28px;
   border: 1px solid var(--nb-control-border);
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--nb-text);
   background: var(--nb-control-surface);
   align-items: center;
   justify-content: center;
   gap: 6px;
   flex: 1;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 500;
   transition: background var(--nb-t-fast);
 }
@@ -431,12 +480,12 @@
 .nb-graph-detail-note {
   display: flex;
   min-width: 0;
-  height: 26px;
+  height: 28px;
   padding: 0 6px;
   align-items: center;
   gap: 8px;
   flex: 1;
-  font-size: 12px;
+  font-size: 13px;
   text-align: left;
 }
 
@@ -489,12 +538,224 @@
   }
 }
 
+/* -- no links yet --------------------------------------------------------- */
+
+.nb-graph-banner {
+  display: flex;
+  padding: 10px 12px 10px var(--nb-titlebar-leading);
+  border-bottom: 1px solid var(--nb-divider);
+  color: var(--nb-text);
+  background: var(--nb-accent-soft);
+  align-items: center;
+  gap: 16px;
+  flex: none;
+}
+
+.nb-graph-banner > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.nb-graph-banner strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.nb-graph-banner p {
+  margin-top: 2px;
+  color: var(--nb-text-2);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.nb-graph-banner-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.nb-graph-banner-actions button,
+.nb-graph-suggest-actions button,
+.nb-graph-suggest footer button {
+  display: flex;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: 8px;
+  color: var(--nb-text);
+  background: var(--nb-control-surface);
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.nb-graph-banner-actions button:hover:not(:disabled),
+.nb-graph-suggest-actions button:hover:not(:disabled) {
+  background: var(--nb-hover);
+}
+
+.nb-graph-banner-actions button.is-primary,
+.nb-graph-suggest-actions button.is-primary,
+.nb-graph-suggest footer button {
+  border-color: transparent;
+  color: var(--nb-text-on-accent);
+  background: var(--nb-accent);
+}
+
+.nb-graph-banner-actions button.is-primary:hover:not(:disabled),
+.nb-graph-suggest-actions button.is-primary:hover:not(:disabled),
+.nb-graph-suggest footer button:hover:not(:disabled) {
+  background: var(--nb-accent-strong);
+}
+
+.nb-graph-banner button:disabled,
+.nb-graph-suggest button:disabled {
+  opacity: 0.6;
+}
+
+/* -- suggested links ------------------------------------------------------ */
+
+.nb-graph-suggest {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  width: 340px;
+  max-height: calc(100% - 24px);
+  border: 1px solid var(--nb-control-border);
+  border-radius: 12px;
+  color: var(--nb-text);
+  background: var(--nb-surface);
+  box-shadow: var(--nb-shadow-lg);
+  flex-direction: column;
+  cursor: default;
+}
+
+.nb-graph-suggest > header {
+  display: flex;
+  padding: 10px 8px 6px 14px;
+  align-items: center;
+  flex: none;
+}
+
+.nb-graph-suggest h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.nb-graph-suggest h3 span {
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--nb-accent);
+  background: var(--nb-accent-soft);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+
+.nb-graph-suggest-body {
+  min-height: 0;
+  padding: 0 14px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.nb-graph-suggest-lead,
+.nb-graph-suggest-none,
+.nb-graph-suggest-note {
+  color: var(--nb-text-3);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.nb-graph-suggest-none {
+  padding: 6px 0;
+  color: var(--nb-text-2);
+  font-size: 13px;
+}
+
+.nb-graph-suggest-note {
+  margin-top: 10px;
+}
+
+.nb-graph-suggest li {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--nb-divider);
+}
+
+.nb-graph-suggest-pair {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.nb-graph-suggest-pair + .nb-graph-suggest-pair {
+  margin-top: 2px;
+}
+
+.nb-graph-suggest-pair .nb-graph-dot {
+  transform: translateY(-1px);
+}
+
+.nb-graph-suggest-pair svg {
+  color: var(--nb-text-3);
+  flex: none;
+}
+
+.nb-graph-suggest-reason {
+  margin-top: 4px;
+  color: var(--nb-text-2);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.nb-graph-suggest-actions {
+  display: flex;
+  margin-top: 8px;
+  gap: 6px;
+}
+
+.nb-graph-suggest-actions button {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.nb-graph-suggest > footer {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--nb-divider);
+  flex: none;
+}
+
+.nb-graph-suggest footer button {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-graph-banner,
+  .nb-graph-suggest {
+    animation: nb-fade-in var(--nb-t-base) var(--nb-ease-out);
+  }
+}
+
 /* -- footer --------------------------------------------------------------- */
 
 .nb-graph-footer {
   display: flex;
-  height: 32px;
-  padding: 0 6px 0 14px;
+  height: 38px;
+  padding: 0 8px 0 16px;
   border-top: 1px solid var(--nb-divider);
   background: var(--nb-toolbar-surface);
   align-items: center;
@@ -510,7 +771,7 @@
   align-items: baseline;
   gap: 10px;
   flex: 1 1 0;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -526,15 +787,15 @@
 
 .nb-graph-agent {
   display: flex;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
   color: var(--nb-accent);
   background: var(--nb-accent-soft);
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex: none;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 550;
   align-self: center;
 }
@@ -578,14 +839,14 @@
 
 .nb-graph-legend button {
   display: flex;
-  max-width: 190px;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
+  max-width: 200px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
   color: var(--nb-text-2);
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 7px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -621,7 +882,7 @@
 
 @media (max-width: 1060px) {
   .nb-graph-select {
-    max-width: 112px;
+    max-width: 120px;
   }
 
   .nb-graph .nb-map-viewer-scale {

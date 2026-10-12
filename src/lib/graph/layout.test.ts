@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createLayout, type LayoutGraph } from './layout';
+import { createLayout, spreadFor, type LayoutGraph } from './layout';
 
 /** A library-shaped graph: courses of uneven size, a few links inside each
  * course, the odd one across, and most notes linking to nothing. */
@@ -90,7 +90,7 @@ describe('createLayout', () => {
     const before = synthetic(300);
     const first = settled(before);
     const after = { ...before, links: Uint32Array.from([...before.links, 5, 250]) };
-    const warm = createLayout(after, { x: first.x, y: first.y });
+    const warm = createLayout(after, { warm: { x: first.x, y: first.y } });
     const gap = () => Math.hypot(warm.x[5]! - warm.x[250]!, warm.y[5]! - warm.y[250]!);
     const apart = gap();
     warm.finish();
@@ -102,6 +102,35 @@ describe('createLayout', () => {
     // On average a note has barely moved; a cold start would deal them all
     // out again from the spiral.
     expect(moved / after.count).toBeLessThan(12);
+  });
+
+  it('gives a small library more room, in the same shape', () => {
+    const graph = synthetic(30, 3);
+    const tight = settled(graph);
+    const roomy = createLayout(graph, { spread: spreadFor(30) });
+    roomy.finish();
+    // Notes are further from their nearest neighbour…
+    const nearest = (layout: typeof tight) => {
+      let total = 0;
+      for (let a = 0; a < graph.count; a += 1) {
+        let best = Infinity;
+        for (let b = 0; b < graph.count; b += 1) {
+          if (a === b) continue;
+          best = Math.min(
+            best,
+            Math.hypot(layout.x[a]! - layout.x[b]!, layout.y[a]! - layout.y[b]!),
+          );
+        }
+        total += best;
+      }
+      return total / graph.count;
+    };
+    expect(nearest(roomy) / nearest(tight)).toBeGreaterThan(1.8);
+    // …but the whole picture grows by less: the gaps between courses did not.
+    expect(roomy.bounds().width / tight.bounds().width).toBeLessThan(
+      nearest(roomy) / nearest(tight),
+    );
+    expect(spreadFor(5000)).toBe(1);
   });
 
   it('handles an empty graph and a single note', () => {

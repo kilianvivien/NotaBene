@@ -13,16 +13,24 @@
   mentions*, with a **Link** button that turns the mention into a link — an
   ordinary edit, kept in the note's versions. In the graph, **Mentions** draws
   them as dashed lines, and a note's card offers the same **Link**.
+- **A graph that reads before you have linked anything.** Courses are drawn
+  as named, tinted areas, a longer note is a bigger dot, and every note in a
+  small library carries its name. When nothing is linked yet, the graph says
+  so, tells you how many notes already name another, and — with an AI
+  provider — offers **Suggest links**: each suggestion comes with its
+  reason, and nothing is written until you accept it.
 - **AI in the graph (optional).** With an AI provider set up, a note's card
   offers **Synthesise** and **Ask** over the note and everything linked to
   it, and the mention count offers **Link them with the agent…**, which
   writes the task for the agent and leaves the plan for you to review. Ask
   gains a scope of its own for this, *This note and its links*, also
-  available from the Ask panel. Without a provider none of this appears.
+  available from the Ask panel. A note's card also offers a **Quick summary**,
+  shown there and saved nowhere. Without a provider none of this appears.
 - **Two new agent tools.** The in-app agent and MCP clients can find unlinked
   mentions and link them in bulk (`find_mentions`, `link_mentions`).
-- **Updated foundations.** Tauri 2.12.3 with its dialog, file, notification,
-  opener and updater plugins, docx 9.10, and the in-range Rust dependencies.
+- **Updated foundations.** Vite 8, Tauri 2.12.3 with its dialog, file,
+  notification, opener and updater plugins, docx 9.10, and the in-range Rust
+  dependencies.
 
 No library schema change.
 

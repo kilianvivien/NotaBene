@@ -38,6 +38,7 @@ export interface ContentBox {
 
 /** One press of the +/− control, and one notch of a mouse wheel. */
 export const ZOOM_STEP = 1.25;
+const NO_INSET = { left: 0, right: 0 };
 /** A pointer that travelled less than this was a click, not a drag. */
 const TAP_SLOP = 4;
 
@@ -89,13 +90,21 @@ export function usePanZoom({
     [minZoom, maxZoom],
   );
 
-  /** The view that centres `content` in the stage, or null before layout. */
+  /**
+   * The view that centres `content` in the stage, or null before layout.
+   * `inset` is the part of the stage something else is standing on — a panel
+   * down one side — so the content is fitted beside it and not beneath it.
+   */
   const fitView = useCallback(
-    (content: ContentBox): View | null => {
+    (
+      content: ContentBox,
+      inset: { left: number; right: number } = NO_INSET,
+    ): View | null => {
       const box = stage.current?.getBoundingClientRect();
       if (!box) return null;
+      const free = box.width - inset.left - inset.right;
       const available = {
-        width: Math.max(1, box.width - fitPadding * 2),
+        width: Math.max(1, free - fitPadding * 2),
         height: Math.max(1, box.height - fitPadding * 2),
       };
       const k = clamp(
@@ -106,7 +115,7 @@ export function usePanZoom({
         ),
       );
       return {
-        x: (box.width - content.width * k) / 2 - content.x * k,
+        x: inset.left + (free - content.width * k) / 2 - content.x * k,
         y: (box.height - content.height * k) / 2 - content.y * k,
         k,
       };
@@ -116,8 +125,8 @@ export function usePanZoom({
 
   /** Centre `content` in the stage. */
   const fitTo = useCallback(
-    (content: ContentBox) => {
-      const fitted = fitView(content);
+    (content: ContentBox, inset?: { left: number; right: number }) => {
+      const fitted = fitView(content, inset);
       if (fitted) setView(fitted);
     },
     [fitView],

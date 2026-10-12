@@ -26,6 +26,7 @@
 import {
   FilterX,
   Link2,
+  Loader2,
   Maximize2,
   Minus,
   Plus,
@@ -40,9 +41,14 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { GlassSelect } from '@/components/glass';
 import { useAiAvailability } from '@/app/ai/useAiAvailability';
-import { MAX_AI_SOURCES } from '@/lib/ai';
-import { readGraphCommand } from '@/lib/commands';
-import { createLayout, type GraphLayout } from '@/lib/graph/layout';
+import { aiErrorMessage } from '@/app/ai/aiErrorMessage';
+import { MAX_AI_SOURCES, suggestionKey, type LinkSuggestion } from '@/lib/ai';
+import {
+  acceptSuggestedLinkCommand,
+  readGraphCommand,
+  suggestLinksCommand,
+} from '@/lib/commands';
+import { createLayout, spreadFor, type GraphLayout } from '@/lib/graph/layout';
 import {
   DEFAULT_GRAPH_FILTERS,
   indexGraph,
@@ -57,17 +63,25 @@ import type { LibraryGraph } from '@/lib/schema';
 import { fold } from '@/lib/search/fold';
 import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { GraphDetail, type DetailNote } from './GraphDetail';
-import { usePanZoom, ZOOM_STEP, type Point, type View } from './usePanZoom';
+import { GraphSuggestions, type SuggestionRow } from './GraphSuggestions';
+import {
+  usePanZoom,
+  ZOOM_STEP,
+  type ContentBox,
+  type Point,
+  type View,
+} from './usePanZoom';
 import './graph.css';
 
 const MIN_ZOOM = 0.04;
 const MAX_ZOOM = 5;
-const FIT_PADDING = 40;
+const FIT_PADDING = 28;
 /** A dozen notes should not be blown up to fill the window. */
-const MAX_FIT_ZOOM = 1.6;
+const MAX_FIT_ZOOM = 1.5;
 /** Milliseconds of layout per frame — half a frame, leaving the other half to
  * draw what it produced. */
 const LAYOUT_SLICE_MS = 8;
@@ -76,16 +90,30 @@ const GLIDE_MS = 260;
 /** Two clicks on one note this close together open it. */
 const DOUBLE_TAP_MS = 380;
 /** The detail card's width plus its margin — the part of the stage it covers. */
-const DETAIL_SPAN = 332;
+const DETAIL_SPAN = 348;
+/** The same, for the suggestions panel down the other side. */
+const SUGGEST_SPAN = 364;
+/** Below this much free stage, a panel is fitted under and not beside. */
+const MIN_FREE_STAGE = 440;
 const MAX_RESULTS = 8;
 const MAX_LABELS = 260;
-const LABEL_CHARS = 34;
 const SINCE: GraphSince[] = ['any', 'week', 'month', 'term', 'year'];
 const FOCUSABLE =
   'button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
-function nodeRadius(degree: number): number {
-  return 3.4 + 1.5 * Math.sqrt(degree);
+/** The radius of an empty, unlinked note, in graph units. */
+const MIN_RADIUS = 6;
+
+/**
+ * How big a note's dot is.
+ *
+ * Two things, because a library with no links yet has only one of them: how
+ * much the note says (its length — a long lecture is a bigger dot than a
+ * two-line reminder) and how connected it is. Length saturates early, so one
+ * very long note does not dwarf the rest.
+ */
+function nodeRadius(degree: number, size: number): number {
+  return MIN_RADIUS + Math.min(7, Math.sqrt(size) / 13) + 1.8 * Math.sqrt(degree);
 }
 
 function prefersReducedMotion(): boolean {
@@ -137,14 +165,28 @@ function readPalette(element: HTMLElement): Palette {
   };
 }
 
+/** A course as the graph draws it: a named, tinted patch its notes sit in. */
+interface Region {
+  name: string;
+  /** Course colour, or empty for the notes in no course. */
+  colour: string;
+  members: number[];
+}
+
 interface Scene {
   index: GraphIndex;
   x: Float32Array;
   y: Float32Array;
+  /** Dot radius per node, in graph units. */
+  radius: Float32Array;
+  /** The smallest a dot is drawn, in screen pixels. */
+  minDot: number;
   /** Course colour per node; empty for a note in no course. */
   colours: string[];
-  /** Node indices, most connected first — the order labels are offered in. */
-  byDegree: number[];
+  regions: Region[];
+  /** Node indices in the order labels are offered: most connected, then
+   * longest. */
+  byWeight: number[];
   title(node: number): string;
   /** "Physics I · 4 links" — the second line under a hovered name. */
   describe(node: number): string;
@@ -158,6 +200,91 @@ interface Emphasis {
   selected: number | null;
   /** The note open in the editor — "you are here". */
   current: number | null;
+  /** Links a model proposed and the student has not answered yet. */
+  suggested: Uint32Array;
+}
+
+interface Circle {
+  x: number;
+  y: number;
+  r: number;
+}
+
+/** Room between a region's outermost note and its edge. */
+const REGION_PADDING = 30;
+/** Room kept above a region for its name, in graph units at 100%. */
+const REGION_TITLE_SPACE = 30;
+
+/** The patch each course covers: the smallest circle about its notes' centre
+ * that holds them all, with room to breathe. */
+function regionCircles(scene: Scene): Circle[] {
+  return scene.regions.map(({ members }) => {
+    let cx = 0;
+    let cy = 0;
+    for (const node of members) {
+      cx += scene.x[node]!;
+      cy += scene.y[node]!;
+    }
+    cx /= members.length;
+    cy /= members.length;
+    let reach = 0;
+    for (const node of members) {
+      reach = Math.max(
+        reach,
+        Math.hypot(scene.x[node]! - cx, scene.y[node]! - cy) + scene.radius[node]!,
+      );
+    }
+    return { x: cx, y: cy, r: reach + REGION_PADDING };
+  });
+}
+
+/** What "fit" must show: every course's patch, and the name above it. */
+function sceneBounds(scene: Scene): ContentBox {
+  const circles = regionCircles(scene);
+  if (!circles.length) return { x: 0, y: 0, width: 1, height: 1 };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const circle of circles) {
+    minX = Math.min(minX, circle.x - circle.r);
+    maxX = Math.max(maxX, circle.x + circle.r);
+    minY = Math.min(minY, circle.y - circle.r - REGION_TITLE_SPACE);
+    // A note's name hangs below it, past the edge of the patch.
+    maxY = Math.max(maxY, circle.y + circle.r + 12);
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/** A name on at most two lines, the second ending in an ellipsis if cut. */
+function wrapLabel(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string[] {
+  const fits = (line: string) => context.measureText(line).width <= maxWidth;
+  if (fits(text)) return [text];
+  const lines = [''];
+  let cut = false;
+  for (const word of text.split(/\s+/)) {
+    const current = lines[lines.length - 1]!;
+    const joined = current ? `${current} ${word}` : word;
+    if (!current || fits(joined)) lines[lines.length - 1] = joined;
+    else if (lines.length < 2) lines.push(word);
+    else {
+      cut = true;
+      break;
+    }
+  }
+  // Shorten whatever still does not fit: a cut second line, or one word
+  // longer than the line it sits on.
+  return lines.map((line, row) => {
+    let shown = cut && row === lines.length - 1 ? `${line}…` : line;
+    while (shown.length > 2 && !fits(shown)) {
+      shown = `${shown.slice(0, -2).trimEnd()}…`;
+    }
+    return shown;
+  });
 }
 
 function draw(
@@ -165,7 +292,7 @@ function draw(
   scene: Scene,
   view: View,
   palette: Palette,
-  { lit, hovered, selected, current }: Emphasis,
+  { lit, hovered, selected, current, suggested }: Emphasis,
 ): void {
   const context = canvas.getContext('2d');
   if (!context) return;
@@ -178,6 +305,10 @@ function draw(
   // The note whose links are drawn strong: the one under the pointer, or
   // failing that the one whose card is open.
   const focus = hovered ?? selected;
+  const toScreen = (worldX: number, worldY: number) => ({
+    x: worldX * k + view.x,
+    y: worldY * k + view.y,
+  });
 
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   context.clearRect(0, 0, width, height);
@@ -185,6 +316,28 @@ function draw(
   context.scale(k, k);
   context.lineCap = 'round';
 
+  // -- courses ---------------------------------------------------------------
+  // Drawn first and faintly: a library with no links at all is still a
+  // library in courses, and that is the structure it has to show.
+  const circles = regionCircles(scene);
+  scene.regions.forEach((region, position) => {
+    const circle = circles[position]!;
+    const colour = region.colour || palette.muted;
+    context.beginPath();
+    context.arc(circle.x, circle.y, circle.r, 0, Math.PI * 2);
+    context.globalAlpha = lit ? 0.04 : 0.09;
+    context.fillStyle = colour;
+    context.fill();
+    context.globalAlpha = lit ? 0.14 : 0.32;
+    context.lineWidth = 1.2 / k;
+    context.strokeStyle = colour;
+    // Notes in no course are a holding area, not a course: a dashed edge.
+    if (!region.colour) context.setLineDash([5 / k, 5 / k]);
+    context.stroke();
+    context.setLineDash([]);
+  });
+
+  // -- links -----------------------------------------------------------------
   const strokeLinks = (links: Uint32Array, wanted: boolean | null) => {
     context.beginPath();
     for (let link = 0; link < links.length; link += 2) {
@@ -200,45 +353,61 @@ function draw(
     context.stroke();
   };
 
-  // Links, then mentions, each in two passes when a note is hovered: the ones
-  // that do not touch it recede, the ones that do are drawn over them.
+  // Links, then mentions, each in two passes when a note has the focus: the
+  // ones that do not touch it recede, the ones that do are drawn over them.
   //
   // The link ink is the muted text colour at part strength rather than a
   // divider token: a divider is tuned to sit on a panel, and on the stage's
   // inset surface it all but disappears in the dark theme.
-  context.lineWidth = 1 / k;
+  context.lineWidth = 1.4 / k;
   context.strokeStyle = palette.muted;
-  context.globalAlpha = lit ? 0.12 : 0.45;
+  context.globalAlpha = lit ? 0.14 : 0.55;
   strokeLinks(index.links, focus === null ? null : false);
   if (index.mentionLinks.length) {
-    context.setLineDash([3 / k, 5 / k]);
+    context.setLineDash([4 / k, 6 / k]);
     context.strokeStyle = palette.accent;
-    context.globalAlpha = lit ? 0.16 : 0.75;
+    context.globalAlpha = lit ? 0.18 : 0.8;
     strokeLinks(index.mentionLinks, focus === null ? null : false);
+    context.setLineDash([]);
+  }
+  if (suggested.length) {
+    // Dotted, not dashed: a mention is a fact about the text, a suggestion is
+    // an opinion, and the two must not be mistaken for each other.
+    context.setLineDash([0.5 / k, 7 / k]);
+    context.lineWidth = 3 / k;
+    context.strokeStyle = palette.accent;
+    context.globalAlpha = 0.95;
+    strokeLinks(suggested, null);
     context.setLineDash([]);
   }
   if (focus !== null) {
     context.globalAlpha = 0.9;
-    context.lineWidth = 1.5 / k;
+    context.lineWidth = 2 / k;
     context.strokeStyle = palette.label;
     strokeLinks(index.links, true);
-    context.setLineDash([3 / k, 5 / k]);
+    context.setLineDash([4 / k, 6 / k]);
     context.strokeStyle = palette.accent;
     context.globalAlpha = 1;
     strokeLinks(index.mentionLinks, true);
     context.setLineDash([]);
   }
 
-  // Never smaller than a couple of pixels, however far out the view is.
-  const floor = 1.7 / k;
-  const radiusOf = (node: number) => Math.max(nodeRadius(index.degree[node]!), floor);
+  // -- notes -----------------------------------------------------------------
+  // Never smaller than this on screen, however far out the view is. A small
+  // library is all the way out when it is merely fitted to the window, and
+  // its dots are the whole picture: they get a floor a thumb could land on.
+  const floor = scene.minDot / k;
+  // The floor is for the smallest note; a longer one keeps its lead over it,
+  // so size still says something when every dot is on the floor.
+  const radiusOf = (node: number) =>
+    Math.max(scene.radius[node]!, (floor * scene.radius[node]!) / MIN_RADIUS);
   // A hairline of the surface colour around each dot, so two that touch read
   // as two. Skipped once the dots are too small for it to be anything but mud.
-  const outlined = nodeRadius(0) * k >= 2.5;
-  context.lineWidth = 1.5 / k;
+  const outlined = Math.max(MIN_RADIUS * k, scene.minDot) >= 2.5;
+  context.lineWidth = 1.6 / k;
   context.strokeStyle = palette.surface;
   for (let node = 0; node < index.count; node += 1) {
-    context.globalAlpha = dimmed(node) ? 0.16 : 1;
+    context.globalAlpha = dimmed(node) ? 0.2 : 1;
     context.fillStyle = scene.colours[node] || palette.muted;
     context.beginPath();
     context.arc(x[node]!, y[node]!, radiusOf(node), 0, Math.PI * 2);
@@ -247,7 +416,7 @@ function draw(
   }
   const ring = (node: number, colour: string, gap: number) => {
     context.globalAlpha = 1;
-    context.lineWidth = 2 / k;
+    context.lineWidth = 2.2 / k;
     context.strokeStyle = colour;
     context.beginPath();
     context.arc(x[node]!, y[node]!, radiusOf(node) + gap / k, 0, Math.PI * 2);
@@ -255,98 +424,175 @@ function draw(
   };
   // Three rings that can land on one note, so each sits a little further out:
   // open in the editor, selected, under the pointer.
-  if (current !== null) ring(current, palette.accent, 3);
-  if (selected !== null) ring(selected, palette.text, selected === current ? 6.5 : 3);
+  if (current !== null) ring(current, palette.accent, 3.5);
+  if (selected !== null) ring(selected, palette.text, selected === current ? 7.5 : 3.5);
   if (hovered !== null && hovered !== selected) {
-    ring(hovered, palette.label, hovered === current ? 6.5 : 3);
+    ring(hovered, palette.label, hovered === current ? 7.5 : 3.5);
   }
 
-  // Labels are drawn in screen space so they stay one size at any zoom.
+  // -- words, in screen space so they stay one size at any zoom --------------
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   context.textBaseline = 'middle';
   context.lineJoin = 'round';
-  const labelFont = `500 11px ${palette.font}`;
-  context.font = labelFont;
   const placed: { left: number; right: number; top: number; bottom: number }[] = [];
+  let names = 0;
+  /** A note is named once, however many reasons there are to name it. */
+  const named = new Set<number>();
   const collides = (box: (typeof placed)[number]) =>
     placed.some(
       (other) =>
         box.left < other.right + 6 &&
         box.right > other.left - 6 &&
-        box.top < other.bottom + 1 &&
-        box.bottom > other.top - 1,
+        box.top < other.bottom + 2 &&
+        box.bottom > other.top - 2,
     );
-  const onScreen = (screenX: number, screenY: number) =>
-    screenX > -40 && screenX < width + 40 && screenY > -12 && screenY < height + 12;
 
-  // `strong` is the ink; `forced` skips the overlap test. Emphasised
-  // neighbours still give way to one another, or a hub's forty links print
-  // forty names on one spot.
-  const label = (node: number, strong: boolean, forced = false) => {
-    if (placed.length >= MAX_LABELS) return;
-    const screenX = x[node]! * k + view.x;
-    const screenY = y[node]! * k + view.y;
-    if (!onScreen(screenX, screenY)) return;
-    const text = truncate(scene.title(node), LABEL_CHARS);
-    // Clear of the ring, where the note wears one.
-    const ringed = node === selected || node === current ? 5 : 0;
-    const left = screenX + radiusOf(node) * k + 5 + ringed;
-    const box = {
-      left,
-      right: left + context.measureText(text).width,
-      top: screenY - 7,
-      bottom: screenY + 7,
-    };
-    // A label that would sit on another is dropped rather than overprinted —
-    // the better-connected note asked first.
-    if (!forced && collides(box)) return;
-    placed.push(box);
-    context.globalAlpha = dimmed(node) ? 0.3 : 1;
-    // A halo of the surface colour, so a name stays legible over a line.
-    context.lineWidth = 3.5;
+  // The dots themselves are obstacles: a name printed across a neighbour's
+  // dot hides the note it was meant to help find. Only while there are few
+  // enough for it to matter and to be cheap.
+  if (index.count <= 400) {
+    for (let node = 0; node < index.count; node += 1) {
+      const at = toScreen(x[node]!, y[node]!);
+      if (at.x < -20 || at.x > width + 20 || at.y < -20 || at.y > height + 20) continue;
+      const reach = radiusOf(node) * k;
+      placed.push({
+        left: at.x - reach,
+        right: at.x + reach,
+        top: at.y - reach,
+        bottom: at.y + reach,
+      });
+    }
+  }
+
+  // Course names first: they are the map's legend, written on the map, and
+  // every note's name gives way to them.
+  const regionFont = `600 14px ${palette.font}`;
+  context.font = regionFont;
+  scene.regions.forEach((region, position) => {
+    const circle = circles[position]!;
+    const top = toScreen(circle.x, circle.y - circle.r);
+    const text = `${truncate(region.name, 34)}  ·  ${region.members.length}`;
+    const textWidth = context.measureText(text).width;
+    const baseline = top.y - 15;
+    if (baseline < -10 || baseline > height + 10) return;
+    placed.push({
+      left: top.x - textWidth / 2,
+      right: top.x + textWidth / 2,
+      top: baseline - 9,
+      bottom: baseline + 9,
+    });
+    context.globalAlpha = lit ? 0.45 : 1;
+    context.textAlign = 'center';
+    context.lineWidth = 4;
     context.strokeStyle = palette.surface;
-    context.strokeText(text, left, screenY);
-    context.fillStyle = strong ? palette.text : palette.label;
-    context.fillText(text, left, screenY);
+    context.strokeText(text, top.x, baseline);
+    context.fillStyle = palette.label;
+    context.fillText(text, top.x, baseline);
+  });
+
+  const labelFont = `500 13px ${palette.font}`;
+  const strongFont = `600 13px ${palette.font}`;
+  const LINE = 16;
+  const MAX_LABEL_WIDTH = 184;
+
+  // `strong` is the ink; `forced` skips the overlap test. A name sits under
+  // its note, centred — where it reads as belonging to the dot and leaves the
+  // sides free for neighbours — and tries above, then beside, before giving up.
+  const label = (node: number, strong: boolean, forced = false) => {
+    if (names >= MAX_LABELS || named.has(node)) return;
+    const at = toScreen(x[node]!, y[node]!);
+    if (at.x < -90 || at.x > width + 90 || at.y < -40 || at.y > height + 40) return;
+    context.font = strong ? strongFont : labelFont;
+    const lines = wrapLabel(context, scene.title(node), MAX_LABEL_WIDTH);
+    const textWidth = Math.max(...lines.map((line) => context.measureText(line).width));
+    const textHeight = lines.length * LINE;
+    const ringed = node === selected || node === current ? 6 : 0;
+    const reach = radiusOf(node) * k + 8 + ringed;
+    const options = [
+      { left: at.x - textWidth / 2, top: at.y + reach, align: 'center' as const },
+      {
+        left: at.x - textWidth / 2,
+        top: at.y - reach - textHeight,
+        align: 'center' as const,
+      },
+      { left: at.x + reach + 2, top: at.y - textHeight / 2, align: 'left' as const },
+      {
+        left: at.x - reach - 2 - textWidth,
+        top: at.y - textHeight / 2,
+        align: 'right' as const,
+      },
+    ];
+    const spot =
+      options.find(
+        (option) =>
+          !collides({
+            left: option.left,
+            right: option.left + textWidth,
+            top: option.top,
+            bottom: option.top + textHeight,
+          }),
+      ) ?? (forced ? options[0]! : null);
+    // A name that would sit on another is dropped rather than overprinted —
+    // the weightier note asked first.
+    if (!spot) return;
+    placed.push({
+      left: spot.left,
+      right: spot.left + textWidth,
+      top: spot.top,
+      bottom: spot.top + textHeight,
+    });
+    names += 1;
+    named.add(node);
+    context.globalAlpha = dimmed(node) ? 0.32 : 1;
+    context.textAlign = spot.align;
+    const anchor =
+      spot.align === 'center'
+        ? spot.left + textWidth / 2
+        : spot.align === 'left'
+          ? spot.left
+          : spot.left + textWidth;
+    lines.forEach((line, row) => {
+      const baseline = spot.top + LINE / 2 + row * LINE;
+      // A halo of the surface colour, so a name stays legible over a line.
+      context.lineWidth = 4;
+      context.strokeStyle = palette.surface;
+      context.strokeText(line, anchor, baseline);
+      context.fillStyle = strong ? palette.text : palette.label;
+      context.fillText(line, anchor, baseline);
+    });
   };
 
   // The note under the pointer gets a plate of its own, with a second line
   // saying where it lives and how connected it is. It is reserved first, so
-  // every other label gives way to it, and painted last, so nothing covers it.
+  // every other name gives way to it, and painted last, so nothing covers it.
   let plate: (() => void) | null = null;
   if (hovered !== null) {
-    const screenX = x[hovered]! * k + view.x;
-    const screenY = y[hovered]! * k + view.y;
-    const title = truncate(scene.title(hovered), 48);
+    const at = toScreen(x[hovered]!, y[hovered]!);
+    const title = truncate(scene.title(hovered), 56);
     const meta = scene.describe(hovered);
-    const metaFont = `400 10.5px ${palette.font}`;
-    const titleFont = `600 12px ${palette.font}`;
+    const metaFont = `400 11.5px ${palette.font}`;
+    const titleFont = `600 13.5px ${palette.font}`;
     context.font = titleFont;
     const titleWidth = context.measureText(title).width;
     context.font = metaFont;
     const metaWidth = context.measureText(meta).width;
-    context.font = labelFont;
-    const plateWidth = Math.max(titleWidth, metaWidth) + 20;
-    const plateHeight = 40;
-    const offset = radiusOf(hovered) * k + 10;
+    const plateWidth = Math.max(titleWidth, metaWidth) + 24;
+    const plateHeight = 48;
+    const offset = radiusOf(hovered) * k + 12;
     // To the right of the note, unless that would run off the window.
     const left =
-      screenX + offset + plateWidth > width - 8
-        ? screenX - offset - plateWidth
-        : screenX + offset;
-    const top = Math.min(
-      Math.max(screenY - plateHeight / 2, 8),
-      height - plateHeight - 8,
-    );
+      at.x + offset + plateWidth > width - 8 ? at.x - offset - plateWidth : at.x + offset;
+    const top = Math.min(Math.max(at.y - plateHeight / 2, 8), height - plateHeight - 8);
     placed.push({ left, right: left + plateWidth, top, bottom: top + plateHeight });
     plate = () => {
       context.globalAlpha = 1;
-      context.shadowColor = 'rgba(0, 0, 0, 0.18)';
-      context.shadowBlur = 12;
-      context.shadowOffsetY = 3;
+      context.textAlign = 'left';
+      context.shadowColor = 'rgba(0, 0, 0, 0.2)';
+      context.shadowBlur = 14;
+      context.shadowOffsetY = 4;
       context.fillStyle = palette.raised;
       context.beginPath();
-      context.roundRect(left, top, plateWidth, plateHeight, 8);
+      context.roundRect(left, top, plateWidth, plateHeight, 9);
       context.fill();
       context.shadowColor = 'transparent';
       context.shadowBlur = 0;
@@ -356,11 +602,10 @@ function draw(
       context.stroke();
       context.font = titleFont;
       context.fillStyle = palette.text;
-      context.fillText(title, left + 10, top + 14);
+      context.fillText(title, left + 12, top + 17);
       context.font = metaFont;
       context.fillStyle = palette.muted;
-      context.fillText(meta, left + 10, top + 28);
-      context.font = labelFont;
+      context.fillText(meta, left + 12, top + 34);
     };
   }
   if (selected !== null && selected !== hovered) label(selected, true, true);
@@ -369,20 +614,26 @@ function draw(
       if (neighbour !== hovered) label(neighbour, true);
     }
   }
+  for (let link = 0; link < suggested.length; link += 1) {
+    const node = suggested[link]!;
+    if (node !== hovered && node !== selected) label(node, true);
+  }
   if (current !== null && current !== hovered && current !== selected) {
     label(current, true, focus === null);
   }
   if (lit && lit.size <= 40) {
     for (const node of lit) if (node !== hovered) label(node, true);
   }
-  for (const node of scene.byDegree) {
-    // The more connected a note, the further out its name still shows.
-    const threshold = 1.2 - Math.min(index.degree[node]!, 9) * 0.1;
-    if (k < threshold) break;
-    if (node !== hovered && node !== selected) label(node, false);
+  for (const node of scene.byWeight) {
+    // A name is offered once its dot is big enough on screen to be worth
+    // naming; a well-connected note earns one from further out.
+    const visible =
+      index.count <= 60 || scene.radius[node]! * k >= 4 || index.degree[node]! >= 3;
+    if (visible && node !== hovered && node !== selected) label(node, false);
   }
   plate?.();
   context.globalAlpha = 1;
+  context.textAlign = 'left';
 }
 
 export function GraphView() {
@@ -419,16 +670,21 @@ export function GraphView() {
   useEffect(() => {
     // Mentions are fetched the first time they are asked for and kept after:
     // switching them off again is a filter, not another read.
-    if (graph && (!filters.mentions || hasMentions)) return;
+    //
+    // A library with no links at all is also read for them, unasked: with
+    // nothing to draw, "three of your notes already name each other" is the
+    // most useful thing this view can say, and it has to count them to say it.
+    const wanted = filters.mentions || (graph !== null && graph.edges.length === 0);
+    if (graph && (hasMentions || !wanted)) return;
     let active = true;
-    void readGraphCommand({ mentions: filters.mentions }).then((result) => {
+    void readGraphCommand({ mentions: wanted }).then((result) => {
       if (!active) return;
       if (!result.ok) {
         setError(result.message);
         return;
       }
       setError('');
-      setHasMentions(filters.mentions);
+      setHasMentions(wanted);
       setGraph(result.value);
     });
     return () => {
@@ -474,7 +730,10 @@ export function GraphView() {
       previous.index.nodes.every(
         (node, position) => node.id === index.nodes[position]!.id,
       );
-    const created = createLayout(index, continues ? previous.layout : undefined);
+    const created = createLayout(index, {
+      warm: continues ? previous.layout : undefined,
+      spread: spreadFor(index.count),
+    });
     keepCamera.current = continues;
     // Watching it settle is motion; whoever asked for less gets the result.
     if (prefersReducedMotion()) created.finish();
@@ -489,12 +748,36 @@ export function GraphView() {
       index,
       x: layout.x,
       y: layout.y,
+      radius: Float32Array.from(index.nodes, (node, position) =>
+        nodeRadius(index.degree[position]!, node.size),
+      ),
+      minDot:
+        index.count <= 40 ? 6.5 : index.count <= 160 ? 4.5 : index.count <= 600 ? 3 : 1.8,
       colours: index.nodes.map((node) =>
         node.courseId ? (courseOf.get(node.courseId)?.color ?? '') : '',
       ),
-      byDegree: index.nodes
+      // One patch per course that has notes on screen, and one for the notes
+      // in none.
+      regions: [-1, ...index.groupIds.keys()]
+        .map((group) => ({
+          name:
+            group < 0
+              ? t('graph.noCourse')
+              : (courseOf.get(index.groupIds[group]!)?.name ?? ''),
+          colour: group < 0 ? '' : (courseOf.get(index.groupIds[group]!)?.color ?? ''),
+          members: index.nodes.flatMap((_, node) =>
+            index.groups[node] === group ? [node] : [],
+          ),
+        }))
+        .filter((region) => region.members.length > 0),
+      byWeight: index.nodes
         .map((_, node) => node)
-        .sort((a, b) => index.degree[b]! - index.degree[a]! || a - b),
+        .sort(
+          (a, b) =>
+            index.degree[b]! - index.degree[a]! ||
+            index.nodes[b]!.size - index.nodes[a]!.size ||
+            a - b,
+        ),
       title: (node) => index.nodes[node]!.title.trim() || t('noteList.untitled'),
       describe: (node) => {
         const { courseId, updatedAt } = index.nodes[node]!;
@@ -541,7 +824,11 @@ export function GraphView() {
       let reach = Infinity;
       for (let node = 0; node < scene.index.count; node += 1) {
         const distance = Math.hypot(scene.x[node]! - worldX, scene.y[node]! - worldY);
-        const radius = Math.max(nodeRadius(scene.index.degree[node]!), 7 / view.k);
+        const radius = Math.max(
+          scene.radius[node]!,
+          ((scene.minDot + 3) * scene.radius[node]!) / MIN_RADIUS / view.k,
+          8 / view.k,
+        );
         if (distance <= radius && distance < reach) {
           best = node;
           reach = distance;
@@ -611,17 +898,21 @@ export function GraphView() {
   );
   useEffect(() => () => cancelAnimationFrame(glideHandle.current), []);
 
+  // What the two side panels leave of the stage. Read through a ref because
+  // the fits that use it are bound before the panels' state exists.
+  const insetRef = useRef(() => ({ left: 0, right: 0 }));
+
   /** Back to the whole graph — the fit button and the `0` key. */
   const fit = useCallback(() => {
-    if (!layout) return;
+    if (!layout || !scene) return;
     following.current = true;
-    glide(fitView(layout.bounds()));
-  }, [layout, fitView, glide]);
+    glide(fitView(sceneBounds(scene), insetRef.current()));
+  }, [layout, scene, fitView, glide]);
 
   // The resize observer below is bound once, and must fit with today's layout.
   const refit = useRef(() => {});
   refit.current = () => {
-    if (layout && following.current) fitTo(layout.bounds());
+    if (scene && following.current) fitTo(sceneBounds(scene), insetRef.current());
   };
 
   // A new selection is a new picture: start following it again.
@@ -634,17 +925,17 @@ export function GraphView() {
 
   // Let the layout settle a slice at a time, drawing as it goes.
   useEffect(() => {
-    if (!layout) return;
+    if (!layout || !scene) return;
     let handle = 0;
     const step = () => {
       const done = layout.advance(LAYOUT_SLICE_MS);
-      if (following.current) fitTo(layout.bounds());
+      if (following.current) fitTo(sceneBounds(scene), insetRef.current());
       setFrame((current) => current + 1);
       if (!done) handle = requestAnimationFrame(step);
     };
     handle = requestAnimationFrame(step);
     return () => cancelAnimationFrame(handle);
-  }, [layout, fitTo]);
+  }, [layout, scene, fitTo]);
 
   // Size the canvas to the stage, in device pixels.
   useEffect(() => {
@@ -776,7 +1067,7 @@ export function GraphView() {
   const matches = useMemo(() => {
     const wanted = fold(query.trim());
     if (!wanted || !scene) return null;
-    return scene.byDegree.filter((node) => fold(scene.title(node)).includes(wanted));
+    return scene.byWeight.filter((node) => fold(scene.title(node)).includes(wanted));
   }, [query, scene]);
 
   /**
@@ -792,7 +1083,10 @@ export function GraphView() {
       const box = stage.current?.getBoundingClientRect();
       const current = viewRef.current;
       if (!box || !scene || !current) return;
-      const k = closeUp ? Math.max(current.k, 1) : current.k;
+      // "Close" is relative to how roomy the layout is: a small library is
+      // spread out, and 100% there would show one note and nothing around it.
+      const near = 1.3 / spreadFor(scene.index.count);
+      const k = closeUp ? Math.max(current.k, near) : current.k;
       const free = Math.max(box.width - DETAIL_SPAN, box.width / 2);
       const screenX = scene.x[node]! * current.k + current.x;
       const screenY = scene.y[node]! * current.k + current.y;
@@ -844,6 +1138,99 @@ export function GraphView() {
     else buttons[Math.min(next, buttons.length - 1)]!.focus();
   }
 
+  // -- links a model proposes, for a library that has few or none -------------
+  const canSuggest = useAiAvailability('default').available;
+  const readOnly = useLibraryAccessStore((state) => state.status?.readOnly === true);
+  const [suggestions, setSuggestions] = useState<{
+    links: LinkSuggestion[];
+    considered: number;
+    total: number;
+  } | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestBusy, setSuggestBusy] = useState<string | null>(null);
+  const [suggestError, setSuggestError] = useState('');
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const suggestRun = useRef<AbortController | null>(null);
+  useEffect(() => () => suggestRun.current?.abort(), []);
+
+  async function suggestLinks() {
+    suggestRun.current?.abort();
+    const run = new AbortController();
+    suggestRun.current = run;
+    setSuggesting(true);
+    setSuggestError('');
+    const result = await suggestLinksCommand({ signal: run.signal });
+    if (run.signal.aborted) return;
+    setSuggesting(false);
+    if (!result.ok) {
+      if (result.code !== 'cancelled') setSuggestError(aiErrorMessage(result, t));
+      return;
+    }
+    setSuggestions({
+      links: result.value.suggestions,
+      considered: result.value.considered,
+      total: result.value.total,
+    });
+  }
+
+  const dropSuggestion = (link: LinkSuggestion) =>
+    setSuggestions(
+      (current) =>
+        current && {
+          ...current,
+          links: current.links.filter(
+            (entry) => suggestionKey(entry) !== suggestionKey(link),
+          ),
+        },
+    );
+
+  async function acceptSuggestions(links: LinkSuggestion[], busy: string) {
+    setSuggestBusy(busy);
+    setSuggestError('');
+    for (const link of links) {
+      const result = await acceptSuggestedLinkCommand({
+        sourceId: link.sourceId,
+        targetId: link.targetId,
+        label: t('graph.seeAlso'),
+      });
+      if (!result.ok) {
+        setSuggestError(result.message);
+        break;
+      }
+      dropSuggestion(link);
+    }
+    setSuggestBusy(null);
+    reload();
+  }
+
+  const suggestionRows = useMemo<SuggestionRow[]>(() => {
+    if (!suggestions || !scene) return [];
+    return suggestions.links.flatMap((link) => {
+      const source = scene.index.indexOf.get(link.sourceId);
+      const target = scene.index.indexOf.get(link.targetId);
+      // A filter may have taken one end off the screen; it comes back with it.
+      if (source === undefined || target === undefined) return [];
+      return [
+        {
+          ...link,
+          sourceTitle: scene.title(source),
+          targetTitle: scene.title(target),
+          sourceColour: scene.colours[source]!,
+          targetColour: scene.colours[target]!,
+        },
+      ];
+    });
+  }, [suggestions, scene]);
+  const suggested = useMemo(() => {
+    if (!scene) return new Uint32Array(0);
+    return Uint32Array.from(
+      suggestionRows.flatMap((row) => [
+        scene.index.indexOf.get(row.sourceId)!,
+        scene.index.indexOf.get(row.targetId)!,
+      ]),
+    );
+  }, [suggestionRows, scene]);
+
   // -- drawing ---------------------------------------------------------------
   // Null while a filter hides the selected note; it comes back with the note.
   const selected = selectedId ? (index?.indexOf.get(selectedId) ?? null) : null;
@@ -865,8 +1252,9 @@ export function GraphView() {
       hovered: hovered !== null && hovered < scene.index.count ? hovered : null,
       selected,
       current: openNoteId ? (scene.index.indexOf.get(openNoteId) ?? null) : null,
+      suggested,
     });
-  }, [scene, view, lit, hovered, selected, openNoteId, frame]);
+  }, [scene, view, lit, hovered, selected, openNoteId, suggested, frame]);
 
   // -- AI, where a provider is set up ----------------------------------------
   // Three hand-offs to features that already exist. None runs here: each one
@@ -928,6 +1316,21 @@ export function GraphView() {
     showAiTab(true);
   }, [filters.course, courses, t, onClose, showAiTab]);
 
+  const panelLeft = suggestions !== null;
+  const panelRight = selected !== null;
+  insetRef.current = () => {
+    const width = stage.current?.clientWidth ?? 0;
+    const left = panelLeft ? SUGGEST_SPAN : 0;
+    const right = panelRight ? DETAIL_SPAN : 0;
+    return width - left - right >= MIN_FREE_STAGE
+      ? { left, right }
+      : { left: 0, right: 0 };
+  };
+  // A panel arriving or leaving changes what "the whole graph" has to fit in.
+  useEffect(() => {
+    if (following.current) refit.current();
+  }, [panelLeft, panelRight]);
+
   /** Everything the detail card says about the selected note. */
   const detail = useMemo(() => {
     if (selected === null || !scene) return null;
@@ -987,6 +1390,9 @@ export function GraphView() {
     setFilters((current) => ({ ...DEFAULT_GRAPH_FILTERS, mentions: current.mentions }));
 
   const shown = selection?.nodes.length ?? 0;
+  /** Notes, and not one link between any of them. */
+  const unlinked = graph !== null && graph.nodes.length > 1 && graph.edges.length === 0;
+  const mentionTotal = hasMentions ? (graph?.mentions.length ?? 0) : 0;
   const libraryEmpty = graph !== null && graph.nodes.length === 0;
   const findingMentions = filters.mentions && !hasMentions && !error;
   const summary = selection
@@ -1222,6 +1628,61 @@ export function GraphView() {
         </button>
       </header>
 
+      {/* A strip of its own rather than a card over the stage: over the stage
+          it would sit on the very courses it is talking about. The stage
+          shrinks to make room and the graph refits. */}
+      {unlinked && !bannerDismissed && !suggestions && (
+        <div className="nb-graph-banner" role="status">
+          <div>
+            <strong>{t('graph.unlinked.title')}</strong>
+            <p>
+              {mentionTotal > 0
+                ? t('graph.unlinked.mentions', { count: mentionTotal })
+                : t('graph.unlinked.tip')}
+            </p>
+            {suggestError && (
+              <p role="alert" className="nb-graph-detail-error">
+                {suggestError}
+              </p>
+            )}
+          </div>
+          <div className="nb-graph-banner-actions">
+            {mentionTotal > 0 && !filters.mentions && (
+              <button type="button" onClick={() => set({ mentions: true })}>
+                <Unlink size={13} aria-hidden />
+                {t('graph.unlinked.showMentions')}
+              </button>
+            )}
+            {canSuggest && (
+              <button
+                type="button"
+                className="is-primary"
+                disabled={suggesting}
+                title={t('graph.unlinked.suggestHint')}
+                onClick={() => void suggestLinks()}
+              >
+                {suggesting ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Sparkles size={13} aria-hidden />
+                )}
+                {suggesting
+                  ? t('graph.unlinked.suggesting')
+                  : t('graph.unlinked.suggest')}
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            className="nb-graph-detail-close"
+            aria-label={t('common.close')}
+            title={t('common.close')}
+            onClick={() => setBannerDismissed(true)}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
       <div
         ref={stage}
         className="nb-map-viewer-stage"
@@ -1249,6 +1710,25 @@ export function GraphView() {
             )}
           </div>
         )}
+        {suggestions && (
+          <GraphSuggestions
+            rows={suggestionRows}
+            considered={suggestions.considered}
+            total={suggestions.total}
+            busy={suggestBusy}
+            error={suggestError}
+            readOnly={readOnly}
+            onAccept={(row) => void acceptSuggestions([row], suggestionKey(row))}
+            onAcceptAll={() => void acceptSuggestions(suggestionRows, 'all')}
+            onDismiss={dropSuggestion}
+            onPreview={(row) =>
+              setHovered(
+                row && scene ? (scene.index.indexOf.get(row.sourceId) ?? null) : null,
+              )
+            }
+            onClose={() => setSuggestions(null)}
+          />
+        )}
         {detail && scene && (
           <GraphDetail
             {...detail}
@@ -1273,6 +1753,7 @@ export function GraphView() {
                 : undefined
             }
             onAsk={canAsk ? () => askAboutNeighbourhood(detail.note.id) : undefined}
+            canSummarize={canAsk}
           />
         )}
       </div>

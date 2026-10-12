@@ -60,7 +60,8 @@ pub fn read(store: &Store, mentions: bool) -> DbResult<LibraryGraph> {
 fn nodes(connection: &Connection) -> DbResult<Vec<GraphNode>> {
     let mut statement = connection.prepare(
         "SELECT n.id, n.title, n.course_id, n.updated_at,
-                (SELECT group_concat(t.tag_id, char(31)) FROM note_tags t WHERE t.note_id = n.id)
+                (SELECT group_concat(t.tag_id, char(31)) FROM note_tags t WHERE t.note_id = n.id),
+                length(n.plain_text)
          FROM notes n
          WHERE n.trashed_at IS NULL AND n.archived = 0
          ORDER BY n.rowid",
@@ -73,6 +74,7 @@ fn nodes(connection: &Connection) -> DbResult<Vec<GraphNode>> {
                 title: row.get(1)?,
                 course_id: row.get(2)?,
                 updated_at: row.get(3)?,
+                size: row.get(5)?,
                 tag_ids: tags
                     .map(|joined| joined.split(TAG_SEPARATOR).map(str::to_owned).collect())
                     .unwrap_or_default(),
@@ -434,6 +436,7 @@ mod tests {
         let ids: Vec<&str> = graph.nodes.iter().map(|node| node.id.as_str()).collect();
         assert_eq!(ids, ["waves", "damping"]);
         assert_eq!(graph.nodes[0].tag_ids, ["tag_exam"]);
+        assert_eq!(graph.nodes[0].size, "Start here.".len() as i64);
         assert!(graph.nodes[1].tag_ids.is_empty());
         assert_eq!(pairs(&graph.edges), [("damping", "waves")]);
         assert!(graph.mentions.is_empty());

@@ -16,13 +16,19 @@ import {
   ArrowUpRight,
   CornerDownLeft,
   MessageCircleQuestion,
+  Loader2,
   Sparkles,
   Unlink,
   X,
 } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { linkMentionCommand, readNoteCommand } from '@/lib/commands';
+import { aiErrorMessage } from '@/app/ai/aiErrorMessage';
+import {
+  askAboutNotesCommand,
+  linkMentionCommand,
+  readNoteCommand,
+} from '@/lib/commands';
 import type { DocNode, NoteDoc } from '@/lib/schema';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 
@@ -62,6 +68,9 @@ export interface GraphDetailProps {
    */
   onSynthesize?(): void;
   onAsk?(): void;
+  /** Whether a provider can answer a question about a note — what the quick
+   * summary is, underneath. */
+  canSummarize: boolean;
 }
 
 interface Excerpt {
@@ -117,12 +126,59 @@ export function GraphDetail({
   onLinked,
   onSynthesize,
   onAsk,
+  canSummarize,
 }: GraphDetailProps) {
   const { t, i18n } = useTranslation();
   const readOnly = useLibraryAccessStore((state) => state.status?.readOnly === true);
   const [excerpt, setExcerpt] = useState<Excerpt | null>(null);
   const [linking, setLinking] = useState<string | null>(null);
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
+
+  // The quick summary: a few sentences about this one note, written into the
+  // card and kept nowhere. It is Ask with the question already asked — the
+  // same provider, the same grounding in the note alone — so it needed no
+  // prompt of its own. A summary worth keeping is what Synthesise is for.
+  const [summary, setSummary] = useState('');
+  const [summarizing, setSummarizing] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
+  const summaryRun = useRef<AbortController | null>(null);
+
+  // A summary belongs to the note it was written about: leaving the note
+  // stops the run and clears the text.
+  useEffect(() => {
+    setSummary('');
+    setSummaryError('');
+    setSummarizing(false);
+    return () => summaryRun.current?.abort();
+  }, [note.id]);
+
+  async function summarize() {
+    summaryRun.current?.abort();
+    const run = new AbortController();
+    summaryRun.current = run;
+    setSummary('');
+    setSummaryError('');
+    setSummarizing(true);
+    const result = await askAboutNotesCommand(
+      {
+        noteIds: [note.id],
+        scope: 'note',
+        mode: 'note',
+        question: t('graph.detail.summaryQuestion'),
+        history: [],
+      },
+      {
+        signal: run.signal,
+        onToken: (token) => {
+          if (!run.signal.aborted) setSummary((current) => current + token);
+        },
+      },
+    );
+    if (run.signal.aborted) return;
+    setSummarizing(false);
+    if (result.ok) setSummary(result.value.answer.trim());
+    else if (result.code !== 'cancelled') setSummaryError(aiErrorMessage(result, t));
+  }
 
   useEffect(() => {
     let active = true;
@@ -290,33 +346,74 @@ export function GraphDetail({
           </kbd>
         </button>
 
-        {/* Only for a note that has links: with none, these would be the
-            single-note features under another name. */}
-        {linksTo.length + linkedFrom.length > 0 && (onSynthesize || onAsk) && (
+        {(canSummarize || onSynthesize || onAsk) && (
           <div className="nb-graph-detail-ai">
-            <p>
-              <Sparkles size={11} aria-hidden />
-              {t('graph.detail.withLinked', {
-                count: new Set([...linksTo, ...linkedFrom].map((other) => other.id)).size,
-              })}
-            </p>
-            <div>
-              {onSynthesize && (
-                <button
-                  type="button"
-                  title={t('graph.detail.synthesizeHint')}
-                  onClick={onSynthesize}
-                >
-                  {t('graph.detail.synthesize')}
-                </button>
-              )}
-              {onAsk && (
-                <button type="button" title={t('graph.detail.askHint')} onClick={onAsk}>
-                  <MessageCircleQuestion size={12} aria-hidden />
-                  {t('graph.detail.ask')}
-                </button>
-              )}
-            </div>
+            {canSummarize && (
+              <>
+                {(summary || summarizing) && (
+                  <p className="nb-graph-detail-summary" aria-live="polite">
+                    {summary || t('graph.detail.summarizing')}
+                  </p>
+                )}
+                {summaryError && (
+                  <p role="alert" className="nb-graph-detail-error">
+                    {summaryError}
+                  </p>
+                )}
+                <div>
+                  {summarizing ? (
+                    <button type="button" onClick={() => summaryRun.current?.abort()}>
+                      <Loader2 size={12} className="animate-spin" />
+                      {t('ai.cancel')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      title={t('graph.detail.summarizeHint')}
+                      onClick={() => void summarize()}
+                    >
+                      <Sparkles size={12} aria-hidden />
+                      {summary
+                        ? t('graph.detail.summarizeAgain')
+                        : t('graph.detail.summarize')}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+            {/* Only for a note that has links: with none, these would be the
+                single-note features under another name. */}
+            {linksTo.length + linkedFrom.length > 0 && (onSynthesize || onAsk) && (
+              <>
+                <p className="nb-graph-detail-ai-caption">
+                  {t('graph.detail.withLinked', {
+                    count: new Set([...linksTo, ...linkedFrom].map((other) => other.id))
+                      .size,
+                  })}
+                </p>
+                <div>
+                  {onSynthesize && (
+                    <button
+                      type="button"
+                      title={t('graph.detail.synthesizeHint')}
+                      onClick={onSynthesize}
+                    >
+                      {t('graph.detail.synthesize')}
+                    </button>
+                  )}
+                  {onAsk && (
+                    <button
+                      type="button"
+                      title={t('graph.detail.askHint')}
+                      onClick={onAsk}
+                    >
+                      <MessageCircleQuestion size={12} aria-hidden />
+                      {t('graph.detail.ask')}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 

@@ -20,3 +20,4 @@ export * from './podcast';
 export * from './retrieval';
 export * from './agent';
 export * from './taskAssist';
+export * from './linkSuggestions';

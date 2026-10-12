@@ -217,6 +217,9 @@ pub struct GraphNode {
     pub course_id: Option<String>,
     pub tag_ids: Vec<String>,
     pub updated_at: String,
+    /// Characters of text in the note. What a dot's size is drawn from, so a
+    /// library with no links yet still shows which notes carry the weight.
+    pub size: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

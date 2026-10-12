@@ -971,7 +971,7 @@
     "loading": "Reading your library…",
     "empty": "No notes match these filters.",
     "noLinks": "No links yet — type [[ in a note to link it to another.",
-    "hint": "Click a note for details · double-click to open it · drag to move · pinch to zoom · 0 to fit",
+    "hint": "Click a note for details · double-click to open it · bigger dots are longer notes · drag to move · pinch to zoom",
     "trimmedUnlinked": "Showing the {{shown}} linked notes out of {{total}}. Pick a course or a tag to see the rest.",
     "trimmedLeastLinked": "Showing the {{shown}} most connected notes out of {{total}}. Pick a course or a tag to see the rest.",
     "mentionCount_one": "{{count}} mention",
@@ -1002,12 +1002,39 @@
       "synthesize": "Synthesise",
       "synthesizeHint": "Write a new note from this one and its linked notes",
       "ask": "Ask",
-      "askHint": "Open this note and ask a question about it and its linked notes"
+      "askHint": "Open this note and ask a question about it and its linked notes",
+      "summarize": "Quick summary",
+      "summarizeAgain": "Summarise again",
+      "summarizing": "Reading the note…",
+      "summarizeHint": "A few sentences about this note, shown here and saved nowhere",
+      "summaryQuestion": "Summarise this note in two or three sentences: what it is about, and the points worth remembering. Plain prose, no heading, no list."
     },
     "agentAction": "Link them with the agent…",
     "agentHint": "Write the task for the agent. You review its plan before anything changes.",
     "agentTask": "Find the unlinked mentions in my notes and turn them into links.",
-    "agentTaskCourse": "Find the unlinked mentions in the course “{{course}}” and turn them into links."
+    "agentTaskCourse": "Find the unlinked mentions in the course “{{course}}” and turn them into links.",
+    "seeAlso": "See also:",
+    "unlinked": {
+      "title": "Your notes are not linked yet",
+      "tip": "Type [[ in a note to link it to another, and the map starts to draw itself.",
+      "mentions_one": "{{count}} note already names another one without linking to it.",
+      "mentions_other": "{{count}} times, a note already names another one without linking to it.",
+      "showMentions": "Show them",
+      "suggest": "Suggest links",
+      "suggesting": "Reading your notes…",
+      "suggestHint": "Ask your AI provider which notes belong together. Nothing is changed until you accept a suggestion."
+    },
+    "suggest": {
+      "title": "Suggested links",
+      "close": "Put the suggestions away",
+      "lead": "Each one adds a “See also” line to the first note. Nothing changes until you accept it.",
+      "none": "Nothing stood out as belonging together. That is a fair answer for a small library.",
+      "ignore": "Ignore",
+      "linkHint": "Add this link to “{{title}}”",
+      "linkAll_one": "Link it",
+      "linkAll_other": "Link all {{count}}",
+      "partial": "Based on your {{considered}} most recently edited notes, out of {{total}}."
+    }
   },
   "mcp": {
     "enable": "Enable",

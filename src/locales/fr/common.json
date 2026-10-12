@@ -971,7 +971,7 @@
     "loading": "Lecture de la bibliothèque…",
     "empty": "Aucune note ne correspond à ces filtres.",
     "noLinks": "Aucun lien pour l’instant — tapez [[ dans une note pour la relier à une autre.",
-    "hint": "Cliquer sur une note pour ses détails · double-cliquer pour l’ouvrir · glisser pour déplacer · pincer pour zoomer · 0 pour ajuster",
+    "hint": "Cliquer sur une note pour ses détails · double-cliquer pour l’ouvrir · un point plus gros est une note plus longue · glisser pour déplacer · pincer pour zoomer",
     "trimmedUnlinked": "Affichage des {{shown}} notes liées sur {{total}}. Choisissez un cours ou une étiquette pour voir les autres.",
     "trimmedLeastLinked": "Affichage des {{shown}} notes les plus liées sur {{total}}. Choisissez un cours ou une étiquette pour voir les autres.",
     "mentionCount_one": "{{count}} mention",
@@ -1002,12 +1002,39 @@
       "synthesize": "Synthétiser",
       "synthesizeHint": "Rédiger une nouvelle note à partir de celle-ci et de ses notes liées",
       "ask": "Interroger",
-      "askHint": "Ouvrir cette note et poser une question sur elle et ses notes liées"
+      "askHint": "Ouvrir cette note et poser une question sur elle et ses notes liées",
+      "summarize": "Résumé rapide",
+      "summarizeAgain": "Résumer à nouveau",
+      "summarizing": "Lecture de la note…",
+      "summarizeHint": "Quelques phrases sur cette note, affichées ici et enregistrées nulle part",
+      "summaryQuestion": "Résume cette note en deux ou trois phrases : son sujet et les points à retenir. En prose simple, sans titre ni liste."
     },
     "agentAction": "Les lier avec l’agent…",
     "agentHint": "Rédige la tâche pour l’agent. Vous relisez son plan avant toute modification.",
     "agentTask": "Trouve les mentions sans lien dans mes notes et transforme-les en liens.",
-    "agentTaskCourse": "Trouve les mentions sans lien dans le cours « {{course}} » et transforme-les en liens."
+    "agentTaskCourse": "Trouve les mentions sans lien dans le cours « {{course}} » et transforme-les en liens.",
+    "seeAlso": "Voir aussi :",
+    "unlinked": {
+      "title": "Vos notes ne sont pas encore reliées",
+      "tip": "Tapez [[ dans une note pour la relier à une autre, et la carte commence à se dessiner.",
+      "mentions_one": "{{count}} note en cite déjà une autre sans lien.",
+      "mentions_other": "{{count}} fois, une note en cite déjà une autre sans lien.",
+      "showMentions": "Les afficher",
+      "suggest": "Suggérer des liens",
+      "suggesting": "Lecture de vos notes…",
+      "suggestHint": "Demander à votre fournisseur d’IA quelles notes vont ensemble. Rien n’est modifié tant que vous n’acceptez pas une suggestion."
+    },
+    "suggest": {
+      "title": "Liens suggérés",
+      "close": "Ranger les suggestions",
+      "lead": "Chacun ajoute une ligne « Voir aussi » à la première note. Rien ne change tant que vous ne l’acceptez pas.",
+      "none": "Rien ne s’est imposé comme allant ensemble. C’est une réponse honnête pour une petite bibliothèque.",
+      "ignore": "Ignorer",
+      "linkHint": "Ajouter ce lien à « {{title}} »",
+      "linkAll_one": "Lier",
+      "linkAll_other": "Lier les {{count}}",
+      "partial": "À partir de vos {{considered}} notes les plus récemment modifiées, sur {{total}}."
+    }
   },
   "mcp": {
     "enable": "Activer",

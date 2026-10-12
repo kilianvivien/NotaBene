@@ -329,6 +329,8 @@ export const GraphNodeSchema = z.object({
   courseId: id.nullable().default(null),
   tagIds: z.array(id).default([]),
   updatedAt: isoDate,
+  /** Characters of text in the note — what a dot's size is drawn from. */
+  size: z.number().int().nonnegative().default(0),
 });
 export type GraphNode = z.infer<typeof GraphNodeSchema>;
 
@@ -849,6 +851,29 @@ export const AiTaskBreakdownResponseSchema = z.object({
     .max(20),
 });
 export type AiTaskBreakdownResponse = z.infer<typeof AiTaskBreakdownResponseSchema>;
+
+/**
+ * Links a model proposes between notes that have none.
+ *
+ * Notes are named by their position in the list the prompt showed, not by id:
+ * a model copies a two-digit number reliably and a twenty-character id badly,
+ * and an index that is out of range is trivially caught where a plausible
+ * wrong id is not. `src/lib/ai/linkSuggestions.ts` turns positions back into
+ * notes and throws away anything that does not survive the trip.
+ */
+export const AiLinkSuggestionsResponseSchema = z.object({
+  links: z
+    .array(
+      z.object({
+        from: z.number().int().nonnegative(),
+        to: z.number().int().nonnegative(),
+        /** One sentence the student reads before deciding. */
+        reason: z.string().trim().min(1).max(300),
+      }),
+    )
+    .max(60),
+});
+export type AiLinkSuggestionsResponse = z.infer<typeof AiLinkSuggestionsResponseSchema>;
 
 /**
  * Whether the notes suggest a task is finished.
