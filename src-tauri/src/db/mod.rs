@@ -7,6 +7,7 @@
 
 pub mod assets;
 pub mod collections;
+pub mod graph;
 pub mod journal;
 pub mod location;
 pub mod migrations;

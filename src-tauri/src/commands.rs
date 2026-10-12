@@ -7,18 +7,18 @@
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::db::journal::{JournalEntry, PendingRecovery};
 use crate::db::location::LibraryAccess;
 use crate::db::model::{
-    Asset, Attachment, Backlink, Course, CourseTerm, ImportedNote, Library, Note, NoteMatch,
-    NoteQuery, NoteSummary, NoteTemplate, NoteText, NoteTitle, SavedSearch, Section, Snapshot,
-    SnapshotMeta, Tag, Task, TaskNoteLink, TaskQuery,
+    Asset, Attachment, Backlink, Course, CourseTerm, ImportedNote, Library, LibraryGraph, Note,
+    NoteMatch, NoteQuery, NoteSummary, NoteTemplate, NoteText, NoteTitle, SavedSearch, Section,
+    Snapshot, SnapshotMeta, Tag, Task, TaskNoteLink, TaskQuery, UnlinkedMention,
 };
 use crate::db::{
-    assets, collections, journal, notes, organization, tasks, transfer, vocabulary, DbError,
-    DbResult, Store,
+    assets, collections, graph, journal, notes, organization, tasks, transfer, vocabulary,
+    DbError, DbResult, Store,
 };
 
 fn now() -> String {
@@ -156,6 +156,35 @@ pub fn library_restore_note(store: State<'_, Store>, note_id: String) -> DbResul
 #[tauri::command]
 pub fn library_purge_note(store: State<'_, Store>, note_id: String) -> DbResult<()> {
     notes::purge(&store, &note_id)
+}
+
+/// The whole library as nodes and links, for the graph view.
+///
+/// `async` over `spawn_blocking` because a synchronous command runs on the
+/// main thread, and with `mentions` this reads every note's text: on a large
+/// library that is long enough to stall the window it is about to draw in.
+#[tauri::command]
+pub async fn library_graph(app: AppHandle, mentions: bool) -> DbResult<LibraryGraph> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let store = app.state::<Store>();
+        graph::read(&store, mentions)
+    })
+    .await
+    .map_err(|error| DbError::Other(format!("graph read failed: {error}")))?
+}
+
+/// Live notes that name this one by title without linking to it.
+#[tauri::command]
+pub async fn library_list_unlinked_mentions(
+    app: AppHandle,
+    note_id: String,
+) -> DbResult<Vec<UnlinkedMention>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let store = app.state::<Store>();
+        graph::list_unlinked_mentions(&store, &note_id)
+    })
+    .await
+    .map_err(|error| DbError::Other(format!("mention scan failed: {error}")))?
 }
 
 #[tauri::command]

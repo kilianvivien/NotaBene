@@ -112,7 +112,7 @@ Phases A–L are code-complete, apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
 server, the study features, bulk selection, and tasks. The MCP and in-app Agent
-share 29 tools (the in-app agent adds two pseudo-tools of its own, `finish` and
+share 31 tools (the in-app agent adds two pseudo-tools of its own, `finish` and
 `ask_student`, which are loop control rather than capabilities): the original surface plus tag discovery, native merging,
 recoverable Trash/restore operations, bulk archiving, the five task tools, and
 the eight of the agent's tier 2 (attachments and highlights, versions, and the
@@ -139,7 +139,8 @@ transcription of any audio attachment. The 1.3.6 release adds the editor
 context menu, selection-only AI correction/rewrite, title-area dialog close
 controls, and shared main Gemini/Mistral keys for hosted speech. The 1.3.7
 release adds editorial visualization plans: selective shallow mind maps and
-relationship diagrams compiled locally from validated graphs.
+relationship diagrams compiled locally from validated graphs. O (1.4.0) adds
+the graph view and unlinked mentions.
 `docs/plan.md` tracks what is still open honestly — read it before assuming
 something works.
 
@@ -367,6 +368,48 @@ Transcription notes (phase N, plan §10.3) worth knowing before touching it:
 - The UI is a popover in the lecture player, not a dialog, by the owner's
   choice — the one deliberate exception to the `ChoiceGroup` convention.
   The job lives in `transcriptionStore` and outlives the popover.
+
+Graph view notes (phase O, plan §5) worth knowing before touching it:
+
+- The graph is derived, never stored: `db/graph.rs` reads live notes and
+  `note_links` on every open. `LibraryGraphSchema` is in the contract because
+  it crosses IPC, not because it is library data — no `SCHEMA_VERSION` bump,
+  and it must stay out of `LibrarySchema`.
+- What counts as an unlinked mention is written twice, in `db/graph.rs` and
+  `src/lib/graph/mentions.ts` (the memory adapter and the link command use
+  the second). Change one and you must change the other: whole title, whole
+  words, case-insensitive, no title under four characters, duplicates to the
+  note `resolve_wiki_title_in` reaches, live notes only.
+- `layout.ts` has no random numbers on purpose — the same library must settle
+  into the same picture. Mentions are drawn but are not layout forces, so
+  toggling them never moves a note.
+- `usePanZoom` is shared with `MindMapViewer`. The WebKit gesture handling in
+  it is the part that cost a release once; do not fork it.
+- The canvas says nothing to a keyboard or a screen reader. The find field's
+  results and the detail card's rows are the accessible path to every note;
+  keep them real buttons. The view takes focus on open and traps Tab, because
+  it covers a note that would otherwise keep receiving keystrokes.
+- One click selects (detail card), a double-click or Enter opens. Escape backs
+  out a layer at a time: find field, card, graph. The window keydown listener
+  is in the capture phase so ⌘F and Escape are decided before the app's own.
+- AI in the graph is three hand-offs, and nothing runs in the graph itself:
+  *Synthesise* (the note and its links go to `SynthesisDialog` through
+  `uiStore.aiSources`), *Ask* (opens the note with Ask's `linked` scope), and
+  *Link them with the agent* (drafts a task into `uiStore.agentDraft`; the
+  student still asks for the plan). Each button is absent when no provider
+  can serve it — the graph is complete without AI.
+- `linked` is an `AskScope`, but only Ask offers it. The agent shares the
+  scope control and reads it as `note`. At that scope retrieval never
+  searches: the candidates are the links alone.
+- `find_mentions` and `link_mentions` are the agent's (and MCP's) way to link
+  mentions. `linkMentionsCommand` checks every `baseUpdatedAt` before writing
+  anything, and writes a note once however many links it gains.
+- A layout is reused when only mentions change, and warm-started when the
+  same notes gain a link. A warm picture is a continuation of what was on
+  screen, not the canonical one; reopening the graph gives that.
+- `linkMentionCommand` only replaces a mention that sits inside one text node,
+  and never inside code or a web link. It refuses the rest (`not_supported`)
+  rather than guessing at marks.
 
 ## House rules
 

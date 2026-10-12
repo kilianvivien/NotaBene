@@ -32,7 +32,7 @@ function scopeButton(page: Page) {
   return page.getByRole('button', { name: 'Search', exact: true });
 }
 
-test('offers the three scopes, defaulting to the open note', async ({ page }) => {
+test('offers the four scopes, defaulting to the open note', async ({ page }) => {
   await openAskPanel(page, 'Lecture 4 — Eigenvectors');
 
   // The trigger states the current scope without being opened.
@@ -40,10 +40,12 @@ test('offers the three scopes, defaulting to the open note', async ({ page }) =>
 
   await scopeButton(page).click();
   const menu = page.getByRole('menu');
-  await expect(menu.getByRole('menuitemradio', { name: 'This note' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
+  await expect(
+    menu.getByRole('menuitemradio', { name: 'This note', exact: true }),
+  ).toHaveAttribute('aria-checked', 'true');
+  await expect(
+    menu.getByRole('menuitemradio', { name: 'This note and its links' }),
+  ).toBeVisible();
   await expect(menu.getByRole('menuitemradio', { name: 'This course' })).toBeVisible();
   await expect(menu.getByRole('menuitemradio', { name: 'All notes' })).toBeVisible();
   await page.keyboard.press('Escape');

@@ -156,6 +156,8 @@ pub fn run() {
             commands::library_restore_note,
             commands::library_purge_note,
             commands::library_list_backlinks,
+            commands::library_graph,
+            commands::library_list_unlinked_mentions,
             commands::library_list_tags,
             commands::library_upsert_tag,
             commands::library_delete_tag,

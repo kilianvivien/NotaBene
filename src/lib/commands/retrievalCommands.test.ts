@@ -173,6 +173,53 @@ describe('gatherAskSourcesCommand', () => {
     expect(recent?.reason).toBe('recent');
   });
 
+  it('at linked scope, gathers the neighbourhood and never searches', async () => {
+    const link = (noteId: string, title: string) => ({
+      type: 'wikiLink',
+      attrs: { noteId, title },
+    });
+    await library.upsertNote(seed('out', 'Amortissement', 'le frottement dissipe'));
+    await library.upsertNote({
+      ...seed('anchor', 'Cours 4', 'voir'),
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'voir ' }, link('out', 'Amortissement')],
+          },
+        ],
+      },
+    });
+    await library.upsertNote({
+      ...seed('in', 'Cours 5', 'suite de'),
+      doc: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [link('anchor', 'Cours 4')] }],
+      },
+    });
+    // Answers the question word for word, and is linked to nothing.
+    await library.upsertNote(seed('stranger', 'Ailleurs', 'le frottement dissipe aussi'));
+    const spy = vi.spyOn(library, 'searchNotes');
+
+    const result = await gatherAskSourcesCommand({
+      anchorNoteId: 'anchor',
+      scope: 'linked',
+      question: 'que fait le frottement ?',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.sources.map((source) => source.noteId).sort()).toEqual([
+      'anchor',
+      'in',
+      'out',
+    ]);
+    expect(result.value.sources[0]!.noteId).toBe('anchor');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
   it('reports a missing anchor rather than answering from nothing', async () => {
     const result = await gatherAskSourcesCommand({
       anchorNoteId: 'nope',

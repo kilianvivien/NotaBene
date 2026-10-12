@@ -63,6 +63,7 @@ const TOPICS = {
       { id: 'smart' },
       { id: 'templates', command: 'note.newFromTemplate' },
       { id: 'select', command: 'note.merge' },
+      { id: 'graph', command: 'view.graph' },
       { id: 'versions' },
     ],
   },

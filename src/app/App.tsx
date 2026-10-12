@@ -43,6 +43,7 @@ import { HelpDialog } from './help/HelpDialog';
 import { CalendarExportDialog, CalendarImportDialog } from './tasks/CalendarDialogs';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { PdfReader } from '@/editor/attachments/PdfReader';
+import { GraphView } from './graph/GraphView';
 import { TaskList } from './tasks/TaskList';
 import { TrashedTaskList } from './tasks/TrashedTaskList';
 import { TaskDetail } from './tasks/TaskDetail';
@@ -74,6 +75,7 @@ export function App() {
   const inspectorVisible = useUiStore((state) => state.inspectorVisible);
   const focusMode = useUiStore((state) => state.focusMode);
   const pdfReading = useUiStore((state) => state.pdfReading);
+  const graphOpen = useUiStore((state) => state.graphOpen);
   // The views whose columns are not notes. The sidebar, inspector and status
   // bar are unchanged; only the middle two columns swap. Trash is one of them
   // half the time: the bin holds tasks as well as notes, and its task half puts
@@ -244,6 +246,7 @@ export function App() {
       <CourseVocabularyDialog />
       <EditorConflictDialog />
       {pdfReading && <PdfReader request={pdfReading} />}
+      {graphOpen && <GraphView />}
     </div>
   );
 }

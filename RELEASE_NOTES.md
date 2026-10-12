@@ -2,9 +2,27 @@
 
 ## NotaBene 1.4.0 — Unreleased
 
+- **Graph view.** See the whole library as a map: every note is a dot coloured
+  by its course, every link between two notes a line. Open it from
+  View → Graph (⌥⇧⌘G) or the title bar. Drag to move, pinch to zoom, and
+  filter by course, tag or last edit. Click a note to see where it lives, how
+  it begins and everything it links to; double-click it, or press Return, to
+  open it. The find field reaches any note from the keyboard.
+- **Unlinked mentions.** When a note names another by its title without
+  linking to it, the inspector's Links tab now lists it under *Unlinked
+  mentions*, with a **Link** button that turns the mention into a link — an
+  ordinary edit, kept in the note's versions. In the graph, **Mentions** draws
+  them as dashed lines, and a note's card offers the same **Link**.
+- **AI in the graph (optional).** With an AI provider set up, a note's card
+  offers **Synthesise** and **Ask** over the note and everything linked to
+  it, and the mention count offers **Link them with the agent…**, which
+  writes the task for the agent and leaves the plan for you to review. Ask
+  gains a scope of its own for this, *This note and its links*, also
+  available from the Ask panel. Without a provider none of this appears.
+- **Two new agent tools.** The in-app agent and MCP clients can find unlinked
+  mentions and link them in bulk (`find_mentions`, `link_mentions`).
 - **Updated foundations.** Tauri 2.12.3 with its dialog, file, notification,
   opener and updater plugins, docx 9.10, and the in-range Rust dependencies.
-  No feature changes yet.
 
 No library schema change.
 

@@ -13,6 +13,8 @@ import type {
   Attachment,
   Asset,
   Backlink,
+  LibraryGraph,
+  UnlinkedMention,
   Course,
   CourseTerm,
   JournalEntry,
@@ -170,6 +172,18 @@ export interface LibraryAdapter {
   purgeNote(noteId: string): Promise<void>;
   /** Notes whose id-backed wiki links point at this note. */
   listBacklinks(noteId: string): Promise<Backlink[]>;
+  /**
+   * Every live note and every resolved link between two of them, in one read.
+   * `mentions` adds the unlinked mentions as edges — opt-in, because it is the
+   * half that reads every note's text.
+   */
+  getGraph(options: { mentions: boolean }): Promise<LibraryGraph>;
+  /**
+   * Live notes that name this one by title without linking to it. Whole
+   * title, whole words, case-insensitive; titles under four characters and
+   * duplicate titles another note holds first return nothing.
+   */
+  listUnlinkedMentions(noteId: string): Promise<UnlinkedMention[]>;
 
   /**
    * Crash recovery. The editor writes in-flight state here on every keystroke

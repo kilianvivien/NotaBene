@@ -316,6 +316,43 @@ export const BacklinkSchema = z.object({
 });
 export type Backlink = z.infer<typeof BacklinkSchema>;
 
+/**
+ * The library as the graph view draws it.
+ *
+ * Not part of `LibrarySchema`, and it must not become part of it: every field
+ * is derived from notes and their wiki links on each read, so a backup has
+ * nothing to carry and there was no `SCHEMA_VERSION` to bump.
+ */
+export const GraphNodeSchema = z.object({
+  id,
+  title: z.string().default(''),
+  courseId: id.nullable().default(null),
+  tagIds: z.array(id).default([]),
+  updatedAt: isoDate,
+});
+export type GraphNode = z.infer<typeof GraphNodeSchema>;
+
+export const GraphEdgeSchema = z.object({ sourceId: id, targetId: id });
+export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
+
+export const LibraryGraphSchema = z.object({
+  nodes: z.array(GraphNodeSchema),
+  /** Resolved wiki links between two live notes, one per ordered pair. */
+  edges: z.array(GraphEdgeSchema),
+  /** Unlinked mentions as edges; empty unless they were asked for. */
+  mentions: z.array(GraphEdgeSchema).default([]),
+});
+export type LibraryGraph = z.infer<typeof LibraryGraphSchema>;
+
+/** A note that names another by title without linking to it. */
+export const UnlinkedMentionSchema = z.object({
+  sourceId: id,
+  sourceTitle: z.string(),
+  snippet: z.string().default(''),
+  updatedAt: isoDate,
+});
+export type UnlinkedMention = z.infer<typeof UnlinkedMentionSchema>;
+
 // ---------------------------------------------------------------------------
 // Tasks
 // ---------------------------------------------------------------------------

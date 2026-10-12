@@ -33,6 +33,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { usePanZoom, ZOOM_STEP } from '@/app/graph/usePanZoom';
 import { exportMindMapCommand, saveMindMapAsNoteCommand } from '@/lib/commands';
 import { svgDataUri, svgSize } from '@/lib/mindmap/svg';
 import type { MindMap } from '@/lib/schema';
@@ -40,21 +41,9 @@ import { useEditorStore } from '@/lib/state/editorStore';
 
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 6;
-/** One press of the +/− control, and one notch of a mouse wheel. */
-const STEP = 1.25;
 /** Breathing room around a fitted map, so the outermost labels are not welded
  * to the window edge. */
 const FIT_PADDING = 48;
-
-interface View {
-  x: number;
-  y: number;
-  k: number;
-}
-
-function clamp(k: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k));
-}
 
 interface MindMapViewerProps {
   svg: string;
@@ -66,10 +55,6 @@ interface MindMapViewerProps {
 export function MindMapViewer({ svg, title, data, onClose }: MindMapViewerProps) {
   const { t } = useTranslation();
   const stage = useRef<HTMLDivElement>(null);
-  const pointer = useRef<{ x: number; y: number } | null>(null);
-  const gesture = useRef<{ anchor: { x: number; y: number }; scale: number } | null>(null);
-  const [view, setView] = useState<View | null>(null);
-  const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState<
     'svg' | 'pdf' | 'png' | 'markdown' | 'note' | null
   >(null);
@@ -78,172 +63,31 @@ export function MindMapViewer({ svg, title, data, onClose }: MindMapViewerProps)
   const size = svgSize(svg);
   const source = svgDataUri(svg);
 
+  // The gestures themselves live in `usePanZoom`, shared with the graph view.
+  const { view, dragging, fitTo, zoomAt, stageProps, handleKey } = usePanZoom({
+    stage,
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+    fitPadding: FIT_PADDING,
+    // Never above 1:1 for a small map — blowing a six-node map up to fill a
+    // 27" display makes it look like a poster, not a map.
+    maxFitZoom: 1,
+    onClose,
+  });
+
   /** Centre the whole map in the stage. Also the "0" key and the fit button. */
   const fit = useCallback(() => {
-    const box = stage.current?.getBoundingClientRect();
-    if (!box) return;
-    const available = {
-      width: Math.max(1, box.width - FIT_PADDING * 2),
-      height: Math.max(1, box.height - FIT_PADDING * 2),
-    };
-    // Never below 1:1 for a small map — blowing a six-node map up to fill a 27"
-    // display makes it look like a poster, not a map.
-    const k = clamp(
-      Math.min(available.width / size.width, available.height / size.height, 1),
-    );
-    setView({
-      x: (box.width - size.width * k) / 2,
-      y: (box.height - size.height * k) / 2,
-      k,
-    });
-  }, [size.width, size.height]);
+    fitTo({ x: 0, y: 0, width: size.width, height: size.height });
+  }, [fitTo, size.width, size.height]);
 
   // Before paint, so the map never appears at the wrong scale for a frame.
   useLayoutEffect(fit, [fit]);
 
-  /** Zoom about a point in stage coordinates, so whatever is under the cursor
-   * stays under the cursor. Zooming about the centre instead makes following a
-   * branch outwards a game of chase-the-node. */
-  const zoomAt = useCallback((factor: number, point?: { x: number; y: number }) => {
-    setView((current) => {
-      if (!current) return current;
-      const k = clamp(current.k * factor);
-      if (k === current.k) return current;
-      const box = stage.current?.getBoundingClientRect();
-      const anchor = point ?? {
-        x: (box?.width ?? 0) / 2,
-        y: (box?.height ?? 0) / 2,
-      };
-      const scale = k / current.k;
-      return {
-        k,
-        x: anchor.x - (anchor.x - current.x) * scale,
-        y: anchor.y - (anchor.y - current.y) * scale,
-      };
-    });
-  }, []);
-
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      } else if (event.key === '+' || event.key === '=') {
-        zoomAt(STEP);
-      } else if (event.key === '-' || event.key === '_') {
-        zoomAt(1 / STEP);
-      } else if (event.key === '0') {
-        fit();
-      } else {
-        return;
-      }
-      event.preventDefault();
-    };
+    const onKeyDown = (event: KeyboardEvent) => void handleKey(event, fit);
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, zoomAt, fit]);
-
-  /**
-   * Wheel handling, bound natively because React's `onWheel` is passive and
-   * cannot call `preventDefault` — without which a trackpad pinch zooms the
-   * whole webview instead of the map.
-   *
-   * Chromium sends a pinch as a wheel event with `ctrlKey` set. macOS WebKit
-   * can instead send Safari's gesture events, whose scale is cumulative and
-   * whose cursor coordinates are unreliable. For those, the pointer position
-   * captured by the stage is the stable zoom anchor.
-   */
-  useEffect(() => {
-    const element = stage.current;
-    if (!element) return;
-
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const box = element.getBoundingClientRect();
-      if (event.ctrlKey || event.metaKey) {
-        // WebKit may emit both streams for the same pinch.
-        if (gesture.current) return;
-        // The delta is clamped before it becomes a factor. A trackpad pinch
-        // arrives as a stream of small deltas and is unaffected; a mouse wheel
-        // notch can be 120 or more in one event, and unclamped that is a jump
-        // of several hundred percent from one click of the wheel.
-        const delta = Math.max(-40, Math.min(40, event.deltaY));
-        zoomAt(
-          Math.exp(-delta / 180),
-          pointer.current ?? {
-            x: event.clientX - box.left,
-            y: event.clientY - box.top,
-          },
-        );
-      } else {
-        setView((current) =>
-          current
-            ? { ...current, x: current.x - event.deltaX, y: current.y - event.deltaY }
-            : current,
-        );
-      }
-    };
-
-    const onGestureStart = (event: Event) => {
-      event.preventDefault();
-      const scale = 'scale' in event && typeof event.scale === 'number' ? event.scale : 1;
-      gesture.current = {
-        anchor: pointer.current ?? {
-          x: element.clientWidth / 2,
-          y: element.clientHeight / 2,
-        },
-        scale,
-      };
-    };
-    const onGestureChange = (event: Event) => {
-      event.preventDefault();
-      const current = gesture.current;
-      if (!current || !('scale' in event) || typeof event.scale !== 'number') return;
-      zoomAt(event.scale / current.scale, current.anchor);
-      current.scale = event.scale;
-    };
-    const onGestureEnd = (event: Event) => {
-      event.preventDefault();
-      gesture.current = null;
-    };
-
-    element.addEventListener('wheel', onWheel, { passive: false });
-    element.addEventListener('gesturestart', onGestureStart, { passive: false });
-    element.addEventListener('gesturechange', onGestureChange, { passive: false });
-    element.addEventListener('gestureend', onGestureEnd, { passive: false });
-    return () => {
-      element.removeEventListener('wheel', onWheel);
-      element.removeEventListener('gesturestart', onGestureStart);
-      element.removeEventListener('gesturechange', onGestureChange);
-      element.removeEventListener('gestureend', onGestureEnd);
-    };
-  }, [zoomAt]);
-
-  function startPan(event: React.PointerEvent) {
-    if (event.button !== 0) return;
-    const origin = { x: event.clientX, y: event.clientY };
-    const start = view;
-    if (!start) return;
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDragging(true);
-
-    const move = (moved: PointerEvent) => {
-      setView({
-        ...start,
-        x: start.x + (moved.clientX - origin.x),
-        y: start.y + (moved.clientY - origin.y),
-      });
-    };
-    const end = () => {
-      setDragging(false);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
-  }
+  }, [handleKey, fit]);
 
   async function download(format: 'svg' | 'pdf' | 'png' | 'markdown') {
     setError('');
@@ -278,7 +122,7 @@ export function MindMapViewer({ svg, title, data, onClose }: MindMapViewerProps)
             type="button"
             aria-label={t('mindMap.zoomOut')}
             title={t('mindMap.zoomOut')}
-            onClick={() => zoomAt(1 / STEP)}
+            onClick={() => zoomAt(1 / ZOOM_STEP)}
           >
             <Minus size={14} />
           </button>
@@ -289,7 +133,7 @@ export function MindMapViewer({ svg, title, data, onClose }: MindMapViewerProps)
             type="button"
             aria-label={t('mindMap.zoomIn')}
             title={t('mindMap.zoomIn')}
-            onClick={() => zoomAt(STEP)}
+            onClick={() => zoomAt(ZOOM_STEP)}
           >
             <Plus size={14} />
           </button>
@@ -366,25 +210,7 @@ export function MindMapViewer({ svg, title, data, onClose }: MindMapViewerProps)
         ref={stage}
         className="nb-map-viewer-stage"
         data-dragging={dragging || undefined}
-        onPointerDown={startPan}
-        onPointerMove={(event) => {
-          const box = event.currentTarget.getBoundingClientRect();
-          pointer.current = {
-            x: event.clientX - box.left,
-            y: event.clientY - box.top,
-          };
-        }}
-        onPointerLeave={() => {
-          pointer.current = null;
-        }}
-        onDoubleClick={(event) => {
-          const box = stage.current?.getBoundingClientRect();
-          if (!box) return;
-          zoomAt(STEP * STEP, {
-            x: event.clientX - box.left,
-            y: event.clientY - box.top,
-          });
-        }}
+        {...stageProps}
       >
         <div
           className="nb-map-viewer-canvas"

@@ -640,6 +640,86 @@
   font-size: 11px;
 }
 
+/* Connect */
+
+.wl-graph {
+  position: relative;
+  aspect-ratio: 420 / 230;
+  overflow: hidden;
+  border: 1px solid var(--nb-divider);
+  border-radius: var(--nb-radius-md);
+  background: var(--nb-inset-surface);
+}
+
+.wl-graph-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.wl-graph-lines line {
+  stroke: var(--nb-text-3);
+  stroke-width: 1.2;
+  stroke-opacity: 0.6;
+  stroke-linecap: round;
+}
+
+.wl-graph-lines line.is-mention {
+  stroke: var(--nb-accent);
+  stroke-dasharray: 3 5;
+  stroke-opacity: 0.95;
+}
+
+/* A dot grows from its own centre, not from the corner of the drawing. */
+.wl-graph-lines circle {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Centred on its line by a margin, not a transform: `wl-step` animates
+   `transform`, and would take the centring with it. */
+.wl-graph-label {
+  position: absolute;
+  margin-top: -8px;
+  color: var(--nb-text-2);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.wl-graph-plate {
+  position: absolute;
+  padding: 6px 10px 7px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: 8px;
+  background: var(--nb-surface);
+  box-shadow: var(--nb-shadow-sm);
+  white-space: nowrap;
+}
+
+.wl-graph-plate strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wl-graph-plate span {
+  color: var(--nb-text-3);
+  font-size: 10.5px;
+}
+
+.wl-graph-chip {
+  position: absolute;
+  padding: 1px 8px;
+  border-radius: 6px;
+  color: var(--nb-accent);
+  background: var(--nb-accent-soft);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 17px;
+}
+
 /* Revise */
 
 .wl-study {

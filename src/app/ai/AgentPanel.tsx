@@ -108,6 +108,17 @@ export function AgentPanel({
   const [requiredScope, setRequiredScope] = useState<'library' | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
+  // A task written elsewhere — the graph's "link these mentions" — lands in
+  // the composer, not in a run: the student reads it, changes it if they
+  // like, and asks for the plan themselves.
+  const draft = useUiStore((state) => state.agentDraft);
+  useEffect(() => {
+    if (draft === null) return;
+    setInstruction(draft);
+    useUiStore.getState().setAgentDraft(null);
+    composerRef.current?.focus();
+  }, [draft]);
+
   // Derived rather than held: a run survives this component, so local `planning`
   // and `running` flags would come back false after a remount while the agent
   // was still working.
@@ -133,10 +144,13 @@ export function AgentPanel({
    * a run the executor would widen to the whole library is the one lie this
    * surface must not tell. Both the control and the plan request read this.
    */
+  // `linked` is Ask's alone — a reading scope. For a run that edits, it means
+  // the note it started from.
+  const asked: AskScope = scope === 'linked' ? 'note' : scope;
   const effective: AskScope =
-    (scope === 'note' && !noteId && !selected) || (scope === 'course' && !courseId)
+    (asked === 'note' && !noteId && !selected) || (asked === 'course' && !courseId)
       ? 'library'
-      : scope;
+      : asked;
 
   async function plan(followUpTo?: string) {
     const asked = instruction.trim();

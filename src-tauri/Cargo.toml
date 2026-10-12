@@ -71,6 +71,10 @@ reqwest = { version = "0.13", default-features = false, features = [
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 futures-util = "0.3"
 regex = "1"
+# Finding every note title in every note's text in one pass (the graph view's
+# unlinked mentions). Already in the lock through `regex`, so this is a
+# dependency line, not a new crate.
+aho-corasick = "1"
 anydoc = "0.2"
 
 # The same PDF parser AnyDoc already runs, taken directly for one thing AnyDoc

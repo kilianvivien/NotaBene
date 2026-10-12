@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Sparkles,
   Tag,
+  Unlink,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -21,15 +22,24 @@ import { AttachmentPanel } from '@/editor/attachments/AttachmentPanel';
 import { library } from '@/lib/adapters';
 import {
   ensureTagCommand,
+  linkMentionCommand,
+  listUnlinkedMentionsCommand,
   restoreSnapshotCommand,
   updateNoteCommand,
 } from '@/lib/commands';
 import { compareDocuments } from '@/lib/history/comparison';
 import { docStats } from '@/lib/notes/docText';
 import { tagLabel, tagQuery } from '@/lib/notes/tagLabel';
-import { TAG_NAMESPACES, type Backlink, type Snapshot, type Tag as NoteTag } from '@/lib/schema';
+import {
+  TAG_NAMESPACES,
+  type Backlink,
+  type Snapshot,
+  type Tag as NoteTag,
+  type UnlinkedMention,
+} from '@/lib/schema';
 import { useAiStore } from '@/lib/state/aiStore';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { formatTimestamp } from '@/lib/utils/timestamp';
@@ -621,6 +631,8 @@ function TagsPanel() {
  */
 function LinksPanel({ noteId }: { noteId: string }) {
   const { t } = useTranslation();
+  // Linking a mention moves a row from one list to the other; both re-read.
+  const [revision, setRevision] = useState(0);
   return (
     <div className="flex flex-col gap-4">
       <section>
@@ -633,13 +645,18 @@ function LinksPanel({ noteId }: { noteId: string }) {
         <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
           {t('inspector.backlinksHeading')}
         </h3>
-        <BacklinksPanel noteId={noteId} />
+        <BacklinksPanel noteId={noteId} revision={revision} />
       </section>
+      <UnlinkedMentionsPanel
+        noteId={noteId}
+        revision={revision}
+        onLinked={() => setRevision((current) => current + 1)}
+      />
     </div>
   );
 }
 
-function BacklinksPanel({ noteId }: { noteId: string }) {
+function BacklinksPanel({ noteId, revision }: { noteId: string; revision: number }) {
   const { t } = useTranslation();
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
   const selectNote = useUiStore((state) => state.selectNote);
@@ -652,7 +669,7 @@ function BacklinksPanel({ noteId }: { noteId: string }) {
     return () => {
       active = false;
     };
-  }, [noteId]);
+  }, [noteId, revision]);
 
   if (!backlinks.length) {
     return <p className="text-[12px] text-nb-text-3">{t('inspector.noBacklinks')}</p>;
@@ -680,5 +697,114 @@ function BacklinksPanel({ noteId }: { noteId: string }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Notes that name this one without linking to it.
+ *
+ * Shown only when there are any: an empty "Unlinked mentions" heading on every
+ * note is a feature announcing itself to a student who never asked. Linking
+ * one edits the *other* note — an ordinary, versioned edit — so the row moves
+ * up into the list of linked notes.
+ */
+function UnlinkedMentionsPanel({
+  noteId,
+  revision,
+  onLinked,
+}: {
+  noteId: string;
+  revision: number;
+  onLinked(): void;
+}) {
+  const { t } = useTranslation();
+  const [mentions, setMentions] = useState<UnlinkedMention[]>([]);
+  const [linking, setLinking] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ sourceId: string; message: string } | null>(null);
+  const readOnly = useLibraryAccessStore((state) => state.status?.readOnly === true);
+  const selectNote = useUiStore((state) => state.selectNote);
+  const openNote = useEditorStore((state) => state.openNote);
+
+  useEffect(() => {
+    let active = true;
+    setFailure(null);
+    void listUnlinkedMentionsCommand(noteId).then((result) => {
+      if (active) setMentions(result.ok ? result.value : []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [noteId, revision]);
+
+  if (!mentions.length) return null;
+
+  async function link(sourceId: string) {
+    setLinking(sourceId);
+    setFailure(null);
+    const result = await linkMentionCommand({ sourceId, targetId: noteId });
+    setLinking(null);
+    if (result.ok) {
+      onLinked();
+      return;
+    }
+    setFailure({
+      sourceId,
+      message:
+        result.code === 'not_supported'
+          ? t('inspector.mentionNotLinkable')
+          : result.code === 'conflict'
+            ? t('inspector.mentionConflict')
+            : result.message,
+    });
+  }
+
+  return (
+    <section>
+      <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
+        {t('inspector.mentionsHeading')}
+      </h3>
+      <ul className="space-y-1">
+        {mentions.map((mention) => (
+          <li key={mention.sourceId} className="rounded-nb-sm hover:bg-[var(--nb-hover)]">
+            <div className="flex items-start gap-1">
+              <button
+                type="button"
+                className="min-w-0 flex-1 p-2 text-left"
+                onClick={() => {
+                  selectNote(mention.sourceId);
+                  void openNote(mention.sourceId);
+                }}
+              >
+                <span className="flex items-center gap-1 text-[12px] font-medium">
+                  <Unlink size={11} />
+                  <span className="truncate">
+                    {mention.sourceTitle || t('noteList.untitled')}
+                  </span>
+                </span>
+                <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-nb-text-3">
+                  {mention.snippet}
+                </span>
+              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  className="mr-1 mt-1.5 shrink-0 rounded-nb-xs px-1.5 py-0.5 text-[11px] font-medium text-[var(--nb-accent)] hover:bg-[var(--nb-accent-soft)] disabled:opacity-50"
+                  disabled={linking !== null}
+                  title={t('inspector.mentionLinkHint')}
+                  onClick={() => void link(mention.sourceId)}
+                >
+                  {t('inspector.mentionLink')}
+                </button>
+              )}
+            </div>
+            {failure?.sourceId === mention.sourceId && (
+              <p role="alert" className="px-2 pb-2 text-[11px] text-[var(--nb-danger)]">
+                {failure.message}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

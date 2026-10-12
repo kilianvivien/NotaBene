@@ -698,6 +698,21 @@ function askModeRules(mode: AskMode): string {
  */
 function askScopeRules(scope: AskScope, truncated: boolean): string {
   if (scope === 'note') return '';
+  if (scope === 'linked') {
+    // Not a search: the open note and the notes the student linked it to.
+    // Nothing was "not found", so the model must not suggest that it was.
+    const lines = [
+      '- The notes below are the open note and the notes it is linked to or from. They are not the whole library.',
+      '- Cite notes by their title, never by index number.',
+      '- If none of them answers the question, say so plainly, and that the answer may be in a note that is not linked to this one.',
+    ];
+    if (truncated) {
+      lines.push(
+        '- A note marked truncated shows only part of itself. Do not describe it as the whole note, or claim it omits something.',
+      );
+    }
+    return `\n${lines.join('\n')}`;
+  }
   const lines = [
     '- The notes below are the ones a keyword search found for this question. They are not the whole library, and the search can miss a note.',
     '- Cite notes by their title, never by index number.',

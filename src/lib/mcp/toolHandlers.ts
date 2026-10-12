@@ -50,6 +50,7 @@ import {
   readSnapshotCommand,
 } from '@/lib/commands/readCommands';
 import { defineTermCommand } from '@/lib/commands/defineCommands';
+import { findMentionsCommand, linkMentionsCommand } from '@/lib/commands/graphCommands';
 import { synthesizeNotesCommand } from '@/lib/commands/aiCommands';
 import {
   insertDiagramCommand,
@@ -405,6 +406,29 @@ const VisualizeNoteArgs = VersionedNoteArgs.extend({
   kind: z.enum(['mindmap', 'diagram']).default('mindmap'),
 });
 
+const FindMentionsArgs = z.object({
+  /** Keep mentions with either end among these notes. */
+  noteIds: z.array(z.string().min(1)).max(500).optional(),
+  /** Keep mentions whose source note is in this course. */
+  courseId: z.string().min(1).optional(),
+  limit: z.number().int().positive().max(500).default(100),
+});
+
+const LinkMentionsArgs = z.object({
+  links: z
+    .array(
+      z.object({
+        /** The note that names the other one; it is the note that is edited. */
+        sourceId: z.string().min(1),
+        targetId: z.string().min(1),
+        /** `sourceUpdatedAt` from find_mentions, or the source's updatedAt. */
+        baseUpdatedAt: z.string().datetime(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
 /**
  * What each tool accepts, exactly as its handler parses it — the source the
  * in-app agent's native tool definitions are generated from, so they cannot
@@ -440,6 +464,8 @@ export const TOOL_ARGUMENT_SCHEMAS: Record<AgentToolName, z.ZodTypeAny | null> =
   generate_flashcards: GenerateFlashcardsArgs,
   synthesize_notes: SynthesizeNotesArgs,
   visualize_note: VisualizeNoteArgs,
+  find_mentions: FindMentionsArgs,
+  link_mentions: LinkMentionsArgs,
 };
 
 /** Every tool's parameters as JSON Schema, generated from the schemas above. */
@@ -814,6 +840,20 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
       parsed.data.archived,
       context,
     );
+  },
+
+  async find_mentions(args: unknown) {
+    const parsed = FindMentionsArgs.safeParse(args ?? {});
+    if (!parsed.success) return invalid(parsed.error.issues);
+    return findMentionsCommand(parsed.data);
+  },
+
+  async link_mentions(args: unknown, context: CommandContext) {
+    const cancelled = cancelledIfRequested<unknown>(context);
+    if (cancelled) return cancelled;
+    const parsed = LinkMentionsArgs.safeParse(args);
+    if (!parsed.success) return invalid(parsed.error.issues);
+    return linkMentionsCommand(parsed.data.links, context);
   },
 
   async create_course(args: unknown, context: CommandContext) {

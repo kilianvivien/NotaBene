@@ -94,9 +94,14 @@ export async function gatherAskSourcesCommand(
     input.provider,
   );
 
-  const candidates = keywords.length
-    ? await searchCandidates(keywords, courseId)
-    : await recentCandidates(courseId);
+  // `linked` asks about a neighbourhood, not a search result: its candidates
+  // are the links alone, ranked and packed like any others.
+  const candidates =
+    input.scope === 'linked'
+      ? ok<Candidate[]>([])
+      : keywords.length
+        ? await searchCandidates(keywords, courseId)
+        : await recentCandidates(courseId);
   if (!candidates.ok) return candidates;
 
   const linked = await linkedCandidates(anchor);
@@ -117,7 +122,7 @@ export async function gatherAskSourcesCommand(
       withDocs.push({
         candidate,
         doc: note.doc,
-        ...(keywords.length ? {} : { reason: 'recent' as const }),
+        ...(keywords.length || input.scope === 'linked' ? {} : { reason: 'recent' as const }),
       });
     }
   }

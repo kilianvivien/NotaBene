@@ -127,6 +127,15 @@ interface UiState {
    * than inheriting a mode nobody chose this time. */
   pendingRewriteMode: RewriteMode | null;
   aiSynthesisOpen: boolean;
+  /**
+   * Notes handed to an AI dialog by a surface that is not the note list — the
+   * graph view's "with its linked notes". Null means the usual answer: the
+   * multi-selection, or the open note. Cleared when the dialog closes.
+   */
+  aiSources: { noteIds: string[]; titles: string[] } | null;
+  /** A task written for the agent by another surface, waiting to be picked up
+   * by its composer. The student still reviews the plan and starts the run. */
+  agentDraft: string | null;
   /** Mind map or diagram — the dialog remembers which was chosen last. */
   aiVisualizeOpen: boolean;
   aiFlashcardsOpen: boolean;
@@ -186,6 +195,8 @@ interface UiState {
   taskBreakdownFor: string | null;
   /** The month view of every dated task. */
   taskCalendarOpen: boolean;
+  /** The full-window library graph. */
+  graphOpen: boolean;
   /**
    * The course whose vocabulary dialog is open, or `null`. `review` opens it
    * on the AI review rather than the word list, for the AI menu's entry.
@@ -225,6 +236,8 @@ interface UiState {
   setAiRewriteOpen(open: boolean): void;
   setPendingRewriteMode(mode: RewriteMode | null): void;
   setAiSynthesisOpen(open: boolean): void;
+  setAiSources(sources: { noteIds: string[]; titles: string[] } | null): void;
+  setAgentDraft(draft: string | null): void;
   setAiVisualizeOpen(open: boolean): void;
   setAiFlashcardsOpen(open: boolean): void;
   setAiPodcastOpen(open: boolean): void;
@@ -253,6 +266,7 @@ interface UiState {
   openTaskBreakdown(taskId: string): void;
   closeTaskBreakdown(): void;
   setTaskCalendarOpen(open: boolean): void;
+  setGraphOpen(open: boolean): void;
   openVocabulary(courseId: string, review?: boolean): void;
   closeVocabulary(): void;
   showStatusNotice(message: string): void;
@@ -291,6 +305,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.defineRequest !== null ||
     state.taskBreakdownFor !== null ||
     state.taskCalendarOpen ||
+    state.graphOpen ||
     state.vocabularyRequest !== null
   );
 }
@@ -325,6 +340,7 @@ export const useUiStore = create<UiState>()(
     defineRequest: null,
     taskBreakdownFor: null,
     taskCalendarOpen: false,
+    graphOpen: false,
     vocabularyRequest: null,
     statusNotice: null,
     sidebarVisible: true,
@@ -350,6 +366,8 @@ export const useUiStore = create<UiState>()(
     aiRewriteOpen: false,
     pendingRewriteMode: null,
     aiSynthesisOpen: false,
+    aiSources: null,
+    agentDraft: null,
     aiVisualizeOpen: false,
     aiFlashcardsOpen: false,
     aiPodcastOpen: false,
@@ -500,6 +518,12 @@ export const useUiStore = create<UiState>()(
     setTaskCalendarOpen(open) {
       set((state) => {
         state.taskCalendarOpen = open;
+      });
+    },
+
+    setGraphOpen(open) {
+      set((state) => {
+        state.graphOpen = open;
       });
     },
 
@@ -709,6 +733,19 @@ export const useUiStore = create<UiState>()(
     setAiSynthesisOpen(open) {
       set((state) => {
         state.aiSynthesisOpen = open;
+        if (!open) state.aiSources = null;
+      });
+    },
+
+    setAiSources(sources) {
+      set((state) => {
+        state.aiSources = sources;
+      });
+    },
+
+    setAgentDraft(draft) {
+      set((state) => {
+        state.agentDraft = draft;
       });
     },
 

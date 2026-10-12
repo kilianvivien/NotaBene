@@ -11,6 +11,8 @@ import type {
   Attachment,
   Asset,
   Backlink,
+  LibraryGraph,
+  UnlinkedMention,
   Course,
   CourseTerm,
   JournalEntry,
@@ -71,6 +73,10 @@ export const tauriLibraryAdapter: LibraryAdapter = {
   purgeNote: (noteId: string) => invoke('library_purge_note', { noteId }),
   listBacklinks: (noteId: string): Promise<Backlink[]> =>
     invoke('library_list_backlinks', { noteId }),
+  getGraph: ({ mentions }: { mentions: boolean }): Promise<LibraryGraph> =>
+    invoke('library_graph', { mentions }),
+  listUnlinkedMentions: (noteId: string): Promise<UnlinkedMention[]> =>
+    invoke('library_list_unlinked_mentions', { noteId }),
 
   writeJournal: (entry: JournalEntry) => invoke('journal_write', { entry }),
   pendingRecoveries: (): Promise<PendingRecovery[]> => invoke('journal_pending'),

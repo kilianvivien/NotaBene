@@ -2782,6 +2782,7 @@ dependencies = [
 name = "notabene"
 version = "1.4.0"
 dependencies = [
+ "aho-corasick",
  "anydoc",
  "axum",
  "base64 0.22.1",

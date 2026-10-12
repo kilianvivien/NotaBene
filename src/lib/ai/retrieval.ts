@@ -24,7 +24,12 @@ import { estimateTokens, MAX_INPUT_TOKENS } from './client';
 import type { ProviderDefinition } from './providers';
 
 /** How wide a question is allowed to look. */
-export type AskScope = 'note' | 'course' | 'library';
+/**
+ * `linked` is the open note and the notes a wiki link joins it to, in either
+ * direction — the neighbourhood the graph view draws. No search runs for it:
+ * the student chose those notes themselves, one link at a time.
+ */
+export type AskScope = 'note' | 'linked' | 'course' | 'library';
 
 /** A candidate with the combined score that decided its place. */
 export type FusedCandidate = Candidate & {

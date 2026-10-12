@@ -294,6 +294,11 @@
     "wordCount": "Words",
     "noTags": "No tags",
     "noBacklinks": "No notes link here yet",
+    "mentionsHeading": "Unlinked mentions",
+    "mentionLink": "Link",
+    "mentionLinkHint": "Turn this mention into a link in that note",
+    "mentionNotLinkable": "This mention can’t be linked automatically. Open the note and link it by hand.",
+    "mentionConflict": "That note changed in the meantime. Try again.",
     "versionCount_one": "{{count}} saved version",
     "versionCount_other": "{{count}} saved versions",
     "imported": "Imported",
@@ -773,7 +778,9 @@
     "writeScript": "Write script",
     "writingScript": "Writing the script…",
     "feature_vocabulary": "Vocabulary review",
-    "feature_proofread": "Check paragraph"
+    "feature_proofread": "Check paragraph",
+    "askScopeLinked": "This note and its links",
+    "askScopeHint_linked": "Answers may draw on this note and every note linked to or from it, and will say which ones they used."
   },
   "tags": {
     "facet_topic": "Topic",
@@ -933,6 +940,75 @@
     "expandBranch": "Expand branch",
     "hint": "Drag to move · pinch or ⌘-scroll to zoom · 0 to fit · Esc to close"
   },
+  "graph": {
+    "title": "Graph",
+    "notes_one": "{{count}} note",
+    "notes_other": "{{count}} notes",
+    "links_one": "{{count}} link",
+    "links_other": "{{count}} links",
+    "canvasLabel": "Graph of your notes: {{notes}}, {{links}}. Use the find field to reach a note.",
+    "find": "Find a note",
+    "results": "Matching notes",
+    "noResults": "No note with that title",
+    "filterCourse": "Course",
+    "allCourses": "All courses",
+    "noCourse": "No course",
+    "filterTag": "Tag",
+    "allTags": "All tags",
+    "filterSince": "Last edited",
+    "since": {
+      "any": "Any time",
+      "week": "Past week",
+      "month": "Past month",
+      "term": "Past four months",
+      "year": "Past year"
+    },
+    "linkedOnly": "Linked only",
+    "linkedOnlyHint": "Hide notes that nothing links to or from",
+    "mentions": "Mentions",
+    "mentionsHint": "Show notes that name another without linking to it, as dashed lines",
+    "legend": "Courses",
+    "loading": "Reading your library…",
+    "empty": "No notes match these filters.",
+    "noLinks": "No links yet — type [[ in a note to link it to another.",
+    "hint": "Click a note for details · double-click to open it · drag to move · pinch to zoom · 0 to fit",
+    "trimmedUnlinked": "Showing the {{shown}} linked notes out of {{total}}. Pick a course or a tag to see the rest.",
+    "trimmedLeastLinked": "Showing the {{shown}} most connected notes out of {{total}}. Pick a course or a tag to see the rest.",
+    "mentionCount_one": "{{count}} mention",
+    "mentionCount_other": "{{count}} mentions",
+    "findingMentions": "Looking for unlinked mentions…",
+    "clearFind": "Clear",
+    "moreResults_one": "and {{count}} more",
+    "moreResults_other": "and {{count}} more",
+    "clearFilters": "Clear filters",
+    "emptyLibrary": "Your library has no notes yet. Write a few and they will appear here.",
+    "editedShort": "edited {{date}}",
+    "detail": {
+      "label": "About {{title}}",
+      "close": "Close details",
+      "edited": "Edited {{date}}",
+      "words_one": "{{count}} word",
+      "words_other": "{{count}} words",
+      "emptyNote": "This note is empty.",
+      "open": "Open note",
+      "linksTo": "Links to",
+      "linkedFrom": "Linked from",
+      "mentionedBy": "Mentioned in",
+      "mentions": "Mentions",
+      "alone": "Nothing links to this note, and it links to nothing.",
+      "aloneTryMentions": "Nothing links to this note, and it links to nothing. Turn on Mentions to see where it is named.",
+      "withLinked_one": "With its {{count}} linked note",
+      "withLinked_other": "With its {{count}} linked notes",
+      "synthesize": "Synthesise",
+      "synthesizeHint": "Write a new note from this one and its linked notes",
+      "ask": "Ask",
+      "askHint": "Open this note and ask a question about it and its linked notes"
+    },
+    "agentAction": "Link them with the agent…",
+    "agentHint": "Write the task for the agent. You review its plan before anything changes.",
+    "agentTask": "Find the unlinked mentions in my notes and turn them into links.",
+    "agentTaskCourse": "Find the unlinked mentions in the course “{{course}}” and turn them into links."
+  },
   "mcp": {
     "enable": "Enable",
     "running": "Running on port {{port}}",
@@ -991,7 +1067,9 @@
     "tool_define": "Define a term",
     "tool_generate_flashcards": "Make flashcards",
     "tool_synthesize_notes": "Synthesize notes",
-    "tool_visualize_note": "Visualize note"
+    "tool_visualize_note": "Visualize note",
+    "tool_find_mentions": "Find unlinked mentions",
+    "tool_link_mentions": "Link mentions"
   },
   "settings": {
     "title": "Settings",
@@ -1240,6 +1318,7 @@
     "newTask": "New task",
     "tasks": "Tasks",
     "taskCalendar": "Task calendar",
+    "graph": "Graph",
     "wordCompletion": "Word Completion On/Off",
     "addToVocabulary": "Add Word to Course Vocabulary",
     "neverSuggest": "Never Suggest This Word",
@@ -1511,7 +1590,12 @@
       "decideFirst": "Apply or cancel this task’s waiting changes before following up.",
       "staged_one": "{{count}} note set aside for your review",
       "staged_other": "{{count}} notes set aside for your review"
-    }
+    },
+    "did_find_mentions_one": "Found {{count}} unlinked mention",
+    "did_find_mentions_other": "Found {{count}} unlinked mentions",
+    "did_link_mentions_one": "Turned {{count}} mention into a link",
+    "did_link_mentions_other": "Turned {{count}} mentions into links",
+    "did_link_mentions_generic": "Linked mentions"
   },
   "reading": {
     "controls": "Reading controls",
@@ -1608,6 +1692,10 @@
       "find": {
         "title": "Find",
         "description": "Search everything, or press ⌘K."
+      },
+      "connect": {
+        "title": "Connect",
+        "description": "Link notes and see them as a graph."
       },
       "study": {
         "title": "Revise",
@@ -1749,6 +1837,10 @@
           "select": {
             "title": "Several notes at once",
             "text": "⌘-click or ⇧-click notes to move, tag, archive or merge them in one go."
+          },
+          "graph": {
+            "title": "Graph",
+            "text": "See the whole library as a map of notes and the links between them. Click a note to see where it lives and what it links to, double-click to open it, or turn on Mentions to find the links you have not made yet."
           },
           "versions": {
             "title": "Versions",

@@ -154,6 +154,37 @@ pub struct VersionedNotesParams {
 
 #[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct FindMentionsParams {
+    /// Keep mentions with either end among these notes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_ids: Option<Vec<String>>,
+    /// Keep mentions whose source note is in this course.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub course_id: Option<String>,
+    /// Defaults to 100, maximum 500.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MentionLinkParams {
+    /// The note that names the other one. It is the note that is edited.
+    pub source_id: String,
+    pub target_id: String,
+    /// `sourceUpdatedAt` from notabene_find_mentions.
+    pub base_updated_at: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkMentionsParams {
+    /// Mentions to turn into links. Maximum 500.
+    pub links: Vec<MentionLinkParams>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct MergeNotesParams {
     /// Notes in the exact order they should appear in the merged document.
     pub notes: Vec<VersionedNoteParams>,
@@ -1009,6 +1040,43 @@ impl NotaBeneMcpServer {
         to_tool_result(
             self.bridge
                 .call("archive_notes", args, client_of(&ctx), WRITE_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_find_mentions",
+        description = "Unlinked mentions: notes that name another note by its exact title without linking to it. Each result carries sourceId, sourceTitle, sourceUpdatedAt, targetId and targetTitle; total says how many exist beyond the limit. Filter with noteIds or courseId."
+    )]
+    pub async fn find_mentions(
+        &self,
+        Parameters(params): Parameters<FindMentionsParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("find_mentions", args, client_of(&ctx), READ_TIMEOUT)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "notabene_link_mentions",
+        description = "Turn unlinked mentions into wiki links, in place, in the source note. Pass sourceUpdatedAt from notabene_find_mentions as baseUpdatedAt and send every link in one call: a note gains one version however many links it gets. Mentions that cannot be placed are returned in skipped rather than failing the call."
+    )]
+    pub async fn link_mentions(
+        &self,
+        Parameters(params): Parameters<LinkMentionsParams>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if let Some(refusal) = self.refuse_write() {
+            return refusal;
+        }
+        let args = to_args(&params)?;
+        to_tool_result(
+            self.bridge
+                .call("link_mentions", args, client_of(&ctx), WRITE_TIMEOUT)
                 .await,
         )
     }

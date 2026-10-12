@@ -17,8 +17,10 @@ import {
   type Backlink,
   type Course,
   type CourseTerm,
+  type GraphEdge,
   type JournalEntry,
   type Library,
+  type LibraryGraph,
   type Note,
   type NoteSummary,
   type NoteTemplate,
@@ -30,10 +32,17 @@ import {
   type Tag,
   type Task,
   type TaskNoteLink,
+  type UnlinkedMention,
 } from '@/lib/schema';
 import { flattenDoc, docHasFeature } from '@/lib/notes/docText';
 import { retainedSnapshotIds } from '@/lib/history/retention';
 import { fold } from '@/lib/search/fold';
+import {
+  isMentionableTitle,
+  mentionKey,
+  mentionMatcher,
+  mentionSnippet,
+} from '@/lib/graph/mentions';
 import { bm25Rank, BM25_WEIGHTS, type RankedFields } from './memoryRanking';
 import type {
   ImportedNoteRef,
@@ -423,6 +432,108 @@ class MemoryLibraryAdapter implements LibraryAdapter {
         snippet: snippetFor(note),
         updatedAt: note.updatedAt,
       }));
+  }
+
+  /** Notes the graph and the mention scan may suggest from or to. */
+  private liveNotes(): Note[] {
+    return this.library.notes.filter((note) => !note.trashedAt && !note.archived);
+  }
+
+  /** Resolved links between two live notes, one per ordered pair. */
+  private graphEdges(): GraphEdge[] {
+    const live = new Set(this.liveNotes().map((note) => note.id));
+    const byTitle = new Map<string, string>();
+    for (const note of this.library.notes) {
+      const key = fold(note.title);
+      if (key && !byTitle.has(key)) byTitle.set(key, note.id);
+    }
+    const seen = new Set<string>();
+    const edges: GraphEdge[] = [];
+    for (const note of this.liveNotes()) {
+      for (const link of wikiTargets(note)) {
+        const targetId = link.noteId ?? byTitle.get(fold(link.title)) ?? null;
+        if (!targetId || targetId === note.id || !live.has(targetId)) continue;
+        const key = `${note.id}\u0000${targetId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        edges.push({ sourceId: note.id, targetId });
+      }
+    }
+    return edges;
+  }
+
+  /**
+   * Every title against every note. Quadratic, and left that way on purpose:
+   * this adapter backs tests and the browser dev shell, where a library is a
+   * few dozen notes. The SQLite adapter does it in one pass per note with an
+   * Aho-Corasick automaton; the rules, not the algorithm, are what must match.
+   */
+  private graphMentions(edges: GraphEdge[]): GraphEdge[] {
+    // First note to hold a title keeps it, Trash included — what a bare
+    // `[[Title]]` resolves to.
+    const matchers = new Map<string, { id: string; match: ReturnType<typeof mentionMatcher> }>();
+    for (const note of this.library.notes) {
+      const key = mentionKey(note.title);
+      if (!isMentionableTitle(note.title) || matchers.has(key)) continue;
+      matchers.set(key, { id: note.id, match: mentionMatcher(note.title) });
+    }
+    const live = this.liveNotes();
+    const liveIds = new Set(live.map((note) => note.id));
+    const linked = new Set(edges.map((edge) => `${edge.sourceId}\u0000${edge.targetId}`));
+    const mentions: GraphEdge[] = [];
+    for (const note of live) {
+      for (const target of matchers.values()) {
+        if (target.id === note.id || !liveIds.has(target.id)) continue;
+        if (linked.has(`${note.id}\u0000${target.id}`)) continue;
+        if (target.match(note.plainText)) {
+          mentions.push({ sourceId: note.id, targetId: target.id });
+        }
+      }
+    }
+    return mentions;
+  }
+
+  async getGraph({ mentions }: { mentions: boolean }): Promise<LibraryGraph> {
+    const edges = this.graphEdges();
+    return {
+      nodes: this.liveNotes().map((note) => ({
+        id: note.id,
+        title: note.title,
+        courseId: note.courseId,
+        tagIds: [...note.tagIds],
+        updatedAt: note.updatedAt,
+      })),
+      edges,
+      mentions: mentions ? this.graphMentions(edges) : [],
+    };
+  }
+
+  async listUnlinkedMentions(noteId: string): Promise<UnlinkedMention[]> {
+    const target = this.library.notes.find((note) => note.id === noteId);
+    if (!target || target.trashedAt || target.archived) return [];
+    if (!isMentionableTitle(target.title)) return [];
+    // A duplicate title another note holds first is that note's to be
+    // mentioned by.
+    if ((await this.resolveWikiTitle(target.title)) !== noteId) return [];
+    const linked = new Set(
+      this.graphEdges()
+        .filter((edge) => edge.targetId === noteId)
+        .map((edge) => edge.sourceId),
+    );
+    const match = mentionMatcher(target.title);
+    const mentions: UnlinkedMention[] = [];
+    for (const note of this.liveNotes()) {
+      if (note.id === noteId || linked.has(note.id)) continue;
+      const found = match(note.plainText);
+      if (!found) continue;
+      mentions.push({
+        sourceId: note.id,
+        sourceTitle: note.title,
+        snippet: mentionSnippet(note.plainText, found),
+        updatedAt: note.updatedAt,
+      });
+    }
+    return mentions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
   // -- crash recovery ------------------------------------------------------

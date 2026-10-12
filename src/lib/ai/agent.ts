@@ -291,6 +291,8 @@ export const AGENT_TOOL_GUIDE = `
 - generate_flashcards { noteIds, style?: "basic"|"cloze"|"mixed", count?, target: { noteId, baseUpdatedAt } } — NotaBene's flashcard feature: writes a deck from up to ${MAX_AI_SOURCES_IN_GUIDE} notes and appends it to the target note as a self-test section. Prefer it to writing cards by hand
 - synthesize_notes { noteIds, style?: "summary"|"revision"|"outline"|"qa"|"glossary"|"custom", instructions? } — NotaBene's synthesis feature: a new note from up to ${MAX_AI_SOURCES_IN_GUIDE} notes, filed beside them and tagged type:summary. instructions is required for custom
 - visualize_note { noteId, baseUpdatedAt, kind?: "mindmap"|"diagram" } — NotaBene's visualize feature: appends a mind map or a diagram of the note to the note
+- find_mentions { noteIds?, courseId?, limit? } — unlinked mentions: notes that name another note by its exact title without linking to it. Each comes with sourceId, sourceTitle, sourceUpdatedAt, targetId and targetTitle; total says how many exist beyond the limit
+- link_mentions { links: [{ sourceId, targetId, baseUpdatedAt }] } — turn unlinked mentions into wiki links, in place, in the source note; pass sourceUpdatedAt from find_mentions as baseUpdatedAt and send every link in one call. This is the only correct way to link a mention — never rewrite a note with update_note to add one. Mentions it cannot place are returned in skipped, not as an error
 `.trim();
 
 export interface AgentPlanRequest {

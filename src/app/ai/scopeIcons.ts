@@ -9,11 +9,13 @@
  * Its own module rather than an export from `AskPanel`: a file that exports
  * both a component and a constant loses fast refresh.
  */
-import { FileText, Files, GraduationCap, type LucideIcon } from 'lucide-react';
+import { FileText, Files, GraduationCap, Waypoints, type LucideIcon } from 'lucide-react';
 import type { AskScope } from '@/lib/ai';
 
 export const SCOPE_ICONS: Record<AskScope, LucideIcon> = {
   note: FileText,
+  // The graph's own glyph: this scope is one note's corner of it.
+  linked: Waypoints,
   course: GraduationCap,
   library: Files,
 };

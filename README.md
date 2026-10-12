@@ -127,7 +127,7 @@ configure each key once in Settings → AI Providers.
 [Model Context Protocol](https://modelcontextprotocol.io/) server lets an
 assistant search, read, write, organize and archive notes through the same
 checks and history as your own typing, and never delete permanently. The
-in-app Agent uses the same 29 tools: it plans first, can run the study
+in-app Agent uses the same 31 tools: it plans first, can run the study
 features, asks when a job is ambiguous, holds large bulk changes for your
 approval, and undoes as one step.
 

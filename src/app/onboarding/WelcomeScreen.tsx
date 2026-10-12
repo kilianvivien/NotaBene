@@ -36,6 +36,7 @@ import {
   Sparkles,
   Network,
   Layers,
+  Waypoints,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -53,7 +54,16 @@ import { useUiStore } from '@/lib/state/uiStore';
 import { cn } from '@/lib/utils/cn';
 import './welcome.css';
 
-const FEATURES = ['write', 'record', 'organize', 'find', 'study', 'plan', 'ask'] as const;
+const FEATURES = [
+  'write',
+  'record',
+  'organize',
+  'find',
+  'connect',
+  'study',
+  'plan',
+  'ask',
+] as const;
 type Feature = (typeof FEATURES)[number];
 
 const FEATURE_ICONS: Record<Feature, LucideIcon> = {
@@ -61,6 +71,7 @@ const FEATURE_ICONS: Record<Feature, LucideIcon> = {
   record: Mic,
   organize: FolderTree,
   find: Search,
+  connect: Waypoints,
   study: Layers,
   plan: ListChecks,
   ask: MessageCircleQuestion,
@@ -469,6 +480,62 @@ function Scene({ feature }: { feature: Feature }) {
           </ul>
         </div>
       );
+
+    case 'connect': {
+      // The graph view in miniature: notes as dots in their course's colour,
+      // links as lines, the plate a hovered note wears, and one unlinked
+      // mention — the dashed line — being offered as a link. Coordinates are
+      // in the SVG's own 420 × 230 box; the labels are HTML placed over it by
+      // percentage so they stay crisp and translated.
+      const place = (x: number, y: number): CSSProperties => ({
+        left: `${(x / 420) * 100}%`,
+        top: `${(y / 230) * 100}%`,
+      });
+      return (
+        <div className="wl-scene wl-graph">
+          <svg viewBox="0 0 420 230" aria-hidden className="wl-graph-lines">
+            <line className="wl-step" style={at(0.9)} x1="150" y1="118" x2="78" y2="58" />
+            <line className="wl-step" style={at(1.05)} x1="150" y1="118" x2="92" y2="186" />
+            <line className="wl-step" style={at(1.2)} x1="150" y1="118" x2="262" y2="44" />
+            <line className="wl-step" style={at(1.3)} x1="262" y1="44" x2="330" y2="72" />
+            <line
+              className="wl-step is-mention"
+              style={at(2.9)}
+              x1="150"
+              y1="118"
+              x2="300"
+              y2="188"
+            />
+            <circle className="wl-pop" style={at(0.2)} cx="150" cy="118" r="9" fill={PHYSICS} />
+            <circle className="wl-pop" style={at(0.35)} cx="78" cy="58" r="6" fill={PHYSICS} />
+            <circle className="wl-pop" style={at(0.45)} cx="92" cy="186" r="5" fill={PHYSICS} />
+            <circle className="wl-pop" style={at(0.55)} cx="300" cy="188" r="5" fill={PHYSICS} />
+            <circle className="wl-pop" style={at(0.6)} cx="262" cy="44" r="6" fill="#4b7c58" />
+            <circle className="wl-pop" style={at(0.7)} cx="330" cy="72" r="4" fill="#4b7c58" />
+            <circle className="wl-pop" style={at(0.75)} cx="372" cy="128" r="4" fill="#7d5aa8" />
+            <circle className="wl-pop" style={at(0.8)} cx="36" cy="124" r="4" fill="#7d5aa8" />
+          </svg>
+          <p className="wl-graph-label wl-step" style={{ ...place(90, 58), ...at(0.6) }}>
+            {s('link')}
+          </p>
+          <p className="wl-graph-label wl-step" style={{ ...place(103, 186), ...at(0.7) }}>
+            {s('mapRoot')}
+          </p>
+          <p className="wl-graph-label wl-step" style={{ ...place(311, 188), ...at(0.8) }}>
+            {s('week')}
+          </p>
+          <div className="wl-graph-plate wl-step" style={{ ...place(166, 100), ...at(1.8) }}>
+            <strong>{s('noteTitle')}</strong>
+            <span>
+              {s('course')} · {t('graph.links', { count: 3 })}
+            </span>
+          </div>
+          <span className="wl-graph-chip wl-pop" style={{ ...place(212, 160), ...at(3.5) }}>
+            {t('inspector.mentionLink')}
+          </span>
+        </div>
+      );
+    }
 
     case 'study':
       return (

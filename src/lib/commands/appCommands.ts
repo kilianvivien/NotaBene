@@ -90,6 +90,7 @@ export const APP_COMMAND_IDS = [
   'tasks.importCalendar',
   'view.tasks',
   'view.taskCalendar',
+  'view.graph',
   'help.welcome',
   'help.documentation',
   'help.github',
@@ -99,7 +100,7 @@ export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
 
 /** The phase a command becomes real. `A` means it works today. */
 export type CommandPhase =
-  'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N';
+  'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O';
 
 export interface AppCommand {
   id: AppCommandId;
@@ -721,6 +722,19 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     landsIn: 'J',
     run: () => {
       useUiStore.getState().setTaskCalendarOpen(true);
+      return ok(undefined);
+    },
+  },
+
+  /** ⇧⌘G is Visualize and ⌥⌘G opens the repository, so the graph takes both
+   * modifiers. It is opened far less often than the first. */
+  'view.graph': {
+    id: 'view.graph',
+    labelKey: 'menu.graph',
+    accelerator: 'CmdOrCtrl+Alt+Shift+G',
+    landsIn: 'O',
+    run: () => {
+      useUiStore.getState().setGraphOpen(true);
       return ok(undefined);
     },
   },

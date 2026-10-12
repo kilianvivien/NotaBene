@@ -6,6 +6,7 @@ import {
   Plus,
   Save,
   Search,
+  Waypoints,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -33,6 +34,7 @@ export function TitleBar() {
   const sidebarVisible = useUiStore((state) => state.sidebarVisible);
   const inspectorVisible = useUiStore((state) => state.inspectorVisible);
   const focusMode = useUiStore((state) => state.focusMode);
+  const graphOpen = useUiStore((state) => state.graphOpen);
   const showingTasks = useUiStore((state) => state.view.kind === 'tasks');
   const searchQuery = useUiStore((state) => state.searchQuery);
   const setSearchQuery = useUiStore((state) => state.setSearchQuery);
@@ -260,6 +262,14 @@ export function TitleBar() {
       </div>
 
       <RecordButton />
+
+      <GlassIconButton
+        label={t('menu.graph')}
+        active={graphOpen}
+        onClick={() => void runAppCommand('view.graph')}
+      >
+        <Waypoints size={16} />
+      </GlassIconButton>
 
       {/* Concentration mode had no button anywhere — only ⇧⌘F and a View menu
           item, which is a lot of app to hide behind a shortcut nobody was told

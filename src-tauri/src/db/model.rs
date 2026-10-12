@@ -207,6 +207,46 @@ pub struct Backlink {
     pub updated_at: String,
 }
 
+/// One note as the graph view draws it: enough to place, colour and filter a
+/// node, and nothing of the document.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphNode {
+    pub id: String,
+    pub title: String,
+    pub course_id: Option<String>,
+    pub tag_ids: Vec<String>,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphEdge {
+    pub source_id: String,
+    pub target_id: String,
+}
+
+/// Not part of `Library`: it is derived from `notes` and `note_links` on every
+/// read, so it has nothing to say in a backup.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryGraph {
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+    /// Unlinked mentions, as edges. Empty unless they were asked for.
+    pub mentions: Vec<GraphEdge>,
+}
+
+/// A note that names another by title without linking to it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnlinkedMention {
+    pub source_id: String,
+    pub source_title: String,
+    pub snippet: String,
+    pub updated_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Recurrence {

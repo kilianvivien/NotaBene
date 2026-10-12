@@ -180,6 +180,7 @@ export function AskPanel({ noteId }: { noteId: string }) {
           className="shrink"
           options={[
             { value: 'note', label: t('ai.askScopeNote') },
+            { value: 'linked', label: t('ai.askScopeLinked') },
             {
               value: 'course',
               label: t('ai.askScopeCourse'),

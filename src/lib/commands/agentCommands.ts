@@ -1072,6 +1072,14 @@ async function enforceScope(
   ) {
     scoped.courseId = record.scope.courseId;
   }
+  // Mentions are found across the library by nature. A narrower run sees only
+  // the ones it could act on: its course's notes, or its selection's.
+  if (record.scope.kind === 'course' && tool === 'find_mentions') {
+    scoped.courseId = record.scope.courseId;
+  }
+  if (record.scope.kind === 'selection' && tool === 'find_mentions') {
+    scoped.noteIds = record.scope.noteIds;
+  }
   if (record.scope.kind === 'course' && tool === 'create_course') {
     return scopeDenied();
   }
@@ -1210,6 +1218,19 @@ function referencedNoteIds(tool: AgentToolName, args: Record<string, unknown>): 
   if (tool === 'generate_flashcards') {
     return [...stringArray(args.noteIds), ...flashcardTarget(args)];
   }
+  // The source is the note that is edited; the target is only read for its
+  // title, and is named on the page by the student already.
+  if (tool === 'link_mentions') {
+    return Array.isArray(args.links)
+      ? [
+          ...new Set(
+            args.links
+              .map((link) => (isObject(link) ? link.sourceId : undefined))
+              .filter((id): id is string => typeof id === 'string'),
+          ),
+        ]
+      : [];
+  }
   if (tool === 'export_notes') {
     return Array.isArray(args.noteIds)
       ? args.noteIds.filter((id): id is string => typeof id === 'string')
@@ -1302,6 +1323,7 @@ function writeNoteIds(tool: AgentToolName, args: Record<string, unknown>): strin
     'restore_notes',
     'archive_notes',
     'visualize_note',
+    'link_mentions',
   ].includes(tool)
     ? referencedNoteIds(tool, args)
     : [];

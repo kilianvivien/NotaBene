@@ -59,6 +59,7 @@ export function SynthesisDialog() {
   const selectNote = useUiStore((state) => state.selectNote);
   const multiSelection = useUiStore((state) => state.multiSelection);
   const selectedNoteId = useUiStore((state) => state.selectedNoteId);
+  const handed = useUiStore((state) => state.aiSources);
   const notes = useLibraryStore((state) => state.notes);
   const running = useAiStore((state) => state.running) === 'synthesis';
   const availability = useAiAvailability('synthesis');
@@ -77,11 +78,15 @@ export function SynthesisDialog() {
     if (custom) briefRef.current?.focus();
   }, [custom]);
 
-  const noteIds = multiSelection.length
-    ? multiSelection
-    : selectedNoteId
-      ? [selectedNoteId]
-      : [];
+  // Sources handed over by another surface — the graph's "with its linked
+  // notes" — take precedence: they are what the student just asked for.
+  const noteIds = handed
+    ? handed.noteIds
+    : multiSelection.length
+      ? multiSelection
+      : selectedNoteId
+        ? [selectedNoteId]
+        : [];
 
   // The count is knowable without loading a single document, so it is refused
   // here rather than after a round trip through the command layer. The token
@@ -111,9 +116,12 @@ export function SynthesisDialog() {
     setOpen(false);
   }
 
-  const titles = notes
-    .filter((note) => noteIds.includes(note.id))
-    .map((note) => note.title || t('noteList.untitled'));
+  // Handed sources bring their titles: they need not be in the list on screen.
+  const titles = handed
+    ? handed.titles
+    : notes
+        .filter((note) => noteIds.includes(note.id))
+        .map((note) => note.title || t('noteList.untitled'));
 
   /** One close for the header's Escape, the Cancel button, and the status
    * pill on its way to Settings — a dialog left open behind that window is

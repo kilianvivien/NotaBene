@@ -240,6 +240,16 @@ export function callOutcome(
     case 'define':
       return typeof args.term === 'string' ? t('agent.did_define', { term: args.term }) : null;
 
+    case 'find_mentions':
+      return isRecordValue(parsed) && typeof parsed.total === 'number'
+        ? t('agent.did_find_mentions', { count: parsed.total })
+        : null;
+
+    case 'link_mentions':
+      return isRecordValue(parsed) && typeof parsed.linked === 'number'
+        ? t('agent.did_link_mentions', { count: parsed.linked })
+        : t('agent.did_link_mentions_generic');
+
     case 'generate_flashcards': {
       const title = previewTitle(parsed);
       const cards = isRecordValue(parsed) && typeof parsed.cards === 'number' ? parsed.cards : null;

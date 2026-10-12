@@ -35,6 +35,9 @@ export const AGENT_TOOL_NAMES = [
   'generate_flashcards',
   'synthesize_notes',
   'visualize_note',
+  // The graph's unlinked mentions (plan §5): find them, then link them.
+  'find_mentions',
+  'link_mentions',
 ] as const;
 export const AgentToolNameSchema = z.enum(AGENT_TOOL_NAMES);
 export type AgentToolName = z.infer<typeof AgentToolNameSchema>;

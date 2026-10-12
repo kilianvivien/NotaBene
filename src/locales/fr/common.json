@@ -294,6 +294,11 @@
     "wordCount": "Mots",
     "noTags": "Aucune étiquette",
     "noBacklinks": "Aucune note ne pointe ici",
+    "mentionsHeading": "Mentions sans lien",
+    "mentionLink": "Lier",
+    "mentionLinkHint": "Transformer cette mention en lien dans cette note",
+    "mentionNotLinkable": "Cette mention ne peut pas être liée automatiquement. Ouvrez la note et créez le lien à la main.",
+    "mentionConflict": "Cette note a changé entre-temps. Réessayez.",
     "versionCount_one": "{{count}} version enregistrée",
     "versionCount_other": "{{count}} versions enregistrées",
     "imported": "Importée",
@@ -773,7 +778,9 @@
     "writeScript": "Rédiger le script",
     "writingScript": "Rédaction du script…",
     "feature_vocabulary": "Révision du vocabulaire",
-    "feature_proofread": "Vérifier le paragraphe"
+    "feature_proofread": "Vérifier le paragraphe",
+    "askScopeLinked": "Cette note et ses liens",
+    "askScopeHint_linked": "Les réponses peuvent s’appuyer sur cette note et sur toutes celles qui lui sont liées, et indiqueront lesquelles ont servi."
   },
   "tags": {
     "facet_topic": "Thème",
@@ -933,6 +940,75 @@
     "expandBranch": "Déplier la branche",
     "hint": "Glisser pour déplacer · pincer ou ⌘-défiler pour zoomer · 0 pour ajuster · Échap pour fermer"
   },
+  "graph": {
+    "title": "Graphe",
+    "notes_one": "{{count}} note",
+    "notes_other": "{{count}} notes",
+    "links_one": "{{count}} lien",
+    "links_other": "{{count}} liens",
+    "canvasLabel": "Graphe de vos notes : {{notes}}, {{links}}. Utilisez le champ de recherche pour atteindre une note.",
+    "find": "Trouver une note",
+    "results": "Notes correspondantes",
+    "noResults": "Aucune note ne porte ce titre",
+    "filterCourse": "Cours",
+    "allCourses": "Tous les cours",
+    "noCourse": "Sans cours",
+    "filterTag": "Étiquette",
+    "allTags": "Étiquettes",
+    "filterSince": "Dernière modification",
+    "since": {
+      "any": "À tout moment",
+      "week": "Depuis une semaine",
+      "month": "Depuis un mois",
+      "term": "Depuis quatre mois",
+      "year": "Depuis un an"
+    },
+    "linkedOnly": "Notes liées",
+    "linkedOnlyHint": "Masquer les notes qui n’ont aucun lien",
+    "mentions": "Mentions",
+    "mentionsHint": "Afficher en pointillés les notes qui en citent une autre sans la lier",
+    "legend": "Cours",
+    "loading": "Lecture de la bibliothèque…",
+    "empty": "Aucune note ne correspond à ces filtres.",
+    "noLinks": "Aucun lien pour l’instant — tapez [[ dans une note pour la relier à une autre.",
+    "hint": "Cliquer sur une note pour ses détails · double-cliquer pour l’ouvrir · glisser pour déplacer · pincer pour zoomer · 0 pour ajuster",
+    "trimmedUnlinked": "Affichage des {{shown}} notes liées sur {{total}}. Choisissez un cours ou une étiquette pour voir les autres.",
+    "trimmedLeastLinked": "Affichage des {{shown}} notes les plus liées sur {{total}}. Choisissez un cours ou une étiquette pour voir les autres.",
+    "mentionCount_one": "{{count}} mention",
+    "mentionCount_other": "{{count}} mentions",
+    "findingMentions": "Recherche des mentions sans lien…",
+    "clearFind": "Effacer",
+    "moreResults_one": "et {{count}} autre",
+    "moreResults_other": "et {{count}} autres",
+    "clearFilters": "Effacer les filtres",
+    "emptyLibrary": "Votre bibliothèque ne contient encore aucune note. Écrivez-en quelques-unes et elles apparaîtront ici.",
+    "editedShort": "modifiée le {{date}}",
+    "detail": {
+      "label": "À propos de {{title}}",
+      "close": "Fermer les détails",
+      "edited": "Modifiée le {{date}}",
+      "words_one": "{{count}} mot",
+      "words_other": "{{count}} mots",
+      "emptyNote": "Cette note est vide.",
+      "open": "Ouvrir la note",
+      "linksTo": "Renvoie vers",
+      "linkedFrom": "Liée depuis",
+      "mentionedBy": "Mentionnée dans",
+      "mentions": "Mentionne",
+      "alone": "Aucune note ne renvoie vers celle-ci, et elle ne renvoie vers aucune.",
+      "aloneTryMentions": "Aucune note ne renvoie vers celle-ci, et elle ne renvoie vers aucune. Activez Mentions pour voir où elle est citée.",
+      "withLinked_one": "Avec sa note liée",
+      "withLinked_other": "Avec ses {{count}} notes liées",
+      "synthesize": "Synthétiser",
+      "synthesizeHint": "Rédiger une nouvelle note à partir de celle-ci et de ses notes liées",
+      "ask": "Interroger",
+      "askHint": "Ouvrir cette note et poser une question sur elle et ses notes liées"
+    },
+    "agentAction": "Les lier avec l’agent…",
+    "agentHint": "Rédige la tâche pour l’agent. Vous relisez son plan avant toute modification.",
+    "agentTask": "Trouve les mentions sans lien dans mes notes et transforme-les en liens.",
+    "agentTaskCourse": "Trouve les mentions sans lien dans le cours « {{course}} » et transforme-les en liens."
+  },
   "mcp": {
     "enable": "Activer",
     "running": "Actif sur le port {{port}}",
@@ -991,7 +1067,9 @@
     "tool_define": "Définir un terme",
     "tool_generate_flashcards": "Créer des cartes mémoire",
     "tool_synthesize_notes": "Synthétiser des notes",
-    "tool_visualize_note": "Visualiser une note"
+    "tool_visualize_note": "Visualiser une note",
+    "tool_find_mentions": "Trouver les mentions sans lien",
+    "tool_link_mentions": "Lier les mentions"
   },
   "settings": {
     "title": "Réglages",
@@ -1240,6 +1318,7 @@
     "newTask": "Nouvelle tâche",
     "tasks": "Tâches",
     "taskCalendar": "Calendrier des tâches",
+    "graph": "Graphe",
     "wordCompletion": "Activer/désactiver la complétion",
     "addToVocabulary": "Ajouter le mot au vocabulaire du cours",
     "neverSuggest": "Ne plus suggérer ce mot",
@@ -1511,7 +1590,12 @@
       "decideFirst": "Appliquez ou annulez d’abord les changements en attente de cette tâche.",
       "staged_one": "{{count}} note mise de côté pour votre relecture",
       "staged_other": "{{count}} notes mises de côté pour votre relecture"
-    }
+    },
+    "did_find_mentions_one": "{{count}} mention sans lien trouvée",
+    "did_find_mentions_other": "{{count}} mentions sans lien trouvées",
+    "did_link_mentions_one": "{{count}} mention transformée en lien",
+    "did_link_mentions_other": "{{count}} mentions transformées en liens",
+    "did_link_mentions_generic": "Mentions liées"
   },
   "reading": {
     "controls": "Réglages de lecture",
@@ -1608,6 +1692,10 @@
       "find": {
         "title": "Trouver",
         "description": "Cherchez partout, ou appuyez sur ⌘K."
+      },
+      "connect": {
+        "title": "Relier",
+        "description": "Liez vos notes et voyez-les en graphe."
       },
       "study": {
         "title": "Réviser",
@@ -1749,6 +1837,10 @@
           "select": {
             "title": "Plusieurs notes à la fois",
             "text": "⌘-clic ou ⇧-clic pour déplacer, étiqueter, archiver ou fusionner d’un coup."
+          },
+          "graph": {
+            "title": "Graphe",
+            "text": "Voyez toute la bibliothèque comme une carte des notes et des liens qui les relient. Cliquez sur une note pour voir où elle se trouve et vers quoi elle renvoie, double-cliquez pour l’ouvrir, ou activez Mentions pour trouver les liens que vous n’avez pas encore créés."
           },
           "versions": {
             "title": "Versions",
