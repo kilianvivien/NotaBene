@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.0"><img alt="Latest release: 1.4.0" src="https://img.shields.io/badge/release-1.4.0-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.1"><img alt="Latest release: 1.4.1" src="https://img.shields.io/badge/release-1.4.1-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.4.0 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.0/NotaBene_1.4.0_aarch64.dmg)**
+**[NotaBene 1.4.1 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.1/NotaBene_1.4.1_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
@@ -117,6 +117,11 @@ note names another, with a **Link** button to connect them. With an AI provider,
 the graph can suggest links for an unlinked library, show a quick summary,
 and open Ask or Synthesise over a note and its links. You review suggested
 links before accepting them; the graph and mention detection work offline.
+Suggestions follow your current graph filters and remain available after you
+have made links. Settings → Graph remembers whether to show mentions or only
+connected notes, and lets you adjust how many notes the AI considers, excerpt
+length, suggestion count and output allowance. Open it directly from the graph's
+Settings button; cancel a request or ask for fresh suggestions at any time.
 
 **Visualize.** Turn a note into a focused mind map or a diagram that explains
 steps, decisions, dependencies or feedback loops. The preview shows the
@@ -156,8 +161,10 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.4.0** adds a library graph, unlinked mentions, optional AI link
-suggestions, and two new agent and MCP tools — see the
+**NotaBene 1.4.1** adds configurable graph settings and improves AI link
+suggestions, cancellation, error recovery and dialogs opened from the graph.
+The library graph, unlinked mentions and agent linking tools introduced in
+1.4.0 remain available — see the
 [release notes](./RELEASE_NOTES.md). The app is not yet signed with a
 Developer ID or notarized, and has no automatic updates.
 

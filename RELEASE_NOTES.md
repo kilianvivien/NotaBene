@@ -1,5 +1,57 @@
 # Release notes
 
+## NotaBene 1.4.1 — 12 October 2026
+
+- **Graph settings.** Settings → Graph remembers whether the graph opens with
+  unlinked mentions or only connected notes. Tune AI suggestions by choosing
+  how many notes to consider, how much text to read from each, how many links
+  to propose and the output allowance. The graph's Settings button opens this
+  pane directly; Reset restores the defaults.
+- **More reliable AI link suggestions.** Requests now specify the response
+  structure and already-linked pairs, with clearer note positions and more
+  room for the answer. Reasoning settings keep supported Mistral models,
+  including GLM 5.3, from spending the whole allowance before answering.
+  Incomplete responses report an output-limit error with recovery guidance.
+  The default output allowance is now 16,384 tokens; provider limits still
+  apply. Suggestions remain proposals until you accept them.
+- **Suggestions for the graph you are looking at.** Requests follow the
+  current filters, include title-only notes and stay available after links
+  have been made. Cancel a request or ask for fresh suggestions, see why
+  suggestions were filtered out, and retry a failed graph read. Filtering no
+  longer leaves stale hover targets; cancelling a quick summary restores its
+  run button.
+- **Dialogs above the graph.** Settings and other shared dialogs now open
+  above the graph. Escape and Tab go to the uppermost dialog, so closing one
+  no longer closes the graph underneath it.
+
+No library schema change. Existing settings receive the new graph defaults.
+The Apple silicon build runs on macOS 13 or newer. On-device transcription
+requires macOS 26 or newer; Apple Intelligence as an AI provider requires
+macOS 27. The graph and mention detection work offline; AI features use the
+provider you configure.
+
+**Verification:** Typecheck, lint and 1,175 unit tests passed (18 skipped).
+The implementation's 14 graph browser regression tests passed, and a live
+GLM 5.3 smoke test with synthetic notes returned complete, validated answers.
+The existing DMG's integrity, packaged version, ARM64 executable and ad-hoc
+signature were verified before publication.
+
+**Known issues and verification limits:** The previously reported duplicated
+autocomplete suffix and quieter start of some built-in microphone recordings
+still need confirmation in the macOS app. Graph trackpad gestures, native
+integration, large-library mention performance and behaviour with real
+libraries and other live AI providers remain to be confirmed in the desktop
+build.
+
+**Download:** [NotaBene 1.4.1 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.1/NotaBene_1.4.1_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `5b6cb920b1611bfcf95fb22a87c5caa532c5e2728b0cc2f7cfeb3b7c9e86f6f9`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.0...v1.4.1)
+
 ## NotaBene 1.4.0 — 12 October 2026
 
 - **Graph view.** See the whole library as a map: every note is a dot coloured

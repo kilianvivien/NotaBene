@@ -140,7 +140,9 @@ context menu, selection-only AI correction/rewrite, title-area dialog close
 controls, and shared main Gemini/Mistral keys for hosted speech. The 1.3.7
 release adds editorial visualization plans: selective shallow mind maps and
 relationship diagrams compiled locally from validated graphs. O (1.4.0) adds
-the graph view and unlinked mentions.
+the graph view and unlinked mentions. The 1.4.1 release adds configurable
+graph settings and fixes AI link suggestions, cancellation, error recovery,
+and dialog layering over the graph.
 `docs/plan.md` tracks what is still open honestly — read it before assuming
 something works.
 
