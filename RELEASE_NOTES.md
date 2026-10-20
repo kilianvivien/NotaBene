@@ -1,5 +1,60 @@
 # Release notes
 
+## NotaBene 1.4.2 — 20 October 2026
+
+- **Speech straight into your note.** Hold the microphone button for five
+  seconds to start live dictation with Voxtral 3. A visible countdown explains
+  what will happen; the active control shows elapsed time and microphone
+  level. Click the microphone again to stop and finish inserting the last
+  words. Text goes at the caret without creating an audio attachment. A normal
+  click keeps the existing audio-recording behaviour. The same action is
+  available from View → Start/stop live dictation (⇧⌥⌘S).
+- **Voxtral 3 for hosted audio.** Mistral transcription now uses
+  `voxtral-mini-transcribe-3-0`, speech uses `voxtral-mini-tts-3-0`, and live
+  dictation uses `voxtral-mini-transcribe-realtime-3-0`. Hosted mode no longer
+  uses the old Voxtral models. Voice discovery reads Mistral's new catalog,
+  and transcription preserves overlapping speech and short segments while
+  removing duplicates at chunk boundaries.
+- **Updated Gemini speech.** Gemini API voices now use
+  `gemini-3.8-flash-lite-tts`, replacing Gemini 3.1 Flash TTS Preview. Read-aloud
+  sends the text verbatim, and returned audio is checked before playback.
+  Existing voice choices and the main Gemini API key are retained.
+- **Local voices stay the same.** macOS system voices, Kokoro and on-device
+  Voxtral keep their existing models and behaviour.
+
+Live dictation requires a Mistral API key configured in Settings → AI
+Providers and streams microphone audio to Mistral while active. It uses the
+microphone and level settings from Settings → Recording. Stopping dictation
+or leaving the note finishes the current session; text already inserted stays
+in the note with normal autosave and undo.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27.
+
+**Verification:** Typecheck, lint and 1,206 unit tests passed (18 skipped).
+The production web build, Rust check and two native dictation tests passed,
+including a local WebSocket protocol test. Browser checks with simulated
+audio and provider responses covered normal recording, the five-second hold,
+text insertion and stopping. The owner's existing DMG was verified for
+integrity, packaged version, ARM64 architecture and ad-hoc signature; its
+packaged app matches the build bundle.
+
+**Known issues and verification limits:** Real microphone capture, live
+Mistral/Gemini responses and Tauri-shell interaction remain to be confirmed
+in the desktop build. The previously reported duplicated autocomplete suffix
+and quieter start of some built-in microphone recordings still need
+confirmation.
+
+**Download:** [NotaBene 1.4.2 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.2/NotaBene_1.4.2_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `bcae9570676358f07dfd3becdf3ef42ed4765489bf184db257a1d9048d85af2c`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.1...v1.4.2)
+
 ## NotaBene 1.4.1 — 12 October 2026
 
 - **Graph settings.** Settings → Graph remembers whether the graph opens with
