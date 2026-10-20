@@ -1,5 +1,5 @@
 /**
- * Mistral's hosted transcription, `voxtral-mini-2602` (plan §10.3). Opt-in:
+ * Mistral's hosted transcription, `voxtral-mini-transcribe-3-0` (plan §10.3). Opt-in:
  * used only when the student picked it in Settings, with the same Keychain
  * key as the AI provider and speech, and never as a fallback for the
  * on-device engine.
@@ -17,7 +17,7 @@ import type { AsrEngine, AsrEngineCapabilities } from './AsrEngine';
 const URL = 'https://api.mistral.ai/v1/audio/transcriptions';
 /** Pinned, not `-latest`, for the reason the speech engine pins its model:
  * a silent model change under a released app is an untested one. */
-const MODEL = 'voxtral-mini-2602';
+const MODEL = 'voxtral-mini-transcribe-3-0';
 const MISTRAL_SECRET = secretKeyFor('mistral');
 
 const CAPABILITIES: AsrEngineCapabilities = {
@@ -27,10 +27,10 @@ const CAPABILITIES: AsrEngineCapabilities = {
   window: { seconds: 600, overlapSeconds: 3 },
   wordTimestamps: false,
   confidences: false,
-  // `language` and `timestamp_granularities` are documented as incompatible,
-  // and the transcript needs its timings.
+  // Let Mistral detect the language in each window, including mixed lectures.
   languageHint: false,
   vocabulary: 'context-bias',
+  // App-side budget: vocabulary shares the model's context with the audio.
   maxVocabularyTerms: 100,
   provider: 'mistral',
 };
@@ -77,6 +77,7 @@ export function createMistralAsrEngine(
       const fields: [string, string][] = [
         ['model', MODEL],
         ['timestamp_granularities', 'segment'],
+        ['return_language', 'true'],
         ...options.vocabulary
           .slice(0, CAPABILITIES.maxVocabularyTerms)
           .map((term): [string, string] => ['context_bias', term]),

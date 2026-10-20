@@ -64,6 +64,9 @@ export function stitchWindows(windows: WindowTranscript[]): TranscriptSegment[] 
     const from = previous ? (window.startMs + previous.endMs) / 2000 : -Infinity;
     const to = next ? (next.startMs + window.endMs) / 2000 : Infinity;
     const keep = (start: number) => start >= from && start < to;
+    // Voxtral 3 can return overlapping segments within one response. Only
+    // earlier windows provide evidence of a repeated boundary segment.
+    const coveredBeforeWindow = covered;
 
     for (const segment of segments) {
       const shifted: TranscriptSegment = {
@@ -74,7 +77,9 @@ export function stitchWindows(windows: WindowTranscript[]): TranscriptSegment[] 
       };
       const kept = keepWords(shifted, keep);
       if (!kept || !kept.text.trim()) continue;
-      if (!kept.words.length && kept.end <= covered + REPEAT_TOLERANCE_S) continue;
+      if (!kept.words.length && kept.end <= coveredBeforeWindow + REPEAT_TOLERANCE_S) {
+        continue;
+      }
       stitched.push(kept);
       covered = Math.max(covered, kept.end);
     }

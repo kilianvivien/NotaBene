@@ -44,14 +44,14 @@ describe('Mistral hosted Voxtral engine', () => {
     const engine = createMistralTtsEngine(
       fakeTransport((request) => {
         expect(request.url).toBe(
-          'https://api.mistral.ai/v1/audio/voices?limit=1000&type=all',
+          'https://api.mistral.ai/v2/audio/voices?page_size=100&type=all',
         );
         expect(request.headers.Authorization).toBe('Bearer secret');
         return {
           status: 200,
           headers: {},
           body: JSON.stringify({
-            items: [
+            data: [
               { id: 'voice-1', name: 'Narrator', languages: ['fr'] },
               { id: 'voice-2', name: 'Multilingual', languages: [] },
             ],
@@ -86,7 +86,7 @@ describe('Mistral hosted Voxtral engine', () => {
       fakeTransport((request) => {
         expect(request.url).toBe('https://api.mistral.ai/v1/audio/speech');
         expect(JSON.parse(request.body ?? '')).toEqual({
-          model: 'voxtral-mini-tts-2603',
+          model: 'voxtral-mini-tts-3-0',
           input: 'Bonjour.',
           voice_id: 'voice-1',
           response_format: 'wav',
@@ -111,6 +111,66 @@ describe('Mistral hosted Voxtral engine', () => {
     expect(result.durationMs).toBe(1000);
     expect(result.sampleRateHz).toBe(24_000);
     expect(result.channels).toBe(1);
+  });
+
+  it('follows voice cursors and keeps both new presets and saved voices', async () => {
+    const urls: string[] = [];
+    const engine = createMistralTtsEngine(
+      fakeTransport((request) => {
+        urls.push(request.url);
+        return {
+          status: 200,
+          headers: {},
+          body: JSON.stringify(
+            urls.length === 1
+              ? {
+                  data: [{ id: 'voice_478', name: 'Sarah', languages: ['en'] }],
+                  next_page_token: 'cursor+/=',
+                }
+              : {
+                  data: [{ id: 'saved-voice', name: 'My voice' }],
+                  next_page_token: null,
+                },
+          ),
+        };
+      }),
+      fakeSecrets('secret'),
+    );
+    await expect(engine.listVoices()).resolves.toEqual([
+      { id: 'voice_478', name: 'Sarah', locale: 'en', quality: 'premium' },
+      { id: 'saved-voice', name: 'My voice', locale: 'mul', quality: 'premium' },
+    ]);
+    expect(urls).toEqual([
+      'https://api.mistral.ai/v2/audio/voices?page_size=100&type=all',
+      'https://api.mistral.ai/v2/audio/voices?page_size=100&type=all&page_token=cursor%2B%2F%3D',
+    ]);
+  });
+
+  it('refuses a repeated voice cursor instead of looping', async () => {
+    const engine = createMistralTtsEngine(
+      fakeTransport(() => ({
+        status: 200,
+        headers: {},
+        body: JSON.stringify({ data: [], next_page_token: 'same-page' }),
+      })),
+      fakeSecrets('secret'),
+    );
+    await expect(engine.listVoices()).rejects.toThrow(/TTS_API_INVALID_RESPONSE/);
+  });
+
+  it('reports a Voxtral 3 API failure without trying an older model', async () => {
+    let calls = 0;
+    const engine = createMistralTtsEngine(
+      fakeTransport(() => {
+        calls += 1;
+        return { status: 403, headers: {}, body: '{"message":"Model unavailable"}' };
+      }),
+      fakeSecrets('secret'),
+    );
+    await expect(
+      engine.synthesize({ text: 'Hello.', voiceId: 'voice_478' }),
+    ).rejects.toThrow('TTS_API_ERROR: 403 Model unavailable');
+    expect(calls).toBe(1);
   });
 
   it('rejects malformed provider payloads before playback', async () => {

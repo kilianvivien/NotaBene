@@ -30,8 +30,7 @@ export interface AsrEngineCapabilities {
   wordTimestamps: boolean;
   /** Real per-word confidences, which is what review highlights need. */
   confidences: boolean;
-  /** Whether a language hint is honoured. Mistral's timestamps and its
-   * language field are documented as incompatible, so it always detects. */
+  /** Whether a language hint is honoured rather than detected by the engine. */
   languageHint: boolean;
   /** How the course's accepted terms reach the engine, if at all. */
   vocabulary: 'contextual-strings' | 'context-bias' | false;

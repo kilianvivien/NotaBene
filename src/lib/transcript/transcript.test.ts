@@ -78,6 +78,24 @@ describe('stitchWindows', () => {
     expect(stitched.map((s) => s.text)).toEqual(['first', 'second, longer']);
   });
 
+  it('keeps overlapping and short segments from the same Voxtral 3 response', () => {
+    const stitched = stitchWindows([
+      {
+        window: { index: 0, startMs: 0, endMs: 10_000 },
+        segments: [
+          { start: 0, end: 3, text: 'First speaker.', words: [] },
+          { start: 1, end: 2, text: 'Overlapping speaker.', words: [] },
+          { start: 3, end: 3.2, text: 'Yes.', words: [] },
+        ],
+      },
+    ]);
+    expect(stitched.map((s) => s.text)).toEqual([
+      'First speaker.',
+      'Overlapping speaker.',
+      'Yes.',
+    ]);
+  });
+
   it('survives an empty window and windows given out of order', () => {
     const stitched = stitchWindows([
       { window: { index: 1, startMs: 10_000, endMs: 20_000 }, segments: [] },

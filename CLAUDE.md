@@ -142,7 +142,8 @@ release adds editorial visualization plans: selective shallow mind maps and
 relationship diagrams compiled locally from validated graphs. O (1.4.0) adds
 the graph view and unlinked mentions. The 1.4.1 release adds configurable
 graph settings and fixes AI link suggestions, cancellation, error recovery,
-and dialog layering over the graph.
+and dialog layering over the graph. The 1.4.2 release moves Mistral API
+transcription and TTS to Voxtral 3; local TTS remains unchanged.
 `docs/plan.md` tracks what is still open honestly — read it before assuming
 something works.
 
@@ -338,7 +339,9 @@ Transcription notes (phase N, plan §10.3) worth knowing before touching it:
   through `notabene-speech`, a Swift helper in `src-tauri/speech/main.swift`
   that `build.rs` compiles with `xcrun swiftc` into `binaries/` and Tauri
   bundles as an `externalBin`. `mistral-api` is opt-in, pinned to
-  `voxtral-mini-2602`. The CrispASR engines of `docs/transcription-1.3.5.md`
+  `voxtral-mini-transcribe-3-0`. Hosted TTS pins `voxtral-mini-tts-3-0`
+  and lists voices through the cursor-paginated `/v2/audio/voices` API.
+  The CrispASR engines of `docs/transcription-1.3.5.md`
   are not built; they stay gated on §13.1 and the model spike.
 - Audio never crosses IPC. `asr_prepare` reads the asset by id, `afconvert`s
   it to 16 kHz mono (not TTS's 22.05 kHz — never share that path) in

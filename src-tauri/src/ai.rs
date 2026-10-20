@@ -618,7 +618,7 @@ mod tests {
     fn a_form_repeats_list_fields_and_carries_the_window_last() {
         let (content_type, body) = multipart_body(
             &audio(&[
-                ("model", "voxtral-mini-2602"),
+                ("model", "voxtral-mini-transcribe-3-0"),
                 ("context_bias", "Calvin"),
                 ("context_bias", "photosynthèse"),
             ]),

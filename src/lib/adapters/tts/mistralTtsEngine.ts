@@ -12,7 +12,7 @@ import type {
 } from './TtsEngine';
 
 const BASE_URL = 'https://api.mistral.ai/v1';
-const MODEL = 'voxtral-mini-tts-2603';
+const MODEL = 'voxtral-mini-tts-3-0';
 const MISTRAL_SECRET = secretKeyFor('mistral');
 
 const CAPABILITIES: TtsEngineCapabilities = {
@@ -95,31 +95,48 @@ export function createMistralTtsEngine(
 
     async listVoices(): Promise<TtsVoice[]> {
       const key = await apiKey(secrets);
-      const response = await transport.request({
-        url: `${BASE_URL}/audio/voices?limit=1000&type=all`,
-        method: 'GET',
-        headers: headers(key),
-      });
-      if (response.status < 200 || response.status >= 300) {
-        throw new Error(errorMessage(response.status, response.body));
-      }
+      const voices: TtsVoice[] = [];
+      const seenTokens = new Set<string>();
+      let pageToken: string | null = null;
+      do {
+        const query = new URLSearchParams({ page_size: '100', type: 'all' });
+        if (pageToken) query.set('page_token', pageToken);
+        const response = await transport.request({
+          url: `https://api.mistral.ai/v2/audio/voices?${query}`,
+          method: 'GET',
+          headers: headers(key),
+        });
+        if (response.status < 200 || response.status >= 300) {
+          throw new Error(errorMessage(response.status, response.body));
+        }
 
-      let payload: unknown;
-      try {
-        payload = JSON.parse(response.body);
-      } catch {
-        throw new Error('TTS_API_INVALID_RESPONSE: Mistral returned invalid JSON');
-      }
-      const parsed = MistralTtsVoiceListSchema.safeParse(payload);
-      if (!parsed.success) {
-        throw new Error('TTS_API_INVALID_RESPONSE: Mistral returned invalid voices');
-      }
-      return parsed.data.items.map((voice) => ({
-        id: voice.id,
-        name: voice.name,
-        locale: voice.languages[0] ?? 'mul',
-        quality: 'premium',
-      }));
+        let payload: unknown;
+        try {
+          payload = JSON.parse(response.body);
+        } catch {
+          throw new Error('TTS_API_INVALID_RESPONSE: Mistral returned invalid JSON');
+        }
+        const parsed = MistralTtsVoiceListSchema.safeParse(payload);
+        if (!parsed.success) {
+          throw new Error('TTS_API_INVALID_RESPONSE: Mistral returned invalid voices');
+        }
+        voices.push(
+          ...parsed.data.data.map((voice): TtsVoice => ({
+            id: voice.id,
+            name: voice.name,
+            locale: voice.languages[0] ?? 'mul',
+            quality: 'premium',
+          })),
+        );
+        pageToken = parsed.data.next_page_token ?? null;
+        if (pageToken) {
+          if (seenTokens.has(pageToken)) {
+            throw new Error('TTS_API_INVALID_RESPONSE: Mistral repeated a voice page');
+          }
+          seenTokens.add(pageToken);
+        }
+      } while (pageToken);
+      return voices;
     },
 
     async synthesize(

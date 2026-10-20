@@ -1,13 +1,14 @@
 import { z } from 'zod';
 
 export const MistralTtsVoiceListSchema = z.object({
-  items: z.array(
+  data: z.array(
     z.object({
       id: z.string().min(1),
       name: z.string().min(1),
       languages: z.array(z.string().min(1)).default([]),
     }),
   ),
+  next_page_token: z.string().min(1).nullable().optional(),
 });
 
 export const MistralTtsSpeechSchema = z.object({
