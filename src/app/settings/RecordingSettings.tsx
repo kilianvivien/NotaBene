@@ -28,6 +28,7 @@ import {
   type RecordingSettings as RecordingSettingsValue,
 } from '@/lib/adapters';
 import { useRecordingStore } from '@/lib/state/recordingStore';
+import { useDictationStore } from '@/lib/state/dictationStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { TranscriptionSettings } from './TranscriptionSettings';
 
@@ -42,6 +43,7 @@ export function RecordingSettings() {
   const settings = useSettingsStore((state) => state.settings.recording);
   const update = useSettingsStore((state) => state.update);
   const recording = useRecordingStore((state) => state.status !== 'idle');
+  const dictating = useDictationStore((state) => state.status !== 'idle');
   const [devices, setDevices] = useState<AudioInputDevice[]>([]);
   const [testing, setTesting] = useState<'off' | 'starting' | 'on'>('off');
   const [level, setLevel] = useState(0);
@@ -155,7 +157,7 @@ export function RecordingSettings() {
           <div className="flex items-center gap-3">
             <GlassButton
               size="sm"
-              disabled={recording || testing === 'starting'}
+              disabled={recording || dictating || testing === 'starting'}
               onClick={() => (testing === 'on' ? endTest() : void startTest(settings))}
             >
               {testing === 'starting' ? (
@@ -194,7 +196,7 @@ export function RecordingSettings() {
             </span>
           </div>
         </FieldRow>
-        {recording && <FieldNote>{t('recordingSettings.busy')}</FieldNote>}
+        {(recording || dictating) && <FieldNote>{t('recordingSettings.busy')}</FieldNote>}
         {error && <FieldNote tone="danger">{error}</FieldNote>}
       </FieldSection>
 

@@ -31,6 +31,7 @@ import { newId, type Attachment, type DocNode, type Note } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useRecordingStore } from '@/lib/state/recordingStore';
+import { useDictationStore } from '@/lib/state/dictationStore';
 import { stitchWindows, type WindowTranscript } from '@/lib/transcript/stitch';
 import { groupParagraphs } from '@/lib/transcript/paragraphs';
 import { transcriptBlocks } from '@/lib/transcript/document';
@@ -161,7 +162,10 @@ export async function transcribeAttachmentCommand(
 ): Promise<CommandResult<TranscriptionOutcome>> {
   const { signal, onProgress } = options;
   // Both want the machine, and a recording's file is still being written.
-  if (useRecordingStore.getState().status !== 'idle') {
+  if (
+    useRecordingStore.getState().status !== 'idle' ||
+    useDictationStore.getState().status !== 'idle'
+  ) {
     return fail('conflict', 'ASR_RECORDING_BUSY', { asrCode: 'ASR_RECORDING_BUSY' });
   }
   await useEditorStore.getState().flush();

@@ -40,6 +40,23 @@ export interface PdfExcerptInput {
 type PdfExcerptInserter = (input: PdfExcerptInput) => boolean;
 
 let runner: Runner | null = null;
+export interface DictationWriter {
+  noteId: string;
+  append(text: string): boolean;
+  close(): void;
+}
+let dictationWriterFactory: ((noteId: string) => DictationWriter | null) | null = null;
+export function registerDictationWriterFactory(
+  factory: (noteId: string) => DictationWriter | null,
+): () => void {
+  dictationWriterFactory = factory;
+  return () => {
+    if (dictationWriterFactory === factory) dictationWriterFactory = null;
+  };
+}
+export function dictationWriterAtCaret(noteId: string): DictationWriter | null {
+  return dictationWriterFactory?.(noteId) ?? null;
+}
 let pdfExcerptInserter: PdfExcerptInserter | null = null;
 
 export function registerEditorCommandRunner(next: Runner): () => void {

@@ -56,17 +56,20 @@ describe('Gemini hosted TTS engine', () => {
     const engine = createGeminiTtsEngine(
       fakeTransport((request) => {
         expect(request.url).toBe(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent',
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-lite-tts:generateContent',
         );
         expect(request.headers['x-goog-api-key']).toBe('secret');
         const body = JSON.parse(request.body ?? '');
         expect(body.generationConfig).toEqual({
           responseModalities: ['AUDIO'],
+          responseFormat: {
+            audio: { mimeType: 'AUDIO_L16', sampleRate: 24_000, delivery: 'INLINE' },
+          },
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
           },
         });
-        expect(body.contents[0].parts[0].text).toContain('Transcript:\nBonjour.');
+        expect(body.contents).toEqual([{ parts: [{ text: 'Bonjour.' }] }]);
         return {
           status: 200,
           headers: {},
@@ -99,7 +102,7 @@ describe('Gemini hosted TTS engine', () => {
     expect(result.audio.size).toBe(48_044);
   });
 
-  it('retries the preview model once after its documented transient 500', async () => {
+  it('retries a transient 500 once with the same model', async () => {
     const pcm = new Uint8Array(2);
     const engine = createGeminiTtsEngine(
       fakeTransport((_request, call) =>
@@ -113,7 +116,12 @@ describe('Gemini hosted TTS engine', () => {
                   {
                     content: {
                       parts: [
-                        { inlineData: { data: Buffer.from(pcm).toString('base64') } },
+                        {
+                          inlineData: {
+                            mimeType: 'audio/L16;rate=24000',
+                            data: Buffer.from(pcm).toString('base64'),
+                          },
+                        },
                       ],
                     },
                   },
@@ -138,7 +146,14 @@ describe('Gemini hosted TTS engine', () => {
           candidates: [
             {
               content: {
-                parts: [{ inlineData: { data: Buffer.from([0]).toString('base64') } }],
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: 'audio/L16;rate=24000',
+                      data: Buffer.from([0]).toString('base64'),
+                    },
+                  },
+                ],
               },
             },
           ],
@@ -151,4 +166,36 @@ describe('Gemini hosted TTS engine', () => {
       /TTS_AUDIO_INVALID/,
     );
   });
+
+  it.each(['audio/wav', 'audio/L16;rate=48000', 'audio/L16;channels=2', undefined])(
+    'rejects an unexpected response format (%s) before adding a WAV header',
+    async (mimeType) => {
+      const engine = createGeminiTtsEngine(
+        fakeTransport(() => ({
+          status: 200,
+          headers: {},
+          body: JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    {
+                      inlineData: {
+                        mimeType,
+                        data: Buffer.from([0, 0]).toString('base64'),
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        })),
+        fakeSecrets('secret'),
+      );
+      await expect(
+        engine.synthesize({ text: 'Bonjour.', voiceId: 'Kore' }),
+      ).rejects.toThrow(/TTS_AUDIO_INVALID/);
+    },
+  );
 });

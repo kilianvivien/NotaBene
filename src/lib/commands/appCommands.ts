@@ -20,6 +20,7 @@ import { useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useSpeechStore } from '@/lib/state/speechStore';
 import { useRecordingStore } from '@/lib/state/recordingStore';
+import { useDictationStore } from '@/lib/state/dictationStore';
 import { SKIP_MS, useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { docStats } from '@/lib/notes/docText';
@@ -66,6 +67,7 @@ export const APP_COMMAND_IDS = [
   'insert.wikipedia',
   'note.readAloud',
   'recording.toggle',
+  'recording.dictation',
   'recording.playPause',
   'recording.skipBack',
   'recording.skipForward',
@@ -602,12 +604,27 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     accelerator: 'CmdOrCtrl+Alt+R',
     landsIn: 'M',
     run: async () => {
+      if (useDictationStore.getState().status !== 'idle')
+        return useDictationStore.getState().stop();
       const recording = useRecordingStore.getState();
       if (recording.status === 'recording') return recording.stop();
       if (recording.status !== 'idle') return fail('conflict', 'recording is busy');
       const note = useEditorStore.getState().note;
       if (!note) return fail('not_found', 'open a note first');
       return recording.start(note.id, note.title);
+    },
+  },
+  'recording.dictation': {
+    id: 'recording.dictation',
+    labelKey: 'menu.dictation',
+    accelerator: 'CmdOrCtrl+Alt+Shift+S',
+    landsIn: 'N',
+    run: () => {
+      const dictation = useDictationStore.getState();
+      if (dictation.status !== 'idle') return dictation.stop();
+      const note = useEditorStore.getState().note;
+      if (!note) return fail('not_found', translate('dictation.noteRequired'));
+      return dictation.start(note.id);
     },
   },
   /** The trio sits on adjacent keys — ⌥⌘, ⌥⌘. ⌥⌘/ — so the hand that is

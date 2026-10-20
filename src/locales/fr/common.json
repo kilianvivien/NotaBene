@@ -1262,7 +1262,7 @@
     "engine_kokoro-local": "Kokoro 82M · Sur l’appareil",
     "engine_voxtral-local": "Voxtral 4B · Sur l’appareil",
     "engine_mistral-api": "Voxtral TTS 3 · API Mistral",
-    "engine_gemini-api": "Gemini 3.1 Flash TTS · API Google",
+    "engine_gemini-api": "Gemini 3.8 Flash-Lite TTS · API Google",
     "privacy": "Confidentialité",
     "privacySystem": "Sur l’appareil · utilise les voix déjà installées sur ce Mac.",
     "privacyMistral": "Cloud · le texte lu est envoyé à Mistral AI.",
@@ -1305,8 +1305,8 @@
     "mistralPrivacy": "Seul le texte que vous choisissez de lire est envoyé à Mistral. Ce moteur cloud est explicite et n’est jamais utilisé comme solution de repli.",
     "mistralSharedKey": "Utilise votre clé API Mistral principale.",
     "useMistral": "Utiliser Voxtral hébergé",
-    "geminiTitle": "Voix neuronale Gemini",
-    "geminiPricing": "Modèle en preview · API Google Gemini",
+    "geminiTitle": "Gemini 3.8 Flash-Lite TTS",
+    "geminiPricing": "Modèle stable · API Google Gemini",
     "geminiPrivacy": "Seul le texte que vous choisissez de lire est envoyé à Google. Ce moteur cloud est explicite et n’est jamais utilisé comme solution de repli.",
     "geminiSharedKey": "Utilise votre clé API Gemini principale.",
     "useGemini": "Utiliser Gemini TTS"
@@ -1388,7 +1388,8 @@
     "lecturePlayPause": "Lire ou mettre en pause le cours",
     "lectureBack": "Reculer le cours de 10 secondes",
     "lectureForward": "Avancer le cours de 10 secondes",
-    "transcribeRecording": "Transcrire l’enregistrement…"
+    "transcribeRecording": "Transcrire l’enregistrement…",
+    "dictation": "Démarrer/arrêter la dictée en direct (Voxtral 3)"
   },
   "import": {
     "attachmentMissing": "Les données de la pièce jointe sont introuvables.",
@@ -2533,5 +2534,20 @@
     "clipboardEmpty": "Le presse-papiers ne contient pas de texte. Utilisez ⌘V pour coller des images ou des fichiers.",
     "clipboardFailed": "Le presse-papiers est inaccessible. Utilisez le raccourci clavier pour copier, couper ou coller.",
     "saveFailed": "La modification est dans l’éditeur mais n’a pas pu être enregistrée. Vérifiez l’état d’enregistrement et réessayez."
+  },
+  "dictation": {
+    "micHint": "Cliquer pour enregistrer · maintenir 5 secondes pour dicter en direct",
+    "holdCountdown": "Maintenez : dictée en direct dans {{seconds}} s",
+    "privacy": "Voxtral 3 envoie le son du microphone à Mistral avec votre clé API. Le texte apparaît au point d’insertion ; aucun fichier audio n’est joint.",
+    "starting": "Connexion de la dictée…",
+    "listening": "Dictée en direct",
+    "stopping": "Finalisation de la dictée…",
+    "stop": "Arrêter la dictée en direct",
+    "stopped": "Dictée arrêtée. Le texte est conservé dans votre note.",
+    "failed": "La dictée a été interrompue. Le texte déjà inséré est conservé ; vérifiez la connexion puis réessayez.",
+    "keyMissing": "Connectez Mistral AI dans Réglages → Fournisseurs IA avant de dicter en direct.",
+    "busy": "Arrêtez d’abord l’enregistrement ou la dictée en cours.",
+    "unsupported": "La dictée en direct nécessite l’application de bureau et une entrée audio compatible.",
+    "noteRequired": "Ouvrez une note modifiable et placez le point d’insertion dans son texte avant de dicter."
   }
 }

@@ -86,7 +86,7 @@ function audioContextClass(): typeof AudioContext | undefined {
 }
 
 /** The microphone as configured, and the stream to encode. */
-interface OpenInput {
+export interface OpenInput {
   /** The raw microphone: its track ending means the device went away. */
   microphone: MediaStream;
   /** What the encoder records — the microphone after gain and limiter. */
@@ -96,7 +96,7 @@ interface OpenInput {
   close(): void;
 }
 
-async function openInput(input: RecordingInput): Promise<OpenInput> {
+export async function openInput(input: RecordingInput): Promise<OpenInput> {
   let microphone: MediaStream;
   try {
     microphone = await navigator.mediaDevices.getUserMedia({

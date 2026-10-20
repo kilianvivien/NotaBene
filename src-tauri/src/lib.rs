@@ -10,6 +10,7 @@ mod apple_fm;
 mod asr;
 mod commands;
 mod db;
+mod dictation;
 mod document_import;
 mod folder_import;
 mod grants;
@@ -106,6 +107,7 @@ pub fn run() {
             app.manage(folder_import::ImportRoots::default());
             app.manage(grants::Grants::load(handle));
             app.manage(recording::ActiveRecordings::default());
+            app.manage(dictation::DictationState::default());
 
             #[cfg(desktop)]
             app.global_shortcut().register("CmdOrCtrl+Shift+Q")?;
@@ -229,6 +231,9 @@ pub fn run() {
             ai::ai_request,
             ai::ai_stream,
             ai::ai_cancel,
+            dictation::dictation_run,
+            dictation::dictation_audio,
+            dictation::dictation_cancel,
             asr::asr_prepare,
             asr::asr_cancel,
             asr::asr_release,

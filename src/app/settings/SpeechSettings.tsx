@@ -270,9 +270,7 @@ export function SpeechSettings() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium">
-                      Gemini 3.1 Flash TTS Preview
-                    </p>
+                    <p className="text-[13px] font-medium">{t('speech.geminiTitle')}</p>
                     <p className="text-[11px] text-nb-text-3">
                       {t('speech.geminiPricing')}
                     </p>

@@ -1262,7 +1262,7 @@
     "engine_kokoro-local": "Kokoro 82M · On-device",
     "engine_voxtral-local": "Voxtral 4B · On-device",
     "engine_mistral-api": "Voxtral TTS 3 · Mistral API",
-    "engine_gemini-api": "Gemini 3.1 Flash TTS · Google API",
+    "engine_gemini-api": "Gemini 3.8 Flash-Lite TTS · Google API",
     "privacy": "Privacy",
     "privacySystem": "On-device · uses voices already installed on this Mac.",
     "privacyMistral": "Cloud · the text being spoken is sent to Mistral AI.",
@@ -1305,8 +1305,8 @@
     "mistralPrivacy": "Only text you choose to speak is sent to Mistral. This is an explicit cloud engine and is never selected as a fallback.",
     "mistralSharedKey": "Uses your main Mistral API key.",
     "useMistral": "Use hosted Voxtral",
-    "geminiTitle": "Gemini neural voice",
-    "geminiPricing": "Preview model · Google Gemini API",
+    "geminiTitle": "Gemini 3.8 Flash-Lite TTS",
+    "geminiPricing": "Stable model · Google Gemini API",
     "geminiPrivacy": "Only text you choose to speak is sent to Google. This is an explicit cloud engine and is never selected as a fallback.",
     "geminiSharedKey": "Uses your main Gemini API key.",
     "useGemini": "Use Gemini TTS"
@@ -1388,7 +1388,8 @@
     "lecturePlayPause": "Play or Pause Lecture",
     "lectureBack": "Lecture Back 10 Seconds",
     "lectureForward": "Lecture Forward 10 Seconds",
-    "transcribeRecording": "Transcribe Recording…"
+    "transcribeRecording": "Transcribe Recording…",
+    "dictation": "Start/stop live dictation (Voxtral 3)"
   },
   "import": {
     "attachmentMissing": "The attachment data could not be found.",
@@ -2533,5 +2534,20 @@
     "clipboardEmpty": "No text found on the clipboard. Use ⌘V to paste images or files.",
     "clipboardFailed": "Clipboard access was unavailable. Use the keyboard shortcut to copy, cut or paste.",
     "saveFailed": "The change is in the editor but could not be saved. Check the save status and retry."
+  },
+  "dictation": {
+    "micHint": "Click to record audio · hold 5 seconds for live dictation",
+    "holdCountdown": "Keep holding: live dictation in {{seconds}} s",
+    "privacy": "Voxtral 3 sends microphone audio to Mistral using your API key. Text appears at the insertion point; no audio attachment is saved.",
+    "starting": "Connecting dictation…",
+    "listening": "Live dictation",
+    "stopping": "Finishing dictation…",
+    "stop": "Stop live dictation",
+    "stopped": "Dictation stopped. The text is kept in your note.",
+    "failed": "Dictation was interrupted. Text already inserted is kept; check the connection and try again.",
+    "keyMissing": "Connect Mistral AI in Settings → AI providers before using live dictation.",
+    "busy": "Stop the current recording or dictation first.",
+    "unsupported": "Live dictation requires the desktop app and an audio input that supports streaming.",
+    "noteRequired": "Open an editable note and place the insertion point in its text before dictating."
   }
 }

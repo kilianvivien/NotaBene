@@ -143,7 +143,9 @@ relationship diagrams compiled locally from validated graphs. O (1.4.0) adds
 the graph view and unlinked mentions. The 1.4.1 release adds configurable
 graph settings and fixes AI link suggestions, cancellation, error recovery,
 and dialog layering over the graph. The 1.4.2 release moves Mistral API
-transcription and TTS to Voxtral 3; local TTS remains unchanged.
+transcription and TTS to Voxtral 3 and Gemini API TTS to Gemini 3.8
+Flash-Lite TTS, and adds direct Voxtral 3 dictation from a five-second hold
+on the microphone; local TTS remains unchanged.
 `docs/plan.md` tracks what is still open honestly — read it before assuming
 something works.
 
@@ -373,6 +375,16 @@ Transcription notes (phase N, plan §10.3) worth knowing before touching it:
 - The UI is a popover in the lecture player, not a dialog, by the owner's
   choice — the one deliberate exception to the `ChoiceGroup` convention.
   The job lives in `transcriptionStore` and outlives the popover.
+- Direct dictation (`recording.dictation`) is a separate, explicit hosted mode:
+  a normal mic click still records; holding for five seconds shows a countdown
+  and starts `voxtral-mini-transcribe-realtime-3-0`. Reclick stops and drains
+  the final words. PCM goes from a self-hosted AudioWorklet through the native
+  `dictation.rs` WebSocket bridge; no audio file or attachment is created.
+  `dictationCommands.ts` validates text and inserts through a mapped editor
+  caret, using normal autosave/undo. Navigation finishes dictation before
+  flushing/leaving its note; recording and dictation exclude one another.
+  Never reconnect, resume, or fall back automatically. The native bridge
+  cancels abandoned sessions and bounds both audio buffering and final drain.
 
 Graph view notes (phase O, plan §5) worth knowing before touching it:
 

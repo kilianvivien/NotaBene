@@ -36,6 +36,8 @@ import {
   type LectureAnchorsOptions,
 } from './extensions/LectureAnchors';
 import { activeRecording } from '@/lib/state/recordingStore';
+import { createDictationWriter } from './dictationWriter';
+import { registerDictationWriterFactory } from './commandBridge';
 import { useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { closeHistory } from '@tiptap/pm/history';
 import {
@@ -626,6 +628,12 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   );
 
   useEffect(() => registerEditorCommandRunner(run), [run]);
+  useEffect(() => {
+    if (!editor || !noteId) return;
+    return registerDictationWriterFactory((targetId) =>
+      targetId === noteId ? createDictationWriter(editor, targetId) : null,
+    );
+  }, [editor, noteId]);
 
   useEffect(() => {
     if (!editor) return;

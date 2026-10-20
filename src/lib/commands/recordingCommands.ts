@@ -23,6 +23,7 @@ import {
 import { AttachmentSchema, newId, type Asset, type Attachment } from '@/lib/schema';
 import { attachmentsChanged } from '@/lib/state/attachmentStore';
 import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
+import { useDictationStore } from '@/lib/state/dictationStore';
 import { fail, ok, type CommandResult } from './types';
 
 const EXTENSIONS: Record<string, string> = {
@@ -59,6 +60,9 @@ export interface StartRecordingInput {
 export async function startRecordingCommand(
   input: StartRecordingInput,
 ): Promise<CommandResult<RecorderSession>> {
+  if (useDictationStore.getState().status !== 'idle') {
+    return fail('conflict', i18n.t('dictation.busy'));
+  }
   if (!recorder.supported()) {
     return fail('not_supported', i18n.t('recording.unsupported'));
   }

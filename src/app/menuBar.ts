@@ -143,6 +143,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('note.readAloud', t),
         separator,
         command('recording.toggle', t),
+        command('recording.dictation', t),
         command('recording.playPause', t),
         command('recording.skipBack', t),
         command('recording.skipForward', t),

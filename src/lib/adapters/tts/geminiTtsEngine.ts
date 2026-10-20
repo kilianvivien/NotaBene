@@ -12,7 +12,7 @@ import type {
 } from './TtsEngine';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
-const MODEL = 'gemini-3.1-flash-tts-preview';
+const MODEL = 'gemini-3.8-flash-lite-tts';
 const GEMINI_SECRET = secretKeyFor('gemini');
 const SAMPLE_RATE = 24_000;
 
@@ -92,14 +92,12 @@ async function apiKey(secrets: SecretsAdapter): Promise<string> {
   return key;
 }
 
-async function requestWithPreviewRetry(
+async function requestWithRetry(
   transport: AiTransport,
   request: Parameters<AiTransport['request']>[0],
 ): Promise<AiResponse> {
   let response = await transport.request(request);
-  // Google documents rare transient 500s when this preview model emits text
-  // tokens instead of audio tokens. One retry covers that case without hiding
-  // persistent provider failures or multiplying a bill indefinitely.
+  // Retry a transient server failure once, using the same model and payload.
   if (response.status === 500 && !request.signal?.aborted) {
     response = await transport.request(request);
   }
@@ -153,7 +151,7 @@ export function createGeminiTtsEngine(
       if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
 
       const key = await apiKey(secrets);
-      const response = await requestWithPreviewRetry(transport, {
+      const response = await requestWithRetry(transport, {
         url: `${BASE_URL}/models/${MODEL}:generateContent`,
         method: 'POST',
         headers: {
@@ -166,13 +164,23 @@ export function createGeminiTtsEngine(
             {
               parts: [
                 {
-                  text: `Read the following transcript aloud exactly as written. Do not add or omit words.\n\nTranscript:\n${text}`,
+                  // Gemini 3.8 reads the input verbatim, including directions.
+                  text,
                 },
               ],
             },
           ],
           generationConfig: {
             responseModalities: ['AUDIO'],
+            // Gemini 3.8 defaults to WAV. Keep this pipeline's raw PCM contract
+            // explicit so the encoder adds exactly one WAV header.
+            responseFormat: {
+              audio: {
+                mimeType: 'AUDIO_L16',
+                sampleRate: SAMPLE_RATE,
+                delivery: 'INLINE',
+              },
+            },
             speechConfig: {
               voiceConfig: {
                 prebuiltVoiceConfig: { voiceName: request.voiceId },
@@ -199,12 +207,24 @@ export function createGeminiTtsEngine(
       }
       const audioData = parsed.data.candidates
         .flatMap((candidate) => candidate.content.parts)
-        .find((part) => part.inlineData?.data)?.inlineData?.data;
+        .find((part) => part.inlineData?.data)?.inlineData;
       if (!audioData) {
         throw new Error('TTS_API_INVALID_RESPONSE: Gemini returned no audio');
       }
 
-      const pcm = decodeBase64(audioData);
+      const mimeType = audioData.mimeType?.toLowerCase().replace(/\s/g, '');
+      if (!mimeType || !/^audio\/l16(?:;|$)/.test(mimeType)) {
+        throw new Error('TTS_AUDIO_INVALID: Gemini returned unsupported audio format');
+      }
+      const rate = /;rate=(\d+)(?:;|$)/.exec(mimeType);
+      const channels = /;channels=(\d+)(?:;|$)/.exec(mimeType);
+      if (
+        (rate && Number(rate[1]) !== SAMPLE_RATE) ||
+        (channels && Number(channels[1]) !== 1)
+      ) {
+        throw new Error('TTS_AUDIO_INVALID: Gemini returned unexpected PCM format');
+      }
+      const pcm = decodeBase64(audioData.data);
       if (!pcm.byteLength || pcm.byteLength % 2 !== 0) {
         throw new Error('TTS_AUDIO_INVALID: Gemini returned invalid 16-bit PCM');
       }

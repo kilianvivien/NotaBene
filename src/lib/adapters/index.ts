@@ -61,6 +61,8 @@ import { unavailableAsrAdapter } from './asr/unavailableAsrAdapter';
 import { createAppleAsrEngine } from './asr/appleAsrEngine';
 import { createMistralAsrEngine } from './asr/mistralAsrEngine';
 import { createAsrEngineRegistry } from './asr/asrEngineRegistry';
+import { tauriDictationAdapter } from './asr/tauriDictationAdapter';
+import type { DictationAdapter } from './asr/DictationAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 import {
   browserAppLifecycleAdapter,
@@ -154,6 +156,14 @@ export const ttsRegistry = createTtsEngineRegistry(
   geminiTtsEngine,
 );
 export const asr: AsrAdapter = isTauri ? tauriAsrAdapter : unavailableAsrAdapter;
+export const dictation: DictationAdapter = isTauri
+  ? tauriDictationAdapter
+  : {
+      supported: () => false,
+      async start() {
+        throw new Error('DICTATION_UNSUPPORTED');
+      },
+    };
 export const asrRegistry = createAsrEngineRegistry(
   createAppleAsrEngine(asr),
   createMistralAsrEngine(aiTransport, secrets),

@@ -21,6 +21,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { library } from '@/lib/adapters';
 import { flattenDoc } from '@/lib/notes/docText';
+import { finishDictationBeforeNavigation } from '@/lib/recording/dictationLifecycle';
 import { useLibraryStore } from './libraryStore';
 import type { Note, NoteDoc } from '@/lib/schema';
 import {
@@ -89,6 +90,7 @@ export const useEditorStore = create<EditorState>()(
 
     async openNote(noteId) {
       const started = performance.now();
+      if (get().note?.id !== noteId) await finishDictationBeforeNavigation();
       // Never lose the outgoing note's edits to a click on another one.
       await get().flush();
       const note = await library.getNote(noteId);
@@ -109,6 +111,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     async closeNote() {
+      await finishDictationBeforeNavigation();
       await get().flush();
       clearTimers();
       set((state) => {

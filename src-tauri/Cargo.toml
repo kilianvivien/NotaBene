@@ -69,7 +69,8 @@ reqwest = { version = "0.13", default-features = false, features = [
     "rustls-no-provider",
 ] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
-futures-util = "0.3"
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 regex = "1"
 # Finding every note title in every note's text in one pass (the graph view's
 # unlinked mentions). Already in the lock through `regex`, so this is a
