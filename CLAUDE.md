@@ -145,7 +145,7 @@ graph settings and fixes AI link suggestions, cancellation, error recovery,
 and dialog layering over the graph. The 1.4.2 release moves Mistral API
 transcription and TTS to Voxtral 3 and Gemini API TTS to Gemini 3.8
 Flash-Lite TTS, and adds direct Voxtral 3 dictation from a five-second hold
-on the microphone; local TTS remains unchanged. The 1.4.3 workspace raises
+on the microphone; local TTS remains unchanged. The 1.4.3 release raises
 AI output allowances to at least 8,192 tokens and visualization to 16,384,
 with supported Mistral reasoning controls for diagrams and mind maps.
 `docs/plan.md` tracks what is still open honestly — read it before assuming

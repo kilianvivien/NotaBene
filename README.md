@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.2"><img alt="Latest release: 1.4.2" src="https://img.shields.io/badge/release-1.4.2-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.3"><img alt="Latest release: 1.4.3" src="https://img.shields.io/badge/release-1.4.3-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.4.2 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.2/NotaBene_1.4.2_aarch64.dmg)**
+**[NotaBene 1.4.3 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.3/NotaBene_1.4.3_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
@@ -169,10 +169,11 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.4.2** adds live dictation with a five-second hold on the microphone,
-upgrades hosted Mistral transcription and speech to Voxtral 3, and moves Gemini
-speech to Gemini 3.8 Flash-Lite TTS. Normal audio recording and local voices
-keep their existing behaviour — see the [release notes](./RELEASE_NOTES.md).
+**NotaBene 1.4.3** gives AI tools more room to finish their answers: at least
+8,192 output tokens for every mode, and 16,384 for mind maps and diagrams.
+Supported Mistral models use lower reasoning settings for visualization to
+leave room for the complete plan. Small local context windows still constrain
+the allowance — see the [release notes](./RELEASE_NOTES.md).
 The app is not yet signed with a
 Developer ID or notarized, and has no automatic updates.
 

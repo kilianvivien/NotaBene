@@ -1,6 +1,6 @@
 # Release notes
 
-## NotaBene 1.4.3 — Unreleased
+## NotaBene 1.4.3 — 21 October 2026
 
 - **More room for AI answers.** AI modes now allow at least 8,192 output
   tokens; diagrams and mind maps allow 16,384 so reasoning models can finish
@@ -9,8 +9,32 @@
   lowest supported reasoning level for visualization, as link suggestions
   already do. Small local context windows still constrain the allowance.
 
-**Verification:** Typecheck, lint, unit tests and the production web build
-passed. Live-provider and Tauri-shell checks remain to be confirmed.
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27.
+
+**Verification:** Typecheck, lint and 1,210 unit tests passed (18 skipped).
+The production web build passed. The owner's existing DMG was verified for
+integrity, packaged 1.4.3 version, ARM64 architecture and ad-hoc signature;
+its packaged app matches the build bundle. This release uses that build
+without rebuilding it.
+
+**Known issues and verification limits:** Live-provider generation and
+Tauri-shell interaction remain to be confirmed. Dependency audits report two
+npm advisories (`braces` and transitive KaTeX), plus 12 Rust vulnerability
+findings affecting `rustls`, `rustls-webpki`, `webpki-root-certs` and two
+versions of `zip`, including critical ZIP extraction advisories. These are
+dependency audit findings; runtime reachability has not been assessed in this
+release. Six Rust dependency warnings also remain.
+
+**Download:** [NotaBene 1.4.3 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.3/NotaBene_1.4.3_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `8621c22e6f98c5fbd6ca647b1cb6e9537488c62a11912d320c53d7a597d7fa1d`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.2...v1.4.3)
 
 ## NotaBene 1.4.2 — 20 October 2026
 
