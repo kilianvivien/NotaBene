@@ -9,6 +9,7 @@
  * The SVG is rendered here rather than in the node view, so that the string
  * stored on the node is the same string every export path emits.
  */
+import { VISUALIZATION_OUTPUT_TOKENS, structuredReasoningEffort } from './budgets';
 import { mindMapToSvg } from '@/lib/mindmap/layout';
 import {
   AiMindMapPlanSchema,
@@ -47,7 +48,8 @@ export async function requestMindMap(
         markdown: visualizationMarkdown(request.source.doc),
         language: request.language,
       }),
-      maxTokens: 4_000,
+      maxTokens: VISUALIZATION_OUTPUT_TOKENS,
+      reasoningEffort: structuredReasoningEffort(request.provider),
       // Low: a map is a structural summary, and a model being creative about
       // which branches exist is a model inventing material the lecture did not
       // contain.

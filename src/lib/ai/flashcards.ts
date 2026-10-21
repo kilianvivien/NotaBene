@@ -7,6 +7,7 @@
  * better than a note app ever should. Keeping decks out of `LibrarySchema` is
  * the reason this phase needed no schema version bump.
  */
+import { DEFAULT_OUTPUT_TOKENS } from './budgets';
 import { docToMarkdown } from '@/editor/markdown';
 import {
   AiFlashcardsResponseSchema,
@@ -69,7 +70,7 @@ export async function requestFlashcards(
         })),
         language: request.language,
       }),
-      maxTokens: 8_000,
+      maxTokens: DEFAULT_OUTPUT_TOKENS,
       temperature: 0.3,
     },
     AiFlashcardsResponseSchema,

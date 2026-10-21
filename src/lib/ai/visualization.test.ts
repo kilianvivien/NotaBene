@@ -41,6 +41,67 @@ afterEach(() => {
 });
 
 describe('editorial visualization plans', () => {
+  it.each(['diagram', 'mindmap'] as const)(
+    'leaves room for reasoning and a complete %s plan across providers',
+    async (kind) => {
+      const plan = kind === 'diagram' ? SHORT_PLAN : MEMORY_PLAN;
+      conversion.mockResolvedValue({
+        svg: '<svg/>',
+        data: { elements: [], appState: {}, files: {} },
+      });
+      for (const [id, model, effort] of [
+        ['mistral', 'zai-glm-5-3', 'low'],
+        ['mistral', 'mistral-large-4', 'none'],
+        ['mistral', 'unknown-model', undefined],
+        ['openai', 'test', undefined],
+        ['anthropic', 'test', undefined],
+        ['gemini', 'test', undefined],
+        ['ollama', 'test', undefined],
+      ] as const) {
+        const definition = providerById(id)!;
+        const transport = vi
+          .spyOn(aiTransport, 'request')
+          .mockImplementation(async (request) => {
+            const sent = JSON.parse(String(request.body));
+            const allowance =
+              sent.max_tokens ??
+              sent.max_completion_tokens ??
+              sent.generationConfig?.maxOutputTokens;
+            // Reproduce the old failure: the model exhausts a prose-sized
+            // allowance on reasoning before its planning document is finished.
+            if (allowance < 16_384)
+              return {
+                ...answered(null),
+                body: JSON.stringify({
+                  choices: [{ finish_reason: 'length', message: { content: '' } }],
+                }),
+              };
+            expect(sent.reasoning_effort).toBe(effort);
+            const text = JSON.stringify(plan);
+            const body =
+              definition.protocol === 'anthropic'
+                ? { content: [{ type: 'text', text }] }
+                : definition.protocol === 'gemini'
+                  ? { candidates: [{ content: { parts: [{ text }] } }] }
+                  : { choices: [{ message: { content: text } }] };
+            return { status: 200, headers: {}, body: JSON.stringify(body) };
+          });
+        const request = {
+          provider: { ...provider, definition, model },
+          source: { title: SHORT_NOTE.title, doc: markdownToDoc(SHORT_NOTE.markdown) },
+          language: 'en',
+        };
+        const result =
+          kind === 'diagram'
+            ? await requestDiagram(request)
+            : await requestMindMap(request);
+        expect(result.editorial?.focus).toBe(plan.focus);
+        expect(transport).toHaveBeenCalledTimes(1);
+        transport.mockRestore();
+      }
+    },
+  );
+
   it('reads the prose without feeding existing diagram payloads back to the model', () => {
     const doc = markdownToDoc(MEMORY_NOTE.markdown);
     doc.content.push({
@@ -212,6 +273,7 @@ describe('editorial visualization plans', () => {
     });
     expect(transport).toHaveBeenCalledTimes(2);
     expect(String(transport.mock.calls[1]?.[0].body)).toContain('conversion rejected');
+    expect(JSON.parse(String(transport.mock.calls[1]?.[0].body)).max_tokens).toBe(16_384);
     expect(result.editorial?.focus).toBe(SHORT_PLAN.focus);
   });
 

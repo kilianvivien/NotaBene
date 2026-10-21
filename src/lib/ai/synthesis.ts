@@ -6,6 +6,7 @@
  * the whole point of a revision sheet is to sit beside the lecture note, not
  * replace it.
  */
+import { DEFAULT_OUTPUT_TOKENS } from './budgets';
 import { docToMarkdown, markdownToDoc } from '@/editor/markdown';
 import { AiSynthesisResponseSchema, type Note, type NoteDoc } from '@/lib/schema';
 import type { AiRunOptions } from './client';
@@ -102,7 +103,7 @@ export async function requestSynthesis(
         language: request.language,
         instructions: request.instructions,
       }),
-      maxTokens: 8_000,
+      maxTokens: DEFAULT_OUTPUT_TOKENS,
       temperature: 0.3,
     },
     AiSynthesisResponseSchema,

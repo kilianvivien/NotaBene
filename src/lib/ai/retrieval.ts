@@ -17,6 +17,7 @@
  *    around the paragraph the student asked about is the failure chunking is
  *    prone to.
  */
+import { DEFAULT_OUTPUT_TOKENS } from './budgets';
 import { docToMarkdown } from '@/editor/markdown';
 import type { DocNode, NoteDoc } from '@/lib/schema';
 import { fold } from '@/lib/search/fold';
@@ -122,7 +123,7 @@ export const ASK_SOURCE_BUDGET_TOKENS = 32_000;
 
 /** Room kept for the answer rather than letting retrieval consume the entire
  * context window before the model writes its first token. */
-export const ASK_RESPONSE_BUDGET_TOKENS = 2_000;
+export const ASK_RESPONSE_BUDGET_TOKENS = DEFAULT_OUTPUT_TOKENS;
 
 export const MAX_SOURCES = 12;
 
@@ -150,11 +151,13 @@ export function sourceBudget(
 ): number {
   const spoken = estimateTokens(historyAndQuestion, provider?.charsPerToken);
   const inputCeiling = Math.min(MAX_INPUT_TOKENS, provider?.contextTokens ?? Infinity);
+  // Small on-device windows need room for sources as well as the answer.
+  const responseBudget = Math.min(ASK_RESPONSE_BUDGET_TOKENS, inputCeiling / 4);
   return Math.max(
     0,
     Math.min(
       ASK_SOURCE_BUDGET_TOKENS,
-      inputCeiling - spoken - PROMPT_OVERHEAD_TOKENS - ASK_RESPONSE_BUDGET_TOKENS,
+      inputCeiling - spoken - PROMPT_OVERHEAD_TOKENS - responseBudget,
     ),
   );
 }

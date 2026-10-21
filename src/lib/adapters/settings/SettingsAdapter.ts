@@ -279,7 +279,7 @@ export const GRAPH_LIMITS = {
   maxNotes: { min: 2, max: 120 },
   excerptChars: { min: 120, max: 2_000 },
   maxSuggestions: { min: 1, max: 24 },
-  maxOutputTokens: { min: 4_096, max: 65_536 },
+  maxOutputTokens: { min: 8_192, max: 65_536 },
 } as const;
 
 export const DEFAULT_SETTINGS: AppSettings = {

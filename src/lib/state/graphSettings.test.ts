@@ -35,6 +35,10 @@ describe('graph preferences', () => {
       migrateSettings({ graph: { maxOutputTokens: 1_000_000 } } as never).graph
         .maxOutputTokens,
     ).toBe(65_536);
+    expect(
+      migrateSettings({ graph: { maxOutputTokens: 4_096 } } as never).graph
+        .maxOutputTokens,
+    ).toBe(8_192);
   });
 
   it('persists the chosen preferences and restores them on load', async () => {

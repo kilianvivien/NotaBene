@@ -6,6 +6,7 @@
  * things an in-app run needs that a remote client supplies for itself: scope
  * enforcement and a durable undo journal.
  */
+import { VISUALIZATION_OUTPUT_TOKENS } from '@/lib/ai/budgets';
 import { library } from '@/lib/adapters';
 import {
   AgentBudgetError,
@@ -881,9 +882,11 @@ async function modelCallFits(
     const note = await library.getNote(noteId);
     if (note) input += estimateTokens(note.plainText);
   }
-  return (
-    record.tokensUsed + input + MODEL_TOOL_OUTPUT_ALLOWANCE <= record.budget.tokenCeiling
-  );
+  const outputAllowance =
+    tool === 'visualize_note'
+      ? VISUALIZATION_OUTPUT_TOKENS
+      : MODEL_TOOL_OUTPUT_ALLOWANCE;
+  return record.tokensUsed + input + outputAllowance <= record.budget.tokenCeiling;
 }
 
 function modelSourceNoteIds(tool: AgentToolName, args: Record<string, unknown>): string[] {

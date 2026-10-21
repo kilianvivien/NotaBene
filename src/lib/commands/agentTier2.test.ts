@@ -389,6 +389,19 @@ describe('study features as tools (item 7)', () => {
     expect(model.requestMindMap).not.toHaveBeenCalled();
   });
 
+  it('reserves the larger visualization allowance even for a short note', async () => {
+    const source = await note('Photosynthesis');
+    const record = run({ kind: 'library' }, 12_000);
+    const result = await executeAgentTool(
+      record,
+      'visualize_note',
+      { noteId: source.id, baseUpdatedAt: source.updatedAt, kind: 'mindmap' },
+      signal(),
+    );
+    expect(result).toMatchObject({ ok: false, code: BUDGET_EXHAUSTED });
+    expect(model.requestMindMap).not.toHaveBeenCalled();
+  });
+
   it('appends a mind map without taking the editor away', async () => {
     const source = await note('Photosynthesis');
     model.requestMindMap.mockResolvedValue({

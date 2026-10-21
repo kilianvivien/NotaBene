@@ -13,6 +13,7 @@
  * where a day becomes an instant: at the parent's own hour, so a plan for a
  * task due at 09:00 does not quietly land its steps at midnight UTC.
  */
+import { DEFAULT_OUTPUT_TOKENS } from './budgets';
 import { docToMarkdown } from '@/editor/markdown';
 import {
   AiTaskBreakdownResponseSchema,
@@ -162,7 +163,7 @@ export async function requestTaskBreakdown(
         count: request.count ?? DEFAULT_STEP_COUNT,
         language: request.language,
       }),
-      maxTokens: 2_000,
+      maxTokens: DEFAULT_OUTPUT_TOKENS,
       temperature: 0.3,
     },
     AiTaskBreakdownResponseSchema,
@@ -206,7 +207,7 @@ export async function requestTaskCheck(
         today: localDay(new Date()),
         language: request.language,
       }),
-      maxTokens: 1_200,
+      maxTokens: DEFAULT_OUTPUT_TOKENS,
       temperature: 0.1,
     },
     AiTaskCheckResponseSchema,

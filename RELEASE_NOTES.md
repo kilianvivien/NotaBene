@@ -1,5 +1,17 @@
 # Release notes
 
+## NotaBene 1.4.3 — Unreleased
+
+- **More room for AI answers.** AI modes now allow at least 8,192 output
+  tokens; diagrams and mind maps allow 16,384 so reasoning models can finish
+  the visualization plan. Larger existing allowances are retained.
+- **Controlled visualization reasoning.** Supported Mistral models use their
+  lowest supported reasoning level for visualization, as link suggestions
+  already do. Small local context windows still constrain the allowance.
+
+**Verification:** Typecheck, lint, unit tests and the production web build
+passed. Live-provider and Tauri-shell checks remain to be confirmed.
+
 ## NotaBene 1.4.2 — 20 October 2026
 
 - **Speech straight into your note.** Hold the microphone button for five

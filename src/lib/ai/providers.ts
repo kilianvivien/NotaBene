@@ -281,7 +281,7 @@ export type AiFeature = (typeof AI_FEATURES)[number];
 /** The smallest context in which a feature can deliver what its UI promises. */
 export const AI_FEATURE_MIN_CONTEXT: Partial<Record<AiFeature, number>> = {
   // A hundred and fifty words with an excerpt each, a pasted syllabus, and a
-  // 3,000-token answer: past what an 8K on-device window holds.
+  // 8,192-token answer: past what an 8K on-device window holds.
   vocabulary: 16_000,
   synthesis: 32_000,
   podcast: 32_000,

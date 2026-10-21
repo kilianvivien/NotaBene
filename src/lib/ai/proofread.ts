@@ -6,6 +6,7 @@
  * the dialog can only offer a change it can point at, and a model that
  * paraphrased the span it meant to fix has not told us where the fix goes.
  */
+import { DEFAULT_OUTPUT_TOKENS } from './budgets';
 import { AiProofreadResponseSchema } from '@/lib/schema';
 import type { AiRunOptions } from './client';
 import { proofreadPrompt } from './prompts';
@@ -44,7 +45,7 @@ export async function requestProofread(
         vocabulary: request.vocabulary.slice(0, MAX_PROOFREAD_VOCABULARY),
         language: request.language,
       }),
-      maxTokens: 1_500,
+      maxTokens: DEFAULT_OUTPUT_TOKENS,
       temperature: 0,
     },
     AiProofreadResponseSchema,

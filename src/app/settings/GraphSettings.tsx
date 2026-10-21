@@ -13,7 +13,7 @@ import {
 } from '@/lib/adapters';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 
-const OUTPUT_ALLOWANCES = [4_096, 8_192, 16_384, 32_768, 65_536];
+const OUTPUT_ALLOWANCES = [8_192, 16_384, 32_768, 65_536];
 const SLIDERS = ['maxNotes', 'excerptChars', 'maxSuggestions'] as const;
 
 export function GraphSettings() {

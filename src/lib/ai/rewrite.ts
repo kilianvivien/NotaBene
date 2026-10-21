@@ -10,6 +10,7 @@
  * first and improvise in the second, and the app already owns a loss-aware
  * converter for exactly this document vocabulary.
  */
+import { DEFAULT_OUTPUT_TOKENS } from './budgets';
 import { docToMarkdown, markdownToDoc } from '@/editor/markdown';
 import {
   AiRewriteResponseSchema,
@@ -120,7 +121,7 @@ export async function requestRewrite(
         blocks: before,
         language: request.language,
       }),
-      maxTokens: 8_000,
+      maxTokens: DEFAULT_OUTPUT_TOKENS,
       temperature: request.mode === 'light' ? 0 : 0.3,
     },
     AiRewriteResponseSchema,

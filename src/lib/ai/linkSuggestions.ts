@@ -7,6 +7,7 @@
  * feature here is built on: parsed by a schema, approved by the student, then
  * a command.
  */
+import { structuredReasoningEffort } from './budgets';
 import { AiLinkSuggestionsResponseSchema } from '@/lib/schema';
 import {
   DEFAULT_SETTINGS,
@@ -87,23 +88,6 @@ export async function requestLinkSuggestions(
 ): Promise<LinkSuggestion[]> {
   if (request.notes.length < 2) return [];
   const limits = { ...DEFAULT_SETTINGS.graph, ...request.limits };
-  // GLM defaults can spend the entire allowance thinking. Low is its minimum
-  // supported level; Mistral's own reasoning models also support none.
-  const { definition, model } = request.provider;
-  const reasoningEffort =
-    definition?.id === 'mistral'
-      ? model === 'zai-glm-5-3'
-        ? ('low' as const)
-        : [
-              'mistral-large-4',
-              'mistral-large-4-0',
-              'mistral-medium-3-5',
-              'mistral-small-latest',
-              'mistral-small-2603',
-            ].includes(model)
-          ? ('none' as const)
-          : undefined
-      : undefined;
   const response = await runStructured(
     {
       provider: request.provider,
@@ -134,7 +118,7 @@ export async function requestLinkSuggestions(
         },
       },
       maxTokens: limits.maxOutputTokens,
-      reasoningEffort,
+      reasoningEffort: structuredReasoningEffort(request.provider),
       temperature: 0.2,
     },
     AiLinkSuggestionsResponseSchema,

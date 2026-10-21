@@ -10,6 +10,7 @@
  * task. The conversion gate still checks that the resulting scene is editable;
  * a converter rejection earns one attempt to revise the plan.
  */
+import { VISUALIZATION_OUTPUT_TOKENS, structuredReasoningEffort } from './budgets';
 import {
   AiDiagramPlanSchema,
   VisualizationEditorialSchema,
@@ -53,7 +54,8 @@ export async function requestDiagram(
   const call = {
     provider: request.provider,
     messages,
-    maxTokens: 4_000,
+    maxTokens: VISUALIZATION_OUTPUT_TOKENS,
+    reasoningEffort: structuredReasoningEffort(request.provider),
     // Low, for the reason the mind map gives: a diagram is a structural reading
     // of the note, and a model being inventive about the boxes is a model
     // drawing material the lecture did not contain.

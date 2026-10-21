@@ -6,6 +6,7 @@
  * that comes back is a proposal; `vocabularyCommands.ts` writes only what the
  * student ticks.
  */
+import { DEFAULT_OUTPUT_TOKENS } from './budgets';
 import { AiVocabularyResponseSchema, type AiVocabularyResponse } from '@/lib/schema';
 import type { AiRunOptions } from './client';
 import { vocabularyPrompt } from './prompts';
@@ -40,7 +41,7 @@ export async function requestVocabularyReview(
         material: request.material.slice(0, MAX_VOCABULARY_MATERIAL_CHARS),
         language: request.language,
       }),
-      maxTokens: 3_000,
+      maxTokens: DEFAULT_OUTPUT_TOKENS,
       // Spelling is not a creative act, and a second run on the same course
       // should not propose a different set of fixes.
       temperature: 0.1,

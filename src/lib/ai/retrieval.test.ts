@@ -233,6 +233,10 @@ describe('headingSectionWindow', () => {
 });
 
 describe('sourceBudget', () => {
+  it('reserves the larger answer allowance without starving small local contexts', () => {
+    expect(sourceBudget('', { contextTokens: 32_768 })).toBe(23_076);
+    expect(sourceBudget('', { contextTokens: 8_192 })).toBe(4_644);
+  });
   it('shrinks as the conversation grows', () => {
     const long = 'word '.repeat(100_000);
     expect(sourceBudget(long)).toBeLessThan(sourceBudget('short question'));

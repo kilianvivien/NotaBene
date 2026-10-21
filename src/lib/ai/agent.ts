@@ -6,6 +6,7 @@
  * as the loopback server. This file owns model turns, budgets and cancellation;
  * the command layer owns scope enforcement, journaling and writes.
  */
+import { DEFAULT_OUTPUT_TOKENS } from './budgets';
 import {
   AGENT_TOOL_NAMES,
   AgentDecisionSchema,
@@ -43,11 +44,11 @@ export const DEFAULT_AGENT_BUDGET: AgentBudget = {
  * allowance before they write the small JSON object we actually receive. A
  * tight prose-sized ceiling therefore truncates the object, even though the
  * visible answer is only a few lines. */
-const DECISION_MAX_TOKENS = 8_192;
+const DECISION_MAX_TOKENS = DEFAULT_OUTPUT_TOKENS;
 /** The same room as a decision. Planning is the first thing a thinking model
  * does, and on a four-thousand ceiling it spent most of the allowance on
  * thought before writing a five-step plan. */
-const PLAN_MAX_TOKENS = 8_192;
+const PLAN_MAX_TOKENS = DEFAULT_OUTPUT_TOKENS;
 /** One model turn may take this long, however much of the run's wall clock is
  * left. Handing a turn the whole remaining clock meant a provider that stalled
  * on the last turn — the one that only says "finished" — kept the panel on
@@ -75,7 +76,7 @@ const CALLS_KEPT_AFTER_CONDENSING = 2;
 /** A condensation needs new calls behind it before another is worth making;
  * otherwise one oversized result could condense the run on every turn. */
 const MIN_CALLS_BETWEEN_CONDENSATIONS = 3;
-const PROGRESS_MAX_TOKENS = 4_096;
+const PROGRESS_MAX_TOKENS = DEFAULT_OUTPUT_TOKENS;
 /** A listed note's snippet is an identification aid, not source text. */
 const MAX_ROW_SNIPPET_CHARS = 200;
 /** Listings whose rows are worth keeping whole rather than as sliced JSON. */
