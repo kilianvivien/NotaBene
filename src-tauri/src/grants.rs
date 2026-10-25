@@ -58,7 +58,7 @@ fn normalize(path: &Path) -> Option<PathBuf> {
 }
 
 /// NotaBene's own folders: the exports folder MCP writes into, and the
-/// managed backups folder. Created on demand, like their commands do.
+/// managed backups folder.
 fn owned_roots(app: &AppHandle) -> Vec<PathBuf> {
     let mut roots = Vec::new();
     if let Ok(backups) = crate::db::backups_path(app) {
@@ -67,12 +67,18 @@ fn owned_roots(app: &AppHandle) -> Vec<PathBuf> {
     if let Ok(downloads) = app.path().download_dir() {
         roots.push(downloads.join("NotaBene exports"));
     }
+    existing(roots)
+}
+
+/// Only the roots that exist. A check must never create one: this runs on
+/// every save-panel export and backup read, and creating here left an empty
+/// "NotaBene exports" in every student's Downloads. The commands that write
+/// into a root (`exports_dir`, `backups_dir`) create it first, and a path
+/// under a missing root could not be normalized anyway.
+fn existing(roots: Vec<PathBuf>) -> Vec<PathBuf> {
     roots
         .into_iter()
-        .filter_map(|root| {
-            std::fs::create_dir_all(&root).ok()?;
-            std::fs::canonicalize(root).ok()
-        })
+        .filter_map(|root| std::fs::canonicalize(root).ok())
         .collect()
 }
 
@@ -344,6 +350,16 @@ mod tests {
         // is refused rather than guessed at.
         assert_eq!(normalize(&dir.0.join("missing/export.html")), None);
         assert_eq!(normalize(&dir.0.join("missing/../export.html")), None);
+    }
+
+    #[test]
+    fn judging_a_path_never_creates_an_owned_root() {
+        let dir = temp();
+        std::fs::create_dir_all(dir.0.join("backups")).unwrap();
+        let exports = dir.0.join("NotaBene exports");
+        let roots = existing(vec![dir.0.join("backups"), exports.clone()]);
+        assert_eq!(roots, vec![dir.0.join("backups")]);
+        assert!(!exports.exists());
     }
 
     #[test]

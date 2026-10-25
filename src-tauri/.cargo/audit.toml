@@ -1,0 +1,26 @@
+# cargo-audit configuration. Every ignore carries the reason it is safe, so
+# `cargo audit` before a release (plan §18 rule 1) shows only live findings.
+# Re-read these whenever the dependency named in the reason changes.
+
+[advisories]
+ignore = [
+    # zip: SUID/SGID bits preserved on extraction.
+    "RUSTSEC-2026-0367",
+    # zip: `ZipArchive::extract` writes symlinks that escape the destination.
+    "RUSTSEC-2026-0368",
+    # zip: `extract()` applies Unix permissions through symlinks.
+    "RUSTSEC-2026-0369",
+]
+# Why the three zip advisories are unreachable (assessed 2026-10-25, 1.4.4):
+# - zip 8.6.0 comes only from anydoc 0.2.4, which pins it. anydoc opens a
+#   document package in memory (`package/archive.rs`: `ZipArchive::new`,
+#   `by_name`, a capped `read_to_end`) and never calls `extract`, never uses
+#   `ZipStreamReader`, and writes nothing to disk. Its `ZipWriter` uses are all
+#   in `#[cfg(test)]` modules.
+# - zip 4.6.1 comes only from tauri-plugin-updater, under a Windows-only
+#   target; it is not in the macOS build (`cargo tree -i zip@4.6.1 --target
+#   aarch64-apple-darwin` prints nothing).
+# - NotaBene's own Rust extracts no ZIP; Notion import unzips in the webview
+#   with fflate (`src/lib/archive/zip.ts`).
+# Remove these ignores when anydoc moves to zip >= 9, or at once if any code
+# here starts extracting archives to disk.
