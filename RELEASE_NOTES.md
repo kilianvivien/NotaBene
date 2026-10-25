@@ -1,5 +1,59 @@
 # Release notes
 
+## NotaBene 1.4.4 — 25 October 2026
+
+- **No more empty folder in Downloads.** Exporting a note, or opening a
+  backup, used to create an empty "NotaBene exports" folder in your Downloads
+  every time. It is now created only when something is actually exported
+  there, by an AI agent connected over MCP. You can delete the folder already
+  there.
+- **Security updates for encrypted connections.** The TLS libraries behind AI
+  requests, saved web pages, live dictation and update checks move to
+  versions that fix the six advisories reported in 1.4.3.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27.
+
+**Verification:** Typecheck, lint and 1,210 unit tests passed (18 skipped).
+`cargo check` and 163 Rust unit tests passed (9 ignored), including a new
+test that checking a file's permissions never creates a folder. The DMG was
+built fresh from `fd10b58` and verified for integrity, packaged 1.4.4
+version, ARM64 architecture, macOS 13 minimum and ad-hoc signature. Its
+packaged app matches the build bundle.
+
+**Known issues and verification limits:**
+
+- **Not yet checked in the macOS app:** the Downloads fix, live-provider
+  generation and Tauri-shell interaction.
+- **Still to be confirmed:** the duplicated autocomplete suffix and the quiet
+  start of some built-in microphone recordings.
+- **Rust dependencies:** `cargo audit` reports no vulnerabilities. The three
+  `zip` extraction advisories are assessed as not reachable: the document
+  importer only reads archives in memory and never extracts them to disk, and
+  the other copy is Windows-only. The reasoning is recorded in
+  `src-tauri/.cargo/audit.toml`. Seven unmaintained or unsound warnings
+  remain, none of them in code NotaBene calls.
+- **npm dependencies** (`pnpm audit` reports seven findings):
+  - **DOMPurify 3.4.16**, pulled in by the diagram renderer: three advisories
+    (critical, high, low). Each needs a sanitizer option (`SAFE_FOR_TEMPLATES`,
+    `IN_PLACE`, or an XHTML parser type) that the renderer does not set, so
+    they are assessed as not reachable.
+  - **Zod 3** (high): memory exhaustion while validating oversized
+    collections. Not assessed in this release. The fix requires migrating to
+    Zod 4.
+  - **KaTeX** (low), transitive.
+  - **Vitest** (two moderate): development only, not in the app.
+
+**Download:** [NotaBene 1.4.4 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.4/NotaBene_1.4.4_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `7794d0786b360fa5479a67928863f0c610c2fe689a8f5bb5c7871615ddd34605`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.3...v1.4.4)
+
 ## NotaBene 1.4.3 — 21 October 2026
 
 - **More room for AI answers.** AI modes now allow at least 8,192 output
