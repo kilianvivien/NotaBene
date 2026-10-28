@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.4"><img alt="Latest release: 1.4.4" src="https://img.shields.io/badge/release-1.4.4-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.5"><img alt="Latest release: 1.4.5" src="https://img.shields.io/badge/release-1.4.5-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.4.4 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.4/NotaBene_1.4.4_aarch64.dmg)**
+**[NotaBene 1.4.5 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.5/NotaBene_1.4.5_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
@@ -83,6 +83,8 @@ each course's vocabulary — Tab to accept, never inserted on its own.
 Right-click a word or selection for clipboard, formatting, links and vocabulary
 commands, or use Correct selection and Rewrite selection to review an AI
 proposal for just that passage. Shift-right-click opens the native macOS menu.
+Markdown imports and agent-written notes recognize callouts such as
+`[!SUMMARY]`, `[!TIP]` and `[!WARNING]`, including titles and collapsible boxes.
 
 **Lecture recording.** ⌥⌘R records into the open note. Every paragraph or
 heading started during the recording gets a marker that plays from two
@@ -140,9 +142,9 @@ with the note.
 
 **AI, on your terms.** Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama,
 LM Studio, Apple Intelligence on-device, or any OpenAI-compatible endpoint —
-or none. Every edit a model proposes is shown before it reaches a note, and
-anything it returns is validated. Voices can be macOS system voices, on-device
-neural voices (Kokoro, Voxtral), or opt-in hosted ones. Hosted speech uses
+or none. AI editing tools show proposals for review; the Agent follows your
+scope and review settings. Model outputs are validated. Voices can be macOS
+system voices, on-device neural voices (Kokoro, Voxtral), or opt-in hosted ones. Hosted speech uses
 Gemini 3.8 Flash-Lite TTS or Voxtral 3, with your main Gemini or Mistral API key;
 configure each key once in Settings → AI Providers. Local voices are unchanged.
 
@@ -150,10 +152,17 @@ configure each key once in Settings → AI Providers. Local voices are unchanged
 [Model Context Protocol](https://modelcontextprotocol.io/) server lets an
 assistant search, read, write, organize and archive notes through the same
 checks and history as your own typing, and never delete permanently. The
-in-app Agent uses the same 31 tools: it plans first, can run the study
-features, asks when a job is ambiguous, holds large bulk changes for your
-approval, and undoes as one step.
-It can also find unlinked mentions and turn them into links in bulk.
+in-app Agent uses the same 31 tools, including study features and linking
+unlinked mentions. Small tasks run after planning; larger tasks, merging and
+Trash wait for plan review. Settings → Agent access can require review for
+every new task. Follow-ups continue directly with the previous task's context.
+Large bulk changes still wait for approval, and each run can be undone as one
+step. A budget meter shows progress through the allowance; **Keep going**
+continues a task stopped at its limit.
+
+Settings → Agent access also offers **Automatic**, **Light** and **Thorough**
+reasoning for supported models. On Mistral, the Agent uses the Responses API
+and defaults to DeepSeek V4.1 Flash; other AI features keep their model choices.
 
 **Exports.** Markdown, HTML, PDF, DOCX and Anki, for a note, a course or a
 selection. Manuscript export adds a title page, contents and numbering.
@@ -169,11 +178,10 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.4.4** is a maintenance release. Exporting no longer leaves an
-empty "NotaBene exports" folder in your Downloads, and the libraries behind
-encrypted connections (AI requests, saved web pages, dictation, update
-checks) carry their latest security fixes. The dependency findings that
-remain are explained in the [release notes](./RELEASE_NOTES.md).
+**NotaBene 1.4.5** improves the Agent's reliability, adds reasoning and plan
+review settings, and makes follow-ups run directly. It also reads more Markdown
+callout styles and updates DOMPurify to 3.4.17. Verification details and the
+remaining dependency findings are in the [release notes](./RELEASE_NOTES.md).
 The app is not yet signed with a
 Developer ID or notarized, and has no automatic updates.
 

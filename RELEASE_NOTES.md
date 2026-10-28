@@ -1,5 +1,81 @@
 # Release notes
 
+## NotaBene 1.4.5 — 28 October 2026
+
+- **A more reliable Agent.** Mistral agent requests now use the Responses
+  API, with DeepSeek V4.1 Flash as the default agent model. Better tool
+  arguments, clearer validation, checks against changes that do nothing,
+  retries for truncated answers, and guards against repeated calls help
+  tasks finish without exhausting their allowance. Other AI features keep
+  their model choices. GLM 5.3 Flash and DeepSeek V4.1 Flash are now available
+  in Mistral's model picker.
+- **Fewer stops for small tasks.** Small tasks run as soon as they are
+  planned. Larger tasks, merging and Trash still wait for plan review;
+  Settings → Agent access can require review for every new task. Follow-ups
+  such as “ok” continue directly with the previous task's context, scope and
+  allowance. Large bulk changes still wait for approval, and each run remains
+  undoable.
+- **Reasoning and progress controls.** Choose Automatic, Light or Thorough
+  reasoning in Settings → Agent access for supported models. A budget meter
+  shows how much of a run's allowance has been used. Complex plans get more
+  room; **Keep going** continues a task stopped at a limit with a fresh
+  allowance. Errors are shown once, with clearer explanations when a plan
+  needs review.
+- **Markdown callouts from other apps and models.** Imports and agent-written
+  notes recognize callouts such as `[!SUMMARY]`, `[!TIP]` and `[!WARNING]`,
+  including marker-line text and collapsible boxes. Agent note writes return
+  compact receipts, so long notes no longer hide the confirmation of an edit
+  and prompt repeated rewrites.
+- **DOMPurify security update.** The diagram renderer's sanitizer moves to
+  3.4.17, clearing the three DOMPurify advisories reported in 1.4.4.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27.
+
+**Verification:** Typecheck, lint and 1,259 unit tests passed (20 skipped).
+The owner's existing DMG was verified for integrity, packaged 1.4.5 version,
+ARM64 architecture, macOS 13 minimum and valid ad-hoc signature. Its packaged
+app matches the build bundle. This release uses that build, created after
+`9d3e6b6`, without rebuilding it.
+
+The implementation's recorded live evaluations cover four models hosted by
+Mistral. The final 17-case corpus passed on DeepSeek V4.1 Flash, Mistral
+Large 4 and GLM 5.3; GLM 5.3 Flash passed 82%. These are synthetic tasks,
+not a guarantee for every library. Live evaluations were not rerun during
+publication.
+
+**Known issues and verification limits:**
+
+- **Desktop checks:** native menus and clipboard, graph gestures, recording
+  recovery and microphone levels, live dictation/transcription, file panels,
+  backups and restore remain to be confirmed in the macOS app. The previously
+  reported duplicated autocomplete suffix and quiet start of some built-in
+  microphone recordings are still unconfirmed.
+- **Broader qualification:** real-world Obsidian/Notion imports and calendar
+  round trips, OCR and export fidelity, crash recovery, performance budgets,
+  external-client MCP cold start, Apple model sleep/wake and other live AI
+  providers were not qualified for this release. Browser end-to-end tests
+  were not rerun during publication.
+- **npm dependencies:** the audit reports four findings: Zod 3 (high,
+  oversized-collection memory exhaustion; reachability remains unassessed),
+  transitive KaTeX (low), and two development-only Vitest findings (moderate).
+- **Rust dependencies:** `cargo audit` reports no vulnerabilities after the
+  three ZIP extraction exclusions documented in `src-tauri/.cargo/audit.toml`
+  (in-memory archive reads or Windows-only code). Seven unmaintained or
+  unsound dependency warnings remain, including Tokio's `AsyncFd`
+  constructors; the existing assessment records no NotaBene calls to those
+  constructors.
+
+**Download:** [NotaBene 1.4.5 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.5/NotaBene_1.4.5_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `17a24913d5b1403841de9d05de3962b341386c4ca252a1663bfbc54679d8921a`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.4...v1.4.5)
+
 ## NotaBene 1.4.4 — 25 October 2026
 
 - **No more empty folder in Downloads.** Exporting a note, or opening a
