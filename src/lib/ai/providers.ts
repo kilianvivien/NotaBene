@@ -49,6 +49,12 @@ export interface ProviderDefinition {
    * means the JSON decision document, which every provider handles.
    */
   nativeTools?: boolean;
+  /**
+   * The provider serves the OpenAI Responses format at `${baseUrl}/responses`
+   * with the same key. Only calls that ask for it (`AiCall.responses` — the
+   * agent's) go there; every other feature keeps chat completions.
+   */
+  responsesApi?: boolean;
   quirks?: ProviderQuirks;
 }
 
@@ -75,9 +81,6 @@ export interface ProviderQuirks {
   /** Some compatible servers stream when this field is omitted, even on a
    * whole-response request. */
   explicitStream?: boolean;
-  /** The `tool_choice` value that forces a call. OpenAI and OpenRouter say
-   * `required`; Mistral says `any`. */
-  requiredToolChoice?: 'required' | 'any';
 }
 
 export const AI_PROVIDERS: ProviderDefinition[] = [
@@ -135,7 +138,12 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
       // Z.ai's open-weight GLM, served by Mistral in Europe. Third-party, so
       // it carries no `-latest` alias and is pinned to the published id.
       'zai-glm-5-3',
+      // About a ninth of GLM 5.3's price, for the same tool calls.
+      'zai-glm-5-3-flash',
       'zai-glm-5-2',
+      // DeepSeek's open-weight Flash, a public preview at Mistral. Pinned to
+      // its dated id, which is the only one published.
+      'deepseek-v4-1-flash-1017',
     ],
     defaultModel: 'mistral-medium-latest',
     // GLM is the stronger tool-caller of the two families, and the Agent is
@@ -147,7 +155,10 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     // here may also not implement the field at all, which `runStructured`
     // recovers from by asking again in plain JSON mode.
     nativeTools: true,
-    quirks: { jsonSchemaMode: true, jsonSchemaStrict: false, requiredToolChoice: 'any' },
+    // The agent's plans, turns and progress summaries go to `/v1/responses`,
+    // which Mistral serves for all its text models.
+    responsesApi: true,
+    quirks: { jsonSchemaMode: true, jsonSchemaStrict: false },
   },
   {
     id: 'gemini',

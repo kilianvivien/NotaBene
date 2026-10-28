@@ -11,7 +11,8 @@
  * Optional: NOTABENE_AGENT_EVAL_MODEL, NOTABENE_AGENT_EVAL_BASE_URL (a local
  * runtime), NOTABENE_AGENT_EVAL_MODE=json (the JSON decision document even
  * where native calls exist, to compare the two), NOTABENE_AGENT_EVAL_CASES
- * (comma-separated ids). Results are printed and written to `agent-eval/`.
+ * (comma-separated ids), NOTABENE_AGENT_EVAL_TRACE=1 (every call, as it ran).
+ * Results are printed and written to `agent-eval/`.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -43,6 +44,8 @@ import { providerById, secretKeyFor } from './providers';
 
 const providerId = process.env.NOTABENE_AGENT_EVAL;
 const forceJson = process.env.NOTABENE_AGENT_EVAL_MODE === 'json';
+/** Print each case's calls, arguments and errors as it finishes. */
+const trace = Boolean(process.env.NOTABENE_AGENT_EVAL_TRACE);
 const only = process.env.NOTABENE_AGENT_EVAL_CASES?.split(',').map((id) => id.trim());
 const cases = AGENT_EVALUATION_CASES.filter((entry) => !only || only.includes(entry.id));
 const results: AgentCaseResult[] = [];
@@ -139,6 +142,20 @@ async function runCase(testCase: AgentEvalCase): Promise<AgentCaseResult> {
     const run = useAgentStore
       .getState()
       .runs.find((entry) => entry.id === planned.value.id)!;
+    if (trace) {
+      // A failing case's summary line says what was wrong with the library,
+      // not what the agent did to get there. This is the second half.
+      process.stdout.write(
+        `\n── ${testCase.id}: ${run.status}${run.error ? ` (${run.error})` : ''}\n${run.calls
+          .map(
+            (call) =>
+              `  ${call.status.padEnd(9)} ${call.tool} ${JSON.stringify(call.arguments).slice(0, 240)}${
+                call.error ? `\n            ↳ ${call.error.slice(0, 240)}` : ''
+              }`,
+          )
+          .join('\n')}\n`,
+      );
+    }
     return scoreAgentCase(
       testCase,
       {

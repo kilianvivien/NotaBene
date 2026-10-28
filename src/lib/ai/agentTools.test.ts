@@ -17,6 +17,7 @@ import {
   toolResponseDecision,
   transcriptForDecision,
   usesNativeTools,
+  AgentStuckError,
   BUDGET_EXHAUSTED,
   mechanicalProgress,
   type AgentLoopRequest,
@@ -117,7 +118,11 @@ describe('native tool calls on the wire', () => {
     const openai = JSON.parse(buildRequest(call('openai')).body!);
     expect(openai.tool_choice).toBe('required');
     expect(openai).not.toHaveProperty('response_format');
-    expect(JSON.parse(buildRequest(call('mistral')).body!).tool_choice).toBe('any');
+    // The agent reaches Mistral through the Responses endpoint, which says
+    // `required` like OpenAI rather than chat completions' `any`.
+    const mistral = buildRequest({ ...call('mistral'), responses: true });
+    expect(mistral.url).toBe('https://api.mistral.ai/v1/responses');
+    expect(JSON.parse(mistral.body!).tool_choice).toBe('required');
     const gemini = JSON.parse(buildRequest(call('gemini')).body!);
     expect(gemini.toolConfig.functionCallingConfig.mode).toBe('ANY');
     expect(gemini.generationConfig).not.toHaveProperty('responseMimeType');
@@ -279,6 +284,123 @@ describe('native decisions', () => {
     expect(second.messages[0].content).toContain('Tags are in French.');
     expect(second.messages[0].content).toContain('Answer with a tool call');
     spy.mockRestore();
+  });
+});
+
+describe('the agent over Mistral’s Responses API', () => {
+  it('sends its turn to /v1/responses and reports what the provider measured', async () => {
+    const { aiTransport } = await import('@/lib/adapters');
+    const spy = vi.spyOn(aiTransport, 'request').mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: JSON.stringify({
+        object: 'response',
+        status: 'completed',
+        output: [
+          {
+            type: 'function_call',
+            call_id: 'call_1',
+            name: 'finish',
+            arguments: '{"outcomeAchieved":true,"summary":"ok"}',
+          },
+        ],
+        usage: { input_tokens: 900, output_tokens: 40 },
+      }),
+    });
+    const measured: number[] = [];
+    const decision = await requestNativeDecision(
+      request({ provider: resolved('mistral', 'zai-glm-5-3'), cacheKey: 'agent_run' }),
+      [],
+      { onModelTokens: (tokens) => measured.push(tokens) },
+    );
+    expect(decision).toEqual({ action: 'done', outcomeAchieved: true, summary: 'ok' });
+    expect(measured).toEqual([940]);
+    const sent = spy.mock.calls[0]![0];
+    expect(sent.url).toBe('https://api.mistral.ai/v1/responses');
+    const body = JSON.parse(String(sent.body));
+    expect(body.tool_choice).toBe('required');
+    expect(body.prompt_cache_key).toBe('agent_run');
+    expect(body.instructions).toContain('NotaBene agent');
+    spy.mockRestore();
+  });
+
+  it('counts the provider’s figure against the ceiling instead of its estimate', async () => {
+    const turns: AgentDecision[] = [
+      { action: 'tool', tool: 'get_app_state', arguments: {}, rationale: 'look' },
+      { action: 'done', outcomeAchieved: true, summary: 'ok' },
+    ];
+    let index = 0;
+    const result = await runAgentLoop(
+      request({ toolDefinitions: undefined }),
+      {},
+      {
+        decide: async (_request, _transcript, options) => {
+          options.onModelTokens?.(1_000);
+          return turns[index++]!;
+        },
+        now: () => 0,
+        newId: () => `call-${index}`,
+      },
+    );
+    expect(result.tokensUsed).toBe(2_000);
+  });
+});
+
+describe('a call that keeps failing', () => {
+  it('names the repeat to the model, then stops the run on the third', async () => {
+    const seen: unknown[][] = [];
+    const same: AgentDecision = {
+      action: 'tool',
+      tool: 'manage_tags',
+      arguments: { add: ['exam:midterm'] },
+      rationale: 'tag them',
+    };
+    const run = runAgentLoop(
+      request({
+        toolDefinitions: undefined,
+        executeTool: async () => ({
+          ok: false as const,
+          code: 'invalid_input',
+          message: 'invalid arguments',
+        }),
+      }),
+      {},
+      {
+        decide: async (_request, transcript) => {
+          seen.push([...transcript]);
+          return same;
+        },
+        now: () => 0,
+        newId: () => 'call',
+      },
+    );
+    await expect(run).rejects.toBeInstanceOf(AgentStuckError);
+    expect(seen).toHaveLength(3);
+    expect(JSON.stringify(seen[2])).toContain('failed 2 times');
+  });
+
+  it('forgets a failure once the same call succeeds', async () => {
+    let attempt = 0;
+    const result = await runAgentLoop(
+      request({
+        toolDefinitions: undefined,
+        executeTool: async () =>
+          ++attempt % 3 === 0
+            ? { ok: true as const, value: {} }
+            : { ok: false as const, code: 'conflict', message: 'stale' },
+      }),
+      {},
+      runtime([
+        ...Array.from({ length: 5 }, () => ({
+          action: 'tool' as const,
+          tool: 'get_app_state' as const,
+          arguments: {},
+          rationale: 'look',
+        })),
+        { action: 'done', outcomeAchieved: true, summary: 'ok' },
+      ]),
+    );
+    expect(result.toolCalls).toBe(5);
   });
 });
 

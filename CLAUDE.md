@@ -278,6 +278,14 @@ Phase L notes worth knowing before touching it:
   table, never by a hand-written schema. Turns stay stateless (the compacted
   transcript as prose), reads in one turn run in parallel, writes in order.
   Measure a loop change with `pnpm eval:agent` before claiming it helped.
+- On Mistral the agent's calls go to `/v1/responses` (`responsesApi` on the
+  provider, `responses: true` on the call); every other feature and provider
+  keeps its own wire. Responses bodies are recognised by shape (`output`),
+  never by provider. The token ceiling counts reported `usage` where a turn
+  gives one (`onModelTokens`), the estimate otherwise.
+- Staged writes are validated against `TOOL_ARGUMENT_SCHEMAS` before they are
+  recorded, because staging never reaches the handler. The third identical
+  failing call in a row ends a run (`AgentStuckError`).
 - Calendars (`src/lib/export/ics.ts`, `src/lib/import/ics.ts`) write `VEVENT`s
   in floating local time with `UID:task-{id}@notabene`; local midnight means
   all-day. Import is strict and bounded, maps only rules that fit the three

@@ -286,6 +286,21 @@ describe('staging and applying', () => {
     expect(record.changeset.calls).toHaveLength(0);
   });
 
+  it('refuses a staged call the tool itself would refuse, instead of recording nothing', async () => {
+    const record = planned(['manage_tags']);
+    record.changeset = { state: 'staging', calls: [], noteVersions: {} };
+    // What GLM 5.3 sent on every turn of a looping run: a tag, and no notes.
+    const outcome = await executeAgentTool(
+      record,
+      'manage_tags',
+      { add: ['exam:midterm'] },
+      new AbortController().signal,
+    );
+    expect(outcome).toMatchObject({ ok: false, code: 'invalid_input' });
+    expect(JSON.stringify(outcome)).toContain('pass notes, or noteId with baseUpdatedAt');
+    expect(record.changeset.calls).toHaveLength(0);
+  });
+
   it('creates a section at once so the staged moves can name it', async () => {
     const course = await createCourseCommand({ name: 'Constitutional Law' });
     if (!course.ok) throw new Error(course.message);

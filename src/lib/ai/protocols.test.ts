@@ -4,6 +4,10 @@ import {
   parseResponse,
   parseStreamError,
   parseStreamFrame,
+  parseToolResponse,
+  ProviderRefusalError,
+  ProviderTruncationError,
+  readUsage,
 } from './protocols';
 import type { AiCall, ResolvedProvider } from './protocols';
 import { providerById } from './providers';
@@ -220,5 +224,217 @@ describe('parseStreamFrame', () => {
         frame([{ type: 'thinking', thinking: [{ type: 'text', text: 'The' }] }]),
       ),
     ).toBe('');
+  });
+});
+
+/**
+ * Mistral's Responses endpoint, which only the agent asks for. Shapes are
+ * trimmed from the documented examples.
+ */
+describe('Responses API', () => {
+  const mistral = resolved('mistral', 'zai-glm-5-3');
+  const tools: AiCall['tools'] = {
+    definitions: [
+      {
+        name: 'read_note',
+        description: 'Read a note.',
+        parameters: { type: 'object', properties: { noteId: { type: 'string' } } },
+      },
+    ],
+    required: true,
+  };
+  function call(overrides: Partial<AiCall> = {}): AiCall {
+    return {
+      provider: mistral,
+      messages: [
+        { role: 'system', content: 'Be careful.' },
+        { role: 'user', content: 'hello' },
+      ],
+      maxTokens: 512,
+      temperature: 0,
+      json: false,
+      stream: false,
+      responses: true,
+      ...overrides,
+    };
+  }
+
+  it('is used only by calls that ask for it, on providers that serve it', () => {
+    expect(buildRequest(call()).url).toBe('https://api.mistral.ai/v1/responses');
+    expect(buildRequest(call({ responses: false })).url).toBe(
+      'https://api.mistral.ai/v1/chat/completions',
+    );
+    expect(buildRequest(call({ provider: resolved('openrouter') })).url).toBe(
+      'https://openrouter.ai/api/v1/chat/completions',
+    );
+  });
+
+  it('sends instructions, typed input, tools and a stateless request', () => {
+    const request = buildRequest(call({ tools, cacheKey: 'agent_1' }));
+    const body = JSON.parse(request.body ?? '') as Record<string, unknown>;
+    expect(request.headers.authorization).toBe('Bearer key');
+    expect(body).toMatchObject({
+      model: 'zai-glm-5-3',
+      instructions: 'Be careful.',
+      input: [{ type: 'message', role: 'user', content: 'hello' }],
+      max_output_tokens: 512,
+      tool_choice: 'required',
+      parallel_tool_calls: true,
+      prompt_cache_key: 'agent_1',
+      tools: [
+        {
+          type: 'function',
+          name: 'read_note',
+          description: 'Read a note.',
+          parameters: { type: 'object', properties: { noteId: { type: 'string' } } },
+        },
+      ],
+    });
+    // Mistral refuses server-side state on this endpoint.
+    expect(body).not.toHaveProperty('store');
+    expect(body).not.toHaveProperty('previous_response_id');
+    expect(body).not.toHaveProperty('text');
+  });
+
+  it('asks for structured output through text.format', () => {
+    const schema = { name: 'plan', schema: { type: 'object' } };
+    const body = JSON.parse(
+      buildRequest(call({ json: true, jsonSchema: schema, reasoningEffort: 'low' })).body ??
+        '',
+    ) as Record<string, unknown>;
+    expect(body.text).toEqual({
+      format: { type: 'json_schema', name: 'plan', strict: false, schema: { type: 'object' } },
+    });
+    expect(body.reasoning).toEqual({ effort: 'low' });
+    const plain = JSON.parse(buildRequest(call({ json: true })).body ?? '') as Record<
+      string,
+      unknown
+    >;
+    expect(plain.text).toEqual({ format: { type: 'json_object' } });
+  });
+
+  const answer = {
+    id: 'resp_1',
+    object: 'response',
+    status: 'completed',
+    error: null,
+    output: [
+      { type: 'reasoning', id: 'rs_1', summary: [{ type: 'summary_text', text: 'private' }] },
+      {
+        type: 'message',
+        id: 'msg_1',
+        role: 'assistant',
+        status: 'completed',
+        content: [{ type: 'output_text', text: 'Checking first.', annotations: [] }],
+      },
+      {
+        type: 'function_call',
+        id: 'fc_1',
+        call_id: 'call_a',
+        name: 'read_note',
+        arguments: '{"noteId":"n1"}',
+      },
+      {
+        type: 'function_call',
+        id: 'fc_2',
+        call_id: 'call_b',
+        name: 'read_note',
+        arguments: 'not json',
+      },
+    ],
+    usage: { input_tokens: 1200, output_tokens: 80, total_tokens: 1280 },
+  };
+
+  it('reads calls, text and usage, and leaves the reasoning behind', () => {
+    expect(parseToolResponse(mistral, JSON.stringify(answer))).toEqual({
+      text: 'Checking first.',
+      calls: [
+        { id: 'call_a', name: 'read_note', arguments: { noteId: 'n1' } },
+        { id: 'call_b', name: 'read_note', arguments: {} },
+      ],
+      usage: { inputTokens: 1200, outputTokens: 80 },
+    });
+    expect(parseResponse(mistral, JSON.stringify(answer))).toBe('Checking first.');
+  });
+
+  it('reports a response cut off by the output allowance', () => {
+    const cut = {
+      ...answer,
+      status: 'incomplete',
+      incomplete_details: { reason: 'max_output_tokens' },
+    };
+    expect(() => parseResponse(mistral, JSON.stringify(cut))).toThrow(
+      ProviderTruncationError,
+    );
+  });
+
+  it('surfaces a failed response and a refusal in the provider’s words', () => {
+    const failed = { ...answer, status: 'failed', error: { message: 'model overloaded' } };
+    expect(() => parseResponse(mistral, JSON.stringify(failed))).toThrow('model overloaded');
+    const refused = {
+      ...answer,
+      output: [
+        {
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'refusal', refusal: 'I cannot help with that.' }],
+        },
+      ],
+    };
+    expect(() => parseResponse(mistral, JSON.stringify(refused))).toThrow(
+      ProviderRefusalError,
+    );
+  });
+
+  it('streams only the text deltas and reports failure events', () => {
+    expect(
+      parseStreamFrame(
+        mistral,
+        JSON.stringify({ type: 'response.output_text.delta', delta: 'Par' }),
+      ),
+    ).toBe('Par');
+    expect(
+      parseStreamFrame(
+        mistral,
+        JSON.stringify({ type: 'response.function_call_arguments.delta', delta: '{"' }),
+      ),
+    ).toBeNull();
+    expect(parseStreamError(JSON.stringify({ type: 'error', message: 'bad key' }))).toBe(
+      'bad key',
+    );
+    expect(
+      parseStreamError(
+        JSON.stringify({
+          type: 'response.failed',
+          response: { status: 'failed', error: { message: 'overloaded' } },
+        }),
+      ),
+    ).toBe('overloaded');
+    expect(
+      parseStreamError(JSON.stringify({ type: 'response.output_text.delta', delta: 'x' })),
+    ).toBeNull();
+  });
+});
+
+describe('readUsage', () => {
+  it('reads each protocol’s own field names', () => {
+    expect(readUsage({ usage: { prompt_tokens: 10, completion_tokens: 2 } })).toEqual({
+      inputTokens: 10,
+      outputTokens: 2,
+    });
+    expect(readUsage({ usage: { input_tokens: 7, output_tokens: 3 } })).toEqual({
+      inputTokens: 7,
+      outputTokens: 3,
+    });
+    expect(
+      readUsage({
+        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 1, thoughtsTokenCount: 4 },
+      }),
+    ).toEqual({ inputTokens: 5, outputTokens: 5 });
+  });
+
+  it('never reads a missing count as zero', () => {
+    expect(readUsage({})).toBeUndefined();
+    expect(readUsage({ usage: { input_tokens: 7 } })).toBeUndefined();
   });
 });

@@ -11,6 +11,7 @@ import { library } from '@/lib/adapters';
 import {
   AgentBudgetError,
   AgentScopeError,
+  AgentStuckError,
   AiParseError,
   BUDGET_EXHAUSTED,
   DEFAULT_AGENT_BUDGET,
@@ -23,7 +24,11 @@ import {
   type AiRunOptions,
   type AgentToolOutcome,
 } from '@/lib/ai';
-import { agentToolParameters, executeToolHandler } from '@/lib/mcp/toolHandlers';
+import {
+  agentToolParameters,
+  executeToolHandler,
+  TOOL_ARGUMENT_SCHEMAS,
+} from '@/lib/mcp/toolHandlers';
 import {
   AgentScopeSchema,
   MAX_AGENT_QUESTIONS,
@@ -312,6 +317,7 @@ export async function runAgentCommand(
         language: language(),
         standingInstructions: record.standingInstructions,
         toolDefinitions,
+        cacheKey: record.id,
         executeTool: (tool, args, signal) => executeAgentTool(record, tool, args, signal),
         askStudent: (question, signal) => askStudent(record, question, signal),
         onToolStart: ({ callId, decision }) => {
@@ -368,6 +374,7 @@ export async function runAgentCommand(
       !scopeDenied &&
       !(error instanceof AgentBudgetError) &&
       !(error instanceof AgentCompletionError) &&
+      !(error instanceof AgentStuckError) &&
       record.calls.some((call) => call.status === 'succeeded') &&
       !record.calls.some((call) => call.status === 'running') &&
       missingSuccessfulPlanTools(record.plan, record.calls).length === 0;
@@ -378,6 +385,8 @@ export async function runAgentCommand(
         ? budgetError(error.limit)
         : error instanceof AgentCompletionError
           ? i18n.t('agent.incompletePlan')
+          : error instanceof AgentStuckError
+            ? i18n.t('agent.stuck')
           : error instanceof AiParseError
             ? i18n.t('agent.invalidModelResponse')
             : error instanceof Error
@@ -615,6 +624,13 @@ export async function executeAgentTool(
   const scoped = await enforceScope(record, tool, args);
   if (!scoped.ok) return scoped;
   if (record.changeset?.state === 'staging' && STAGEABLE_TOOLS.has(tool)) {
+    // Staging never reaches the handler, so it must refuse what the handler
+    // would. A `manage_tags` naming no notes was recorded as a change to none
+    // and reported done; GLM repeated it until the run's budget ran out.
+    const parsed = TOOL_ARGUMENT_SCHEMAS[tool]?.safeParse(scoped.value);
+    if (parsed && !parsed.success) {
+      return fail('invalid_input', 'invalid arguments', parsed.error.issues);
+    }
     return stageTool(record, tool, scoped.value, signal);
   }
   return performTool(record, tool, scoped.value, signal);

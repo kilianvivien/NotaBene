@@ -51,6 +51,17 @@ export interface AiCall {
    * comes from the tool schemas, and several providers refuse both at once.
    */
   tools?: { definitions: AiToolDefinition[]; required: boolean };
+  /**
+   * Prefer the provider's Responses endpoint where it declares one
+   * (`ProviderDefinition.responsesApi`). Opt-in per call, because only the
+   * agent has been measured on it; everywhere else the chat-completions shape
+   * every feature was tuned against stays in place.
+   */
+  responses?: boolean;
+  /** Groups calls that share a long prefix — one agent run's turns — so a
+   * provider that caches prompts can reuse it. Sent only on the Responses
+   * endpoint, which documents the field. */
+  cacheKey?: string;
 }
 
 export interface AiToolDefinition {
@@ -72,6 +83,14 @@ export interface AiToolResponse {
   /** Any prose the model wrote beside its calls. */
   text: string;
   calls: AiToolCall[];
+  /** What the provider says the call cost, where it says so. The agent's
+   * token ceiling counts this rather than its own estimate when present. */
+  usage?: AiUsage;
+}
+
+export interface AiUsage {
+  inputTokens: number;
+  outputTokens: number;
 }
 
 /** Trailing slashes turn `${base}/chat/completions` into a 404 that reads like
@@ -91,7 +110,13 @@ function splitSystem(messages: AiMessage[]): {
   return { system, rest: messages.filter((message) => message.role !== 'system') };
 }
 
+/** Whether this call goes to the Responses endpoint. */
+export function usesResponsesApi(call: Pick<AiCall, 'provider' | 'responses'>): boolean {
+  return Boolean(call.responses && call.provider.definition.responsesApi);
+}
+
 export function buildRequest(call: AiCall): AiRequest {
+  if (usesResponsesApi(call)) return responsesRequest(call);
   switch (call.provider.definition.protocol) {
     case 'anthropic':
       return anthropicRequest(call);
@@ -174,9 +199,7 @@ function openAiRequest(call: AiCall): AiRequest {
                 parameters: tool.parameters,
               },
             })),
-            tool_choice: call.tools.required
-              ? (quirks.requiredToolChoice ?? 'required')
-              : 'auto',
+            tool_choice: call.tools.required ? 'required' : 'auto',
           }
         : {}),
     }),
@@ -199,6 +222,115 @@ function openAiResponseFormat(call: AiCall): Record<string, unknown> {
     };
   }
   return quirks.jsonMode === false ? {} : { response_format: { type: 'json_object' } };
+}
+
+// -- Responses (Mistral) -----------------------------------------------------
+
+/**
+ * The OpenAI Responses format, as Mistral serves it at `/v1/responses`.
+ *
+ * Stateless by Mistral's rules — `store`, `previous_response_id` and
+ * `conversation` must be absent — which suits the agent: every turn already
+ * resends its own compacted transcript, so nothing is lost by the server
+ * forgetting. What the endpoint adds is an answer, its reasoning and its tool
+ * calls as separate typed items, an honest `usage`, and `tool_choice:
+ * "required"` with the meaning every other provider gives it.
+ */
+function responsesRequest(call: AiCall): AiRequest {
+  const { system, rest } = splitSystem(call.messages);
+  const quirks = call.provider.definition.quirks ?? {};
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (call.provider.apiKey) {
+    headers.authorization = `Bearer ${call.provider.apiKey}`;
+  }
+  return {
+    url: `${base(call.provider)}/responses`,
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: call.provider.model,
+      ...(system ? { instructions: system } : {}),
+      input: rest.map((message) => ({
+        type: 'message',
+        role: message.role,
+        content: message.content,
+      })),
+      max_output_tokens: call.maxTokens,
+      ...(call.reasoningEffort ? { reasoning: { effort: call.reasoningEffort } } : {}),
+      ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
+      ...(call.tools ? {} : responsesTextFormat(call)),
+      ...(call.cacheKey ? { prompt_cache_key: call.cacheKey } : {}),
+      ...(call.stream ? { stream: true } : {}),
+      ...(call.tools
+        ? {
+            tools: call.tools.definitions.map((tool) => ({
+              type: 'function',
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.parameters,
+            })),
+            tool_choice: call.tools.required ? 'required' : 'auto',
+            parallel_tool_calls: true,
+          }
+        : {}),
+    }),
+  };
+}
+
+function responsesTextFormat(call: AiCall): Record<string, unknown> {
+  if (!call.json) return {};
+  const quirks = call.provider.definition.quirks ?? {};
+  if (quirks.jsonSchemaMode && call.jsonSchema) {
+    return {
+      text: {
+        format: {
+          type: 'json_schema',
+          name: call.jsonSchema.name,
+          strict: quirks.jsonSchemaStrict ?? true,
+          schema: call.jsonSchema.schema,
+        },
+      },
+    };
+  }
+  return quirks.jsonMode === false ? {} : { text: { format: { type: 'json_object' } } };
+}
+
+/** A Responses body is recognised by its shape rather than by the provider:
+ * the same Mistral provider answers chat completions for every other feature. */
+function isResponsesPayload(payload: unknown): payload is Record<string, unknown> & {
+  output: unknown[];
+} {
+  return isRecord(payload) && Array.isArray(payload.output);
+}
+
+/** The visible answer and the calls in a Responses `output`. Reasoning items
+ * are skipped on purpose, for the reason `openAiText` gives. */
+function readResponsesOutput(output: unknown[]): {
+  text: string;
+  calls: { id: string; name: string; arguments: unknown }[];
+} {
+  let text = '';
+  const calls: { id: string; name: string; arguments: unknown }[] = [];
+  for (const item of output) {
+    if (!isRecord(item)) continue;
+    if (item.type === 'function_call' && typeof item.name === 'string') {
+      calls.push({
+        id: String(item.call_id ?? item.id ?? `call_${calls.length}`),
+        name: item.name,
+        arguments: item.arguments,
+      });
+      continue;
+    }
+    if (item.type !== 'message' || !Array.isArray(item.content)) continue;
+    for (const part of item.content) {
+      if (!isRecord(part)) continue;
+      if (part.type === 'refusal' && typeof part.refusal === 'string' && part.refusal.trim()) {
+        throw new ProviderRefusalError(part.refusal.trim());
+      }
+      if (part.type === 'output_text' && typeof part.text === 'string') text += part.text;
+    }
+  }
+  return { text, calls };
 }
 
 // -- Gemini ------------------------------------------------------------------
@@ -329,6 +461,15 @@ export function parseToolResponse(
     return isRecord(value) && !Array.isArray(value) ? value : {};
   };
 
+  if (isResponsesPayload(payload)) {
+    const read = readResponsesOutput(payload.output);
+    return {
+      text: read.text.trim(),
+      calls: read.calls.map((call) => ({ ...call, arguments: args(call.arguments) })),
+      usage: readUsage(payload),
+    };
+  }
+
   switch (provider.definition.protocol) {
     case 'anthropic': {
       const content = Array.isArray(payload.content) ? payload.content : [];
@@ -390,7 +531,41 @@ export function parseToolResponse(
       }
     }
   }
-  return { text: text.trim(), calls };
+  return { text: text.trim(), calls, usage: readUsage(payload) };
+}
+
+/**
+ * Token usage in each provider's own field names. Absent or malformed means
+ * `undefined`, and the caller keeps its estimate — a missing usage block must
+ * never be read as a free call.
+ */
+export function readUsage(payload: unknown): AiUsage | undefined {
+  if (!isRecord(payload)) return undefined;
+  const pair = (input: unknown, output: unknown): AiUsage | undefined =>
+    typeof input === 'number' &&
+    typeof output === 'number' &&
+    Number.isFinite(input) &&
+    Number.isFinite(output)
+      ? { inputTokens: input, outputTokens: output }
+      : undefined;
+  const usage = payload.usage;
+  if (isRecord(usage)) {
+    // Responses and Anthropic say input/output; chat completions says
+    // prompt/completion.
+    return (
+      pair(usage.input_tokens, usage.output_tokens) ??
+      pair(usage.prompt_tokens, usage.completion_tokens)
+    );
+  }
+  const gemini = payload.usageMetadata;
+  if (isRecord(gemini)) {
+    return pair(
+      gemini.promptTokenCount,
+      (typeof gemini.candidatesTokenCount === 'number' ? gemini.candidatesTokenCount : 0) +
+        (typeof gemini.thoughtsTokenCount === 'number' ? gemini.thoughtsTokenCount : 0),
+    );
+  }
+  return undefined;
 }
 
 /** Pull the assistant's text out of a complete response body. Throws with the
@@ -433,8 +608,12 @@ function throwIfOutputTruncated(payload: unknown): void {
   if (!isRecord(payload)) return;
   const first = Array.isArray(payload.choices) ? payload.choices[0] : null;
   const candidate = Array.isArray(payload.candidates) ? payload.candidates[0] : null;
+  const incomplete = payload.incomplete_details;
   if (
     payload.stop_reason === 'max_tokens' ||
+    (payload.status === 'incomplete' &&
+      isRecord(incomplete) &&
+      incomplete.reason === 'max_output_tokens') ||
     (isRecord(first) && first.finish_reason === 'length') ||
     (isRecord(candidate) && candidate.finishReason === 'MAX_TOKENS')
   )
@@ -454,6 +633,8 @@ function providerError(payload: unknown): string | null {
 
 function extractText(protocol: string, payload: unknown): string | null {
   if (!isRecord(payload)) return null;
+
+  if (isResponsesPayload(payload)) return readResponsesOutput(payload.output).text;
 
   if (protocol === 'anthropic') {
     const content = payload.content;
@@ -530,6 +711,14 @@ export function parseStreamFrame(
   }
   if (!isRecord(frame)) return null;
 
+  // Responses frames name themselves; everything but a text delta — reasoning,
+  // argument deltas, lifecycle events — carries nothing to show.
+  if (typeof frame.type === 'string' && frame.type.startsWith('response.')) {
+    return frame.type === 'response.output_text.delta' && typeof frame.delta === 'string'
+      ? frame.delta
+      : null;
+  }
+
   switch (provider.definition.protocol) {
     case 'anthropic': {
       if (frame.type !== 'content_block_delta') return null;
@@ -557,7 +746,22 @@ export function parseStreamFrame(
 export function parseStreamError(payload: string): string | null {
   if (!payload || payload === '[DONE]') return null;
   try {
-    return providerError(JSON.parse(payload));
+    const frame: unknown = JSON.parse(payload);
+    if (isRecord(frame) && typeof frame.type === 'string') {
+      // A Responses stream reports failure as an event of its own, with the
+      // error inside the response it carries or, for `error`, at the top.
+      if (frame.type === 'error' && typeof frame.message === 'string') return frame.message;
+      if (frame.type === 'response.failed' || frame.type === 'response.incomplete') {
+        const response = frame.response;
+        return (
+          providerError(response) ??
+          (frame.type === 'response.incomplete'
+            ? new ProviderTruncationError().message
+            : 'the provider reported a failed response')
+        );
+      }
+    }
+    return providerError(frame);
   } catch {
     return null;
   }

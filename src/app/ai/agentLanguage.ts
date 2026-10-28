@@ -290,6 +290,19 @@ function versionedNoteCount(args: Record<string, unknown>): number {
 /** The plain sentence that replaces a grid of ceilings: where it may work, and
  * when it gives up. Token ceilings are real but they are not a student's unit —
  * they stay in the technical details. */
+/**
+ * How much of its allowance a run has spent, as one share from 0 to 1: the
+ * larger of tokens and actions, since either ceiling ends the run. Time is
+ * left out because it is paused while the student answers a question, and a
+ * meter that ran on while it was paused would be telling a different story.
+ */
+export function budgetShare(run: AgentRunRecord): number {
+  const tokens = run.budget.tokenCeiling > 0 ? run.tokensUsed / run.budget.tokenCeiling : 0;
+  const actions =
+    run.budget.toolCallCeiling > 0 ? run.calls.length / run.budget.toolCallCeiling : 0;
+  return Math.min(1, Math.max(0, tokens, actions));
+}
+
 export function limitsSentence(run: AgentRunRecord, t: Translate): string {
   return t('agent.limits', {
     scope: scopePhrase(run.scope, t),

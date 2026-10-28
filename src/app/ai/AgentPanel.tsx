@@ -61,6 +61,7 @@ import { AiStatusPill } from './AiStatusPill';
 import {
   agentErrorText,
   callOutcome,
+  budgetShare,
   limitsSentence,
   planStepTitles,
   planText,
@@ -244,7 +245,7 @@ export function AgentPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+    <div data-agent-panel className="flex min-h-0 flex-1 flex-col gap-2.5">
       <div className="-ml-1.5 flex items-center gap-0.5">
         <GlassPopupButton<AskScope>
           label={t('agent.scope')}
@@ -599,7 +600,7 @@ function RunView({
 
           {/* The ceilings, as a sentence. They were a four-column grid of numbers
               headed "Token ceiling", which is a unit nobody outside this file
-              thinks in — the exact figures moved to the details disclosure. */}
+              thinks in. What a run actually spends is `RunMeter`'s, once it runs. */}
           <p className="mt-2.5 rounded-nb-xs bg-[var(--nb-inset-surface)] px-2 py-1.5 text-[10.5px] leading-relaxed text-nb-text-3">
             {limitsSentence(run, t)}
           </p>
@@ -697,6 +698,7 @@ function RunView({
               ))}
             </ul>
           )}
+          <RunMeter run={run} />
         </section>
       )}
 
@@ -1017,6 +1019,21 @@ function RunActions({
   onDiscard(): void;
 }) {
   const { t } = useTranslation();
+  const plannedRef = useRef<HTMLDivElement>(null);
+  const planned = run.status === 'planned';
+  // A plan that arrives is the next decision, so Return should be able to
+  // make it — but only when the student is still here. Planning takes long
+  // enough to go back to the note, and a plan that took the caret from the
+  // editor would turn the next Return into "run it".
+  useEffect(() => {
+    if (!planned) return;
+    const holder = plannedRef.current;
+    const active = document.activeElement;
+    const panel = holder?.closest('[data-agent-panel]');
+    if (!holder || !(active === null || active === document.body || panel?.contains(active)))
+      return;
+    holder.querySelector<HTMLButtonElement>('[data-run-plan]:not(:disabled)')?.focus();
+  }, [planned, run.id]);
   const canUndo =
     run.status !== 'planned' &&
     run.status !== 'running' &&
@@ -1038,11 +1055,12 @@ function RunActions({
 
   if (run.status === 'planned') {
     return (
-      <div className="flex items-center gap-1.5">
+      <div ref={plannedRef} className="flex items-center gap-1.5">
         <GlassButton size="sm" variant="ghost" onClick={onEdit} className="shrink-0">
           {t('agent.changeTask')}
         </GlassButton>
         <GlassButton
+          data-run-plan
           size="sm"
           variant="accent"
           disabled={!canRun}
@@ -1104,6 +1122,43 @@ function RunActions({
       )}
       {undoing ? t('agent.undoing') : t('agent.undoRun')}
     </GlassButton>
+  );
+}
+
+/**
+ * How much of the run's allowance is spent, as a bar and a sentence. Shown
+ * while it runs so a long run's end is no surprise, and after it ends so a
+ * run stopped by its ceiling says why at a glance. The tokens are the
+ * provider's own count where it reports one.
+ */
+function RunMeter({ run }: { run: AgentRunRecord }) {
+  const { t } = useTranslation();
+  if (!run.calls.length && !run.tokensUsed) return null;
+  const share = budgetShare(run);
+  const percent = Math.round(share * 100);
+  return (
+    <div className="mt-1.5 px-1">
+      <div
+        role="meter"
+        aria-label={t('agent.meter.label')}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        className="h-[3px] overflow-hidden rounded-full bg-[var(--nb-hover)]"
+      >
+        <div
+          className={cn(
+            'h-full rounded-full transition-[width] duration-[var(--nb-t-fast)]',
+            share >= 0.85 ? 'bg-[var(--nb-danger)]' : 'bg-[var(--nb-accent)]',
+          )}
+          style={{ width: `${Math.max(2, percent)}%` }}
+        />
+      </div>
+      <p className="mt-1 text-[10px] text-nb-text-3">
+        {t('agent.meter.actions', { count: run.calls.length })} ·{' '}
+        {t('agent.meter.share', { percent })}
+      </p>
+    </div>
   );
 }
 

@@ -6,7 +6,7 @@
  * as the loopback server. This file owns model turns, budgets and cancellation;
  * the command layer owns scope enforcement, journaling and writes.
  */
-import { DEFAULT_OUTPUT_TOKENS } from './budgets';
+import { DEFAULT_OUTPUT_TOKENS, structuredReasoningEffort } from './budgets';
 import {
   AGENT_TOOL_NAMES,
   AgentDecisionSchema,
@@ -77,6 +77,11 @@ const CALLS_KEPT_AFTER_CONDENSING = 2;
  * otherwise one oversized result could condense the run on every turn. */
 const MIN_CALLS_BETWEEN_CONDENSATIONS = 3;
 const PROGRESS_MAX_TOKENS = DEFAULT_OUTPUT_TOKENS;
+/** The same call failing this many times in a row ends the run. A model that
+ * resends a refused call unchanged is not reading the error, and each repeat
+ * resends the whole transcript: GLM 5.3 spent 280k tokens on thirty copies of
+ * one `manage_tags` that named no notes. */
+const MAX_REPEATED_FAILURES = 3;
 /** A listed note's snippet is an identification aid, not source text. */
 const MAX_ROW_SNIPPET_CHARS = 200;
 /** Listings whose rows are worth keeping whole rather than as sliced JSON. */
@@ -334,6 +339,8 @@ export async function requestAgentPlan(
       maxTokens: PLAN_MAX_TOKENS,
       temperature: 0.2,
       jsonSchema: AGENT_PLAN_JSON_SCHEMA,
+      responses: true,
+      reasoningEffort: structuredReasoningEffort(request.provider),
     },
     AgentPlanDraftSchema,
     options,
@@ -379,6 +386,9 @@ export interface AgentLoopRequest {
   /** Native tool definitions. Used only when the provider declares
    * `nativeTools`; otherwise the run speaks the JSON decision document. */
   toolDefinitions?: AiToolDefinition[];
+  /** Stable across one run's turns, which share everything up to "Calls so
+   * far". A provider that caches prompts by key bills that prefix once. */
+  cacheKey?: string;
   executeTool: AgentToolExecutor;
   /**
    * Put a question to the student and wait for the answer. Absent means the
@@ -418,6 +428,14 @@ export class AgentBudgetError extends Error {
   }
 }
 
+/** The model kept making a call that kept failing the same way. */
+export class AgentStuckError extends Error {
+  constructor(readonly tool: AgentToolName) {
+    super(`the agent kept repeating a failing ${tool} call`);
+    this.name = 'AgentStuckError';
+  }
+}
+
 /** A scope refusal is a policy boundary, not feedback the model may work
  * around by choosing a different destination. */
 export class AgentScopeError extends Error {
@@ -430,11 +448,17 @@ export class AgentScopeError extends Error {
   }
 }
 
+/** A turn's options. `onModelTokens` is how a turn reports what the provider
+ * measured; a turn that never calls it is counted by the loop's estimate. */
+export interface AgentTurnOptions extends AiRunOptions {
+  onModelTokens?(tokens: number): void;
+}
+
 export interface AgentLoopRuntime {
   decide(
     request: AgentLoopRequest,
     transcript: readonly unknown[],
-    options: AiRunOptions,
+    options: AgentTurnOptions,
   ): Promise<AgentDecision>;
   now(): number;
   newId(): string;
@@ -487,6 +511,9 @@ export async function runAgentLoop(
   let questions = 0;
   let condensations = 0;
   let callsSinceCondensing = 0;
+  /** Consecutive failures per exact call, so a repeat can be named to the
+   * model and, past the limit, stopped. */
+  const failures = new Map<string, number>();
   const native = usesNativeTools(request);
   const condenseAt = Math.floor(
     preflight({ messages: [], provider: request.provider, maxTokens: DECISION_MAX_TOKENS })
@@ -545,12 +572,19 @@ export async function runAgentLoop(
       if (tokensUsed + inputTokens + DECISION_MAX_TOKENS > request.budget.tokenCeiling) {
         throw new AgentBudgetError('tokens');
       }
+      let measured: number | null = null;
       const decision = await runtime.decide(request, view, {
         ...options,
         signal: controller.signal,
         timeoutMs: turnTimeout(),
+        onModelTokens: (tokens) => {
+          measured = (measured ?? 0) + tokens;
+        },
       });
-      tokensUsed += inputTokens + estimateTokens(JSON.stringify(decision));
+      // The provider's own count where it gave one: it includes the tool
+      // definitions, private reasoning and any nudge retry, none of which the
+      // estimate sees.
+      tokensUsed += measured ?? inputTokens + estimateTokens(JSON.stringify(decision));
       request.onUsage?.({ tokensUsed, toolCalls });
 
       if (decision.action === 'done') {
@@ -637,13 +671,24 @@ export async function runAgentLoop(
         request.onUsage?.({ tokensUsed, toolCalls });
       }
       callsSinceCondensing += outcomes.length;
+      let stuck: AgentToolName | null = null;
       outcomes.forEach((outcome, index) => {
         const call = calls[index]!;
+        const key = `${call.tool} ${JSON.stringify(call.arguments)}`;
+        const repeated = outcome.ok ? 0 : (failures.get(key) ?? 0) + 1;
+        if (repeated) failures.set(key, repeated);
+        else failures.delete(key);
+        if (repeated >= MAX_REPEATED_FAILURES) stuck = call.tool;
         transcript.push({
           tool: call.tool,
           arguments: call.arguments,
           rationale: call.rationale,
           outcome: compactOutcome(outcome, call.tool, call.arguments),
+          ...(repeated > 1
+            ? {
+                note: `This exact call has now failed ${repeated} times with the same arguments. Read the error and change the arguments, or finish with outcomeAchieved false and say what went wrong. Sending it unchanged again ends the run.`,
+              }
+            : {}),
         });
       });
       for (const outcome of outcomes) {
@@ -656,6 +701,7 @@ export async function runAgentLoop(
           throw new AgentScopeError(outcome.message, outcome.details);
         }
       }
+      if (stuck) throw new AgentStuckError(stuck);
     }
   } finally {
     clearTimeout(wallTimer);
@@ -782,6 +828,9 @@ export async function requestProgressSummary(
       maxTokens: PROGRESS_MAX_TOKENS,
       temperature: 0,
       jsonSchema: AGENT_PROGRESS_JSON_SCHEMA,
+      responses: true,
+      reasoningEffort: structuredReasoningEffort(request.provider),
+      cacheKey: request.cacheKey,
     },
     AgentProgressSchema,
     options,
@@ -814,11 +863,24 @@ function decisionUserPrompt(
 export async function requestNativeDecision(
   request: AgentLoopRequest,
   transcript: readonly unknown[],
-  options: AiRunOptions,
+  options: AgentTurnOptions,
 ): Promise<AgentDecision> {
   const definitions = request.toolDefinitions ?? [];
-  const call = (nudge: boolean) =>
-    runAiParsed(
+  const { onModelTokens, ...runOptions } = options;
+  // Reported once, at the end, and only if every attempt was measured: half
+  // a measurement would undercount the turn against the estimate it replaces.
+  const spent: (number | null)[] = [];
+  const report = () => {
+    if (spent.length && spent.every((tokens) => tokens !== null)) {
+      onModelTokens?.(spent.reduce<number>((total, tokens) => total + (tokens ?? 0), 0));
+    }
+  };
+  // On Responses, private reasoning shares `max_output_tokens` with the
+  // answer. Left to its default, GLM 5.3 thought through the whole allowance
+  // and its plan or `finish` call never arrived — the same cap every other
+  // structured feature already sends it.
+  const call = async (nudge: boolean) => {
+    const response = await runAiParsed(
       {
         provider: request.provider,
         messages: [
@@ -833,15 +895,27 @@ export async function requestNativeDecision(
         json: false,
         stream: false,
         tools: { definitions, required: true },
+        responses: true,
+        reasoningEffort: structuredReasoningEffort(request.provider),
+        cacheKey: request.cacheKey,
       },
       parseToolResponse,
-      options,
+      runOptions,
     );
+    spent.push(
+      response.usage ? response.usage.inputTokens + response.usage.outputTokens : null,
+    );
+    return response;
+  };
   const first = await call(false);
   const decision = toolResponseDecision(first);
-  if (decision) return decision;
+  if (decision) {
+    report();
+    return decision;
+  }
   if (options.signal?.aborted) throw new DOMException('cancelled', 'AbortError');
   const second = toolResponseDecision(await call(true));
+  report();
   if (second) return second;
   throw new AiParseError('the model answered without calling a tool', first.text);
 }
@@ -915,6 +989,9 @@ async function requestDecision(
       maxTokens: DECISION_MAX_TOKENS,
       temperature: 0,
       jsonSchema: AGENT_DECISION_JSON_SCHEMA,
+      responses: true,
+      reasoningEffort: structuredReasoningEffort(request.provider),
+      cacheKey: request.cacheKey,
     },
     AgentDecisionSchema,
     options,

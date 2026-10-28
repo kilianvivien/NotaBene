@@ -88,6 +88,42 @@ describe('AgentPanel review gate', () => {
     );
   });
 
+  it('puts focus on Run it when a plan arrives, so Return starts it', () => {
+    render(<AgentPanel noteId="note-1" />);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Run it' }));
+  });
+
+  it('leaves the caret where it is when the student went back to their note', () => {
+    const editor = document.createElement('textarea');
+    document.body.append(editor);
+    editor.focus();
+    render(<AgentPanel noteId="note-1" />);
+    expect(document.activeElement).toBe(editor);
+    editor.remove();
+  });
+
+  it('meters a finished run against the larger of its two ceilings', () => {
+    const run: AgentRunRecord = {
+      ...plannedRun(),
+      status: 'completed',
+      tokensUsed: 50_000,
+      calls: Array.from({ length: 4 }, (_, index) => ({
+        id: `call-${index}`,
+        tool: 'get_app_state' as const,
+        arguments: {},
+        rationale: 'look',
+        status: 'succeeded' as const,
+        startedAt: new Date(0).toISOString(),
+      })),
+      summary: 'Done.',
+    };
+    useAgentStore.setState({ runs: [run], activeRunId: run.id });
+    render(<AgentPanel noteId="note-1" />);
+    // 50,000 of 200,000 tokens beats 4 of 32 actions.
+    expect(screen.getByRole('meter').getAttribute('aria-valuenow')).toBe('25');
+    expect(screen.getByText('4 actions · 25% of the allowance used')).not.toBeNull();
+  });
+
   it('offers explicit widening when the plan requires the whole library', async () => {
     useAgentStore.setState({ runs: [], activeRunId: null });
     useAiStore.setState({ askScope: 'note', agentMode: true, running: null });
