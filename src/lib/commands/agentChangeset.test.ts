@@ -297,7 +297,9 @@ describe('staging and applying', () => {
       new AbortController().signal,
     );
     expect(outcome).toMatchObject({ ok: false, code: 'invalid_input' });
-    expect(JSON.stringify(outcome)).toContain('pass notes, or noteId with baseUpdatedAt');
+    expect(outcome).toMatchObject({
+      message: expect.stringContaining('no notes to change'),
+    });
     expect(record.changeset.calls).toHaveLength(0);
   });
 
@@ -325,6 +327,43 @@ describe('staging and applying', () => {
     expect((await memoryLibraryAdapter.getNote(many[0]!.id))?.sectionId).toBeNull();
     await applyAgentChangesetCommand(run.id);
     expect((await memoryLibraryAdapter.getNote(many[0]!.id))?.sectionId).not.toBeNull();
+  });
+
+  it('stages moves into the section the same call creates, and refuses an unknown one', async () => {
+    const course = await createCourseCommand({ name: 'Optics' });
+    if (!course.ok) throw new Error(course.message);
+    const many = await notes(CHANGESET_REVIEW_THRESHOLD + 1, course.value.id);
+    const record = planned(['organize']);
+    record.changeset = { state: 'staging', calls: [], noteVersions: {} };
+    const moves = (sectionId: string) =>
+      many.map((note) => ({
+        noteId: note.id,
+        baseUpdatedAt: note.updatedAt,
+        courseId: course.value.id,
+        sectionId,
+      }));
+    // A name, not an id: what DeepSeek wrote, recorded as done before.
+    const unknown = await executeAgentTool(
+      record,
+      'organize',
+      { moves: moves('Week 5') },
+      new AbortController().signal,
+    );
+    expect(unknown).toMatchObject({ ok: false, code: 'not_found' });
+    expect(record.changeset.calls).toHaveLength(0);
+
+    const staged = await executeAgentTool(
+      record,
+      'organize',
+      {
+        createSection: { courseId: course.value.id, name: 'Week 5' },
+        moves: moves('new'),
+      },
+      new AbortController().signal,
+    );
+    expect(staged.ok).toBe(true);
+    const [section] = await memoryLibraryAdapter.listSections(course.value.id);
+    expect(record.changeset.calls[0]?.arguments.moves).toEqual(moves(section!.id));
   });
 
   it('puts an applied changeset back with the rest of the run on undo', async () => {

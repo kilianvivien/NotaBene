@@ -1502,7 +1502,7 @@
     "useLibraryScope": "Utiliser Toutes les notes",
     "scopeDeniedLibrary": "Cette action nécessite « Toutes les notes ». L’exécution s’est arrêtée au lieu de modifier la tâche.",
     "incompletePlan": "L’exécution s’est arrêtée, car toutes les opérations du plan approuvé n’ont pas abouti.",
-    "stuck": "L’agent répétait une étape qui échouait : l’exécution a été arrêtée avant d’épuiser son allocation.",
+    "stuck": "L’agent répétait la même étape sans avancer : l’exécution a été arrêtée avant d’épuiser son allocation.",
     "invalidModelResponse": "La réponse du modèle s’est terminée sous une forme illisible pour l’agent. Aucune autre modification n’a été effectuée.",
     "tokenLimitReached": "L’exécution a utilisé toute sa capacité de contexte avant d’aboutir.",
     "stepLimitReached": "L’exécution a atteint sa limite d’opérations avant d’aboutir.",
@@ -1606,6 +1606,18 @@
     "did_synthesize_notes_generic": "Une synthèse a été créée",
     "did_visualize_note": "Une carte ou un schéma a été ajouté à « {{title}} »",
     "did_visualize_note_generic": "Une carte mentale ou un schéma a été ajouté à une note",
+    "reasoning": {
+      "title": "Réflexion de l’agent",
+      "hint": "Plus de réflexion donne des plans plus soignés, au prix d’exécutions plus lentes et plus coûteuses. Cela ne change rien à ce que l’agent a le droit de faire.",
+      "auto": "Automatique",
+      "autoHint": "Le niveau réglé par NotaBene pour chaque modèle. Convient à la plupart des tâches.",
+      "light": "Légère",
+      "lightHint": "Le minimum que le modèle permet. Le plus rapide et le moins cher, pour les tâches simples.",
+      "thorough": "Approfondie",
+      "thoroughHint": "Pour les tâches longues ou délicates. Plus lent, et consomme davantage de votre allocation.",
+      "applies": "{{model}} permet à NotaBene de régler ce point.",
+      "modelDecides": "{{model}} décide seul de son niveau de réflexion : ce choix n’a pas d’effet sur lui."
+    },
     "instructions": {
       "title": "Consignes permanentes de l’agent",
       "hint": "Des conventions que l’agent suit dans chaque tâche, pour ne pas avoir à les répéter — par exemple « les étiquettes sont en français » ou « ne jamais archiver quoi que ce soit dans Thèse ». Elles ne lui permettent jamais d’aller au-delà de la portée que vous approuvez.",

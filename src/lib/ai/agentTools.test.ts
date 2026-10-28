@@ -324,6 +324,61 @@ describe('the agent over Mistral’s Responses API', () => {
     spy.mockRestore();
   });
 
+  it.each([
+    [
+      'deepseek-v4-1-flash-1017',
+      { effort: 'low', room: 8_192 },
+      { effort: 'none', room: 8_192 },
+    ],
+    [
+      'zai-glm-5-3-flash',
+      { effort: 'low', room: 8_192 },
+      { effort: 'low', room: 16_384 },
+    ],
+  ])(
+    'retries a turn %s cut off while thinking: lighter where it can, roomier where not',
+    async (model, firstTry, secondTry) => {
+      const { aiTransport } = await import('@/lib/adapters');
+      const answers = [
+        {
+          status: 'incomplete',
+          incomplete_details: { reason: 'max_output_tokens' },
+          output: [],
+        },
+        {
+          status: 'completed',
+          output: [
+            {
+              type: 'function_call',
+              call_id: 'c',
+              name: 'finish',
+              arguments: '{"outcomeAchieved":true,"summary":"ok"}',
+            },
+          ],
+        },
+      ];
+      const spy = vi.spyOn(aiTransport, 'request').mockImplementation(async () => ({
+        status: 200,
+        headers: {},
+        body: JSON.stringify(answers.shift()),
+      }));
+      const decision = await requestNativeDecision(
+        request({ provider: resolved('mistral', model) }),
+        [],
+        {},
+      );
+      expect(decision).toMatchObject({ action: 'done' });
+      const sent = spy.mock.calls.map((entry) => JSON.parse(String(entry[0].body)));
+      expect(
+        sent.map((body) => ({
+          effort: body.reasoning.effort,
+          room: body.max_output_tokens,
+        })),
+      ).toEqual([firstTry, secondTry]);
+      spy.mockRestore();
+    },
+  );
+
   it('counts the provider’s figure against the ceiling instead of its estimate', async () => {
     const turns: AgentDecision[] = [
       { action: 'tool', tool: 'get_app_state', arguments: {}, rationale: 'look' },
@@ -343,6 +398,19 @@ describe('the agent over Mistral’s Responses API', () => {
       },
     );
     expect(result.tokensUsed).toBe(2_000);
+  });
+});
+
+describe('manage_tags as the agent sees it', () => {
+  it('requires notes, which GLM otherwise leaves out of every call', () => {
+    const tags = definitions.find((tool) => tool.name === 'manage_tags')!;
+    expect(tags.parameters.required).toEqual(expect.arrayContaining(['notes']));
+    expect(Object.keys(tags.parameters.properties as object)).not.toContain('noteId');
+  });
+
+  it('requires the title of a note the agent writes', () => {
+    const create = definitions.find((tool) => tool.name === 'create_note')!;
+    expect(create.parameters.required).toEqual(expect.arrayContaining(['title']));
   });
 });
 
@@ -377,6 +445,102 @@ describe('a call that keeps failing', () => {
     await expect(run).rejects.toBeInstanceOf(AgentStuckError);
     expect(seen).toHaveLength(3);
     expect(JSON.stringify(seen[2])).toContain('failed 2 times');
+  });
+
+  it('tells a model rereading an unchanged library to move on, then stops it', async () => {
+    const seen: unknown[][] = [];
+    const list: AgentDecision = {
+      action: 'tool',
+      tool: 'list_notes',
+      arguments: { courseId: 'c1' },
+      rationale: 'check',
+    };
+    const run = runAgentLoop(
+      request({ toolDefinitions: undefined }),
+      {},
+      {
+        decide: async (_request, transcript) => {
+          seen.push([...transcript]);
+          return list;
+        },
+        now: () => 0,
+        newId: () => 'call',
+      },
+    );
+    await expect(run).rejects.toBeInstanceOf(AgentStuckError);
+    expect(seen).toHaveLength(4);
+    expect(JSON.stringify(seen[2])).toContain('call finish');
+  });
+
+  it('lets the same read run again once something has changed', async () => {
+    const read: AgentDecision = {
+      action: 'tool',
+      tool: 'list_notes',
+      arguments: {},
+      rationale: 'check',
+    };
+    const write: AgentDecision = {
+      action: 'tool',
+      tool: 'archive_notes',
+      arguments: { notes: [] },
+      rationale: 'archive',
+    };
+    const result = await runAgentLoop(
+      request({ toolDefinitions: undefined }),
+      {},
+      runtime([
+        read,
+        read,
+        read,
+        write,
+        read,
+        read,
+        { action: 'done', outcomeAchieved: true, summary: 'ok' },
+      ]),
+    );
+    expect(result.toolCalls).toBe(6);
+  });
+
+  it('tells a model checking finished work that the plan is done', async () => {
+    const seen: unknown[][] = [];
+    const turns: AgentDecision[] = [
+      {
+        action: 'tool',
+        tool: 'archive_notes',
+        arguments: { notes: [] },
+        rationale: 'archive',
+      },
+      { action: 'tool', tool: 'list_notes', arguments: {}, rationale: 'check' },
+      { action: 'done', outcomeAchieved: true, summary: 'ok' },
+    ];
+    let index = 0;
+    await runAgentLoop(
+      request({
+        toolDefinitions: undefined,
+        plan: {
+          summary: 'Archive',
+          noteReferences: [],
+          steps: [
+            {
+              description: 'Archive',
+              expectedTools: ['list_notes', 'archive_notes'],
+              noteIds: [],
+            },
+          ],
+        },
+      }),
+      {},
+      {
+        decide: async (_request, transcript) => {
+          seen.push([...transcript]);
+          return turns[index++]!;
+        },
+        now: () => 0,
+        newId: () => `call-${index}`,
+      },
+    );
+    expect(JSON.stringify(seen[1])).not.toContain('call finish now');
+    expect(JSON.stringify(seen[2])).toContain('call finish now');
   });
 
   it('forgets a failure once the same call succeeds', async () => {

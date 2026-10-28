@@ -146,7 +146,7 @@ async function runCase(testCase: AgentEvalCase): Promise<AgentCaseResult> {
       // A failing case's summary line says what was wrong with the library,
       // not what the agent did to get there. This is the second half.
       process.stdout.write(
-        `\n── ${testCase.id}: ${run.status}${run.error ? ` (${run.error})` : ''}\n${run.calls
+        `\n── ${testCase.id}: ${run.status}${run.error ? ` (${run.error})` : ''}\n  plan: ${run.plan.steps.map((step) => step.expectedTools.join('+')).join(' → ')}\n${run.calls
           .map(
             (call) =>
               `  ${call.status.padEnd(9)} ${call.tool} ${JSON.stringify(call.arguments).slice(0, 240)}${

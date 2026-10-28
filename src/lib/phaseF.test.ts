@@ -392,7 +392,56 @@ describe('Phase F MCP tool contracts', () => {
 
   it('refuses a tag call that names neither a note nor a list', async () => {
     const result = await call('manage_tags', { add: ['revision'] });
-    expect(result).toMatchObject({ ok: false, code: 'invalid_input' });
+    // The reason is in the message, which is the line a model reads.
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'invalid_input',
+      message: expect.stringContaining('no notes to change'),
+    });
+  });
+
+  it('refuses a note update that changes nothing, rather than writing a version', async () => {
+    const { note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+    const before = await library.listSnapshots(note.id);
+    const result = await call('update_note', {
+      noteId: note.id,
+      baseUpdatedAt: note.updatedAt,
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'invalid_input',
+      message: expect.stringContaining('nothing to change'),
+    });
+    expect(await library.listSnapshots(note.id)).toHaveLength(before.length);
+  });
+
+  it('renames a tag without naming notes, since a rename is global', async () => {
+    await createFixture();
+    const tag = (await library.listTags())[0];
+    if (!tag) throw new Error('fixture tag missing');
+    const result = await call('manage_tags', {
+      rename: [{ tagId: tag.id, name: 'analysis', namespace: 'topic' }],
+    });
+    expect(result.ok).toBe(true);
+    // The agent's form of the same rename.
+    const again = await call('manage_tags', {
+      notes: [],
+      rename: [{ tagId: tag.id, name: 'analysis-2', namespace: 'topic' }],
+    });
+    expect(again.ok).toBe(true);
+    const empty = await call('manage_tags', { notes: [], add: ['topic:x'] });
+    expect(empty).toMatchObject({ ok: false, code: 'invalid_input' });
+    // What GLM sent once `rename` was optional: nothing to do, which used to
+    // succeed and let the run report a rename that never happened.
+    const nothing = await call('manage_tags', { notes: [] });
+    expect(nothing).toMatchObject({ ok: false, code: 'invalid_input' });
+    expect((await library.listTags()).find((entry) => entry.id === tag.id)).toMatchObject(
+      {
+        name: 'analysis-2',
+        namespace: 'topic',
+      },
+    );
   });
 
   it('archives and unarchives notes in one versioned call', async () => {
@@ -493,6 +542,46 @@ describe('Phase F MCP tool contracts', () => {
       expect.arrayContaining([expect.objectContaining({ name: 'Revision' })]),
     );
     expect((await library.listSnapshots(note.id)).at(0)?.cause).toBe('agent');
+  });
+
+  it('moves notes into the section the same call creates, by "new" or by its name', async () => {
+    const { course, note } = await createFixture();
+    if (!note) throw new Error('fixture note missing');
+    for (const [name, sectionId] of [
+      ['Week 5', 'new'],
+      ['Week 6', 'week 6'],
+    ]) {
+      const current = (await library.getNote(note.id))!;
+      const result = await call('organize', {
+        createSection: { courseId: course.id, name },
+        moves: [
+          {
+            noteId: note.id,
+            baseUpdatedAt: current.updatedAt,
+            courseId: course.id,
+            sectionId,
+          },
+        ],
+      });
+      expect(result.ok).toBe(true);
+      const section = (await library.listSections(course.id)).find(
+        (entry) => entry.name === name,
+      );
+      expect((await library.getNote(note.id))?.sectionId).toBe(section?.id);
+    }
+    // Without a section being created, a name is still not an id.
+    const current = (await library.getNote(note.id))!;
+    const refused = await call('organize', {
+      moves: [
+        {
+          noteId: note.id,
+          baseUpdatedAt: current.updatedAt,
+          courseId: course.id,
+          sectionId: 'Week 5',
+        },
+      ],
+    });
+    expect(refused).toMatchObject({ ok: false, code: 'not_found' });
   });
 });
 

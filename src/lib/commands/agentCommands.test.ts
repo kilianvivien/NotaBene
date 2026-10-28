@@ -4,8 +4,10 @@ import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapte
 import {
   AgentRunRecordSchema,
   emptyDoc,
+  type AgentPlan,
   type AgentRunRecord,
   type AgentScope,
+  type AgentToolName,
 } from '@/lib/schema';
 import { useAgentStore } from '@/lib/state/agentStore';
 import { createNoteCommand, updateNoteCommand } from './noteCommands';
@@ -427,5 +429,47 @@ describe('agent command boundary', () => {
       expect.objectContaining({ id: tagId, name: 'shared-later' }),
     ]);
     expect((await library.getNote(external.value.id))?.tagIds).toEqual([tagId]);
+  });
+});
+
+describe('the completion audit', () => {
+  const plan = (expectedTools: AgentToolName[]): AgentPlan => ({
+    summary: 'Do it',
+    noteReferences: [],
+    steps: [{ description: 'Do it', expectedTools, noteIds: [] }],
+  });
+  const done = (tool: AgentToolName, args: Record<string, unknown> = {}) =>
+    ({
+      id: tool,
+      tool,
+      arguments: args,
+      rationale: 'r',
+      status: 'succeeded',
+      startedAt: new Date(0).toISOString(),
+    }) as const;
+
+  it('owes the planned changes, not the planned reads', () => {
+    expect(
+      missingSuccessfulPlanTools(plan(['search_notes', 'read_attachment', 'organize']), [
+        done('list_notes'),
+        done('organize'),
+      ]),
+    ).toEqual([]);
+    expect(
+      missingSuccessfulPlanTools(plan(['read_note', 'update_note']), [done('read_note')]),
+    ).toEqual(['update_note']);
+  });
+
+  it('counts a task created with its notes as linked', () => {
+    expect(
+      missingSuccessfulPlanTools(plan(['create_task', 'link_task_note']), [
+        done('create_task', { title: 'PS1', noteIds: ['n1'] }),
+      ]),
+    ).toEqual([]);
+    expect(
+      missingSuccessfulPlanTools(plan(['create_task', 'link_task_note']), [
+        done('create_task', { title: 'PS1' }),
+      ]),
+    ).toEqual(['link_task_note']);
   });
 });

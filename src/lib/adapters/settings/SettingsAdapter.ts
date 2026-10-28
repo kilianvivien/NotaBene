@@ -220,6 +220,9 @@ export interface AppSettings {
    * and can never change it.
    */
   agentInstructions: string;
+  /** How hard the in-app agent thinks on a model that lets NotaBene choose.
+   * `auto` is the per-model level the structured features already use. */
+  agentReasoning: 'auto' | 'light' | 'thorough';
   /** Provider id per AI feature, so synthesis can use a stronger model than
    * spell-fixing without the user re-picking every time. The `default` entry is
    * what every unlisted feature resolves through. */
@@ -335,6 +338,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // every merge to be cleaned by hand.
   mergeSourceFate: 'trash',
   agentInstructions: '',
+  agentReasoning: 'auto',
   aiFeatureModels: {},
   aiProviders: {},
   graph: {

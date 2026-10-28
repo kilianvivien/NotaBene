@@ -1502,7 +1502,7 @@
     "useLibraryScope": "Use All notes",
     "scopeDeniedLibrary": "This action requires “All notes”. The run stopped instead of changing the task.",
     "incompletePlan": "The run stopped because it did not complete every operation in the approved plan.",
-    "stuck": "The agent kept repeating a step that failed, so the run was stopped before it used up its allowance.",
+    "stuck": "The agent kept repeating the same step without getting anywhere, so the run was stopped before it used up its allowance.",
     "invalidModelResponse": "The model’s answer ended in a form the agent could not read. No further change was made.",
     "tokenLimitReached": "The run used its full context allowance before it could finish.",
     "stepLimitReached": "The run reached its operation limit before it could finish.",
@@ -1606,6 +1606,18 @@
     "did_synthesize_notes_generic": "Created a synthesis",
     "did_visualize_note": "Added a picture of “{{title}}”",
     "did_visualize_note_generic": "Added a mind map or diagram to a note",
+    "reasoning": {
+      "title": "How hard the agent thinks",
+      "hint": "More thinking makes plans more careful and runs slower and more expensive. It changes nothing about what the agent is allowed to do.",
+      "auto": "Automatic",
+      "autoHint": "The level NotaBene tuned for each model. Right for most tasks.",
+      "light": "Light",
+      "lightHint": "The least the model allows. Fastest and cheapest, for simple tasks.",
+      "thorough": "Thorough",
+      "thoroughHint": "For long or tricky tasks. Slower, and uses more of your allowance.",
+      "applies": "{{model}} lets NotaBene set this.",
+      "modelDecides": "{{model}} decides for itself how much to think, so this choice has no effect on it."
+    },
     "instructions": {
       "title": "Standing instructions for the agent",
       "hint": "Conventions the agent follows in every task, so you don’t have to repeat them — for example “tags are in French” or “never archive anything in Thesis”. They never let it do more than the scope you approve.",

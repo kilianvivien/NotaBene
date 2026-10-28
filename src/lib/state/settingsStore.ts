@@ -15,6 +15,7 @@ import {
   type CompletionPresence,
   type TtsEngineId,
 } from '@/lib/adapters';
+import { AGENT_REASONING_LEVELS } from '@/lib/ai/budgets';
 import { normalizeAbbreviations } from '@/lib/notes/abbreviations';
 
 interface SettingsState {
@@ -164,6 +165,9 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
       typeof rest.agentInstructions === 'string'
         ? rest.agentInstructions.slice(0, MAX_AGENT_INSTRUCTIONS)
         : DEFAULT_SETTINGS.agentInstructions,
+    agentReasoning: AGENT_REASONING_LEVELS.includes(rest.agentReasoning as never)
+      ? (rest.agentReasoning as AppSettings['agentReasoning'])
+      : DEFAULT_SETTINGS.agentReasoning,
     // Hand-edited or older settings files reach the typing path directly.
     abbreviations: normalizeAbbreviations(rest.abbreviations),
     focus: { ...DEFAULT_SETTINGS.focus, ...rest.focus },

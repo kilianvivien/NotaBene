@@ -209,8 +209,9 @@ describe('provider catalogue', () => {
         'mistral-medium-latest',
         'zai-glm-5-3',
         'zai-glm-5-2',
+        'deepseek-v4-1-flash-1017',
       ]),
-      featureDefaults: { agent: 'zai-glm-5-3' },
+      featureDefaults: { agent: 'deepseek-v4-1-flash-1017' },
     });
   });
 });
@@ -388,7 +389,7 @@ describe('feature resolution', () => {
   it('starts a feature on its own provider default when one is declared', () => {
     const agent = resolveFeature('agent', settingsWith(), ['mistral']);
     if (!agent.available) throw new Error('expected a provider');
-    expect(agent.model).toBe('zai-glm-5-3');
+    expect(agent.model).toBe('deepseek-v4-1-flash-1017');
 
     // The user's choice still outranks the table, on the agent row or the
     // Default row it inherits from.

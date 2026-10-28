@@ -285,7 +285,20 @@ Phase L notes worth knowing before touching it:
   gives one (`onModelTokens`), the estimate otherwise.
 - Staged writes are validated against `TOOL_ARGUMENT_SCHEMAS` before they are
   recorded, because staging never reaches the handler. The third identical
-  failing call in a row ends a run (`AgentStuckError`).
+  failing call in a row ends a run (`AgentStuckError`), as does the fourth
+  identical read with nothing changed in between.
+- A tool call that would change nothing is refused, never reported done —
+  models loop on, or claim, a successful no-op. Validation messages carry the
+  issue text (`invalidArguments`), because the message is what a model reads.
+- `AGENT_PARAMETER_SCHEMAS` gives the agent stricter definitions than the
+  handler parses (`manage_tags` with `notes` and `rename` required,
+  `create_note` with `title`): GLM omits optional arrays of objects. Each must
+  stay a subset of what the handler accepts. Measure with `pnpm eval:agent`
+  on more than one model before and after changing a tool's shape.
+- Reasoning levels per model live in `MISTRAL_REASONING` (`budgets.ts`),
+  probed, because an unsupported level is a 400. Settings' *Automatic /
+  Light / Thorough* map through it; a truncated agent turn is retried once at
+  the lightest level, or with twice the room.
 - Calendars (`src/lib/export/ics.ts`, `src/lib/import/ics.ts`) write `VEVENT`s
   in floating local time with `UID:task-{id}@notabene`; local midnight means
   all-day. Import is strict and bounded, maps only rules that fit the three

@@ -135,26 +135,29 @@ const NoteBlockPatchArgs = z
     }
   });
 
-const CreateNoteArgs = z
-  .object({
-    title: z.string().max(500).optional(),
-    courseId: z.string().optional(),
-    sectionId: z.string().optional(),
-    /** Markdown is the friendlier input for an agent; the server converts. */
-    markdown: z.string().optional(),
-    /** Structured editor document for lossless callers. */
-    doc: NoteDocSchema.optional(),
-    /** Copy an existing note without sending its unchanged body through a model. */
-    copyFrom: VersionedNoteArgs.optional(),
-    /** New Markdown inserted before a copied document. */
-    prependMarkdown: z.string().optional(),
-    /** New Markdown inserted after a copied document. */
-    appendMarkdown: z.string().optional(),
-    tags: z.array(z.string()).optional(),
-  })
-  .refine((value) => value.markdown === undefined || value.doc === undefined, {
+const CreateNoteFields = z.object({
+  title: z.string().max(500).optional(),
+  courseId: z.string().optional(),
+  sectionId: z.string().optional(),
+  /** Markdown is the friendlier input for an agent; the server converts. */
+  markdown: z.string().optional(),
+  /** Structured editor document for lossless callers. */
+  doc: NoteDocSchema.optional(),
+  /** Copy an existing note without sending its unchanged body through a model. */
+  copyFrom: VersionedNoteArgs.optional(),
+  /** New Markdown inserted before a copied document. */
+  prependMarkdown: z.string().optional(),
+  /** New Markdown inserted after a copied document. */
+  appendMarkdown: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+const CreateNoteArgs = CreateNoteFields.refine(
+  (value) => value.markdown === undefined || value.doc === undefined,
+  {
     message: 'supply markdown or doc, not both',
-  })
+  },
+)
   .refine(
     (value) =>
       value.copyFrom === undefined ||
@@ -196,7 +199,33 @@ const UpdateNoteArgs = z
         value.patches === undefined) ||
       (value.markdown === undefined && value.doc === undefined),
     { message: 'delta body edits cannot be combined with markdown or doc' },
+  )
+  // An update that changes nothing still writes a version. GLM 5.3 sent one
+  // with the line it meant to append left out, and was told it succeeded.
+  .refine(
+    (value) =>
+      [
+        value.title,
+        value.markdown,
+        value.doc,
+        value.prependMarkdown,
+        value.appendMarkdown,
+        value.patches,
+        value.courseId,
+        value.sectionId,
+        value.archived,
+      ].some((field) => field !== undefined),
+    {
+      message:
+        'nothing to change: pass the edit itself — appendMarkdown, prependMarkdown, patches, markdown, title, or a move',
+    },
   );
+
+const TagRenameArgs = z.object({
+  tagId: z.string().min(1),
+  name: z.string().trim().min(1).max(100),
+  namespace: z.enum(TAG_NAMESPACES).nullable(),
+});
 
 /** One note or a list of them. "Tag everything I still have to revise" is one
  * instruction, and charging an agent a call and a round trip per note turned
@@ -206,25 +235,42 @@ const ManageTagsArgs = z
   .object({
     noteId: z.string().min(1).optional(),
     baseUpdatedAt: z.string().datetime().optional(),
-    notes: z.array(VersionedNoteArgs).min(1).max(500).optional(),
+    notes: z.array(VersionedNoteArgs).max(500).optional(),
     add: z.array(z.string()).default([]),
     remove: z.array(z.string()).default([]),
-    rename: z
-      .array(
-        z.object({
-          tagId: z.string().min(1),
-          name: z.string().trim().min(1).max(100),
-          namespace: z.enum(TAG_NAMESPACES).nullable(),
-        }),
-      )
-      .default([]),
+    rename: z.array(TagRenameArgs).default([]),
   })
+  // A rename is global — every note with the tag shows the new name — so it
+  // alone may name no notes (or `notes: []`). Adding or removing always needs
+  // at least one note: an empty change reported as done is what models loop on.
   .refine(
-    (value) =>
-      value.notes !== undefined ||
-      (value.noteId !== undefined && value.baseUpdatedAt !== undefined),
-    { message: 'pass notes, or noteId with baseUpdatedAt' },
+    (value) => {
+      const single = value.noteId !== undefined && value.baseUpdatedAt !== undefined;
+      const targets = single || (value.notes?.length ?? 0) > 0;
+      return value.add.length > 0 || value.remove.length > 0
+        ? targets
+        : value.rename.length > 0;
+    },
+    {
+      message:
+        'nothing to change, or no notes to change: add or remove tags on notes [{noteId, baseUpdatedAt}] from a read, list or search (or noteId with baseUpdatedAt), or rename [{tagId, name, namespace}]; only a rename may omit the notes',
+    },
   );
+
+/**
+ * `manage_tags` as the in-app agent is shown it: one form, and both arrays of
+ * objects required. Measured on Mistral, GLM 5.3 and GLM 5.3 Flash left an
+ * optional array of objects out of every call (three of three) and put it in
+ * every call once it was required (three of three), whatever the description
+ * said — `notes` first, then `rename`. Either may be `[]`. MCP clients keep
+ * the full shape above, which the handler parses either way.
+ */
+const AgentManageTagsArgs = z.object({
+  notes: z.array(VersionedNoteArgs).max(500),
+  add: z.array(z.string()).optional(),
+  remove: z.array(z.string()).optional(),
+  rename: z.array(TagRenameArgs),
+});
 
 const ArchiveNotesArgs = VersionedNotesArgs.extend({
   archived: z.boolean().default(true),
@@ -270,8 +316,21 @@ const OrganizeArgs = z
     message: 'createSection or at least one move is required',
   });
 
-function invalid(issues: unknown): CommandResult<never> {
-  return fail('invalid_input', 'invalid arguments', issues);
+/** The issues stay in `details`; the first few also go in the message, which
+ * is the line a model reads. "invalid arguments" alone told GLM nothing, and
+ * it resent the same call until the run was stopped. */
+export function invalidArguments(issues: z.ZodIssue[]): CommandResult<never> {
+  const said = issues
+    .slice(0, 3)
+    .map((issue) =>
+      issue.path.length ? `${issue.path.join('.')}: ${issue.message}` : issue.message,
+    )
+    .join('; ');
+  return fail(
+    'invalid_input',
+    said ? `invalid arguments — ${said}` : 'invalid arguments',
+    issues,
+  );
 }
 
 const ListTasksArgs = z.object({
@@ -294,6 +353,50 @@ const RecurrenceArgs = z.object({
   weekdays: z.array(z.number().int().min(0).max(6)).default([]),
 });
 
+/**
+ * A task time as a client can actually know it. An instant with an offset is
+ * taken as given; a bare date is local midnight, which is how NotaBene spells
+ * all-day; a time with no offset is local. Without the last two a model had to
+ * guess the student's offset for each date — DST moves it — and wrote
+ * "end of day" as 23:59Z, which in Paris is already tomorrow.
+ */
+const TaskTimeArg = z
+  .union([
+    z.string().datetime({ offset: true }),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/),
+  ])
+  .describe(
+    'A date (2026-10-05, all day) or a local time without offset (2026-10-05T14:00), both in the student’s time zone; or an instant with an explicit offset.',
+  )
+  .transform((value, context) => {
+    if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(value)) return value;
+    const [day, time = '00:00'] = value.split('T');
+    const [year, month, date] = day!.split('-').map(Number);
+    const [hours, minutes, seconds = 0] = time.split(':').map(Number);
+    const local = new Date(
+      year!,
+      month! - 1,
+      date!,
+      hours!,
+      minutes!,
+      Math.floor(seconds),
+    );
+    // `new Date` rolls 2026-02-30 into March rather than refusing it.
+    if (
+      Number.isNaN(local.getTime()) ||
+      local.getDate() !== date ||
+      local.getMonth() !== month! - 1
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${value} is not a real date`,
+      });
+      return z.NEVER;
+    }
+    return local.toISOString();
+  });
+
 const CreateTaskArgs = z.object({
   title: z.string().trim().min(1).max(500),
   details: z.string().max(10_000).optional(),
@@ -302,8 +405,8 @@ const CreateTaskArgs = z.object({
   courseId: z.string().nullable().optional(),
   /** Makes this a subtask. Depth is one level; a subtask of a subtask is refused. */
   parentId: z.string().nullable().optional(),
-  dueAt: z.string().datetime({ offset: true }).nullable().optional(),
-  remindAt: z.string().datetime({ offset: true }).nullable().optional(),
+  dueAt: TaskTimeArg.nullable().optional(),
+  remindAt: TaskTimeArg.nullable().optional(),
   recurrence: RecurrenceArgs.nullable().optional(),
   /** Notes to link the new task to. */
   noteIds: z.array(z.string()).max(100).optional(),
@@ -322,8 +425,8 @@ const UpdateTaskArgs = z
     priority: z.enum(TASK_PRIORITIES).optional(),
     courseId: z.string().nullable().optional(),
     parentId: z.string().nullable().optional(),
-    dueAt: z.string().datetime({ offset: true }).nullable().optional(),
-    remindAt: z.string().datetime({ offset: true }).nullable().optional(),
+    dueAt: TaskTimeArg.nullable().optional(),
+    remindAt: TaskTimeArg.nullable().optional(),
     recurrence: RecurrenceArgs.nullable().optional(),
     /**
      * Move to recoverable Trash, or restore from it. Folded in here rather than
@@ -469,9 +572,20 @@ export const TOOL_ARGUMENT_SCHEMAS: Record<AgentToolName, z.ZodTypeAny | null> =
 };
 
 /** Every tool's parameters as JSON Schema, generated from the schemas above. */
+/** Where the agent's definition is generated from a stricter schema than the
+ * handler parses. Each entry must be a subset of what the handler accepts. */
+const AGENT_PARAMETER_SCHEMAS: Partial<Record<AgentToolName, z.ZodTypeAny>> = {
+  manage_tags: AgentManageTagsArgs,
+  // GLM left the optional title out of every summary it wrote, and an agent's
+  // note called "Untitled" is one the student has to go and find.
+  create_note: CreateNoteFields.extend({ title: z.string().trim().min(1).max(500) }),
+};
+
 export function agentToolParameters(): Record<AgentToolName, JsonSchema> {
   return Object.fromEntries(
-    Object.entries(TOOL_ARGUMENT_SCHEMAS).map(([name, schema]) => [name, toolParameters(schema)]),
+    Object.entries({ ...TOOL_ARGUMENT_SCHEMAS, ...AGENT_PARAMETER_SCHEMAS }).map(
+      ([name, schema]) => [name, toolParameters(schema)],
+    ),
   ) as Record<AgentToolName, JsonSchema>;
 }
 
@@ -502,7 +616,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ListNotesArgs.safeParse(args ?? {});
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return queryNotesCommand({
       scope: parsed.data.scope,
       sort: 'updated',
@@ -516,7 +630,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = SearchArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
 
     // Same grammar the search box uses — one query language for humans and
     // agents alike.
@@ -543,7 +657,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ReadNoteArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
 
     const [note, courses, tags] = await Promise.all([
       readNoteCommand(parsed.data.noteId),
@@ -585,7 +699,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = CreateNoteArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
 
     let source: Note | null = null;
     if (parsed.data.copyFrom) {
@@ -654,7 +768,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = UpdateNoteArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
 
     const hasDeltaBodyEdit =
       parsed.data.prependMarkdown !== undefined ||
@@ -707,7 +821,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = MergeNotesArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const checked = await validateVersionedNotes(parsed.data.notes, context, 'live');
     if (!checked.ok) return checked;
 
@@ -728,7 +842,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = VersionedNotesArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const checked = await validateVersionedNotes(parsed.data.notes, context, 'live');
     if (!checked.ok) return checked;
     const versions = Object.fromEntries(
@@ -745,7 +859,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = VersionedNotesArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const checked = await validateVersionedNotes(parsed.data.notes, context, 'trashed');
     if (!checked.ok) return checked;
     const versions = Object.fromEntries(
@@ -762,7 +876,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ManageTagsArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
 
     const single = parsed.data.notes === undefined;
     const targets =
@@ -832,7 +946,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ArchiveNotesArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const checked = await validateVersionedNotes(parsed.data.notes, context, 'live');
     if (!checked.ok) return checked;
     return archiveNotesCommand(
@@ -844,7 +958,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
 
   async find_mentions(args: unknown) {
     const parsed = FindMentionsArgs.safeParse(args ?? {});
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return findMentionsCommand(parsed.data);
   },
 
@@ -852,7 +966,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = LinkMentionsArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return linkMentionsCommand(parsed.data.links, context);
   },
 
@@ -860,7 +974,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = CreateCourseArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return createCourseCommand(parsed.data, context);
   },
 
@@ -868,7 +982,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ExportNotesArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     if (parsed.data.destination !== undefined) {
       return fail(
         'invalid_input',
@@ -894,7 +1008,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ListTasksArgs.safeParse(args ?? {});
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return listTasksCommand(parsed.data, context);
   },
 
@@ -902,7 +1016,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = CreateTaskArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return createTaskCommand(parsed.data, context);
   },
 
@@ -910,7 +1024,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = UpdateTaskArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
 
     const { trashed, prependDetails, appendDetails, ...fields } = parsed.data;
     if (trashed !== undefined) {
@@ -939,7 +1053,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = CompleteTaskArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return completeTaskCommand(parsed.data, context);
   },
 
@@ -947,7 +1061,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = LinkTaskNoteArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return linkTaskToNoteCommand(parsed.data, context);
   },
 
@@ -955,7 +1069,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = OrganizeArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     return organizeNotesCommand(parsed.data, context);
   },
 
@@ -963,7 +1077,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ListAnnotationsArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const note = await readNoteCommand(parsed.data.noteId);
     if (!note.ok) return note;
     const attachments = await listAttachmentsCommand(note.value.id);
@@ -989,7 +1103,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ReadAttachmentArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const attachment = await findAttachment(parsed.data.noteId, parsed.data.attachmentId);
     if (!attachment.ok) return attachment;
     const text = await attachmentTextCommand(attachment.value);
@@ -1021,7 +1135,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ListVersionsArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const note = await readNoteCommand(parsed.data.noteId);
     if (!note.ok) return note;
     const versions = await listSnapshotsCommand(note.value.id);
@@ -1044,7 +1158,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = ReadVersionArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const version = await readSnapshotCommand(parsed.data.versionId);
     if (!version.ok) return version;
     // The scope check runs on `noteId`, so a version must belong to it — an
@@ -1074,7 +1188,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = DefineArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const result = await defineTermCommand(parsed.data, { signal: context.signal });
     if (result.ok) {
       reportModelUsage(context, parsed.data.context, result.value);
@@ -1086,14 +1200,18 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = GenerateFlashcardsArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     // The target is checked before the model is paid for, not after.
     const target = parsed.data.target;
     const checked = await validateVersionedNotes([target], context, 'live');
     if (!checked.ok) return checked;
     const sources = await sourceText(parsed.data.noteIds);
     const deck = await proposeFlashcardsCommand(
-      { noteIds: parsed.data.noteIds, style: parsed.data.style, count: parsed.data.count },
+      {
+        noteIds: parsed.data.noteIds,
+        style: parsed.data.style,
+        count: parsed.data.count,
+      },
       { signal: context.signal },
     );
     if (!deck.ok) return deck;
@@ -1116,7 +1234,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = SynthesizeNotesArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     if (parsed.data.style === 'custom' && !parsed.data.instructions?.trim()) {
       return fail('invalid_input', 'the custom style requires instructions');
     }
@@ -1134,7 +1252,7 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     const cancelled = cancelledIfRequested<unknown>(context);
     if (cancelled) return cancelled;
     const parsed = VisualizeNoteArgs.safeParse(args);
-    if (!parsed.success) return invalid(parsed.error.issues);
+    if (!parsed.success) return invalidArguments(parsed.error.issues);
     const checked = await validateVersionedNotes([parsed.data], context, 'live');
     if (!checked.ok) return checked;
     const sources = await sourceText([parsed.data.noteId]);

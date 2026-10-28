@@ -351,6 +351,21 @@ export type OrganizeNotesInput = z.input<typeof OrganizeNotesInput>;
  * fails as a whole instead of moving half a study set. Writes themselves still
  * go through `updateNoteCommand`, preserving agent snapshots and cache refresh.
  */
+/**
+ * Whether a move's `sectionId` means the section this same call creates.
+ * `"new"` is the documented spelling; the section's own name is what models
+ * write unprompted — two of four measured did, and one invented
+ * "placeholder" — because the id does not exist until the call has run.
+ */
+export function refersToNewSection(
+  sectionId: string | null | undefined,
+  createSection: { name: string } | undefined,
+): boolean {
+  if (!sectionId || !createSection) return false;
+  const said = sectionId.trim().toLowerCase();
+  return said === 'new' || said === createSection.name.trim().toLowerCase();
+}
+
 export async function organizeNotesCommand(
   input: OrganizeNotesInput,
   context: CommandContext = USER,
@@ -375,6 +390,7 @@ export async function organizeNotesCommand(
     note: Note;
     move: (typeof parsed.data.moves)[number];
     courseId: string | null;
+    intoNewSection: boolean;
   }[] = [];
   for (const move of parsed.data.moves) {
     const stopped = cancelledIfRequested<{
@@ -395,6 +411,7 @@ export async function organizeNotesCommand(
     if (courseId !== null && !courseIds.has(courseId)) {
       return fail('not_found', `no course ${courseId}`);
     }
+    let intoNewSection = false;
     if (move.sectionId) {
       if (!courseId) {
         return fail('invalid_input', 'a section requires a course', {
@@ -404,10 +421,18 @@ export async function organizeNotesCommand(
       }
       const sections = await library.listSections(courseId);
       if (!sections.some((section) => section.id === move.sectionId)) {
-        return fail('not_found', `no section ${move.sectionId}`);
+        intoNewSection =
+          courseId === parsed.data.createSection?.courseId &&
+          refersToNewSection(move.sectionId, parsed.data.createSection);
+        if (!intoNewSection) {
+          return fail(
+            'not_found',
+            `no section ${move.sectionId}; to move a note into the section this call creates, use sectionId "new"`,
+          );
+        }
       }
     }
-    prepared.push({ note, move, courseId });
+    prepared.push({ note, move, courseId, intoNewSection });
   }
 
   let createdSection: Section | null = null;
@@ -418,7 +443,7 @@ export async function organizeNotesCommand(
   }
 
   const movedNotes: Note[] = [];
-  for (const { note, move, courseId } of prepared) {
+  for (const { note, move, courseId, intoNewSection } of prepared) {
     const stopped = cancelledIfRequested<{
       createdSection: Section | null;
       movedNotes: Note[];
@@ -429,8 +454,9 @@ export async function organizeNotesCommand(
         noteId: note.id,
         baseUpdatedAt: move.baseUpdatedAt,
         courseId,
-        sectionId:
-          move.sectionId === undefined
+        sectionId: intoNewSection
+          ? createdSection!.id
+          : move.sectionId === undefined
             ? move.courseId !== undefined && move.courseId !== note.courseId
               ? null
               : note.sectionId

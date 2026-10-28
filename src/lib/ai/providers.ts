@@ -146,9 +146,10 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
       'deepseek-v4-1-flash-1017',
     ],
     defaultModel: 'mistral-medium-latest',
-    // GLM is the stronger tool-caller of the two families, and the Agent is
-    // the one feature that lives on tool calls.
-    featureDefaults: { agent: 'zai-glm-5-3' },
+    // The Agent lives on tool calls. Measured 2026-10-28 on `pnpm eval:agent`,
+    // DeepSeek V4.1 Flash finished every case twice running, at the lowest
+    // cost and time of the four Mistral serves; GLM 5.3 reached 87–93 %.
+    featureDefaults: { agent: 'deepseek-v4-1-flash-1017' },
     keyUrl: 'https://console.mistral.ai/api-keys',
     // Schemas are sent unstrict: the agent's decision schema is a union at the
     // root, which the strict subset does not allow. A third-party model served

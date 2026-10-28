@@ -9,6 +9,7 @@
 import { VISUALIZATION_OUTPUT_TOKENS } from '@/lib/ai/budgets';
 import { library } from '@/lib/adapters';
 import {
+  AGENT_READ_TOOLS,
   AgentBudgetError,
   AgentScopeError,
   AgentStuckError,
@@ -27,6 +28,7 @@ import {
 import {
   agentToolParameters,
   executeToolHandler,
+  invalidArguments,
   TOOL_ARGUMENT_SCHEMAS,
 } from '@/lib/mcp/toolHandlers';
 import {
@@ -58,6 +60,7 @@ import {
   deleteCourseCommand,
   deleteSectionCommand,
   deleteTagCommand,
+  refersToNewSection,
   updateTagCommand,
 } from './organizationCommands';
 import { updateNoteCommand } from './noteCommands';
@@ -133,11 +136,18 @@ export function finalizeAgentPlan(
   };
 }
 
-/** A model may say `done`; completion still requires every capability the
+/** A model may say `done`; completion still requires every *change* the
  * approved plan promised to have succeeded. `expectedTools` describes kinds
  * of work, not call cardinality: a plan often repeats `read_note` in prose even
  * though one successful read satisfies both later steps. Counting duplicates
- * made efficient, correctly completed runs fail their final audit. */
+ * made efficient, correctly completed runs fail their final audit.
+ *
+ * Reads are not owed. A run that listed where the plan said search, or whose
+ * planned attachment read failed while the note had what it needed, did the
+ * work; failing it only punished the route. Measured on Mistral Large 4, this
+ * audit alone failed four runs whose libraries were exactly right. What it
+ * exists to catch — a `done` with no change behind it — is still caught.
+ */
 export function missingSuccessfulPlanTools(
   plan: AgentPlan,
   calls: AgentToolCallRecord[],
@@ -145,12 +155,20 @@ export function missingSuccessfulPlanTools(
   const remaining = new Set<AgentToolName>();
   for (const step of plan.steps) {
     for (const tool of step.expectedTools) {
-      remaining.add(tool);
+      if (!AGENT_READ_TOOLS.has(tool)) remaining.add(tool);
     }
   }
   for (const call of calls) {
     if (call.status !== 'succeeded') continue;
     remaining.delete(call.tool);
+    // A task created with its notes is already linked to them.
+    if (
+      call.tool === 'create_task' &&
+      Array.isArray(call.arguments.noteIds) &&
+      call.arguments.noteIds.length > 0
+    ) {
+      remaining.delete('link_task_note');
+    }
   }
   return [...remaining];
 }
@@ -214,6 +232,7 @@ export async function planAgentCommand(
         followUpContext,
         language: language(),
         standingInstructions,
+        reasoning: useSettingsStore.getState().settings.agentReasoning,
       },
       options,
     );
@@ -316,6 +335,7 @@ export async function runAgentCommand(
         budget: record.budget,
         language: language(),
         standingInstructions: record.standingInstructions,
+        reasoning: useSettingsStore.getState().settings.agentReasoning,
         toolDefinitions,
         cacheKey: record.id,
         executeTool: (tool, args, signal) => executeAgentTool(record, tool, args, signal),
@@ -387,11 +407,11 @@ export async function runAgentCommand(
           ? i18n.t('agent.incompletePlan')
           : error instanceof AgentStuckError
             ? i18n.t('agent.stuck')
-          : error instanceof AiParseError
-            ? i18n.t('agent.invalidModelResponse')
-            : error instanceof Error
-              ? declinedOrigin(error) ?? error.message
-              : String(error);
+            : error instanceof AiParseError
+              ? i18n.t('agent.invalidModelResponse')
+              : error instanceof Error
+                ? (declinedOrigin(error) ?? error.message)
+                : String(error);
     record.completedAt = new Date().toISOString();
     record.pendingQuestion = undefined;
     pendingAnswers.delete(record.id);
@@ -628,9 +648,7 @@ export async function executeAgentTool(
     // would. A `manage_tags` naming no notes was recorded as a change to none
     // and reported done; GLM repeated it until the run's budget ran out.
     const parsed = TOOL_ARGUMENT_SCHEMAS[tool]?.safeParse(scoped.value);
-    if (parsed && !parsed.success) {
-      return fail('invalid_input', 'invalid arguments', parsed.error.issues);
-    }
+    if (parsed && !parsed.success) return invalidArguments(parsed.error.issues);
     return stageTool(record, tool, scoped.value, signal);
   }
   return performTool(record, tool, scoped.value, signal);
@@ -638,7 +656,7 @@ export async function executeAgentTool(
 
 /** Told to the model in place of a staged call's result. */
 const STAGED_NOTE =
-  'Recorded for the student to review. It is applied when they approve this run’s changes, after you finish: treat it as done, do not repeat it, and do not expect reads to show it yet.';
+  'Recorded for the student to review. It is applied when they approve this run’s changes, after you finish: treat it as done and do not repeat it. Reads will not show it until then, so do not check for it with a read — if nothing else remains, call finish.';
 
 /**
  * Record a metadata write instead of making it (plan §3.2 item 8).
@@ -660,6 +678,10 @@ async function stageTool(
     if (!now.ok || !split.staged) return now;
   }
   const staged = split.staged!;
+  if (tool === 'organize') {
+    const refused = await resolveStagedMoves(args, staged, now);
+    if (refused) return refused;
+  }
   const call = { id: newId(), tool, arguments: staged };
   const refs = stagedRefs(call);
   if (new Set(refs.map((ref) => ref.noteId)).size !== refs.length) {
@@ -695,6 +717,55 @@ async function stageTool(
 const MAX_STAGED_CALLS = 500;
 
 /**
+ * Point staged moves at the section created a moment ago, and refuse a move
+ * into a section that does not exist. The handler checks the second when it
+ * runs; a staged move runs only at Apply, after the model has finished, so a
+ * move into "Week 5" — a name, not an id — used to be recorded as done and
+ * fail in front of the student instead.
+ */
+async function resolveStagedMoves(
+  args: Record<string, unknown>,
+  staged: Record<string, unknown>,
+  now: AgentToolOutcome | null,
+): Promise<AgentToolOutcome | null> {
+  const createSection = args.createSection as
+    { courseId: string; name: string } | undefined;
+  const created =
+    now?.ok && isRecord(now.value) && isRecord(now.value.createdSection)
+      ? (now.value.createdSection as { id: string; courseId: string })
+      : null;
+  const moves = Array.isArray(staged.moves) ? staged.moves : [];
+  for (const move of moves as { courseId?: string | null; sectionId?: string | null }[]) {
+    if (!move.sectionId) continue;
+    if (
+      created &&
+      move.courseId === created.courseId &&
+      refersToNewSection(move.sectionId, createSection)
+    ) {
+      move.sectionId = created.id;
+      continue;
+    }
+    if (!move.courseId) {
+      return fail('invalid_input', 'a section requires a course', {
+        sectionId: move.sectionId,
+      });
+    }
+    const sections = await library.listSections(move.courseId);
+    if (!sections.some((section) => section.id === move.sectionId)) {
+      return fail(
+        'not_found',
+        `no section ${move.sectionId}; to move a note into the section this call creates, use sectionId "new"`,
+      );
+    }
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
  * Decide a run's staged changes as it ends: a small changeset that finished
  * cleanly is applied now; a large one, or one a run left unfinished, waits for
  * the student.
@@ -711,7 +782,10 @@ async function settleChangeset(
     return;
   }
   changeset.state = 'pending';
-  if (completed && changesetNoteIds(changeset.calls).length <= CHANGESET_REVIEW_THRESHOLD) {
+  if (
+    completed &&
+    changesetNoteIds(changeset.calls).length <= CHANGESET_REVIEW_THRESHOLD
+  ) {
     await applyChangeset(record, signal);
   }
   put(record);
@@ -725,7 +799,10 @@ async function settleChangeset(
  * edited since is skipped and reported, never overwritten. Scope is checked
  * again, because a note can leave a course between staging and Apply.
  */
-async function applyChangeset(record: AgentRunRecord, signal?: AbortSignal): Promise<void> {
+async function applyChangeset(
+  record: AgentRunRecord,
+  signal?: AbortSignal,
+): Promise<void> {
   const changeset = record.changeset!;
   const skipped = new Map<string, string>();
   const controller = signal ? null : new AbortController();
@@ -780,7 +857,8 @@ export async function applyAgentChangesetCommand(
 ): Promise<CommandResult<AgentRunRecord>> {
   const stored = useAgentStore.getState().runs.find((run) => run.id === runId);
   if (!stored) return fail('not_found', `no agent run ${runId}`);
-  if (stored.status === 'running') return fail('conflict', 'the agent run is still running');
+  if (stored.status === 'running')
+    return fail('conflict', 'the agent run is still running');
   if (stored.changeset?.state !== 'pending') {
     return fail('conflict', 'this run has no changes waiting for review');
   }
@@ -792,7 +870,9 @@ export async function applyAgentChangesetCommand(
 
 /** Drop a run's pending changeset — the student's Cancel. Nothing was
  * written, so there is nothing to put back. */
-export function discardAgentChangesetCommand(runId: string): CommandResult<AgentRunRecord> {
+export function discardAgentChangesetCommand(
+  runId: string,
+): CommandResult<AgentRunRecord> {
   const stored = useAgentStore.getState().runs.find((run) => run.id === runId);
   if (!stored) return fail('not_found', `no agent run ${runId}`);
   if (stored.changeset?.state !== 'pending') {
@@ -841,14 +921,9 @@ async function performTool(
     // A handler can be cancelled or fail after an earlier step already wrote
     // (for example, creating a tag before updating its note). Journal the
     // observed delta even on that path so whole-run undo remains whole.
-    await journalAfter(
-      record,
-      tool,
-      args,
-      result?.ok ? result.value : undefined,
-      before,
-    );
-    if (record.changeset && result?.ok) await recordVersions(record, tool, args, result.value);
+    await journalAfter(record, tool, args, result?.ok ? result.value : undefined, before);
+    if (record.changeset && result?.ok)
+      await recordVersions(record, tool, args, result.value);
     put(record);
   }
 }
@@ -899,13 +974,14 @@ async function modelCallFits(
     if (note) input += estimateTokens(note.plainText);
   }
   const outputAllowance =
-    tool === 'visualize_note'
-      ? VISUALIZATION_OUTPUT_TOKENS
-      : MODEL_TOOL_OUTPUT_ALLOWANCE;
+    tool === 'visualize_note' ? VISUALIZATION_OUTPUT_TOKENS : MODEL_TOOL_OUTPUT_ALLOWANCE;
   return record.tokensUsed + input + outputAllowance <= record.budget.tokenCeiling;
 }
 
-function modelSourceNoteIds(tool: AgentToolName, args: Record<string, unknown>): string[] {
+function modelSourceNoteIds(
+  tool: AgentToolName,
+  args: Record<string, unknown>,
+): string[] {
   if (tool === 'visualize_note') {
     return typeof args.noteId === 'string' ? [args.noteId] : [];
   }

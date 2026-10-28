@@ -48,6 +48,17 @@ describe('task tools', () => {
     expect(result).toMatchObject({ ok: false, code: 'invalid_input' });
   });
 
+  it('reads a bare date as local midnight and a time without offset as local', async () => {
+    const allDay = await createTask({ title: 'Problem set 1', dueAt: '2026-10-05' });
+    expect(allDay.dueAt).toBe(new Date(2026, 9, 5).toISOString());
+    const timed = await createTask({ title: 'Lab', dueAt: '2026-11-02T14:30' });
+    expect(timed.dueAt).toBe(new Date(2026, 10, 2, 14, 30).toISOString());
+    const instant = await createTask({ title: 'Exam', dueAt: '2026-11-02T09:00:00+01:00' });
+    expect(new Date(instant.dueAt!).toISOString()).toBe('2026-11-02T08:00:00.000Z');
+    const impossible = await call('create_task', { title: 'Never', dueAt: '2026-02-30' });
+    expect(impossible).toMatchObject({ ok: false, code: 'invalid_input' });
+  });
+
   it('rejects a stale update and leaves the task as it was', async () => {
     const task = await createTask({ title: 'Essay' });
 
