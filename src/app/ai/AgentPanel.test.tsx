@@ -138,7 +138,7 @@ describe('AgentPanel review gate', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Agent' }), {
       target: { value: 'Create an Environment course' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Plan it' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
 
     const widen = await screen.findByRole('button', { name: 'Use All notes' });
     expect(screen.getByRole('alert').textContent).toContain(
@@ -236,7 +236,7 @@ describe('AgentPanel review gate', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Follow-up' }), {
       target: { value: 'Make the recap shorter.' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Plan the follow-up' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     await waitFor(() => expect(plan).toHaveBeenCalledOnce());
     expect(plan).toHaveBeenCalledWith(
@@ -245,6 +245,68 @@ describe('AgentPanel review gate', () => {
         followUpTo: active.id,
       }),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it('runs a task that needs no review straight away', async () => {
+    useAgentStore.setState({ runs: [], activeRunId: null });
+    const small = { ...plannedRun(), id: 'small', reviewed: false };
+    vi.spyOn(commands, 'planAgentCommand').mockImplementation(async () => {
+      useAgentStore.setState({ runs: [small], activeRunId: small.id });
+      return { ok: true, value: small };
+    });
+    const run = vi
+      .spyOn(commands, 'runAgentCommand')
+      .mockResolvedValue({ ok: true, value: { ...small, status: 'completed' } });
+
+    render(<AgentPanel noteId="note-1" />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Agent' }), {
+      target: { value: 'Tag this note as revision.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+
+    await waitFor(() => expect(run).toHaveBeenCalledWith('small', expect.anything()));
+  });
+
+  it('holds a larger task at the plan, and says why', () => {
+    useAgentStore.setState({
+      runs: [{ ...plannedRun(), reviewed: true }],
+      activeRunId: 'agent-panel-run',
+    });
+    const run = vi.spyOn(commands, 'runAgentCommand');
+    render(<AgentPanel noteId="note-1" />);
+    expect(
+      screen.getByText('A larger task, so here is the plan before anything changes.'),
+    ).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Run it' })).not.toBeNull();
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('offers to keep going after a run stopped at its limit, and says the error once', async () => {
+    const stopped: AgentRunRecord = {
+      ...plannedRun(),
+      status: 'failed',
+      stoppedAt: 'tools',
+      error: 'The run reached its step limit.',
+      completedAt: new Date().toISOString(),
+    };
+    useAgentStore.setState({ runs: [stopped], activeRunId: stopped.id });
+    const plan = vi.spyOn(commands, 'planAgentCommand').mockResolvedValue({
+      ok: false,
+      code: 'cancelled',
+      message: 'cancelled',
+    });
+    render(<AgentPanel noteId="note-1" />);
+    expect(screen.getAllByText('The run reached its step limit.')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep going' }));
+    await waitFor(() =>
+      expect(plan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          followUpTo: stopped.id,
+          instruction: 'Keep going: finish the task from where you stopped.',
+        }),
+        expect.anything(),
+      ),
     );
   });
 

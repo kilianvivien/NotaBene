@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/lib/state/settingsStore';
 import { cn } from '@/lib/utils/cn';
 import { AgentInstructionsSettings } from './AgentInstructionsSettings';
 import { AgentReasoningSettings } from './AgentReasoningSettings';
+import { AgentReviewSettings } from './AgentReviewSettings';
 
 export function AgentSettings() {
   const { t } = useTranslation();
@@ -34,6 +35,7 @@ export function AgentSettings() {
     return (
       <div className="flex flex-col gap-5">
         <AgentInstructionsSettings />
+        <AgentReviewSettings />
         <AgentReasoningSettings />
         <p className="text-[13px] text-nb-text-3">{t('mcp.desktopOnly')}</p>
       </div>
@@ -56,6 +58,7 @@ export function AgentSettings() {
   return (
     <div className="flex flex-col gap-5">
       <AgentInstructionsSettings />
+      <AgentReviewSettings />
       <AgentReasoningSettings />
       <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-hover)] p-3">
         <div className="flex items-center justify-between gap-3">

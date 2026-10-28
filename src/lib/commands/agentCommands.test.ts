@@ -15,6 +15,7 @@ import {
   executeAgentTool,
   finalizeAgentPlan,
   missingSuccessfulPlanTools,
+  planNeedsReview,
   requiredScopeForPlan,
   undoAgentRunCommand,
 } from './agentCommands';
@@ -471,5 +472,63 @@ describe('the completion audit', () => {
         done('create_task', { title: 'PS1' }),
       ]),
     ).toEqual(['link_task_note']);
+  });
+});
+
+describe('whether a plan waits for review', () => {
+  const plan = (
+    expectedTools: AgentToolName[][],
+    complexity?: 'simple' | 'complex',
+  ): AgentPlan => ({
+    summary: 'Do it',
+    noteReferences: [],
+    complexity,
+    steps: expectedTools.map((tools) => ({
+      description: 'Do it',
+      expectedTools: tools,
+      noteIds: [],
+    })),
+  });
+
+  it('lets a small plan run, and holds a large or risky one', () => {
+    expect(
+      planNeedsReview(plan([['read_note'], ['manage_tags']], 'simple'), 'large'),
+    ).toBe(false);
+    expect(planNeedsReview(plan([['manage_tags']], 'complex'), 'large')).toBe(true);
+    // The planner cannot call Trash or a merge simple.
+    expect(planNeedsReview(plan([['trash_notes']], 'simple'), 'large')).toBe(true);
+    expect(planNeedsReview(plan([['merge_notes']], 'simple'), 'large')).toBe(true);
+    // Nor five changing steps.
+    expect(
+      planNeedsReview(
+        plan(
+          Array.from({ length: 5 }, () => ['update_note']),
+          'simple',
+        ),
+        'large',
+      ),
+    ).toBe(true);
+    expect(planNeedsReview(plan([['manage_tags']], 'simple'), 'always')).toBe(true);
+  });
+
+  it('stops owing a planned change the model found unnecessary', () => {
+    const done = {
+      id: 'r',
+      tool: 'read_note' as const,
+      arguments: {},
+      rationale: 'r',
+      status: 'succeeded' as const,
+      startedAt: new Date(0).toISOString(),
+    };
+    expect(
+      missingSuccessfulPlanTools(plan([['read_note'], ['organize']]), [done]),
+    ).toEqual(['organize']);
+    expect(
+      missingSuccessfulPlanTools(
+        plan([['read_note'], ['organize']]),
+        [done],
+        ['organize'],
+      ),
+    ).toEqual([]);
   });
 });

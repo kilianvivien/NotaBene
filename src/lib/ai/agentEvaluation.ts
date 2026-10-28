@@ -37,6 +37,9 @@ export interface AgentEvalCase {
   scope: { kind: 'library' } | { kind: 'course'; courseId: string };
   /** Answers the harness gives, in order, if the agent asks. */
   answers?: string[];
+  /** What the student types next, each run as a follow-up to the run before
+   * — "ok", "do the rest too". Scored on the library after the last. */
+  followUps?: string[];
   /**
    * What must be true afterwards. Returns the reasons it is not — empty means
    * the case passed. Written against ids and text, never against which tools

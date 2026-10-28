@@ -18,6 +18,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { library, secrets } from '@/lib/adapters';
+import type { AgentRunRecord } from '@/lib/schema';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import {
   answerAgentQuestionCommand,
@@ -130,40 +131,53 @@ async function runCase(testCase: AgentEvalCase): Promise<AgentCaseResult> {
         await state(),
       );
     }
-    await runAgentCommand(planned.value.id, {}, { forceJson });
-    // The student's Apply, for a run that set its changes aside for review:
-    // the outcome being scored is the library after the run, not the preview.
-    const staged = useAgentStore
-      .getState()
-      .runs.find((entry) => entry.id === planned.value.id);
-    if (staged?.changeset?.state === 'pending') {
-      await applyAgentChangesetCommand(staged.id);
+    // The first run, then each follow-up as the student would send it. The
+    // run scored is the last; calls, questions and tokens are the session's.
+    const runs: AgentRunRecord[] = [];
+    let current: AgentRunRecord = planned.value;
+    for (const next of [null, ...(testCase.followUps ?? [])]) {
+      if (next !== null) {
+        const followUp = await planAgentCommand({
+          instruction: next,
+          scope: testCase.scope,
+          followUpTo: current.id,
+        });
+        if (!followUp.ok) break;
+        current = followUp.value;
+      }
+      await runAgentCommand(current.id, {}, { forceJson });
+      // The student's Apply, for a run that set its changes aside for review:
+      // the outcome being scored is the library after the run, not the preview.
+      const staged = useAgentStore.getState().runs.find((entry) => entry.id === current.id);
+      if (staged?.changeset?.state === 'pending') {
+        await applyAgentChangesetCommand(staged.id);
+      }
+      current = useAgentStore.getState().runs.find((entry) => entry.id === current.id)!;
+      runs.push(current);
+      if (trace) {
+        // A failing case's summary line says what was wrong with the library,
+        // not what the agent did to get there. This is the second half.
+        process.stdout.write(
+          `\n── ${testCase.id}${next !== null ? ` → “${next}”` : ''}: ${current.status}${current.error ? ` (${current.error})` : ''}${current.reviewed === false ? ' [unreviewed]' : ''}\n  plan: ${current.plan.steps.map((step) => step.expectedTools.join('+')).join(' → ')}\n${current.calls
+            .map(
+              (call) =>
+                `  ${call.status.padEnd(9)} ${call.tool} ${JSON.stringify(call.arguments).slice(0, 240)}${
+                  call.error ? `\n            ↳ ${call.error.slice(0, 240)}` : ''
+                }`,
+            )
+            .join('\n')}\n`,
+        );
+      }
     }
-    const run = useAgentStore
-      .getState()
-      .runs.find((entry) => entry.id === planned.value.id)!;
-    if (trace) {
-      // A failing case's summary line says what was wrong with the library,
-      // not what the agent did to get there. This is the second half.
-      process.stdout.write(
-        `\n── ${testCase.id}: ${run.status}${run.error ? ` (${run.error})` : ''}\n  plan: ${run.plan.steps.map((step) => step.expectedTools.join('+')).join(' → ')}\n${run.calls
-          .map(
-            (call) =>
-              `  ${call.status.padEnd(9)} ${call.tool} ${JSON.stringify(call.arguments).slice(0, 240)}${
-                call.error ? `\n            ↳ ${call.error.slice(0, 240)}` : ''
-              }`,
-          )
-          .join('\n')}\n`,
-      );
-    }
+    const run = current;
     return scoreAgentCase(
       testCase,
       {
         status: run.status,
         toolMode: run.toolMode,
-        calls: run.calls,
-        questions: run.questions?.length ?? 0,
-        tokensUsed: run.tokensUsed,
+        calls: runs.flatMap((entry) => entry.calls),
+        questions: runs.reduce((total, entry) => total + (entry.questions?.length ?? 0), 0),
+        tokensUsed: runs.reduce((total, entry) => total + entry.tokensUsed, 0),
         wallMs: Date.now() - started,
         error: run.error,
       },

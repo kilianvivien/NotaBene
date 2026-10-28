@@ -39,6 +39,10 @@ describe('agent reasoning', () => {
       'thorough',
     );
     expect(migrateSettings({}).agentReasoning).toBe('auto');
+    // Review defaults to larger tasks only; only an explicit "always" sticks.
+    expect(migrateSettings({}).agentReview).toBe('large');
+    expect(migrateSettings({ agentReview: 'always' }).agentReview).toBe('always');
+    expect(migrateSettings({ agentReview: 'never' as never }).agentReview).toBe('large');
     expect(migrateSettings({ agentReasoning: 'max' as never }).agentReasoning).toBe(
       'auto',
     );

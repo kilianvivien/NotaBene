@@ -223,6 +223,10 @@ export interface AppSettings {
   /** How hard the in-app agent thinks on a model that lets NotaBene choose.
    * `auto` is the per-model level the structured features already use. */
   agentReasoning: 'auto' | 'light' | 'thorough';
+  /** When the student sees the agent's plan before it runs: only for larger
+   * or riskier tasks (`planNeedsReview`), or for every new task. Follow-ups
+   * never wait for review. */
+  agentReview: 'large' | 'always';
   /** Provider id per AI feature, so synthesis can use a stronger model than
    * spell-fixing without the user re-picking every time. The `default` entry is
    * what every unlisted feature resolves through. */
@@ -339,6 +343,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mergeSourceFate: 'trash',
   agentInstructions: '',
   agentReasoning: 'auto',
+  agentReview: 'large',
   aiFeatureModels: {},
   aiProviders: {},
   graph: {

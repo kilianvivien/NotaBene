@@ -132,6 +132,7 @@ export function finalizeAgentPlan(
   return {
     summary,
     steps,
+    ...(draft.complexity ? { complexity: draft.complexity } : {}),
     noteReferences: availableReferences.filter((reference) => used.has(reference.noteId)),
   };
 }
@@ -151,11 +152,15 @@ export function finalizeAgentPlan(
 export function missingSuccessfulPlanTools(
   plan: AgentPlan,
   calls: AgentToolCallRecord[],
+  /** What the model, finishing with the outcome achieved, reported it did not
+   * need — a note already filed, a tag no note matched. Without this a run
+   * that rightly changed nothing failed as incomplete. */
+  notNeeded: readonly AgentToolName[] = [],
 ): AgentToolName[] {
   const remaining = new Set<AgentToolName>();
   for (const step of plan.steps) {
     for (const tool of step.expectedTools) {
-      if (!AGENT_READ_TOOLS.has(tool)) remaining.add(tool);
+      if (!AGENT_READ_TOOLS.has(tool) && !notNeeded.includes(tool)) remaining.add(tool);
     }
   }
   for (const call of calls) {
@@ -213,11 +218,10 @@ export async function planAgentCommand(
     // planned against a library nobody can describe.
     return fail('conflict', i18n.t('agent.changeset.decideFirst'));
   }
-  const followUpContext = parent ? contextForFollowUp(parent) : undefined;
-
   await useEditorStore.getState().flush();
   const lookup = await providerFor('agent');
   if (!lookup.ok) return fail('not_supported', lookup.reason);
+  if (parent) return ok(followUpRun(parent, instruction, input.budget));
   const scopeDescription = await describeScope(parsedScope.data);
   const standingInstructions =
     useSettingsStore.getState().settings.agentInstructions.trim() || undefined;
@@ -229,7 +233,6 @@ export async function planAgentCommand(
         instruction,
         scope: parsedScope.data,
         scopeContext: scopeDescription.context,
-        followUpContext,
         language: language(),
         standingInstructions,
         reasoning: useSettingsStore.getState().settings.agentReasoning,
@@ -237,6 +240,10 @@ export async function planAgentCommand(
       options,
     );
     const plan = finalizeAgentPlan(draft, scopeDescription.noteReferences);
+    const reviewed = planNeedsReview(
+      plan,
+      useSettingsStore.getState().settings.agentReview,
+    );
     if (parsedScope.data.kind !== 'library' && requiredScopeForPlan(plan) === 'library') {
       return fail('scope_denied', i18n.t('agent.scopeRequiredLibrary'), {
         kind: 'scope_required',
@@ -245,12 +252,12 @@ export async function planAgentCommand(
     }
     const run: AgentRunRecord = {
       id: `agent_${newId()}`,
-      parentRunId: parent?.id,
       instruction,
       scope: parsedScope.data,
       plan,
-      budget: input.budget ?? DEFAULT_AGENT_BUDGET,
+      budget: input.budget ?? (isLargePlan(plan) ? LARGE_AGENT_BUDGET : DEFAULT_AGENT_BUDGET),
       status: 'planned',
+      reviewed,
       calls: [],
       touchedNotes: [],
       undoJournal: {
@@ -372,7 +379,11 @@ export async function runAgentCommand(
       },
       options,
     );
-    const missingTools = missingSuccessfulPlanTools(record.plan, record.calls);
+    const missingTools = missingSuccessfulPlanTools(
+      record.plan,
+      record.calls,
+      result.outcomeAchieved ? result.notNeeded : [],
+    );
     if (!result.outcomeAchieved) record.summary = result.summary;
     if (!result.outcomeAchieved || missingTools.length > 0) {
       throw new AgentCompletionError(missingTools);
@@ -399,6 +410,7 @@ export async function runAgentCommand(
       !record.calls.some((call) => call.status === 'running') &&
       missingSuccessfulPlanTools(record.plan, record.calls).length === 0;
     record.status = cancelled ? 'cancelled' : 'failed';
+    if (error instanceof AgentBudgetError) record.stoppedAt = error.limit;
     record.error = workDone
       ? i18n.t('agent.stoppedAfterWork')
       : error instanceof AgentBudgetError
@@ -499,7 +511,103 @@ function contextForFollowUp(run: AgentRunRecord): AgentFollowUpContext {
     planSummary: run.plan.summary,
     resultSummary: run.summary,
     touchedNoteTitles: run.touchedNotes.map((note) => note.title).filter(Boolean),
+    // What actually happened, so "ok" or "keep going" can carry on from it:
+    // a run stopped at a ceiling has no summary of its own.
+    completedSteps: run.calls
+      .filter((call) => call.status === 'succeeded' && !AGENT_READ_TOOLS.has(call.tool))
+      .slice(-40)
+      .map((call) => `${call.tool} ${JSON.stringify(call.arguments).slice(0, 300)}`),
+    ...(run.stoppedAt ? { stoppedAt: run.stoppedAt } : {}),
+    ...(run.error ? { endedWith: run.error } : {}),
   };
+}
+
+/** A bigger allowance for a plan the planner itself called complex, or one
+ * with many changing steps. Larger tasks used to stop at 48 calls halfway down
+ * the list; the student still sees these figures before it runs. */
+export const LARGE_AGENT_BUDGET: AgentBudget = {
+  tokenCeiling: 900_000,
+  toolCallCeiling: 120,
+  wallClockMs: 1_500_000,
+};
+
+function changingSteps(plan: AgentPlan): number {
+  return plan.steps.filter((step) =>
+    step.expectedTools.some((tool) => !AGENT_READ_TOOLS.has(tool)),
+  ).length;
+}
+
+export function isLargePlan(plan: AgentPlan): boolean {
+  return plan.complexity === 'complex' || changingSteps(plan) > 4;
+}
+
+/** Tools whose plan the student sees before it runs, whatever its size: the
+ * two that take notes out of the library as the student knows it. */
+const REVIEWED_TOOLS = new Set<AgentToolName>(['trash_notes', 'merge_notes']);
+
+/**
+ * Whether the student reviews this plan before it runs. A small task runs
+ * straight away — the review gate on every request was friction the student
+ * learned to click through, which is no review at all. The planner's own
+ * judgement counts, but so do rules it cannot talk its way past: Trash and
+ * merging, and size. Every run stays undoable, and a bulk metadata change
+ * still waits in a changeset either way.
+ */
+export function planNeedsReview(
+  plan: AgentPlan,
+  setting: 'large' | 'always',
+): boolean {
+  if (setting === 'always') return true;
+  return (
+    isLargePlan(plan) ||
+    plan.steps.some((step) => step.expectedTools.some((tool) => REVIEWED_TOOLS.has(tool)))
+  );
+}
+
+/**
+ * A follow-up runs without a planning call or a review: "ok", "do the next
+ * one too" and "keep going" continue a task the student already saw. Its plan
+ * is the instruction itself with no promised tools, so the audit owes
+ * nothing and the model's own verdict decides. Scope and budget come from the
+ * run it continues — "ok" means that task, wherever the panel now points.
+ */
+function followUpRun(
+  parent: AgentRunRecord,
+  instruction: string,
+  budget: AgentBudget | undefined,
+): AgentRunRecord {
+  const run: AgentRunRecord = {
+    id: `agent_${newId()}`,
+    parentRunId: parent.id,
+    instruction,
+    scope: parent.scope,
+    plan: {
+      summary: instruction.slice(0, 1_000),
+      steps: [{ description: instruction.slice(0, 500), expectedTools: [], noteIds: [] }],
+      noteReferences: [],
+    },
+    budget: budget ?? parent.budget,
+    status: 'planned',
+    reviewed: false,
+    calls: [],
+    touchedNotes: [],
+    undoJournal: {
+      notesBefore: [],
+      createdNoteIds: [],
+      createdCourses: [],
+      createdSections: [],
+      createdTagIds: [],
+      tagsBeforeRename: [],
+    },
+    tokensUsed: 0,
+    startedAt: null,
+    completedAt: null,
+    standingInstructions:
+      useSettingsStore.getState().settings.agentInstructions.trim() || undefined,
+  };
+  useAgentStore.getState().putRun(run);
+  useAgentStore.getState().setActiveRun(run.id);
+  return run;
 }
 
 export async function undoAgentRunCommand(

@@ -534,6 +534,20 @@ export const AGENT_EVALUATION_CASES: AgentEvalCase[] = [
       ),
   },
   {
+    // The approval that used to be planned and reviewed all over again, and
+    // then failed its audit because the plan promised a change already made.
+    id: 'approve-proposal',
+    instruction:
+      'Which course should my “Lab safety” note go in? Tell me, but do not move it yet.',
+    scope: { kind: 'library' },
+    followUps: ['ok, do it'],
+    check: (state) =>
+      expect(
+        byId(state, 'eval-inbox-lab-safety')?.courseId === physics,
+        'Lab safety not in Physics after the approval',
+      ),
+  },
+  {
     id: 'summarise-highlights',
     instruction:
       'Write up my highlights of the Kramers paper as a new note in Physics — Waves.',

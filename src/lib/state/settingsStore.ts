@@ -168,6 +168,7 @@ export function migrateSettings(stored: Partial<AppSettings>): AppSettings {
     agentReasoning: AGENT_REASONING_LEVELS.includes(rest.agentReasoning as never)
       ? (rest.agentReasoning as AppSettings['agentReasoning'])
       : DEFAULT_SETTINGS.agentReasoning,
+    agentReview: rest.agentReview === 'always' ? 'always' : DEFAULT_SETTINGS.agentReview,
     // Hand-edited or older settings files reach the typing path directly.
     abbreviations: normalizeAbbreviations(rest.abbreviations),
     focus: { ...DEFAULT_SETTINGS.focus, ...rest.focus },

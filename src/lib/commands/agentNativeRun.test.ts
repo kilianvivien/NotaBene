@@ -185,3 +185,88 @@ describe('a native agent run', () => {
     });
   });
 });
+
+describe('review only where it is worth it', () => {
+  const planBody = (plan: object) => ({
+    status: 200,
+    headers: {},
+    body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(plan) }] }),
+  });
+
+  it('runs a small plan unreviewed, holds a complex one, and gives it more room', async () => {
+    const note = await createNoteCommand({ title: 'Lab safety' });
+    if (!note.ok) throw new Error('fixture');
+    const step = { description: 'Tag it.', expectedTools: ['manage_tags'], noteIds: [] };
+    vi.spyOn(aiTransport, 'request')
+      .mockResolvedValueOnce(
+        planBody({ summary: 'Tag it.', complexity: 'simple', steps: [step] }),
+      )
+      .mockResolvedValueOnce(
+        planBody({ summary: 'Reorganise.', complexity: 'complex', steps: [step] }),
+      );
+
+    const small = await planAgentCommand({
+      instruction: 'Tag Lab safety.',
+      scope: { kind: 'library' },
+    });
+    const large = await planAgentCommand({
+      instruction: 'Reorganise everything.',
+      scope: { kind: 'library' },
+    });
+    if (!small.ok || !large.ok) throw new Error('planning failed');
+    expect(small.value.reviewed).toBe(false);
+    expect(large.value.reviewed).toBe(true);
+    expect(large.value.budget.toolCallCeiling).toBeGreaterThan(
+      small.value.budget.toolCallCeiling,
+    );
+  });
+
+  it('continues a finished task without planning again, in that task’s scope', async () => {
+    const parent = {
+      id: 'agent_parent',
+      instruction: 'File François Villeroy de Galhau.',
+      scope: { kind: 'course' as const, courseId: 'c1' },
+      plan: {
+        summary: 'File it.',
+        noteReferences: [],
+        steps: [
+          { description: 'File it.', expectedTools: ['organize' as const], noteIds: [] },
+        ],
+      },
+      budget: { tokenCeiling: 300_000, toolCallCeiling: 48, wallClockMs: 600_000 },
+      status: 'completed' as const,
+      calls: [],
+      touchedNotes: [],
+      undoJournal: {
+        notesBefore: [],
+        createdNoteIds: [],
+        createdCourses: [],
+        createdSections: [],
+        createdTagIds: [],
+        tagsBeforeRename: [],
+      },
+      tokensUsed: 10,
+      startedAt: null,
+      completedAt: null,
+      summary: 'Shall I file it in Politiques publiques?',
+    };
+    useAgentStore.getState().putRun(parent);
+    const request = vi.spyOn(aiTransport, 'request');
+
+    const followUp = await planAgentCommand({
+      instruction: 'ok',
+      scope: { kind: 'library' },
+      followUpTo: parent.id,
+    });
+
+    if (!followUp.ok) throw new Error(followUp.message);
+    // No model call: "ok" approves what the student already saw.
+    expect(request).not.toHaveBeenCalled();
+    expect(followUp.value).toMatchObject({
+      parentRunId: parent.id,
+      reviewed: false,
+      scope: parent.scope,
+      instruction: 'ok',
+    });
+  });
+});

@@ -54,6 +54,9 @@ const AgentPlanStepSchema = z.object({
 const AgentPlanDraftBaseSchema = z.object({
   summary: z.string().trim().min(1).max(1_000),
   steps: z.array(AgentPlanStepSchema).min(1).max(16),
+  /** The planner's own reading of the task's size. One input to whether the
+   * student reviews the plan first (`planNeedsReview`), never the only one. */
+  complexity: z.enum(['simple', 'complex']).optional(),
 });
 const executablePlan = (plan: z.infer<typeof AgentPlanDraftBaseSchema>) =>
   plan.steps.some((step) => step.expectedTools.length > 0);
@@ -109,6 +112,10 @@ export const AgentDecisionSchema = z.discriminatedUnion('action', [
      * also verifies that every operation promised by the plan succeeded. */
     outcomeAchieved: z.boolean(),
     summary: z.string().trim().min(1).max(2_000),
+    /** Planned changes the model found unnecessary — already in place, or
+     * nothing matched — with the reason in `summary`. The completion audit
+     * stops owing them. Unknown names are ignored, not refused. */
+    notNeeded: z.array(z.string().max(100)).max(40).optional(),
   }),
 ]);
 export type AgentDecision = z.infer<typeof AgentDecisionSchema>;
@@ -251,6 +258,12 @@ export const AgentRunRecordSchema = z.object({
   /** The student's standing instructions as they stood when the plan was
    * made, so the run follows what the review gate showed. */
   standingInstructions: z.string().max(4_000).optional(),
+  /** Whether the student saw the plan before it ran. Absent on runs from
+   * before review became conditional, which were all reviewed. */
+  reviewed: z.boolean().optional(),
+  /** Why a run ended short of its verdict, when it was a ceiling. Offered
+   * back as *Keep going*. */
+  stoppedAt: z.enum(['tokens', 'tools', 'time']).optional(),
   /** How the run spoke to its model: native function calls or the JSON
    * decision document. Recorded for the evaluation corpus. */
   toolMode: z.enum(['native', 'json']).optional(),

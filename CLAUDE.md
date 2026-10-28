@@ -313,6 +313,18 @@ Phase L notes worth knowing before touching it:
   layer sets it (`anchorRecurrence`) when a rule or due date is written and
   never on a rollover — that is what keeps the 31st from drifting to the 28th.
 
+Agent review notes (1.5, plan §3.3) worth knowing before touching it:
+
+- A plan waits for review only if `planNeedsReview` says so: the planner's
+  `complexity`, more than four changing steps, or `trash_notes`/`merge_notes`
+  — or `settings.agentReview === 'always'`. Otherwise the panel runs it as
+  soon as it is planned, in the same busy session (`start` in `AgentPanel`).
+- A follow-up (`followUpTo`) makes no planning call and never waits: its plan
+  is the instruction with no promised tools, its scope and budget the
+  parent's. "Keep going" is a follow-up of a run with `stoppedAt`.
+- `finish.notNeeded` lets a run that rightly changed nothing pass the audit;
+  keep it required in the tool definition.
+
 Agent tier 2 notes (1.3, plan §3.2 items 5–9) worth knowing before touching it:
 
 - The study-feature tools (`generate_flashcards`, `synthesize_notes`,

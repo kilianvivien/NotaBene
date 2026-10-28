@@ -21,6 +21,7 @@ import {
   ChevronRight,
   FileClock,
   Loader2,
+  Play,
   Plus,
   RotateCcw,
   Send,
@@ -31,7 +32,6 @@ import {
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChoiceGroup, GlassButton, GlassPopupButton } from '@/components/glass';
-import { DEFAULT_AGENT_BUDGET } from '@/lib/ai';
 import type { AskScope } from '@/lib/ai';
 import {
   answerAgentQuestionCommand,
@@ -153,8 +153,13 @@ export function AgentPanel({
       ? 'library'
       : asked;
 
-  async function plan(followUpTo?: string) {
-    const asked = instruction.trim();
+  /**
+   * Plan a new task, or continue one. A plan that needs no review — a small
+   * task, or any follow-up — runs at once, in the same busy session, so the
+   * student sees one continuous piece of work rather than a gate to click.
+   */
+  async function start(text: string, followUpTo?: string) {
+    const asked = text.trim();
     if (!asked) return;
     setError('');
     setRequiredScope(null);
@@ -164,16 +169,20 @@ export function AgentPanel({
       {
         instruction: asked,
         scope: agentScope(effective, noteId, selected, courseId),
-        budget: DEFAULT_AGENT_BUDGET,
         followUpTo,
       },
       { signal },
     );
-    endRun('agent', signal);
     if (response.ok) {
       setInstruction('');
+      if (response.value.reviewed === false && !signal.aborted) {
+        const ran = await runAgentCommand(response.value.id, { signal });
+        if (!ran.ok) showRunFailure(ran, response.value.id);
+      }
+      endRun('agent', signal);
       return;
     }
+    endRun('agent', signal);
     if (followUpTo) useAgentStore.getState().setActiveRun(followUpTo);
     if (!response.ok && response.code !== 'cancelled') {
       if (response.code === 'scope_denied' && requiresLibrary(response.details)) {
@@ -195,9 +204,17 @@ export function AgentPanel({
     const signal = beginRun('agent');
     const response = await runAgentCommand(run.id, { signal });
     endRun('agent', signal);
-    if (!response.ok && response.code !== 'cancelled') {
-      setError(agentErrorText(response.message) ?? t('agent.errorFallback'));
-    }
+    if (!response.ok) showRunFailure(response, run.id);
+  }
+
+  /** A run that failed says so in its own Result box; repeating it below in
+   * red said the same sentence twice. Only a failure the run did not record
+   * — no provider, a conflict — needs the panel's alert. */
+  function showRunFailure(response: { code: string; message: string }, runId: string) {
+    if (response.code === 'cancelled') return;
+    const recorded = useAgentStore.getState().runs.find((entry) => entry.id === runId)?.error;
+    if (recorded) return;
+    setError(agentErrorText(response.message) ?? t('agent.errorFallback'));
   }
 
   async function undo() {
@@ -357,6 +374,7 @@ export function AgentPanel({
             applying={applying}
             canRun={availability.available}
             onRun={() => void execute()}
+            onContinue={() => void start(t('agent.keepGoingInstruction'), run.id)}
             onStop={() => cancelRun('agent')}
             onUndo={() => void undo()}
             onEdit={() => reset(true)}
@@ -374,7 +392,7 @@ export function AgentPanel({
               label={t('agent.followUp')}
               submitLabel={t('agent.planFollowUp')}
               onChange={setInstruction}
-              onSubmit={() => void plan(run.id)}
+              onSubmit={() => void start(instruction, run.id)}
             />
           )}
         </>
@@ -388,7 +406,7 @@ export function AgentPanel({
           label={t('agent.title')}
           submitLabel={t('agent.makePlan')}
           onChange={setInstruction}
-          onSubmit={() => void plan()}
+          onSubmit={() => void start(instruction)}
         />
       )}
     </div>
@@ -547,7 +565,11 @@ function RunView({
 }) {
   const { t } = useTranslation();
   const planSummary = userFacingAgentText(planText(run.plan, run.plan.summary));
-  const gate = run.status === 'planned';
+  // An unreviewed plan is about to run; showing it as a gate for that instant
+  // would flash a button nobody needs to press.
+  const gate = run.status === 'planned' && run.reviewed !== false;
+  // A follow-up has no plan of its own — its instruction is the whole of it.
+  const direct = run.plan.steps.every((step) => step.expectedTools.length === 0);
   // Between two calls the run is waiting on the model, and nothing in the list
   // moves. Saying so is what separates "still working" from "stuck" — without
   // it, a finished-looking list over a Stop button read as a run that had
@@ -592,6 +614,9 @@ function RunView({
           <p className="mt-0.5 text-[11.5px] leading-relaxed text-nb-text-3">
             {run.instruction}
           </p>
+          <p className="mt-2 text-[10.5px] leading-relaxed text-nb-text-3">
+            {t('agent.reviewWhy')}
+          </p>
 
           <p className="mt-2.5 text-[12.5px] font-semibold leading-snug">
             {planSummary ?? t('agent.planFallback')}
@@ -632,11 +657,15 @@ function RunView({
         // the plan's one-line summary, with the steps a click away.
         <section className="px-1">
           <p
-            className="line-clamp-2 text-[11.5px] leading-relaxed text-nb-text-3"
+            className={cn(
+              'line-clamp-2 leading-relaxed',
+              direct ? 'text-[12px] font-semibold text-nb-text' : 'text-[11.5px] text-nb-text-3',
+            )}
             title={run.instruction}
           >
             {run.instruction}
           </p>
+          {!direct && (
           <details className="group mt-1">
             <summary className="flex cursor-pointer list-none items-baseline gap-1.5 text-[12px] font-semibold leading-snug [&::-webkit-details-marker]:hidden">
               <ChevronRight
@@ -651,6 +680,7 @@ function RunView({
             </summary>
             <div className="mt-1.5 pl-4">{steps}</div>
           </details>
+          )}
         </section>
       )}
 
@@ -1000,6 +1030,7 @@ function RunActions({
   applying,
   canRun,
   onRun,
+  onContinue,
   onStop,
   onUndo,
   onEdit,
@@ -1012,6 +1043,7 @@ function RunActions({
   applying: boolean;
   canRun: boolean;
   onRun(): void;
+  onContinue(): void;
   onStop(): void;
   onUndo(): void;
   onEdit(): void;
@@ -1054,6 +1086,7 @@ function RunActions({
   }
 
   if (run.status === 'planned') {
+    if (run.reviewed === false) return null;
     return (
       <div ref={plannedRef} className="flex items-center gap-1.5">
         <GlassButton size="sm" variant="ghost" onClick={onEdit} className="shrink-0">
@@ -1106,14 +1139,30 @@ function RunActions({
     );
   }
 
-  if (!canUndo) return null;
-
-  return (
+  // A run stopped at a ceiling is unfinished work, not a failure: the next
+  // step is to carry on with a fresh allowance, from where it stopped.
+  const keepGoing = run.stoppedAt && run.status === 'failed' && (
     <GlassButton
       size="sm"
+      variant="accent"
+      disabled={!canRun}
+      onClick={onContinue}
+      className="min-w-0 flex-1 justify-center"
+    >
+      <Play size={11} aria-hidden />
+      {t('agent.keepGoing')}
+    </GlassButton>
+  );
+
+  if (!canUndo) return keepGoing ? <div className="flex">{keepGoing}</div> : null;
+
+  const undoButton = (
+    <GlassButton
+      size="sm"
+      variant={keepGoing ? 'ghost' : 'default'}
       disabled={undoing}
       onClick={onUndo}
-      className="w-full justify-center"
+      className={keepGoing ? 'shrink-0' : 'w-full justify-center'}
     >
       {undoing ? (
         <Loader2 size={11} className="animate-spin" />
@@ -1122,6 +1171,14 @@ function RunActions({
       )}
       {undoing ? t('agent.undoing') : t('agent.undoRun')}
     </GlassButton>
+  );
+  return keepGoing ? (
+    <div className="flex items-center gap-1.5">
+      {undoButton}
+      {keepGoing}
+    </div>
+  ) : (
+    undoButton
   );
 }
 
