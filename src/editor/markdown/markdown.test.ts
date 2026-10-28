@@ -122,3 +122,45 @@ describe('editor Markdown', () => {
     expect(table.content[0]?.type).toBe('table');
   });
 });
+
+describe('callouts as other writers spell them', () => {
+  const first = (markdown: string) => markdownToDoc(markdown).content[0]!;
+  const text = (node: { content?: unknown[] }) => JSON.stringify(node.content);
+
+  it('reads a kind NotaBene lacks, with text on the marker line, as a callout', () => {
+    // DeepSeek's summary box, which used to print "[!SUMMARY]" in a quote.
+    const node = first(
+      '> [!SUMMARY] Le leader de crise doit se connaître.\n> Il fixe un cap.',
+    );
+    expect(node.type).toBe('callout');
+    expect(node.attrs).toEqual({ kind: 'info' });
+    expect(text(node)).toContain('Le leader de crise doit se connaître.');
+    expect(text(node)).toContain('Il fixe un cap.');
+    expect(text(node)).not.toContain('[!');
+  });
+
+  it('keeps a marker-line title as a bold first line when the box goes on', () => {
+    const node = first('> [!INFO] En bref\n> Toute fonction périodique se décompose.');
+    expect(node.content).toHaveLength(2);
+    expect(JSON.stringify(node.content?.[0])).toContain('bold');
+    expect(docToMarkdown(markdownToDoc('> [!INFO] Solo text')).trim()).toBe(
+      '> [!INFO]\n> Solo text',
+    );
+  });
+
+  it('maps warning-like kinds onto warn, and a fold mark onto a toggle', () => {
+    expect(first('> [!warning]\n> Careful.').attrs).toEqual({ kind: 'warn' });
+    expect(first('> [!important]\n> Note this.').attrs).toEqual({ kind: 'important' });
+    const toggle = first('> [!faq]- What is a phasor?\n> A rotating vector.');
+    expect(toggle.type).toBe('toggle');
+    expect(toggle.attrs).toMatchObject({ summary: 'What is a phasor?' });
+  });
+
+  it('still writes and reads its own form unchanged', () => {
+    const own = '> [!WARN]\n> Careful.';
+    expect(docToMarkdown(markdownToDoc(own)).trim()).toBe(own);
+    expect(first('> [!TOGGLE Proof]\n> Because.').attrs).toMatchObject({
+      summary: 'Proof',
+    });
+  });
+});

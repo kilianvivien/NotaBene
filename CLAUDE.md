@@ -324,6 +324,11 @@ Agent review notes (1.5, plan §3.3) worth knowing before touching it:
   parent's. "Keep going" is a follow-up of a run with `stoppedAt`.
 - `finish.notNeeded` lets a run that rightly changed nothing pass the audit;
   keep it required in the tool definition.
+- A note write reaches the model as `noteReceipt` (new `updatedAt`, opening
+  and ending of the text), never the note itself: a long note's document tree
+  pushed the change past the result limit and models re-read to find it.
+- `markdownToDoc` reads any `> [!kind]` callout, with text on the marker line;
+  `docToMarkdown` still writes only NotaBene's canonical form.
 
 Agent tier 2 notes (1.3, plan §3.2 items 5–9) worth knowing before touching it:
 

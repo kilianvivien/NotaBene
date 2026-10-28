@@ -401,6 +401,55 @@ describe('the agent over Mistral’s Responses API', () => {
   });
 });
 
+describe('what a write tells the model', () => {
+  it('answers a long note write with a receipt, not a cut-off document', async () => {
+    const long = 'Fourier. '.repeat(4_000);
+    const seen: unknown[][] = [];
+    const turns: AgentDecision[] = [
+      {
+        action: 'tool',
+        tool: 'update_note',
+        arguments: { noteId: 'n1', baseUpdatedAt: 'v1', prependMarkdown: '> [!INFO]\n> Short.' },
+        rationale: 'add the box',
+      },
+      { action: 'done', outcomeAchieved: true, summary: 'ok' },
+    ];
+    let index = 0;
+    await runAgentLoop(
+      request({
+        toolDefinitions: undefined,
+        executeTool: async () => ({
+          ok: true as const,
+          value: {
+            id: 'n1',
+            title: 'Lecture',
+            doc: { type: 'doc', content: [{ type: 'paragraph', text: long }] },
+            plainText: `Short. ${long}`,
+            updatedAt: '2026-10-28T10:00:00.000Z',
+          },
+        }),
+      }),
+      {},
+      {
+        decide: async (_request, transcript) => {
+          seen.push([...transcript]);
+          return turns[index++]!;
+        },
+        now: () => 0,
+        newId: () => `call-${index}`,
+      },
+    );
+    const outcome = (seen[1]![0] as { outcome: { value: Record<string, unknown> } }).outcome;
+    expect(outcome.value).toMatchObject({
+      saved: true,
+      updatedAt: '2026-10-28T10:00:00.000Z',
+      opening: expect.stringMatching(/^Short\./),
+    });
+    expect(outcome.value).not.toHaveProperty('doc');
+    expect(JSON.stringify(outcome).length).toBeLessThan(4_000);
+  });
+});
+
 describe('manage_tags as the agent sees it', () => {
   it('requires notes, which GLM otherwise leaves out of every call', () => {
     const tags = definitions.find((tool) => tool.name === 'manage_tags')!;

@@ -12,6 +12,7 @@
  * anywhere in the vault, Notion only by relative path — and the planner later
  * decides which note a `[[target]]` means once it has seen the whole batch.
  */
+import { calloutKind } from '@/editor/markdown';
 import { TAG_NAMESPACES, type ImportWarning, type TagNamespace } from '@/lib/schema';
 import { frontmatterList, frontmatterString, parseFrontmatter } from '../frontmatter';
 import {
@@ -108,19 +109,6 @@ export interface ConvertInput {
    * a source path for a folder, a title for Notion. `null` if not a note. */
   resolveNoteLink(href: string): string | null;
 }
-
-const OBSIDIAN_CALLOUTS: Record<string, 'INFO' | 'WARN' | 'IMPORTANT'> = {
-  warning: 'WARN',
-  caution: 'WARN',
-  attention: 'WARN',
-  failure: 'WARN',
-  fail: 'WARN',
-  missing: 'WARN',
-  danger: 'WARN',
-  error: 'WARN',
-  bug: 'WARN',
-  important: 'IMPORTANT',
-};
 
 const DATE_KEYS = {
   created: ['created', 'date', 'created_at', 'creation date', 'date created'],
@@ -373,7 +361,7 @@ export function convertMarkdownNote(input: ConvertInput): SourceNote {
       if (fold) {
         out.push(`${prefix}[!TOGGLE ${label.replace(/\]/g, ')')}]`);
       } else {
-        out.push(`${prefix}[!${OBSIDIAN_CALLOUTS[kind!.toLowerCase()] ?? 'INFO'}]`);
+        out.push(`${prefix}[!${calloutKind(kind!).toUpperCase()}]`);
         if (calloutTitle?.trim()) out.push(`${prefix}**${calloutTitle.trim()}**`);
       }
       continue;

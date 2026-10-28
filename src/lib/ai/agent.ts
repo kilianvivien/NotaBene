@@ -307,7 +307,7 @@ export const AGENT_TOOL_GUIDE = `
 - search_notes { query, limit? } — app search syntax; summaries carry updatedAt and tagIds exactly as list_notes does
 - read_note { noteId, format?: "json"|"markdown"|"blocks"|"both" } — full note and updatedAt. Prefer "markdown" for reading, "blocks" for targeted edits, and "json" only when the document tree is necessary
 - create_note { title?, courseId?, sectionId?, markdown?|doc?, tags?, copyFrom?: { noteId, baseUpdatedAt }, prependMarkdown?, appendMarkdown? } — create a note. To duplicate a note, especially a long one, use copyFrom and optionally add only the new prefix or suffix; never reproduce unchanged source content in markdown or doc
-- update_note { noteId, baseUpdatedAt, title?, markdown?|doc?, prependMarkdown?, appendMarkdown?, patches?: [{ index, action: "insert"|"replace"|"remove", markdown? }], courseId?, sectionId?, archived? } — versioned update. Prefer prefixes, suffixes, or block patches to reproducing a long unchanged body; use full markdown/doc only for an intentional whole-note rewrite, and trash_notes for recoverable removal
+- update_note { noteId, baseUpdatedAt, title?, markdown?|doc?, prependMarkdown?, appendMarkdown?, patches?: [{ index, action: "insert"|"replace"|"remove", markdown? }], courseId?, sectionId?, archived? } — versioned update. Prefer prefixes, suffixes, or block patches to reproducing a long unchanged body; use full markdown/doc only for an intentional whole-note rewrite, and trash_notes for recoverable removal. To add something at the top or the end, send only the addition in prependMarkdown or appendMarkdown. In Markdown, a box (callout) is a line "> [!INFO]" — or WARN, or IMPORTANT — alone, then its text on lines starting "> "; a collapsible section is "> [!TOGGLE Label]" then "> " lines
 - merge_notes { notes: [{ noteId, baseUpdatedAt }], title?, sourceFate?: "keep"|"archive"|"trash" } — merge notes in the supplied order; Trash is recoverable and permanent deletion is unavailable
 - trash_notes { notes: [{ noteId, baseUpdatedAt }] } — move notes to recoverable Trash; never permanently delete
 - restore_notes { notes: [{ noteId, baseUpdatedAt }] } — restore notes from Trash
@@ -1179,7 +1179,9 @@ function compactOutcome(
           ...outcome,
           value: { ...(outcome.value as Record<string, unknown>), doc: undefined },
         }
-      : outcome;
+      : outcome.ok && !AGENT_READ_TOOLS.has(tool) && isWrittenNote(outcome.value)
+        ? { ...outcome, value: noteReceipt(outcome.value) }
+        : outcome;
   const json = JSON.stringify(modelOutcome);
   const limit = SOURCE_READ_TOOLS.has(tool)
     ? MAX_READ_NOTE_RESULT_CHARS
@@ -1195,6 +1197,59 @@ function compactOutcome(
     ok: outcome.ok,
     truncated: true,
     preview: json.slice(0, limit),
+  };
+}
+
+/** A whole note, as `create_note` and `update_note` answer with. */
+function isWrittenNote(
+  value: unknown,
+): value is Record<string, unknown> & {
+  id: string;
+  updatedAt: string;
+  plainText: string;
+} {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.updatedAt === 'string' &&
+    typeof value.plainText === 'string' &&
+    'doc' in value
+  );
+}
+
+/** How much of a written note's text the receipt shows at each end. */
+const RECEIPT_EDGE_CHARS = 700;
+
+/**
+ * What the model is told after it writes a note: where it is, its new
+ * version, and how its text now opens and ends. The note itself — document
+ * tree first — ran past the result limit on any long note, so the cut fell
+ * before `updatedAt` and the change. The model could neither see its edit nor
+ * make the next one without reading the note again, and DeepSeek re-read and
+ * re-wrote a summary box until the run ran out of room.
+ */
+function noteReceipt(
+  note: Record<string, unknown> & { id: string; updatedAt: string; plainText: string },
+): unknown {
+  const text = note.plainText;
+  const whole = text.length <= RECEIPT_EDGE_CHARS * 2;
+  return {
+    saved: true,
+    id: note.id,
+    title: note.title,
+    updatedAt: note.updatedAt,
+    courseId: note.courseId ?? null,
+    sectionId: note.sectionId ?? null,
+    tagIds: note.tagIds,
+    archived: note.archived,
+    characters: text.length,
+    ...(whole
+      ? { text }
+      : {
+          opening: text.slice(0, RECEIPT_EDGE_CHARS),
+          ending: text.slice(-RECEIPT_EDGE_CHARS),
+        }),
+    note: 'Saved. This is the note as it now stands; use updatedAt for the next change to it. No need to read it again to check.',
   };
 }
 

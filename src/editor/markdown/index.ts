@@ -147,14 +147,41 @@ function tableCell(value: string, type: string, options: ParseOptions): DocNode 
   return { type, content: [paragraph(value, options)] };
 }
 
+/** Callout kinds from the wider Markdown world, onto NotaBene's three.
+ * Anything not listed — note, summary, tip, abstract… — is an info callout. */
+const CALLOUT_KINDS: Record<string, 'info' | 'warn' | 'important'> = {
+  info: 'info',
+  warn: 'warn',
+  warning: 'warn',
+  caution: 'warn',
+  attention: 'warn',
+  failure: 'warn',
+  fail: 'warn',
+  missing: 'warn',
+  danger: 'warn',
+  error: 'warn',
+  bug: 'warn',
+  important: 'important',
+};
+
+export function calloutKind(name: string): 'info' | 'warn' | 'important' {
+  return CALLOUT_KINDS[name.toLowerCase()] ?? 'info';
+}
+
 function parseQuotedBlock(
   lines: string[],
   start: number,
   options: ParseOptions,
 ): [DocNode, number] {
-  const marker = lines[start]?.match(
-    /^>\s*\[!(INFO|WARN|IMPORTANT|TOGGLE)(?:\s+([^\]]+))?\]\s*$/i,
-  );
+  // NotaBene writes `> [!INFO]` alone on its line and `> [!TOGGLE Label]`.
+  // It reads more: any kind (`[!summary]`, `[!tip]`), a fold mark, and text
+  // after the marker — what models and other apps write. DeepSeek's
+  // `> [!SUMMARY] Le leader…` used to land in a plain quote with the marker
+  // printed in it.
+  const toggle = lines[start]?.match(/^>\s*\[!TOGGLE(?:\s+([^\]]+))?\]\s*$/i);
+  const marker = toggle
+    ? null
+    : lines[start]?.match(/^>\s*\[!([\w-]+)\]([+-]?)[ \t]*(.*)$/);
   const body: string[] = [];
   let index = start + 1;
   while (index < lines.length && /^>\s?/.test(lines[index] ?? '')) {
@@ -162,22 +189,37 @@ function parseQuotedBlock(
     index += 1;
   }
 
-  if (marker) {
+  if (toggle || marker?.[2]) {
     const nested = parseMarkdown(body.join('\n'), options).content;
-    if (marker[1]?.toUpperCase() === 'TOGGLE') {
-      return [
-        {
-          type: 'toggle',
-          attrs: { summary: marker[2] ?? 'Details', open: false },
-          content: nested.length ? nested : [paragraph('', options)],
-        },
-        index,
-      ];
-    }
+    const kind = marker?.[1] ?? '';
+    const summary =
+      toggle?.[1] ??
+      (marker?.[3]?.trim() || kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase());
+    return [
+      {
+        type: 'toggle',
+        attrs: { summary: summary || 'Details', open: false },
+        content: nested.length ? nested : [paragraph('', options)],
+      },
+      index,
+    ];
+  }
+  if (marker) {
+    // Text after the marker is a title when the callout goes on below it —
+    // `> [!INFO] En bref` — and the callout's whole content when it does not.
+    // Kept as a bold first line, so the box reads back as it was meant and a
+    // model checking its work finds nothing to "fix".
+    const inline = marker[3]?.trim();
+    const lead = !inline
+      ? []
+      : body.some((line) => line.trim())
+        ? [`**${inline}**`, '']
+        : [inline];
+    const nested = parseMarkdown([...lead, ...body].join('\n'), options).content;
     return [
       {
         type: 'callout',
-        attrs: { kind: marker[1]?.toLowerCase() ?? 'info' },
+        attrs: { kind: calloutKind(marker[1] ?? 'info') },
         content: nested.length ? nested : [paragraph('', options)],
       },
       index,

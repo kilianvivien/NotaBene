@@ -534,6 +534,31 @@ export const AGENT_EVALUATION_CASES: AgentEvalCase[] = [
       ),
   },
   {
+    // The owner's request on DeepSeek: the box landed as a quote reading
+    // "[!SUMMARY]", and the run stopped before it said it had finished.
+    id: 'summary-box',
+    instruction:
+      'Ajoute un bref résumé de 5 lignes max au début de ma note « Lecture 7 — Fourier series », dans un encadré.',
+    scope: { kind: 'course', courseId: physics },
+    check: (state) => {
+      const lecture = byId(state, 'eval-lecture-7');
+      const first = lecture?.doc.content?.[0];
+      const text = lecture?.plainText ?? '';
+      return [
+        ...expect(
+          first?.type === 'callout',
+          `the note starts with ${first?.type ?? 'nothing'}, not a callout`,
+        ),
+        ...expect(!text.includes('[!'), 'a callout marker is printed in the note'),
+        ...expect(
+          /gibbs/i.test(text) && /sines and cosines/i.test(text),
+          'the original lecture text was lost',
+        ),
+        ...nothingTrashed(state),
+      ];
+    },
+  },
+  {
     // The approval that used to be planned and reviewed all over again, and
     // then failed its audit because the plan promised a change already made.
     id: 'approve-proposal',
