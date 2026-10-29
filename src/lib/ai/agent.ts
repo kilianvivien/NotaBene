@@ -305,7 +305,7 @@ export const AGENT_TOOL_GUIDE = `
 - list_tags {} — the library's existing tag taxonomy
 - list_notes { courseId?, scope?: "live"|"archived"|"trashed", limit?, offset? } — note summaries; use the trashed scope before restoring. Every summary already carries updatedAt and tagIds, so tagging, archiving, moving, merging or trashing a listed note needs no read_note first — read only when you need the text
 - search_notes { query, limit? } — app search syntax; summaries carry updatedAt and tagIds exactly as list_notes does
-- read_note { noteId, format?: "json"|"markdown"|"blocks"|"both" } — full note and updatedAt. Prefer "markdown" for reading, "blocks" for targeted edits, and "json" only when the document tree is necessary
+- read_note { noteId, format?: "json"|"markdown"|"blocks"|"both" } — full note, updatedAt, and images: [{assetId, occurrence, caption, alt}] for inline graphics. Prefer "markdown" for reading, "blocks" for targeted edits, and "json" only when the document tree is necessary
 - create_note { title?, courseId?, sectionId?, markdown?|doc?, tags?, copyFrom?: { noteId, baseUpdatedAt }, prependMarkdown?, appendMarkdown? } — create a note. To duplicate a note, especially a long one, use copyFrom and optionally add only the new prefix or suffix; never reproduce unchanged source content in markdown or doc
 - update_note { noteId, baseUpdatedAt, title?, markdown?|doc?, prependMarkdown?, appendMarkdown?, patches?: [{ index, action: "insert"|"replace"|"remove", markdown? }], courseId?, sectionId?, archived? } — versioned update. Prefer prefixes, suffixes, or block patches to reproducing a long unchanged body; use full markdown/doc only for an intentional whole-note rewrite, and trash_notes for recoverable removal. To add something at the top or the end, send only the addition in prependMarkdown or appendMarkdown. In Markdown, a box (callout) is a line "> [!INFO]" — or WARN, or IMPORTANT — alone, then its text on lines starting "> "; a collapsible section is "> [!TOGGLE Label]" then "> " lines
 - merge_notes { notes: [{ noteId, baseUpdatedAt }], title?, sourceFate?: "keep"|"archive"|"trash" } — merge notes in the supplied order; Trash is recoverable and permanent deletion is unavailable
@@ -322,13 +322,13 @@ export const AGENT_TOOL_GUIDE = `
 - complete_task { taskId, baseUpdatedAt, done? } — tick a task off; this is the only correct way to finish one, because it closes subtasks and rolls a repeating task forward to its next occurrence rather than closing it
 - link_task_note { taskId, noteId, linked? } — attach a task to a note, or detach it with linked: false
 - list_annotations { noteId } — a note's attachments, each with its PDF highlights and comments and their page numbers
-- read_attachment { noteId, attachmentId, offset?, maxChars? } — the text of an attached document, one page of characters at a time; call again from nextOffset for the rest. A scanned PDF cannot be read until the student runs text recognition
+- read_attachment { noteId, attachmentId, offset?, maxChars? } — the text of an attached document (use attachmentId from list_annotations only; inline image asset ids are NOT attachments), one page of characters at a time; call again from nextOffset for the rest. A scanned PDF cannot be read until the student runs text recognition
 - list_versions { noteId, limit? } — a note's saved versions, newest first, with why each was saved
 - read_version { noteId, versionId, format?: "markdown"|"blocks" } — one saved version's text, to compare with the note now; restoring a version stays the student's action
 - define { term, context?, noteTitle? } — a short definition of a word or phrase in the sense the passage gives it; it writes nothing
 - generate_flashcards { noteIds, style?: "basic"|"cloze"|"mixed", count?, target: { noteId, baseUpdatedAt } } — NotaBene's flashcard feature: writes a deck from up to ${MAX_AI_SOURCES_IN_GUIDE} notes and appends it to the target note as a self-test section. Prefer it to writing cards by hand
 - synthesize_notes { noteIds, style?: "summary"|"revision"|"outline"|"qa"|"glossary"|"custom", instructions? } — NotaBene's synthesis feature: a new note from up to ${MAX_AI_SOURCES_IN_GUIDE} notes, filed beside them and tagged type:summary. instructions is required for custom
-- visualize_note { noteId, baseUpdatedAt, kind?: "mindmap"|"diagram" } — NotaBene's visualize feature: appends a mind map or a diagram of the note to the note
+- visualize_note { noteId, baseUpdatedAt, kind?: "mindmap"|"diagram", imageAssetId?, imageOccurrence?: number, placement?: "after"|"replace" } — without imageAssetId, appends a mind map or diagram of the note text. With an imageAssetId from read_note.images, sends that inline image to the student's configured vision LLM and reconstructs its graphic as editable Excalidraw shapes and text, preserving layout and language. imageOccurrence selects the zero-based occurrence of that asset (read_note.images provides it); placement defaults to after, use replace only when the student requested replacement. This is the tool for reproducing photographed charts, matrices and diagrams; do not read them with read_attachment or try to reproduce them from captions. Report imageDrawingWarnings to the student; do not promise an identical copy.
 - find_mentions { noteIds?, courseId?, limit? } — unlinked mentions: notes that name another note by its exact title without linking to it. Each comes with sourceId, sourceTitle, sourceUpdatedAt, targetId and targetTitle; total says how many exist beyond the limit
 - link_mentions { links: [{ sourceId, targetId, baseUpdatedAt }] } — turn unlinked mentions into wiki links, in place, in the source note; pass sourceUpdatedAt from find_mentions as baseUpdatedAt and send every link in one call. This is the only correct way to link a mention — never rewrite a note with update_note to add one. Mentions it cannot place are returned in skipped, not as an error
 `.trim();
@@ -1243,6 +1243,9 @@ function noteReceipt(
     tagIds: note.tagIds,
     archived: note.archived,
     characters: text.length,
+    ...(Array.isArray(note.imageDrawingWarnings)
+      ? { imageDrawingWarnings: note.imageDrawingWarnings }
+      : {}),
     ...(whole
       ? { text }
       : {

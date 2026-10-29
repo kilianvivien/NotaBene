@@ -30,6 +30,7 @@ export type DetectedModels = Record<string, LocalModels>;
  * disabled button with no explanation. */
 export type AiUnavailableReason =
   | 'no_provider'
+  | 'vision_required'
   | 'no_model'
   | 'no_base_url'
   | 'provider_unavailable'
@@ -131,7 +132,10 @@ export function resolveFeature(
         (keyedProviderIds.includes(provider.id) || !provider.requiresKey) &&
         !baseUrlFor(provider, settings),
     );
-    return { available: false, reason: keyedButAddressless ? 'no_base_url' : 'no_provider' };
+    return {
+      available: false,
+      reason: keyedButAddressless ? 'no_base_url' : 'no_provider',
+    };
   }
 
   const minimumContext = AI_FEATURE_MIN_CONTEXT[feature];
@@ -172,6 +176,15 @@ export function resolveFeature(
     '';
 
   if (!model) return { available: false, reason: 'no_model' };
+  // Unknown/custom model ids remain usable: the user can configure a new
+  // vision model without waiting for a catalogue update. Refuse known text-only
+  // families before uploading an image; never silently switch providers.
+  if (
+    feature === 'imageDrawing' &&
+    (definition.id === 'apple' ||
+      /(?:^|\/)(?:zai-glm-|deepseek-v4|llama3\.2(?::|$)|qwen2\.5(?!-vl))/i.test(model))
+  )
+    return { available: false, reason: 'vision_required' };
   return {
     available: true,
     definition,

@@ -17,6 +17,13 @@ import type { ProviderDefinition } from './providers';
 export interface AiMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  /** Inline bytes, never a local asset URL or a remotely fetched image. */
+  images?: AiImage[];
+}
+
+export interface AiImage {
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
+  data: string;
 }
 
 export interface ResolvedProvider {
@@ -150,7 +157,15 @@ function anthropicRequest(call: AiCall): AiRequest {
       ...(system ? { system } : {}),
       messages: rest.map((message) => ({
         role: message.role,
-        content: message.content,
+        content: message.images?.length
+          ? [
+              ...message.images.map((image) => ({
+                type: 'image',
+                source: { type: 'base64', media_type: image.mimeType, data: image.data },
+              })),
+              { type: 'text', text: message.content },
+            ]
+          : message.content,
       })),
       ...(call.stream ? { stream: true } : {}),
       ...(call.tools
@@ -183,7 +198,18 @@ function openAiRequest(call: AiCall): AiRequest {
     headers,
     body: JSON.stringify({
       model: call.provider.model,
-      messages: call.messages,
+      messages: call.messages.map(({ images, ...message }) => ({
+        ...message,
+        content: images?.length
+          ? [
+              { type: 'text', text: message.content },
+              ...images.map((image) => ({
+                type: 'image_url',
+                image_url: { url: `data:${image.mimeType};base64,${image.data}` },
+              })),
+            ]
+          : message.content,
+      })),
       [tokenField]: call.maxTokens,
       ...(call.reasoningEffort ? { reasoning_effort: call.reasoningEffort } : {}),
       ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
@@ -253,7 +279,15 @@ function responsesRequest(call: AiCall): AiRequest {
       input: rest.map((message) => ({
         type: 'message',
         role: message.role,
-        content: message.content,
+        content: message.images?.length
+          ? [
+              { type: 'input_text', text: message.content },
+              ...message.images.map((image) => ({
+                type: 'input_image',
+                image_url: `data:${image.mimeType};base64,${image.data}`,
+              })),
+            ]
+          : message.content,
       })),
       max_output_tokens: call.maxTokens,
       ...(call.reasoningEffort ? { reasoning: { effort: call.reasoningEffort } } : {}),
@@ -324,7 +358,11 @@ function readResponsesOutput(output: unknown[]): {
     if (item.type !== 'message' || !Array.isArray(item.content)) continue;
     for (const part of item.content) {
       if (!isRecord(part)) continue;
-      if (part.type === 'refusal' && typeof part.refusal === 'string' && part.refusal.trim()) {
+      if (
+        part.type === 'refusal' &&
+        typeof part.refusal === 'string' &&
+        part.refusal.trim()
+      ) {
         throw new ProviderRefusalError(part.refusal.trim());
       }
       if (part.type === 'output_text' && typeof part.text === 'string') text += part.text;
@@ -352,7 +390,12 @@ function geminiRequest(call: AiCall): AiRequest {
       ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
       contents: rest.map((message) => ({
         role: message.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: message.content }],
+        parts: [
+          { text: message.content },
+          ...(message.images ?? []).map((image) => ({
+            inlineData: { mimeType: image.mimeType, data: image.data },
+          })),
+        ],
       })),
       generationConfig: {
         maxOutputTokens: call.maxTokens,
@@ -561,7 +604,9 @@ export function readUsage(payload: unknown): AiUsage | undefined {
   if (isRecord(gemini)) {
     return pair(
       gemini.promptTokenCount,
-      (typeof gemini.candidatesTokenCount === 'number' ? gemini.candidatesTokenCount : 0) +
+      (typeof gemini.candidatesTokenCount === 'number'
+        ? gemini.candidatesTokenCount
+        : 0) +
         (typeof gemini.thoughtsTokenCount === 'number' ? gemini.thoughtsTokenCount : 0),
     );
   }
@@ -750,7 +795,8 @@ export function parseStreamError(payload: string): string | null {
     if (isRecord(frame) && typeof frame.type === 'string') {
       // A Responses stream reports failure as an event of its own, with the
       // error inside the response it carries or, for `error`, at the top.
-      if (frame.type === 'error' && typeof frame.message === 'string') return frame.message;
+      if (frame.type === 'error' && typeof frame.message === 'string')
+        return frame.message;
       if (frame.type === 'response.failed' || frame.type === 'response.incomplete') {
         const response = frame.response;
         return (

@@ -30,3 +30,4 @@ export * from './sourceImportCommands';
 export * from './calendarCommands';
 export * from './recordingCommands';
 export * from './transcriptionCommands';
+export * from './imageDrawingCommands';

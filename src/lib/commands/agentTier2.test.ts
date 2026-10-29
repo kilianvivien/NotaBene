@@ -8,7 +8,7 @@
  * and that whole-run undo can find it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { documentImporter } from '@/lib/adapters';
+import { assets, documentImporter } from '@/lib/adapters';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import type { ImportedDocument, NoteDoc } from '@/lib/schema';
 import type { AgentRunRecord, AgentScope } from '@/lib/schema';
@@ -23,6 +23,11 @@ const model = vi.hoisted(() => ({
   requestFlashcards: vi.fn(),
   requestSynthesis: vi.fn(),
   requestMindMap: vi.fn(),
+  requestImageDrawing: vi.fn(),
+}));
+
+vi.mock('@/lib/images/vision', () => ({
+  imageForVision: async () => ({ mimeType: 'image/png', data: 'aW1hZ2U=' }),
 }));
 
 vi.mock('@/lib/ai', async (importOriginal) => {
@@ -125,8 +130,26 @@ describe('attachments and highlights (item 5)', () => {
     const at = new Date().toISOString();
     const rect = { x1: 0, y1: 0, x2: 1, y2: 1 };
     const saved = await savePdfAnnotationsCommand(attachment, [
-      { id: 'b', page: 7, rects: [rect], text: 'later', comment: '', color: 'yellow', createdAt: at, updatedAt: at },
-      { id: 'a', page: 2, rects: [rect], text: 'earlier', comment: 'key claim', color: 'green', createdAt: at, updatedAt: at },
+      {
+        id: 'b',
+        page: 7,
+        rects: [rect],
+        text: 'later',
+        comment: '',
+        color: 'yellow',
+        createdAt: at,
+        updatedAt: at,
+      },
+      {
+        id: 'a',
+        page: 2,
+        rects: [rect],
+        text: 'earlier',
+        comment: 'key claim',
+        color: 'green',
+        createdAt: at,
+        updatedAt: at,
+      },
     ]);
     if (!saved.ok) throw new Error(saved.message);
 
@@ -264,7 +287,10 @@ describe('note history (item 6)', () => {
 
   it('will not read another note’s version past the scope check', async () => {
     const secret = await note('Private', 'Diary');
-    await updateNoteCommand({ noteId: secret.id, doc: docOf('Edited') }, { source: 'ai' });
+    await updateNoteCommand(
+      { noteId: secret.id, doc: docOf('Edited') },
+      { source: 'ai' },
+    );
     const [version] = await memoryLibraryAdapter.listSnapshots(secret.id);
     const allowed = await note('Allowed');
 
@@ -423,5 +449,113 @@ describe('study features as tools (item 7)', () => {
     const written = await memoryLibraryAdapter.getNote(source.id);
     expect(written?.doc.content.at(-1)?.type).toBe('mindMap');
     expect(record.touchedNotes[0]?.noteId).toBe(source.id);
+  });
+});
+
+describe('agent image reconstruction', () => {
+  async function source() {
+    const image = {
+      type: 'image',
+      attrs: { assetId: 'inline-asset', caption: 'Delegation' },
+    };
+    const created = await createNoteCommand({
+      title: 'Delegation',
+      doc: { type: 'doc', content: [image, image] },
+    });
+    if (!created.ok) throw new Error(created.message);
+    return created.value;
+  }
+  function answer() {
+    return {
+      plan: {
+        title: 'Delegation',
+        warnings: ['One label was unreadable'],
+        elements: [{ type: 'rectangle', x: 0, y: 0, width: 200, height: 100 }],
+      },
+      scene: {
+        data: { elements: [{ type: 'rectangle' }], appState: {}, files: {} },
+        svg: '<svg />',
+      },
+    };
+  }
+  it('discovers inline assets in markdown reads, reconstructs a selected occurrence and undoes the write', async () => {
+    const note = await source();
+    const record = run({ kind: 'selection', noteIds: [note.id] });
+    const read = await executeAgentTool(
+      record,
+      'read_note',
+      { noteId: note.id, format: 'markdown' },
+      signal(),
+    );
+    expect(read).toMatchObject({
+      ok: true,
+      value: {
+        images: [
+          { assetId: 'inline-asset', occurrence: 0, caption: 'Delegation' },
+          { assetId: 'inline-asset', occurrence: 1, caption: 'Delegation' },
+        ],
+      },
+    });
+    vi.spyOn(assets, 'get').mockResolvedValue(new Blob(['picture']));
+    model.requestImageDrawing.mockResolvedValue(answer());
+    const changed = await executeAgentTool(
+      record,
+      'visualize_note',
+      {
+        noteId: note.id,
+        baseUpdatedAt: note.updatedAt,
+        imageAssetId: 'inline-asset',
+        imageOccurrence: 1,
+        placement: 'replace',
+      },
+      signal(),
+    );
+    expect(changed).toMatchObject({
+      ok: true,
+      value: { imageDrawingWarnings: ['One label was unreadable'] },
+    });
+    expect(model.requestImageDrawing).toHaveBeenCalledOnce();
+    expect(
+      (await memoryLibraryAdapter.getNote(note.id))?.doc.content.map((node) => node.type),
+    ).toEqual(['image', 'drawing']);
+    expect(changed.modelTokens).toBeGreaterThan(4096);
+    expect(record.touchedNotes[0]?.noteId).toBe(note.id);
+    useAgentStore.getState().putRun({ ...record, status: 'completed' });
+    const undone = await undoAgentRunCommand(record.id);
+    expect(undone.ok).toBe(true);
+    expect(
+      (await memoryLibraryAdapter.getNote(note.id))?.doc.content.map((node) => node.type),
+    ).toEqual(['image', 'image']);
+  });
+  it('rejects out-of-scope image writes before spending on the model', async () => {
+    const note = await source();
+    const allowed = await source();
+    const changed = await executeAgentTool(
+      run({ kind: 'selection', noteIds: [allowed.id] }),
+      'visualize_note',
+      {
+        noteId: note.id,
+        baseUpdatedAt: note.updatedAt,
+        imageAssetId: 'inline-asset',
+      },
+      signal(),
+    );
+    expect(changed).toMatchObject({ ok: false, code: 'scope_denied' });
+    expect(model.requestImageDrawing).not.toHaveBeenCalled();
+  });
+  it('reserves vision input and refuses an unaffordable reconstruction', async () => {
+    const note = await source();
+    const changed = await executeAgentTool(
+      run({ kind: 'library' }, 18_000),
+      'visualize_note',
+      {
+        noteId: note.id,
+        baseUpdatedAt: note.updatedAt,
+        imageAssetId: 'inline-asset',
+      },
+      signal(),
+    );
+    expect(changed).toMatchObject({ ok: false, code: BUDGET_EXHAUSTED });
+    expect(model.requestImageDrawing).not.toHaveBeenCalled();
   });
 });

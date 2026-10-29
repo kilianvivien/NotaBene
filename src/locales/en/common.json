@@ -781,7 +781,9 @@
     "feature_proofread": "Check paragraph",
     "askScopeLinked": "This note and its links",
     "askScopeHint_linked": "Answers may draw on this note and every note linked to or from it, and will say which ones they used.",
-    "error_output_truncated": "The model reached its output limit before finishing its answer. Try a shorter request or allow more output tokens."
+    "error_output_truncated": "The model reached its output limit before finishing its answer. Try a shorter request or allow more output tokens.",
+    "feature_imageDrawing": "Image to drawing",
+    "unavailable_vision_required": "Choose a vision-capable model for Image to drawing in AI settings"
   },
   "tags": {
     "facet_topic": "Topic",
@@ -1676,7 +1678,8 @@
     "did_find_mentions_other": "Found {{count}} unlinked mentions",
     "did_link_mentions_one": "Turned {{count}} mention into a link",
     "did_link_mentions_other": "Turned {{count}} mentions into links",
-    "did_link_mentions_generic": "Linked mentions"
+    "did_link_mentions_generic": "Linked mentions",
+    "did_recreate_image": "Recreated an image as an editable drawing"
   },
   "reading": {
     "controls": "Reading controls",
@@ -2576,5 +2579,20 @@
     "busy": "Stop the current recording or dictation first.",
     "unsupported": "Live dictation requires the desktop app and an audio input that supports streaming.",
     "noteRequired": "Open an editable note and place the insertion point in its text before dictating."
+  },
+  "imageDrawing": {
+    "menu": "Recreate as editable drawing…",
+    "title": "Recreate an image as a drawing",
+    "intro": "A vision model recreates the graphic as editable Excalidraw shapes and text. Preview the result before adding it to the note.",
+    "generate": "Recreate drawing",
+    "replace": "Replace image",
+    "insert": "Insert below image",
+    "original": "Original image",
+    "editable": "Editable drawing",
+    "hint": "The selected image is sent to the model shown above, using your existing provider and key. Choose a vision-capable model under “Image to drawing” in AI settings. Check labels and layout; reconstruction may be approximate.",
+    "sourceChanged": "The source image changed or moved. Right-click it again to start a new reconstruction.",
+    "missingImage": "The original image is no longer available.",
+    "unreadableImage": "This image could not be decoded. Try a PNG or JPEG image.",
+    "imageNotFound": "The inline image was not found. Use assetId and occurrence from read_note.images."
   }
 }

@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { useEditorStore } from '@/lib/state/editorStore';
+import { useUiStore } from '@/lib/state/uiStore';
 import type { NoteDoc } from '@/lib/schema';
 import { RichTextEditor } from './RichTextEditor';
 
@@ -43,5 +46,36 @@ describe('RichTextEditor change tracking', () => {
         expect.objectContaining({ attrs: { writingTarget: 250 } }),
       ),
     );
+  });
+});
+
+describe('image context action', () => {
+  it('targets the right-clicked image and opens its drawing preview flow', async () => {
+    const imageDoc: NoteDoc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+        { type: 'image', attrs: { assetId: 'inline-picture', caption: 'Matrix' } },
+      ],
+    };
+    useEditorStore.setState({ note: { id: 'image-note' } } as unknown as ReturnType<
+      typeof useEditorStore.getState
+    >);
+    const { container } = render(<RichTextEditor doc={imageDoc} onChange={vi.fn()} />);
+    const frame = container.querySelector('.nb-asset-image-frame');
+    expect(frame).not.toBeNull();
+    fireEvent.contextMenu(frame!, { clientX: 100, clientY: 120 });
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Recreate as editable drawing…' }),
+    );
+    await waitFor(() =>
+      expect(useUiStore.getState().imageDrawingTarget).toMatchObject({
+        noteId: 'image-note',
+        path: [1],
+        image: { type: 'image', attrs: { assetId: 'inline-picture' } },
+      }),
+    );
+    useUiStore.getState().setImageDrawingTarget(null);
+    useEditorStore.setState({ note: null });
   });
 });

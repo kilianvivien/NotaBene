@@ -1,18 +1,28 @@
+import { createPortal } from 'react-dom';
 import { Node, mergeAttributes } from '@tiptap/core';
 import {
   NodeViewWrapper,
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from '@tiptap/react';
-import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, PencilRuler } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { assets } from '@/lib/adapters';
+import { ContextMenu, type ContextPoint } from '@/components/glass';
+import { APP_COMMANDS, runAppCommand } from '@/lib/commands/appCommands';
 
-function AssetImageView({ node, selected, updateAttributes }: NodeViewProps) {
+function AssetImageView({
+  node,
+  selected,
+  updateAttributes,
+  editor,
+  getPos,
+}: NodeViewProps) {
   const { t } = useTranslation();
   const [src, setSrc] = useState<string | null>(null);
+  const [menu, setMenu] = useState<ContextPoint | null>(null);
   const frame = useRef<HTMLDivElement>(null);
 
   /**
@@ -74,6 +84,33 @@ function AssetImageView({ node, selected, updateAttributes }: NodeViewProps) {
       className="nb-asset-image"
       data-align={node.attrs.align}
       data-selected={selected || undefined}
+      tabIndex={0}
+      onContextMenu={(event: React.MouseEvent) => {
+        if (
+          event.shiftKey ||
+          (event.target instanceof Element && event.target.closest('input, button'))
+        )
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        const pos = getPos();
+        if (typeof pos !== 'number') return;
+        editor.commands.setNodeSelection(pos);
+        setMenu({ x: event.clientX, y: event.clientY });
+      }}
+      onKeyDown={(event: React.KeyboardEvent) => {
+        if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10'))
+          return;
+        if (event.target instanceof Element && event.target.closest('input, button'))
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        const pos = getPos();
+        if (typeof pos !== 'number') return;
+        editor.commands.setNodeSelection(pos);
+        const rect = frame.current?.getBoundingClientRect();
+        if (rect) setMenu({ x: rect.left, y: rect.bottom });
+      }}
     >
       <div
         ref={frame}
@@ -111,6 +148,29 @@ function AssetImageView({ node, selected, updateAttributes }: NodeViewProps) {
         aria-label={t('editor.imageCaption')}
         className="nb-image-caption"
       />
+
+      {menu &&
+        createPortal(
+          <ContextMenu
+            point={menu}
+            onClose={() => setMenu(null)}
+            items={[
+              {
+                id: 'ai.imageDrawing',
+                label: t(APP_COMMANDS['ai.imageDrawing'].labelKey),
+                icon: PencilRuler,
+                disabled: !editor.isEditable,
+                onSelect: () => {
+                  const pos = getPos();
+                  if (typeof pos !== 'number' || editor.isDestroyed) return;
+                  editor.commands.setNodeSelection(pos);
+                  void runAppCommand('ai.imageDrawing');
+                },
+              },
+            ]}
+          />,
+          document.body,
+        )}
 
       {selected && (
         <div className="nb-node-toolbar" contentEditable={false}>

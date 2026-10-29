@@ -426,6 +426,7 @@ describe('what a write tells the model', () => {
             doc: { type: 'doc', content: [{ type: 'paragraph', text: long }] },
             plainText: `Short. ${long}`,
             updatedAt: '2026-10-28T10:00:00.000Z',
+            imageDrawingWarnings: ['One label could not be read.'],
           },
         }),
       }),
@@ -444,6 +445,7 @@ describe('what a write tells the model', () => {
       saved: true,
       updatedAt: '2026-10-28T10:00:00.000Z',
       opening: expect.stringMatching(/^Short\./),
+      imageDrawingWarnings: ['One label could not be read.'],
     });
     expect(outcome.value).not.toHaveProperty('doc');
     expect(JSON.stringify(outcome).length).toBeLessThan(4_000);

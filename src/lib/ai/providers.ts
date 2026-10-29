@@ -279,6 +279,7 @@ export const AI_FEATURES = [
   'ask',
   'mindMap',
   'diagram',
+  'imageDrawing',
   'define',
   'vocabulary',
   'proofread',

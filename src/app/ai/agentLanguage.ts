@@ -266,6 +266,7 @@ export function callOutcome(
     }
 
     case 'visualize_note': {
+      if (typeof args.imageAssetId === 'string') return t('agent.did_recreate_image');
       const title = touchedTitle(run, args.noteId) ?? previewTitle(parsed);
       return title
         ? t('agent.did_visualize_note', { title })

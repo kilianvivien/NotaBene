@@ -11,6 +11,7 @@
  * to be able to change their mind, and a spinner they cannot interrupt is worse
  * than no progress indicator at all.
  */
+import { IMAGE_INPUT_TOKENS } from './budgets';
 import { aiTransport, appleFm } from '@/lib/adapters';
 import {
   buildRequest,
@@ -86,7 +87,12 @@ export function preflight(
   );
   const definition = call.provider?.definition;
   const estimatedTokens =
-    exactTokens ?? Math.ceil(characters / (definition?.charsPerToken ?? 3.6));
+    exactTokens ??
+    Math.ceil(characters / (definition?.charsPerToken ?? 3.6)) +
+      call.messages.reduce(
+        (total, message) => total + (message.images?.length ?? 0) * IMAGE_INPUT_TOKENS,
+        0,
+      );
   const contextTokens = definition?.contextTokens;
   const requestedOutput = Math.max(1, call.maxTokens ?? 1);
   const maxOutputTokens = contextTokens

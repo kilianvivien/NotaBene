@@ -438,3 +438,53 @@ describe('readUsage', () => {
     expect(readUsage({ usage: { input_tokens: 7 } })).toBeUndefined();
   });
 });
+
+/** A vision prompt must contain the image bytes, not just a caption or asset id. */
+describe('vision transport', () => {
+  const image = { mimeType: 'image/png' as const, data: 'aW1hZ2U=' };
+  function visionBody(id: string, responses = false) {
+    return JSON.parse(
+      buildRequest({
+        provider: resolved(id),
+        messages: [
+          { role: 'system', content: 'Reconstruct' },
+          { role: 'user', content: 'This chart', images: [image] },
+        ],
+        maxTokens: 2048,
+        temperature: 0.1,
+        json: true,
+        stream: false,
+        responses,
+      }).body!,
+    );
+  }
+  it.each(['openai', 'mistral', 'openrouter', 'ollama', 'lmstudio'])(
+    'sends an inline image through %s chat completions',
+    (id) => {
+      const body = visionBody(id);
+      expect(body.messages[1]).toEqual({
+        role: 'user',
+        content: [
+          { type: 'text', text: 'This chart' },
+          { type: 'image_url', image_url: { url: 'data:image/png;base64,aW1hZ2U=' } },
+        ],
+      });
+      expect(body.messages[0].content).toBe('Reconstruct');
+    },
+  );
+  it('sends Anthropic base64 image blocks', () => {
+    expect(visionBody('anthropic').messages[0].content[0]).toEqual({
+      type: 'image',
+      source: { type: 'base64', media_type: 'image/png', data: image.data },
+    });
+  });
+  it('sends Gemini inlineData', () => {
+    expect(visionBody('gemini').contents[0].parts).toContainEqual({ inlineData: image });
+  });
+  it('sends typed image inputs through Responses', () => {
+    expect(visionBody('mistral', true).input[0].content).toContainEqual({
+      type: 'input_image',
+      image_url: 'data:image/png;base64,aW1hZ2U=',
+    });
+  });
+});

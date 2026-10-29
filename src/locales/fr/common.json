@@ -781,7 +781,9 @@
     "feature_proofread": "Vérifier le paragraphe",
     "askScopeLinked": "Cette note et ses liens",
     "askScopeHint_linked": "Les réponses peuvent s’appuyer sur cette note et sur toutes celles qui lui sont liées, et indiqueront lesquelles ont servi.",
-    "error_output_truncated": "Le modèle a atteint sa limite de sortie avant de terminer sa réponse. Réduisez la demande ou augmentez le nombre de tokens de sortie."
+    "error_output_truncated": "Le modèle a atteint sa limite de sortie avant de terminer sa réponse. Réduisez la demande ou augmentez le nombre de tokens de sortie.",
+    "feature_imageDrawing": "Image en dessin",
+    "unavailable_vision_required": "Choisissez un modèle avec vision pour « Image en dessin » dans les réglages IA"
   },
   "tags": {
     "facet_topic": "Thème",
@@ -1676,7 +1678,8 @@
     "did_find_mentions_other": "{{count}} mentions sans lien trouvées",
     "did_link_mentions_one": "{{count}} mention transformée en lien",
     "did_link_mentions_other": "{{count}} mentions transformées en liens",
-    "did_link_mentions_generic": "Mentions liées"
+    "did_link_mentions_generic": "Mentions liées",
+    "did_recreate_image": "A recréé une image en dessin modifiable"
   },
   "reading": {
     "controls": "Réglages de lecture",
@@ -2576,5 +2579,20 @@
     "busy": "Arrêtez d’abord l’enregistrement ou la dictée en cours.",
     "unsupported": "La dictée en direct nécessite l’application de bureau et une entrée audio compatible.",
     "noteRequired": "Ouvrez une note modifiable et placez le point d’insertion dans son texte avant de dicter."
+  },
+  "imageDrawing": {
+    "menu": "Recréer en dessin modifiable…",
+    "title": "Recréer une image en dessin",
+    "intro": "Un modèle avec vision recrée le graphique en formes et textes Excalidraw modifiables. Vérifiez le résultat avant de l’ajouter à la note.",
+    "generate": "Recréer le dessin",
+    "replace": "Remplacer l’image",
+    "insert": "Insérer sous l’image",
+    "original": "Image d’origine",
+    "editable": "Dessin modifiable",
+    "hint": "L’image sélectionnée est envoyée au modèle indiqué ci-dessus, avec votre fournisseur et votre clé habituels. Choisissez un modèle avec vision pour « Image en dessin » dans les réglages IA. Vérifiez les libellés et la disposition : la reconstruction peut être approximative.",
+    "sourceChanged": "L’image source a changé ou a été déplacée. Faites de nouveau un clic droit dessus pour relancer la reconstruction.",
+    "missingImage": "L’image d’origine n’est plus disponible.",
+    "unreadableImage": "Impossible de décoder cette image. Essayez une image PNG ou JPEG.",
+    "imageNotFound": "Image introuvable dans la note. Utilisez assetId et occurrence renvoyés par read_note.images."
   }
 }

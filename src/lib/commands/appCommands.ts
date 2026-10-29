@@ -82,6 +82,7 @@ export const APP_COMMAND_IDS = [
   'ai.synthesize',
   'ai.ask',
   'ai.visualize',
+  'ai.imageDrawing',
   'ai.define',
   'ai.vocabularyReview',
   'ai.flashcards',
@@ -854,6 +855,13 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
    * It runs through the editor because the selection is the argument — there is
    * no useful version of this command that the menu bar could run on its own.
    */
+  'ai.imageDrawing': {
+    id: 'ai.imageDrawing',
+    labelKey: 'imageDrawing.menu',
+    accelerator: 'CmdOrCtrl+Shift+Alt+P',
+    landsIn: 'E',
+    run: editorAction('imageDrawing'),
+  },
   'ai.define': {
     id: 'ai.define',
     labelKey: 'define.menu',

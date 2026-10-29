@@ -167,6 +167,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
         command('ai.vocabularyReview', t),
         separator,
         command('ai.visualize', t),
+        command('ai.imageDrawing', t),
         command('ai.flashcards', t),
         command('ai.podcast', t),
       ],

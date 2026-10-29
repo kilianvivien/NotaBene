@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { RewriteMode } from '@/lib/ai';
 import type { DocumentImportSource } from '@/lib/import/documentImport';
+import type { ImageDrawingTarget } from '@/lib/notes/imageTargets';
 import type { Attachment } from '@/lib/schema';
 
 export interface PdfReadingRequest {
@@ -139,6 +140,7 @@ interface UiState {
   agentDraft: string | null;
   /** Mind map or diagram — the dialog remembers which was chosen last. */
   aiVisualizeOpen: boolean;
+  imageDrawingTarget: ImageDrawingTarget | null;
   aiFlashcardsOpen: boolean;
   aiPodcastOpen: boolean;
   /** The recording whose transcribe popover is open in the player (plan §10.3). */
@@ -242,6 +244,7 @@ interface UiState {
   setAiVisualizeOpen(open: boolean): void;
   setAiFlashcardsOpen(open: boolean): void;
   setAiPodcastOpen(open: boolean): void;
+  setImageDrawingTarget(target: ImageDrawingTarget | null): void;
   setTranscribeTarget(target: { noteId: string; attachmentId: string } | null): void;
   requestVersionSnapshot(snapshotId: string | null): void;
   setSettingsOpen(open: boolean): void;
@@ -297,6 +300,7 @@ export function isOverlayOpen(state: UiState): boolean {
     state.aiRewriteOpen ||
     state.aiSynthesisOpen ||
     state.aiVisualizeOpen ||
+    state.imageDrawingTarget !== null ||
     state.aiFlashcardsOpen ||
     state.aiPodcastOpen ||
     state.transcribeTarget !== null ||
@@ -370,6 +374,7 @@ export const useUiStore = create<UiState>()(
     aiSources: null,
     agentDraft: null,
     aiVisualizeOpen: false,
+    imageDrawingTarget: null,
     aiFlashcardsOpen: false,
     aiPodcastOpen: false,
     transcribeTarget: null,
@@ -747,6 +752,12 @@ export const useUiStore = create<UiState>()(
     setAgentDraft(draft) {
       set((state) => {
         state.agentDraft = draft;
+      });
+    },
+
+    setImageDrawingTarget(target) {
+      set((state) => {
+        state.imageDrawingTarget = target;
       });
     },
 

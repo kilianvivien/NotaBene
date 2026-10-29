@@ -11,6 +11,7 @@ export type EditorCommand =
   | 'underline'
   | 'highlight'
   | 'code'
+  | 'imageDrawing'
   | 'image'
   | 'drawing'
   | 'table'

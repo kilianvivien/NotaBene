@@ -45,6 +45,7 @@ export type AiActivity =
   | 'ask'
   | 'mindMap'
   | 'diagram'
+  | 'imageDrawing'
   | 'define'
   | 'vocabulary'
   | 'proofread'

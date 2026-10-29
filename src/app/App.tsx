@@ -23,6 +23,7 @@ import { MergeNotesDialog } from './shell/MergeNotesDialog';
 import { CheckDialog } from './ai/CheckDialog';
 import { CourseVocabularyDialog } from './vocabulary/CourseVocabularyDialog';
 import { SynthesisDialog } from './ai/SynthesisDialog';
+import { ImageDrawingDialog } from './ai/ImageDrawingDialog';
 import { VisualizeDialog } from './ai/VisualizeDialog';
 import { FlashcardsDialog } from './ai/FlashcardsDialog';
 import { PodcastDialog } from './ai/PodcastDialog';
@@ -238,6 +239,7 @@ export function App() {
       <CheckDialog />
       <SynthesisDialog />
       <VisualizeDialog />
+      <ImageDrawingDialog />
       <FlashcardsDialog />
       <PodcastDialog />
       <TaskDialog />

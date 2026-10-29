@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
+import { NodeSelection } from '@tiptap/pm/state';
 import type { Editor } from '@tiptap/core';
 import { useTranslation } from 'react-i18next';
 import type { NoteDoc } from '@/lib/schema';
@@ -446,6 +447,28 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
             .run();
         case 'code':
           return current.chain().focus().toggleCode().run();
+        case 'imageDrawing': {
+          const { selection } = current.state;
+          const note = useEditorStore.getState().note;
+          if (
+            !current.isEditable ||
+            !note ||
+            !(selection instanceof NodeSelection) ||
+            selection.node.type.name !== 'image'
+          )
+            return false;
+          const path = Array.from({ length: selection.$from.depth + 1 }, (_, depth) =>
+            selection.$from.index(depth),
+          );
+          useUiStore
+            .getState()
+            .setImageDrawingTarget({
+              noteId: note.id,
+              path,
+              image: selection.node.toJSON(),
+            });
+          return true;
+        }
         case 'image':
           inputRef.current?.click();
           return true;

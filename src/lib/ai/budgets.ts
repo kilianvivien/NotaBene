@@ -51,3 +51,6 @@ export function reasoningEffortFor(
   if (provider.definition?.id !== 'mistral') return undefined;
   return MISTRAL_REASONING[provider.model]?.[choice];
 }
+
+/** Conservative input estimate for one bounded vision image. */
+export const IMAGE_INPUT_TOKENS = 4_096;

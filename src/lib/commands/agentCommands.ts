@@ -6,7 +6,7 @@
  * things an in-app run needs that a remote client supplies for itself: scope
  * enforcement and a durable undo journal.
  */
-import { VISUALIZATION_OUTPUT_TOKENS } from '@/lib/ai/budgets';
+import { VISUALIZATION_OUTPUT_TOKENS, IMAGE_INPUT_TOKENS } from '@/lib/ai/budgets';
 import { library } from '@/lib/adapters';
 import {
   AGENT_READ_TOOLS,
@@ -255,7 +255,8 @@ export async function planAgentCommand(
       instruction,
       scope: parsedScope.data,
       plan,
-      budget: input.budget ?? (isLargePlan(plan) ? LARGE_AGENT_BUDGET : DEFAULT_AGENT_BUDGET),
+      budget:
+        input.budget ?? (isLargePlan(plan) ? LARGE_AGENT_BUDGET : DEFAULT_AGENT_BUDGET),
       status: 'planned',
       reviewed,
       calls: [],
@@ -553,10 +554,7 @@ const REVIEWED_TOOLS = new Set<AgentToolName>(['trash_notes', 'merge_notes']);
  * merging, and size. Every run stays undoable, and a bulk metadata change
  * still waits in a changeset either way.
  */
-export function planNeedsReview(
-  plan: AgentPlan,
-  setting: 'large' | 'always',
-): boolean {
+export function planNeedsReview(plan: AgentPlan, setting: 'large' | 'always'): boolean {
   if (setting === 'always') return true;
   return (
     isLargePlan(plan) ||
@@ -1081,6 +1079,8 @@ async function modelCallFits(
     const note = await library.getNote(noteId);
     if (note) input += estimateTokens(note.plainText);
   }
+  if (tool === 'visualize_note' && typeof args.imageAssetId === 'string')
+    input += IMAGE_INPUT_TOKENS;
   const outputAllowance =
     tool === 'visualize_note' ? VISUALIZATION_OUTPUT_TOKENS : MODEL_TOOL_OUTPUT_ALLOWANCE;
   return record.tokensUsed + input + outputAllowance <= record.budget.tokenCeiling;

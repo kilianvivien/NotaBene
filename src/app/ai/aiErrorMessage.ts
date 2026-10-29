@@ -25,6 +25,7 @@ export function aiErrorMessage(
   }
   if (aiReason === 'origin_declined') return result.message;
   if (result.code === 'not_supported') {
+    if (result.message === 'vision_required') return t('ai.unavailable_vision_required');
     if (result.message === 'context_too_small') {
       return t('ai.unavailable_context_too_small');
     }

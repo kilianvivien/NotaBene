@@ -516,6 +516,15 @@ pub struct VisualizeNoteParams {
     /// `mindmap` (default) or `diagram`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
+    /// Inline image asset id from read_note.images; reconstruct with a vision LLM.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_asset_id: Option<String>,
+    /// Zero-based occurrence of that asset in the note (default 0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_occurrence: Option<usize>,
+    /// `after` (default) or `replace`; only replace at the student's request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub placement: Option<String>,
 }
 
 #[derive(Clone)]
@@ -906,7 +915,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_visualize_note",
-        description = "Run NotaBene's visualize feature on a note with the student's configured AI provider and append a mind map or a diagram to it. The previous state is kept as a version."
+        description = "Run NotaBene's visualize feature with the student's configured LLM. Append a mind map or diagram, or pass imageAssetId and imageOccurrence from read_note.images to reconstruct an inline graphic with a vision model as editable Excalidraw shapes. placement is after (default) or replace (only if requested). Returns imageDrawingWarnings for uncertain content. Inline image asset ids are not attachment ids. The previous state is kept as a version."
     )]
     pub async fn visualize_note(
         &self,

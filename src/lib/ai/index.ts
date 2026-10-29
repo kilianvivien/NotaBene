@@ -21,3 +21,4 @@ export * from './retrieval';
 export * from './agent';
 export * from './taskAssist';
 export * from './linkSuggestions';
+export * from './imageDrawing';

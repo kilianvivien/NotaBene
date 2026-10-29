@@ -7,6 +7,7 @@
  * no agent can destroy a student's notes (PRD §5.7).
  */
 import { z } from 'zod';
+import i18n from '@/lib/i18n';
 import {
   cancelledIfRequested,
   createNoteCommand,
@@ -60,7 +61,12 @@ import {
   proposeMindMapCommand,
   saveFlashcardsToNoteCommand,
 } from '@/lib/commands/studyCommands';
-import { estimateTokens, MAX_AI_SOURCES } from '@/lib/ai';
+import {
+  proposeImageDrawingCommand,
+  insertImageDrawingCommand,
+} from '@/lib/commands/imageDrawingCommands';
+import { inlineImages } from '@/lib/notes/imageTargets';
+import { estimateTokens, MAX_AI_SOURCES, IMAGE_INPUT_TOKENS } from '@/lib/ai';
 import {
   NoteDocSchema,
   type Attachment,
@@ -507,6 +513,10 @@ const SynthesizeNotesArgs = z.object({
 
 const VisualizeNoteArgs = VersionedNoteArgs.extend({
   kind: z.enum(['mindmap', 'diagram']).default('mindmap'),
+  /** Inline image asset id from read_note.images, not an attachment id. */
+  imageAssetId: z.string().min(1).optional(),
+  imageOccurrence: z.number().int().nonnegative().max(1_000).default(0),
+  placement: z.enum(['after', 'replace']).default('after'),
 });
 
 const FindMentionsArgs = z.object({
@@ -677,6 +687,14 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
       sectionId: note.value.sectionId,
       tagIds: note.value.tagIds,
       updatedAt: note.value.updatedAt,
+      // Present even in markdown/blocks mode, whose text can omit asset ids.
+      images: inlineImages(note.value.doc).map(({ assetId, image }, index, images) => ({
+        assetId,
+        occurrence: images.slice(0, index).filter((entry) => entry.assetId === assetId)
+          .length,
+        caption: image.attrs?.caption ?? '',
+        alt: image.attrs?.alt ?? '',
+      })),
       doc:
         parsed.data.format === 'markdown' || parsed.data.format === 'blocks'
           ? undefined
@@ -1257,6 +1275,31 @@ export const TOOL_HANDLERS: Record<AgentToolName, Handler> = {
     if (!checked.ok) return checked;
     const sources = await sourceText([parsed.data.noteId]);
     const write = { context, baseUpdatedAt: parsed.data.baseUpdatedAt };
+
+    if (parsed.data.imageAssetId) {
+      const note = await readNoteCommand(parsed.data.noteId);
+      if (!note.ok) return note;
+      const image = inlineImages(note.value.doc).filter(
+        (entry) => entry.assetId === parsed.data.imageAssetId,
+      )[parsed.data.imageOccurrence];
+      if (!image) return fail('not_found', i18n.t('imageDrawing.imageNotFound'));
+      const target = { noteId: note.value.id, path: image.path, image: image.image };
+      const drawing = await proposeImageDrawingCommand(target, {
+        signal: context.signal,
+      });
+      if (!drawing.ok) return drawing;
+      reportModelUsage(context, '', drawing.value.plan);
+      context.onModelUsage?.(IMAGE_INPUT_TOKENS);
+      const inserted = await insertImageDrawingCommand(
+        target,
+        drawing.value,
+        parsed.data.placement,
+        write,
+      );
+      if (!inserted.ok) return inserted;
+      // Carry recognition uncertainties back to the agent alongside the note.
+      return ok({ ...inserted.value, imageDrawingWarnings: drawing.value.plan.warnings });
+    }
 
     if (parsed.data.kind === 'mindmap') {
       const map = await proposeMindMapCommand(parsed.data.noteId, {
