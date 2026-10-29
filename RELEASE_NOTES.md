@@ -1,5 +1,51 @@
 # Release notes
 
+## NotaBene 1.4.6 — 29 October 2026
+
+- **Turn a note image into an editable drawing.** Right-click an inline image
+  and choose **Recreate as editable drawing…**. A vision-capable LLM reconstructs
+  its graphic as native Excalidraw shapes and text, preserving its layout,
+  labels and colours. Preview the result, then insert it below the original or
+  replace the image. Choose a vision-capable model under **AI settings → Image
+  to drawing**, using your existing provider and key.
+- **Convert directly from the note.** The image is read from NotaBene's internal
+  asset store; no original file or re-upload is needed. Editor defaults,
+  caption changes, resizing and moving the image no longer trigger a false
+  “source image changed” error. Insertion follows the original image and keeps
+  other note edits.
+- **The Agent can reconstruct images too.** The Agent and external MCP clients
+  can use the same vision-to-Excalidraw workflow. Inline images are identified
+  separately from document attachments, avoiding the failed attachment reads
+  that previously prevented conversion. Scope checks, version checks, token
+  budgets and whole-run undo apply. Unreadable-label warnings reach the Agent
+  as well as the preview.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27.
+
+**Verification:** Typecheck, lint and 1,299 unit tests passed (20 skipped).
+The owner's existing DMG was verified for integrity, packaged 1.4.6 version,
+ARM64 architecture, macOS 13 minimum and valid ad-hoc signature. Its packaged
+app matches the build bundle. This release uses that build from `d941a2c`,
+without rebuilding it.
+
+**Verification limits:** Live vision-model reconstruction quality and the Tauri
+interaction have not been manually qualified. Reconstructions can be approximate;
+check labels and layout before replacing an image. Browser end-to-end tests and
+dependency audits were not rerun for this publication. The broader desktop and
+dependency limitations recorded in [1.4.5](https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.5)
+remain unqualified; this release does not claim to resolve them.
+
+**Download:** [NotaBene 1.4.6 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.6/NotaBene_1.4.6_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `94c9a39f1fa49eda27c9a6ac27faa12095ed67836ac419fe466fc55a259e7063`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.5...v1.4.6)
+
 ## NotaBene 1.4.5 — 28 October 2026
 
 - **A more reliable Agent.** Mistral agent requests now use the Responses

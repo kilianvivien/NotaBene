@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.5"><img alt="Latest release: 1.4.5" src="https://img.shields.io/badge/release-1.4.5-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.6"><img alt="Latest release: 1.4.6" src="https://img.shields.io/badge/release-1.4.6-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.4.5 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.5/NotaBene_1.4.5_aarch64.dmg)**
+**[NotaBene 1.4.6 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.6/NotaBene_1.4.6_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
@@ -178,10 +178,11 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.4.5** improves the Agent's reliability, adds reasoning and plan
-review settings, and makes follow-ups run directly. It also reads more Markdown
-callout styles and updates DOMPurify to 3.4.17. Verification details and the
-remaining dependency findings are in the [release notes](./RELEASE_NOTES.md).
+**NotaBene 1.4.6** reconstructs inline note images as editable Excalidraw
+shapes and text through a vision-capable LLM. Right-click an image to preview
+and insert or replace it, or ask the Agent to do it. Conversion uses the image
+stored in the note, with your existing provider and key. Verification details
+and remaining limitations are in the [release notes](./RELEASE_NOTES.md).
 The app is not yet signed with a
 Developer ID or notarized, and has no automatic updates.
 
