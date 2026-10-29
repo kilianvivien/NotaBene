@@ -47,12 +47,55 @@ async function fixture(
 }
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   memoryLibraryAdapter.reset();
   useEditorStore.setState({ note: null });
   vi.clearAllMocks();
 });
 
 describe('image reconstruction', () => {
+  it('converts the image stored in the note without an external source file', async () => {
+    const blob = new Blob(['stored picture'], { type: 'image/png' });
+    const asset = await assets.put(blob);
+    const { target } = await fixture({
+      type: 'doc',
+      content: [{ type: 'image', attrs: { assetId: asset.id } }],
+    });
+    const input = { mimeType: 'image/png', data: 'aW1hZ2U=' };
+    mocks.prepare.mockResolvedValueOnce(input);
+    mocks.request.mockResolvedValueOnce(result);
+
+    expect(await proposeImageDrawingCommand(target)).toEqual({ ok: true, value: result });
+    expect(mocks.prepare).toHaveBeenCalledWith(blob);
+    expect(target.image.attrs).toEqual({ assetId: asset.id });
+    expect(mocks.request).toHaveBeenCalledWith(
+      { provider: { model: 'vision-model' }, image: input },
+      {},
+    );
+  });
+
+  it('accepts editor defaults and different attribute ordering for the stored image', async () => {
+    const { target } = await fixture();
+    // TipTap materialises default attributes; the stored note can omit them.
+    target.image = {
+      type: 'image',
+      attrs: {
+        align: 'center',
+        width: 640,
+        alt: '',
+        caption: 'Delegation',
+        assetId: 'asset',
+      },
+    };
+    vi.spyOn(assets, 'get').mockResolvedValueOnce(new Blob(['picture']));
+    mocks.prepare.mockResolvedValueOnce({ mimeType: 'image/png', data: 'aW1hZ2U=' });
+    mocks.request.mockResolvedValueOnce(result);
+    expect(await proposeImageDrawingCommand(target)).toMatchObject({ ok: true });
+    expect(await insertImageDrawingCommand(target, result, 'replace')).toMatchObject({
+      ok: true,
+    });
+  });
+
   it('reads the actual inline asset and sends its bytes to the vision model', async () => {
     const { target } = await fixture();
     const blob = new Blob(['image bytes'], { type: 'image/png' });
@@ -98,19 +141,93 @@ describe('image reconstruction', () => {
       'paragraph',
     ]);
   });
-  it('refuses when the image was moved or replaced while the preview was open', async () => {
+  it('follows the source image when surrounding blocks move it during preview', async () => {
     const { note, target } = await fixture();
     await updateNoteCommand({
       noteId: note.id,
-      doc: { type: 'doc', content: [image, paragraph] },
+      doc: {
+        type: 'doc',
+        content: [{ type: 'blockquote', content: [image] }, paragraph],
+      },
+    });
+    const saved = await insertImageDrawingCommand(target, result, 'replace');
+    if (!saved.ok) throw new Error(saved.message);
+    expect(saved.value.doc.content[0]?.content?.[0]?.type).toBe('drawing');
+    expect(saved.value.doc.content[1]).toEqual(paragraph);
+  });
+
+  it('keeps caption, alignment and size edits made while the preview was open', async () => {
+    const { note, target } = await fixture();
+    const editedImage = {
+      type: 'image',
+      attrs: {
+        assetId: 'asset',
+        caption: 'Updated caption',
+        align: 'left',
+        width: 400,
+      },
+    };
+    await updateNoteCommand({
+      noteId: note.id,
+      doc: {
+        type: 'doc',
+        content: [paragraph, editedImage, paragraph],
+      },
+    });
+    const saved = await insertImageDrawingCommand(target, result);
+    if (!saved.ok) throw new Error(saved.message);
+    expect(saved.value.doc.content[1]).toEqual(editedImage);
+    expect(saved.value.doc.content[2]?.type).toBe('drawing');
+  });
+
+  it('never overwrites a different image that replaced the selected source', async () => {
+    const { note, target } = await fixture();
+    const replacement = { type: 'image', attrs: { assetId: 'different-picture' } };
+    await updateNoteCommand({
+      noteId: note.id,
+      doc: {
+        type: 'doc',
+        content: [paragraph, replacement],
+      },
     });
     expect(await insertImageDrawingCommand(target, result, 'replace')).toMatchObject({
       ok: false,
       code: 'conflict',
     });
-    expect(
-      (await memoryLibraryAdapter.getNote(note.id))?.doc.content.map((node) => node.type),
-    ).toEqual(['image', 'paragraph']);
+    expect((await memoryLibraryAdapter.getNote(note.id))?.doc.content).toEqual([
+      paragraph,
+      replacement,
+    ]);
+  });
+
+  it('refuses to guess between multiple relocated copies of the same image', async () => {
+    const { note, target } = await fixture();
+    const content = [image, paragraph, image];
+    await updateNoteCommand({ noteId: note.id, doc: { type: 'doc', content } });
+    expect(await insertImageDrawingCommand(target, result, 'replace')).toMatchObject({
+      ok: false,
+      code: 'conflict',
+    });
+    expect((await memoryLibraryAdapter.getNote(note.id))?.doc.content).toEqual(content);
+  });
+
+  it('follows the selected captioned copy instead of replacing another copy at the old position', async () => {
+    const { note, target } = await fixture();
+    const otherCopy = {
+      type: 'image',
+      attrs: { assetId: 'asset', caption: 'Other copy' },
+    };
+    await updateNoteCommand({
+      noteId: note.id,
+      doc: {
+        type: 'doc',
+        content: [image, otherCopy],
+      },
+    });
+    const saved = await insertImageDrawingCommand(target, result, 'replace');
+    if (!saved.ok) throw new Error(saved.message);
+    expect(saved.value.doc.content[0]?.type).toBe('drawing');
+    expect(saved.value.doc.content[1]).toEqual(otherCopy);
   });
   it('refuses a stale agent version and keeps its journal context on successful writes', async () => {
     const { note, target } = await fixture();

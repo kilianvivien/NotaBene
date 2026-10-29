@@ -7,7 +7,7 @@ import {
 } from '@/lib/ai';
 import { drawingNode } from '@/lib/diagram/mermaid';
 import { imageForVision } from '@/lib/images/vision';
-import { imageAtTarget, type ImageDrawingTarget } from '@/lib/notes/imageTargets';
+import { locateImageTarget, type ImageDrawingTarget } from '@/lib/notes/imageTargets';
 import type { DocNode, Note } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
 import { aiFailure, providerFor } from './aiCommands';
@@ -23,11 +23,11 @@ export async function proposeImageDrawingCommand(
     await useEditorStore.getState().flush();
     if (options.signal?.aborted) return fail('cancelled', 'cancelled');
     const note = await library.getNote(target.noteId);
-    if (!note || !imageAtTarget(note.doc, target)) {
-      return fail('conflict', i18n.t('imageDrawing.sourceChanged'));
-    }
+    if (!note) return fail('not_found', `no note ${target.noteId}`);
     const lookup = await providerFor('imageDrawing');
     if (!lookup.ok) return fail('not_supported', lookup.reason);
+    // The note references immutable bytes in its internal asset store. Neither
+    // the source file nor the image's current document position is needed.
     const blob = await assets.get(String(target.image.attrs?.assetId));
     if (!blob) return fail('not_found', i18n.t('imageDrawing.missingImage'));
     let image;
@@ -54,13 +54,15 @@ export async function insertImageDrawingCommand(
   await useEditorStore.getState().flush();
   if (write.context?.signal?.aborted) return fail('cancelled', 'cancelled');
   const note = await library.getNote(target.noteId);
-  if (!note || !imageAtTarget(note.doc, target)) {
+  if (!note) return fail('not_found', `no note ${target.noteId}`);
+  const source = locateImageTarget(note.doc, target);
+  if (!source) {
     return fail('conflict', i18n.t('imageDrawing.sourceChanged'));
   }
   const doc = structuredClone(note.doc);
   let nodes: DocNode[] = doc.content;
-  for (const index of target.path.slice(0, -1)) nodes = nodes[index]!.content!;
-  const index = target.path.at(-1)!;
+  for (const index of source.path.slice(0, -1)) nodes = nodes[index]!.content!;
+  const index = source.path.at(-1)!;
   nodes.splice(
     placement === 'replace' ? index : index + 1,
     placement === 'replace' ? 1 : 0,

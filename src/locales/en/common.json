@@ -2590,7 +2590,7 @@
     "original": "Original image",
     "editable": "Editable drawing",
     "hint": "The selected image is sent to the model shown above, using your existing provider and key. Choose a vision-capable model under “Image to drawing” in AI settings. Check labels and layout; reconstruction may be approximate.",
-    "sourceChanged": "The source image changed or moved. Right-click it again to start a new reconstruction.",
+    "sourceChanged": "The original image can no longer be identified in this note. The drawing remains available in this preview.",
     "missingImage": "The original image is no longer available.",
     "unreadableImage": "This image could not be decoded. Try a PNG or JPEG image.",
     "imageNotFound": "The inline image was not found. Use assetId and occurrence from read_note.images."

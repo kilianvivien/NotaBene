@@ -2590,7 +2590,7 @@
     "original": "Image d’origine",
     "editable": "Dessin modifiable",
     "hint": "L’image sélectionnée est envoyée au modèle indiqué ci-dessus, avec votre fournisseur et votre clé habituels. Choisissez un modèle avec vision pour « Image en dessin » dans les réglages IA. Vérifiez les libellés et la disposition : la reconstruction peut être approximative.",
-    "sourceChanged": "L’image source a changé ou a été déplacée. Faites de nouveau un clic droit dessus pour relancer la reconstruction.",
+    "sourceChanged": "L’image d’origine n’est plus identifiable dans cette note. Le dessin reste disponible dans cet aperçu.",
     "missingImage": "L’image d’origine n’est plus disponible.",
     "unreadableImage": "Impossible de décoder cette image. Essayez une image PNG ou JPEG.",
     "imageNotFound": "Image introuvable dans la note. Utilisez assetId et occurrence renvoyés par read_note.images."
