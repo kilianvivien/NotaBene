@@ -14,24 +14,24 @@ export type AgentReasoning = (typeof AGENT_REASONING_LEVELS)[number];
 type Effort = NonNullable<AiCall['reasoningEffort']>;
 
 /**
- * The levels each hosted model accepts, probed against Mistral's
- * `/v1/responses` on 2026-10-28 — an unsupported one is a 400, not a
- * downgrade. `auto` is what the structured features send unasked; `light`
- * is the least the model allows, `thorough` the most worth paying for.
- * GLM accepts no `none`; Large 4 accepts nothing between `none` and `high`.
+ * The levels each hosted model accepts — an unsupported one is a 400, not a
+ * downgrade. Initially probed against `/v1/responses` on 2026-10-28; Large 4's
+ * preview `none` became `low` (confirmed in Mistral's reasoning docs and a
+ * chat-completions 400 on 2026-10-30). `auto` is what the structured features
+ * send unasked; `light` is the least the model allows, `thorough` the most
+ * worth paying for. https://docs.mistral.ai/studio/conversations/reasoning
  */
 const MISTRAL_REASONING: Record<string, Record<AgentReasoning, Effort>> = {
   'zai-glm-5-3': { auto: 'low', light: 'low', thorough: 'high' },
   'zai-glm-5-3-flash': { auto: 'low', light: 'low', thorough: 'high' },
   'deepseek-v4-1-flash-1017': { auto: 'low', light: 'none', thorough: 'high' },
+  'mistral-large-4': { auto: 'low', light: 'low', thorough: 'high' },
+  'mistral-large-4-0': { auto: 'low', light: 'low', thorough: 'high' },
   ...Object.fromEntries(
-    [
-      'mistral-large-4',
-      'mistral-large-4-0',
-      'mistral-medium-3-5',
-      'mistral-small-latest',
-      'mistral-small-2603',
-    ].map((model) => [model, { auto: 'none', light: 'none', thorough: 'high' } as const]),
+    ['mistral-medium-3-5', 'mistral-small-latest', 'mistral-small-2603'].map((model) => [
+      model,
+      { auto: 'none', light: 'none', thorough: 'high' } as const,
+    ]),
   ),
 };
 

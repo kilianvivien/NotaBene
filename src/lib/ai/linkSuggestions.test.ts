@@ -116,7 +116,7 @@ describe('link suggestion provider requests', () => {
       expect(sent.messages[0].content).toContain('[{"from":2,"to":3}]');
       expect(sent.stream).not.toBe(true);
       if (model === 'zai-glm-5-3') expect(sent.reasoning_effort).toBe('low');
-      if (model === 'mistral-large-4') expect(sent.reasoning_effort).toBe('none');
+      if (model === 'mistral-large-4') expect(sent.reasoning_effort).toBe('low');
       if (id !== 'apple') expect(sent.max_tokens).toBe(16_384);
     },
   );

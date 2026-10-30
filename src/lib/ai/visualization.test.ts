@@ -51,7 +51,8 @@ describe('editorial visualization plans', () => {
       });
       for (const [id, model, effort] of [
         ['mistral', 'zai-glm-5-3', 'low'],
-        ['mistral', 'mistral-large-4', 'none'],
+        ['mistral', 'mistral-large-4', 'low'],
+        ['mistral', 'mistral-large-4-0', 'low'],
         ['mistral', 'unknown-model', undefined],
         ['openai', 'test', undefined],
         ['anthropic', 'test', undefined],
@@ -63,6 +64,19 @@ describe('editorial visualization plans', () => {
           .spyOn(aiTransport, 'request')
           .mockImplementation(async (request) => {
             const sent = JSON.parse(String(request.body));
+            // Large 4 no longer accepts the preview's `none` level.
+            if (
+              id === 'mistral' &&
+              (model === 'mistral-large-4' || model === 'mistral-large-4-0') &&
+              !['low', 'medium', 'high'].includes(sent.reasoning_effort)
+            )
+              return {
+                status: 400,
+                headers: {},
+                body: JSON.stringify({
+                  error: { message: 'reasoning_effort is not supported for this model' },
+                }),
+              };
             const allowance =
               sent.max_tokens ??
               sent.max_completion_tokens ??

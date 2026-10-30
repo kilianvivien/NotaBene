@@ -10,13 +10,17 @@ function on(providerId: string, model: string): ResolvedProvider {
 }
 
 describe('agent reasoning', () => {
-  // Each pair is what that model's endpoint accepted when probed; anything
-  // else is a 400 rather than a downgrade.
+  // Keep each model's supported levels separate: Large 4 renamed its preview
+  // `none` to `low`, while Small and Medium still accept `none`.
   it.each([
     ['zai-glm-5-3', 'low', 'low', 'high'],
     ['zai-glm-5-3-flash', 'low', 'low', 'high'],
     ['deepseek-v4-1-flash-1017', 'low', 'none', 'high'],
-    ['mistral-large-4', 'none', 'none', 'high'],
+    ['mistral-large-4', 'low', 'low', 'high'],
+    ['mistral-large-4-0', 'low', 'low', 'high'],
+    ['mistral-medium-3-5', 'none', 'none', 'high'],
+    ['mistral-small-latest', 'none', 'none', 'high'],
+    ['mistral-small-2603', 'none', 'none', 'high'],
   ])('sends %s only levels it accepts', (model, auto, light, thorough) => {
     const provider = on('mistral', model);
     expect(reasoningEffortFor(provider, 'auto')).toBe(auto);
