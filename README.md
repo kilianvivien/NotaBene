@@ -286,3 +286,10 @@ the complete notices.
 ## License
 
 NotaBene is available under the [Apache License 2.0](./LICENSE).
+
+## Playwright browser requirement
+
+Browser tests use the installed stable Google Chrome (`channel: "chrome"`),
+version **156.0.8078.73 or later**, instead of Playwright's older bundled Chromium.
+Keep Chrome up to date. On a new machine, install stable Google Chrome before
+running the tests. Install command: `pnpm exec playwright install chrome`.
