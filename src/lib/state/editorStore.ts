@@ -21,6 +21,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { library } from '@/lib/adapters';
 import { flattenDoc } from '@/lib/notes/docText';
+import { withNoteWrite } from '@/lib/notes/writeQueue';
 import { finishDictationBeforeNavigation } from '@/lib/recording/dictationLifecycle';
 import { useLibraryStore } from './libraryStore';
 import type { Note, NoteDoc } from '@/lib/schema';
@@ -221,7 +222,8 @@ export const useEditorStore = create<EditorState>()(
         }
       };
 
-      flushInFlight = run();
+      const noteId = get().note?.id;
+      flushInFlight = noteId ? withNoteWrite(noteId, run) : run();
       try {
         await flushInFlight;
       } finally {
@@ -255,6 +257,33 @@ export const useEditorStore = create<EditorState>()(
     },
   })),
 );
+
+/** Adopt a command's durable version without reopening the note. Typing may
+ * continue during IPC, so only replace content that still matches its base. */
+export function syncEditorNote(previous: Note, updated: Note): void {
+  useEditorStore.setState((state) => {
+    const current = state.note;
+    if (current?.id !== previous.id || current.updatedAt !== previous.updatedAt) return;
+    if (state.conflict) return;
+
+    const docEdited = JSON.stringify(current.doc) !== JSON.stringify(previous.doc);
+    const titleEdited = current.title !== previous.title;
+    const docChanged = JSON.stringify(updated.doc) !== JSON.stringify(previous.doc);
+    const titleChanged = updated.title !== previous.title;
+    // Concurrent edits to the same content still require the student's choice.
+    if ((docEdited && docChanged) || (titleEdited && titleChanged)) {
+      state.conflict = { mine: current, theirs: updated };
+      state.saveState = 'error';
+      state.error = 'this note changed elsewhere';
+      return;
+    }
+    state.note = {
+      ...updated,
+      doc: docEdited ? current.doc : updated.doc,
+      title: titleEdited ? current.title : updated.title,
+    };
+  });
+}
 
 function scheduleFlush(): void {
   const flush = () => void useEditorStore.getState().flush();

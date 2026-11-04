@@ -1,6 +1,6 @@
 [package]
 name = "notabene"
-version = "1.4.7"
+version = "1.4.8"
 description = "A simple, privacy-first note-taking app for students"
 authors = ["NotaBene contributors"]
 edition = "2021"
@@ -19,7 +19,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
-tauri-plugin-updater = "2"
+tauri-plugin-updater = "2.14.1"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
 
@@ -48,7 +48,7 @@ rmcp = { version = "2.0", default-features = false, features = [
 ] }
 axum = "0.8"
 schemars = "1.0"
-tokio = { version = "1", features = [
+tokio = { version = "1.54.1", features = [
     "net",
     "sync",
     "time",

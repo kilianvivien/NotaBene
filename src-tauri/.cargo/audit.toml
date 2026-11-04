@@ -17,9 +17,9 @@ ignore = [
 #   `by_name`, a capped `read_to_end`) and never calls `extract`, never uses
 #   `ZipStreamReader`, and writes nothing to disk. Its `ZipWriter` uses are all
 #   in `#[cfg(test)]` modules.
-# - zip 4.6.1 comes only from tauri-plugin-updater, under a Windows-only
-#   target; it is not in the macOS build (`cargo tree -i zip@4.6.1 --target
-#   aarch64-apple-darwin` prints nothing).
+# - The updater's Windows-only ZIP dependency was upgraded to zip 9.3.0
+#   with tauri-plugin-updater 2.14.1 on 2026-11-04. These ignores now apply
+#   only to anydoc's zip 8.6.0.
 # - NotaBene's own Rust extracts no ZIP; Notion import unzips in the webview
 #   with fflate (`src/lib/archive/zip.ts`).
 # Remove these ignores when anydoc moves to zip >= 9, or at once if any code

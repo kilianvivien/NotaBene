@@ -1,7 +1,7 @@
 {
   "name": "notabene",
   "private": true,
-  "version": "1.4.7",
+  "version": "1.4.8",
   "type": "module",
   "description": "A simple, privacy-first note-taking app for students",
   "license": "Apache-2.0",
@@ -37,7 +37,7 @@
     "@tauri-apps/plugin-notification": "^2.6.0",
     "@tauri-apps/plugin-opener": "^2.7.1",
     "@tauri-apps/plugin-process": "^2.4.0",
-    "@tauri-apps/plugin-updater": "^2.13.3",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "@tiptap/core": "^3.31.4",
     "@tiptap/extension-highlight": "^3.31.4",
     "@tiptap/extension-link": "^3.31.4",
@@ -95,8 +95,8 @@
     "tailwindcss": "^4.0.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.1",
-    "vite": "^8.3.4",
-    "vitest": "^4.1.11"
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12"
   },
   "pnpm": {
     "overrides": {

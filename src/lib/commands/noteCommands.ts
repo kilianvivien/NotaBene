@@ -18,8 +18,9 @@ import {
   type SnapshotCause,
 } from '@/lib/schema';
 import { deriveTitle, flattenDoc } from '@/lib/notes/docText';
+import { withNoteWrite } from '@/lib/notes/writeQueue';
 import { useLibraryStore } from '@/lib/state/libraryStore';
-import { useEditorStore } from '@/lib/state/editorStore';
+import { syncEditorNote, useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { SNAPSHOT_RETENTION_POLICIES } from '@/lib/history/retention';
@@ -303,15 +304,25 @@ export async function applyNoteUpdate(
     return fail('invalid_input', 'invalid note input', parsed.error.issues);
   }
 
-  const existing = await library.getNote(parsed.data.noteId);
-  if (!existing) return fail('not_found', `no note ${parsed.data.noteId}`);
+  if (useEditorStore.getState().note?.id === parsed.data.noteId) {
+    await useEditorStore.getState().flush();
+  }
+  return withNoteWrite(parsed.data.noteId, () => applyNotePatch(parsed.data, context));
+}
+
+async function applyNotePatch(
+  input: UpdateNoteInput,
+  context: CommandContext,
+): Promise<CommandResult<Note>> {
+  const cancelled = cancelledIfRequested<Note>(context);
+  if (cancelled) return cancelled;
+  const existing = await library.getNote(input.noteId);
+  if (!existing) return fail('not_found', `no note ${input.noteId}`);
   // Snapshot *before* the write, so the history entry is the state the user
   // would want back. Only content changes deserve one; toggling `pinned`
   // should not fill the version list with noise.
   const contentChanged =
-    parsed.data.doc !== undefined ||
-    parsed.data.title !== undefined ||
-    context.source === 'agent';
+    input.doc !== undefined || input.title !== undefined || context.source === 'agent';
   if (contentChanged) {
     try {
       await library.createSnapshot(existing.id, causeFor(context), context.agentRunId);
@@ -334,13 +345,13 @@ export async function applyNoteUpdate(
       'title' | 'doc' | 'courseId' | 'sectionId' | 'tagIds' | 'pinned' | 'archived'
     >
   > = {};
-  if (parsed.data.title !== undefined) patch.title = parsed.data.title;
-  if (parsed.data.doc !== undefined) patch.doc = parsed.data.doc;
-  if (parsed.data.courseId !== undefined) patch.courseId = parsed.data.courseId;
-  if (parsed.data.sectionId !== undefined) patch.sectionId = parsed.data.sectionId;
-  if (parsed.data.tagIds !== undefined) patch.tagIds = parsed.data.tagIds;
-  if (parsed.data.pinned !== undefined) patch.pinned = parsed.data.pinned;
-  if (parsed.data.archived !== undefined) patch.archived = parsed.data.archived;
+  if (input.title !== undefined) patch.title = input.title;
+  if (input.doc !== undefined) patch.doc = input.doc;
+  if (input.courseId !== undefined) patch.courseId = input.courseId;
+  if (input.sectionId !== undefined) patch.sectionId = input.sectionId;
+  if (input.tagIds !== undefined) patch.tagIds = input.tagIds;
+  if (input.pinned !== undefined) patch.pinned = input.pinned;
+  if (input.archived !== undefined) patch.archived = input.archived;
   const doc = patch.doc ?? existing.doc;
   const updated: Note = {
     ...existing,
@@ -351,7 +362,7 @@ export async function applyNoteUpdate(
   };
 
   try {
-    const baseUpdatedAt = parsed.data.baseUpdatedAt ?? existing.updatedAt;
+    const baseUpdatedAt = input.baseUpdatedAt ?? existing.updatedAt;
     const saved = await library.upsertNoteIfUnchanged(updated, baseUpdatedAt);
     if (!saved) {
       const current = await library.getNote(existing.id);
@@ -363,6 +374,7 @@ export async function applyNoteUpdate(
   } catch (error) {
     return fail('storage_failed', String(error));
   }
+  syncEditorNote(existing, updated);
   const retention = useSettingsStore.getState().settings.snapshotRetention;
   void library
     .pruneSnapshots(existing.id, SNAPSHOT_RETENTION_POLICIES[retention])
@@ -370,12 +382,6 @@ export async function applyNoteUpdate(
       // Retention is housekeeping. A saved edit must stay successful if
       // thinning old versions fails; the safe failure mode is keeping more.
     });
-
-  // Keep an open editor in step with a write that came from somewhere else.
-  const editor = useEditorStore.getState();
-  if (editor.note?.id === updated.id && context.source !== 'user') {
-    await editor.openNote(updated.id);
-  }
 
   return ok(updated);
 }
