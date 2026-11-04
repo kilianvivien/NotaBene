@@ -1,5 +1,50 @@
 # Release notes
 
+## NotaBene 1.4.8 — 4 November 2026
+
+- **No false conflict warnings after organizing a note.** Adding or removing
+  tags, pinning, archiving, or moving an open note no longer makes the next
+  autosave report that another writer changed it. The editor stays in step
+  with changes made in the same app.
+- **Keep typing while changes save.** Autosave and note commands now run in
+  order for each note. Text and title edits made during a tag change are
+  preserved; genuine overlapping content edits still offer conflict resolution.
+- **Dependency maintenance.** Vitest 4.1.12 includes the mocker security
+  backport, Vite 8.3.5 fixes build and development behavior, and Tokio 1.54.1
+  includes the AsyncFd safety fix. The Tauri updater is now 2.14.1 on both
+  sides, moving its Windows-only ZIP dependency to 9.3.0. The Rust lockfile
+  also replaces a yanked async-executor release.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+On-device transcription requires macOS 26 or newer; Apple Intelligence as an
+AI provider requires macOS 27.
+
+**Verification:** Typecheck, lint, 1,312 JavaScript tests (20 skipped),
+163 Rust tests (9 ignored), and the complete web and Tauri production builds
+passed. The DMG was rebuilt with these changes. Its integrity, packaged
+1.4.8 version, ARM64 architecture, macOS 13 minimum and ad-hoc signature were
+verified; its app executable matches the build bundle. The application code
+is from `8aa4f0a`; the release tag also includes the README and these notes.
+Browser tests passed all 28 cases in a full serial rerun. The first run
+passed 27/28: one graph-AI setup assertion failed, then passed three targeted
+repeats and the full rerun. That initial intermittency remains recorded.
+
+**Verification limits:** Tauri UI behavior and hosted AI features were not
+manually requalified. Dependency audits still report Zod 3, Mermaid's older
+transitive KaTeX, development-only minimatch, and anydoc's ZIP 8.6.0. The
+remaining RustSec ZIP finding concerns filesystem extraction, which anydoc
+and NotaBene do not call. These require separate upstream or compatibility
+work; this release does not claim a clean dependency audit.
+
+**Download:** [NotaBene 1.4.8 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.8/NotaBene_1.4.8_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**. Automatic
+updates are not available.
+
+SHA-256: `ea7aa7acc6d475f5687108ded7831ea91c6dd8d4baa2741fffa9f0a2a11f64e9`
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.7...v1.4.8)
+
 ## NotaBene 1.4.6 — 29 October 2026
 
 - **Turn a note image into an editable drawing.** Right-click an inline image
