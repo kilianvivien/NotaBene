@@ -64,6 +64,9 @@ export interface ProviderQuirks {
   /** Newer reasoning models accept only their default sampling behavior, and
    * may answer a request that sets a temperature with a 400. */
   sendTemperature?: boolean;
+  /** Mistral's model defaults can use nucleus sampling, which its greedy
+   * sampler rejects at temperature zero unless `top_p` is explicitly 1. */
+  explicitGreedyTopP?: boolean;
   /** Not every OpenAI-compatible server implements `response_format`; asking
    * an Ollama build that does not for one is a hard error, not a downgrade.
    * LM Studio is the sharper case: it implements the field but accepts only
@@ -159,7 +162,11 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     // The agent's plans, turns and progress summaries go to `/v1/responses`,
     // which Mistral serves for all its text models.
     responsesApi: true,
-    quirks: { jsonSchemaMode: true, jsonSchemaStrict: false },
+    quirks: {
+      jsonSchemaMode: true,
+      jsonSchemaStrict: false,
+      explicitGreedyTopP: true,
+    },
   },
   {
     id: 'gemini',

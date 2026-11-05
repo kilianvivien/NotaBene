@@ -87,30 +87,38 @@ describe('a structured call', () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the model its own broken answer and takes the correction', async () => {
-    const { aiTransport } = await import('@/lib/adapters');
-    const request = vi
-      .spyOn(aiTransport, 'request')
-      .mockResolvedValueOnce(answered('I am not going to write JSON today.'))
-      .mockResolvedValueOnce(answered('{"title": "T"}'));
+  it.each([provider, mistral])(
+    'repairs broken JSON on $definition.id',
+    async (provider) => {
+      const { aiTransport } = await import('@/lib/adapters');
+      const request = vi
+        .spyOn(aiTransport, 'request')
+        .mockResolvedValueOnce(answered('I am not going to write JSON today.'))
+        .mockResolvedValueOnce(answered('{"title": "T"}'));
 
-    await expect(runStructured(call, Simple)).resolves.toEqual({ title: 'T' });
-    expect(request).toHaveBeenCalledTimes(2);
+      await expect(runStructured({ ...call, provider }, Simple)).resolves.toEqual({
+        title: 'T',
+      });
+      expect(request).toHaveBeenCalledTimes(2);
 
-    const second = JSON.parse(String(request.mock.calls[1]?.[0].body)) as {
-      messages: { role: string; content: string }[];
-      temperature?: number;
-    };
-    // The original question, the model's answer, and the complaint — a repair
-    // turn, not the same request sent again.
-    expect(second.messages[0]?.content).toBe('summarise this');
-    expect(second.messages[1]).toEqual({
-      role: 'assistant',
-      content: 'I am not going to write JSON today.',
-    });
-    expect(second.messages[2]?.content).toMatch(/valid JSON/);
-    expect(second.temperature).toBe(0);
-  });
+      const second = JSON.parse(String(request.mock.calls[1]?.[0].body)) as {
+        messages: { role: string; content: string }[];
+        temperature?: number;
+        top_p?: number;
+      };
+      // The original question, the model's answer, and the complaint — a repair
+      // turn, not the same request sent again.
+      expect(second.messages[0]?.content).toBe('summarise this');
+      expect(second.messages[1]).toEqual({
+        role: 'assistant',
+        content: 'I am not going to write JSON today.',
+      });
+      expect(second.messages[2]?.content).toMatch(/valid JSON/);
+      expect(second.temperature).toBe(0);
+      if (provider.definition.id === 'mistral') expect(second.top_p).toBe(1);
+      else expect(second).not.toHaveProperty('top_p');
+    },
+  );
 
   it('drops a rejected JSON Schema and asks again in plain JSON mode', async () => {
     const { aiTransport } = await import('@/lib/adapters');

@@ -41,6 +41,60 @@ function bodyOf(
 }
 
 describe('openAiRequest', () => {
+  it.each([false, true])(
+    'pairs Mistral greedy sampling with top_p 1 (responses: %s)',
+    (responses) => {
+      const request = buildRequest({
+        provider: resolved('mistral', 'mistral-large-4'),
+        messages: [{ role: 'user', content: 'Correct this selection.' }],
+        maxTokens: 256,
+        temperature: 0,
+        json: true,
+        stream: false,
+        responses,
+      });
+      expect(JSON.parse(request.body ?? '')).toMatchObject({
+        temperature: 0,
+        top_p: 1,
+      });
+    },
+  );
+
+  it.each([false, true])(
+    'leaves Mistral nucleus sampling at its default for nonzero temperatures (responses: %s)',
+    (responses) => {
+      const request = buildRequest({
+        provider: resolved('mistral', 'mistral-large-4'),
+        messages: [{ role: 'user', content: 'Rewrite this selection.' }],
+        maxTokens: 256,
+        temperature: 0.3,
+        json: true,
+        stream: false,
+        responses,
+      });
+      expect(JSON.parse(request.body ?? '')).not.toHaveProperty('top_p');
+    },
+  );
+
+  it('respects providers that refuse sampling parameters', () => {
+    const provider = resolved('mistral');
+    provider.definition = {
+      ...provider.definition,
+      quirks: { ...provider.definition.quirks, sendTemperature: false },
+    };
+    const request = buildRequest({
+      provider,
+      messages: [{ role: 'user', content: 'Correct this selection.' }],
+      maxTokens: 256,
+      temperature: 0,
+      json: true,
+      stream: false,
+    });
+    const body = JSON.parse(request.body ?? '') as Record<string, unknown>;
+    expect(body).not.toHaveProperty('temperature');
+    expect(body).not.toHaveProperty('top_p');
+  });
+
   it('asks for JSON mode where the server takes it', () => {
     expect(bodyOf(resolved('mistral'), true).response_format).toEqual({
       type: 'json_object',

@@ -184,6 +184,15 @@ function anthropicRequest(call: AiCall): AiRequest {
 
 // -- OpenAI-compatible (OpenAI, Mistral, OpenRouter, Ollama, LM Studio, …) ----
 
+function openAiSampling(call: AiCall): Record<string, unknown> {
+  const quirks = call.provider.definition.quirks ?? {};
+  if (quirks.sendTemperature === false) return {};
+  return {
+    temperature: call.temperature,
+    ...(call.temperature === 0 && quirks.explicitGreedyTopP ? { top_p: 1 } : {}),
+  };
+}
+
 function openAiRequest(call: AiCall): AiRequest {
   const quirks = call.provider.definition.quirks ?? {};
   const tokenField = quirks.maxTokensField ?? 'max_tokens';
@@ -212,7 +221,7 @@ function openAiRequest(call: AiCall): AiRequest {
       })),
       [tokenField]: call.maxTokens,
       ...(call.reasoningEffort ? { reasoning_effort: call.reasoningEffort } : {}),
-      ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
+      ...openAiSampling(call),
       ...(call.tools ? {} : openAiResponseFormat(call)),
       ...(call.stream || quirks.explicitStream ? { stream: call.stream } : {}),
       ...(call.tools
@@ -264,7 +273,6 @@ function openAiResponseFormat(call: AiCall): Record<string, unknown> {
  */
 function responsesRequest(call: AiCall): AiRequest {
   const { system, rest } = splitSystem(call.messages);
-  const quirks = call.provider.definition.quirks ?? {};
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (call.provider.apiKey) {
     headers.authorization = `Bearer ${call.provider.apiKey}`;
@@ -291,7 +299,7 @@ function responsesRequest(call: AiCall): AiRequest {
       })),
       max_output_tokens: call.maxTokens,
       ...(call.reasoningEffort ? { reasoning: { effort: call.reasoningEffort } } : {}),
-      ...(quirks.sendTemperature === false ? {} : { temperature: call.temperature }),
+      ...openAiSampling(call),
       ...(call.tools ? {} : responsesTextFormat(call)),
       ...(call.cacheKey ? { prompt_cache_key: call.cacheKey } : {}),
       ...(call.stream ? { stream: true } : {}),
