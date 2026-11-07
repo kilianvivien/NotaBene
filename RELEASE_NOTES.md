@@ -11,6 +11,21 @@
   replaced, and a version can be skipped.
 - **Install this one by hand.** Copies of 1.4.8 and earlier cannot update
   themselves, so download 1.4.9 once; later versions arrive on their own.
+- **Albert API as an AI provider.** Connect Albert, the French public
+  service's AI platform, in Settings → AI Providers with your own key. Its
+  chat models work across every AI feature, including the Agent with native
+  tool calls. `openweight-medium` is the default model and
+  `openweight-large` is suggested for the Agent.
+- **Transcribe with Albert API.** Albert's Whisper Large v3 is a new opt-in
+  engine in Settings → Recording → Transcription, using the same Albert key.
+  Audio is sent only when you start a transcription, in five-minute windows
+  under Albert's 20 MB limit. NotaBene does not pass a language to Albert,
+  because Albert would translate rather than transcribe; mixed-language
+  lectures keep their own words. Course vocabulary is sent as hints.
+- **Mistral no longer refuses precise requests.** On models whose defaults
+  use nucleus sampling, Mistral rejected requests made at temperature zero,
+  such as corrections and other structured edits. NotaBene now sends
+  `top_p: 1` with them, as Mistral requires.
 
 No library schema change. The Apple silicon build runs on macOS 13 or newer.
 

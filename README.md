@@ -52,8 +52,8 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 **[NotaBene 1.4.9 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.9/NotaBene_1.4.9_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
-on older versions, transcription is available through Mistral with your own
-API key. Apple Intelligence as a provider needs macOS 27.
+on older versions, transcription is available through Mistral or Albert API
+with your own API key. Apple Intelligence as a provider needs macOS 27.
 
 > [!IMPORTANT]
 > The DMG is ad-hoc signed and not notarized, so Gatekeeper may block it. Go to
@@ -105,7 +105,8 @@ from its player (⇧⌥⌘R). Add the transcript to the note or create a linked 
 each paragraph can play the corresponding audio, and uncertain words are
 highlighted for review. On macOS 26+, Apple's speech recognition runs on this
 Mac after you install its language assets in Settings → Recording. Mistral
-Voxtral 3 is an optional hosted choice that sends audio to its API using your key.
+Voxtral 3 and Albert API's Whisper Large v3 are optional hosted choices that
+send audio to their API using your key, only when you start a transcription.
 
 **Documents and imports.** File → Convert a document to note (⌘⇧O) turns PDF,
 Word, PowerPoint, Excel, OpenDocument, EPUB and more into editable notes,
@@ -147,8 +148,6 @@ scope and review settings. Model outputs are validated. Voices can be macOS
 system voices, on-device neural voices (Kokoro, Voxtral), or opt-in hosted ones. Hosted speech uses
 Gemini 3.8 Flash-Lite TTS or Voxtral 3, with your main Gemini or Mistral API key;
 configure each key once in Settings → AI Providers. Local voices are unchanged.
-Albert API also transcribes recordings with Whisper Large v3 using the same
-Albert key; select it in Settings → Recording → Transcription.
 
 **Agent and MCP.** A local, token-protected
 [Model Context Protocol](https://modelcontextprotocol.io/) server lets an
@@ -184,7 +183,10 @@ go only to built-in providers, your own machine, or an address you approved.
 launch and every few hours, shows it in the status bar, installs it while you
 keep working, and restarts when you choose. Every download is checked against
 NotaBene's update signature first. Copies of 1.4.8 or earlier cannot update
-themselves, so install 1.4.9 by hand once. Details are in the
+themselves, so install 1.4.9 by hand once. This release also adds
+[Albert API](https://albert.api.etalab.gouv.fr) as an AI provider and as a
+hosted transcription engine (Whisper Large v3), with your own Albert key.
+Details are in the
 [1.4.9 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.9).
 The app is not signed with a Developer ID or notarized.
 
