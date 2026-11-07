@@ -1,5 +1,37 @@
 # Release notes
 
+## NotaBene 1.4.10 — 7 November 2026
+
+- **Recreate an image as a drawing without leaving your notes.** Choosing
+  **Recreate as editable drawing…** (right-click an image, ⌥⇧⌘P, or the new
+  button on a selected image's toolbar) no longer opens a dialog. The image
+  shows the work in progress — a line reading it top to bottom, the model it
+  went to, and Cancel — and you keep typing anywhere in the note meanwhile.
+  Several images can be redrawn at once, and other AI features stay
+  available.
+- **The drawing lands by itself.** When the model is done, the editable
+  Excalidraw drawing appears directly below its image, even if you have
+  written above it, captioned it or resized it since. It is a single undo
+  step of its own: ⌘Z removes it without touching what you typed.
+- **Keep the drawing, the image, or both.** A small bar under the image
+  offers **Remove image** (the drawing takes its place), **Keep both**, or
+  discarding the drawing. Every choice can be undone. Details the model was
+  unsure of are flagged there to check.
+- **Leave the note mid-request.** The drawing is still added to the right
+  note, without pulling you back to it; return before it finishes and the
+  image shows its progress again. Deleting the image while it is being
+  redrawn cancels the request. A failure stays on the image with
+  **Try again**.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+
+**Download:** [NotaBene 1.4.10 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.10/NotaBene_1.4.10_aarch64.dmg).
+Copies of 1.4.9 update themselves. The app is ad-hoc signed and not
+notarized. If Gatekeeper blocks it, open System Settings → Privacy & Security
+and choose **Open Anyway**.
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.9...v1.4.10)
+
 ## NotaBene 1.4.9 — 7 November 2026
 
 - **NotaBene now updates itself.** It looks for a new release on GitHub
