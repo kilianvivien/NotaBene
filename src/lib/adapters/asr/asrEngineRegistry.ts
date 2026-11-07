@@ -3,10 +3,12 @@ import type { AsrEngine, AsrEngineId, AsrEngineRegistry } from './AsrEngine';
 export function createAsrEngineRegistry(
   apple: AsrEngine,
   mistral: AsrEngine,
+  albert: AsrEngine,
 ): AsrEngineRegistry {
   const engines = new Map<AsrEngineId, AsrEngine>([
     ['apple-speech', apple],
     ['mistral-api', mistral],
+    ['albert-api', albert],
   ]);
 
   return {
@@ -32,7 +34,9 @@ export function createAsrEngineRegistry(
       if (state.kind === 'unsupported') throw new Error(state.reason);
       if (state.kind === 'error') throw new Error(state.message ?? state.code);
       if (state.kind === 'not_configured') {
-        throw new Error('ASR_API_KEY_MISSING: connect Mistral AI first');
+        throw new Error(
+          id === 'albert-api' ? 'ASR_ALBERT_KEY_MISSING' : 'ASR_API_KEY_MISSING',
+        );
       }
       return engine;
     },

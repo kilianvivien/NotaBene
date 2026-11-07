@@ -1997,7 +1997,7 @@
         "entries": {
           "provider": {
             "title": "Connecter un fournisseur",
-            "text": "Anthropic, OpenAI, Mistral, Gemini ou OpenRouter avec votre clé ; Ollama ou LM Studio sur ce Mac ; ou le modèle d’Apple sur l’appareil."
+            "text": "Anthropic, OpenAI, Mistral, Albert API, Gemini ou OpenRouter avec votre clé ; Ollama ou LM Studio sur ce Mac ; ou le modèle d’Apple sur l’appareil."
           },
           "ask": {
             "title": "Demander",
@@ -2441,8 +2441,11 @@
     "engineApple": "Sur ce Mac (reconnaissance vocale de macOS)",
     "engineMistral": "Mistral — Voxtral Mini Transcribe 3",
     "engineMistralNoKey": "Mistral — connectez d’abord Mistral AI",
+    "engineAlbert": "Albert API — Whisper Large v3",
+    "engineAlbertNoKey": "Albert API — connectez d’abord Albert API",
     "privacyLocal": "Transcrit entièrement sur ce Mac. L’audio n’est jamais envoyé nulle part.",
     "privacyMistral": "Chaque enregistrement que vous transcrivez est envoyé à Mistral avec votre clé et facturé sur celle-ci. Rien n’est envoyé tant que vous ne lancez pas de transcription.",
+    "privacyAlbert": "Chaque enregistrement que vous transcrivez est envoyé à Albert API avec votre clé et utilise le quota de votre compte. Rien n’est envoyé tant que vous ne lancez pas de transcription.",
     "languagesSection": "Langues sur ce Mac",
     "languagesBody": "macOS télécharge une fois le modèle vocal de chaque langue depuis Apple, comme pour la dictée.",
     "languageFr": "Français",
@@ -2494,7 +2497,8 @@
     },
     "engineName": {
       "apple-speech": "transcrit sur ce Mac",
-      "mistral-api": "transcrit par Mistral"
+      "mistral-api": "transcrit par Mistral",
+      "albert-api": "transcrit par Albert API"
     },
     "failedAt": "Échec à {{start}}–{{end}}.",
     "error": {
@@ -2513,6 +2517,9 @@
       "ASR_APPLE_UNSUPPORTED_OS": "Transcrire sur ce Mac nécessite macOS 26 ou plus récent.",
       "ASR_API_KEY_MISSING": "Connectez d’abord Mistral AI dans Réglages → IA.",
       "ASR_API_ERROR": "Mistral n’a pas pu transcrire l’enregistrement : {{detail}}",
+      "ASR_ALBERT_KEY_MISSING": "Connectez d’abord Albert API dans Réglages → IA.",
+      "ASR_ALBERT_API_ERROR": "Albert API n’a pas pu transcrire l’enregistrement : {{detail}}",
+      "ASR_ALBERT_FILE_TOO_LARGE": "Cet extrait audio dépasse la limite d’envoi de 20 Mo d’Albert API.",
       "ASR_INVALID_RESPONSE": "La transcription est revenue sous une forme que NotaBene n’a pas pu lire.",
       "ASR_TIMEOUT": "La reconnaissance vocale ne répond plus.",
       "ASR_JOB_MISSING": "La transcription a été interrompue.",
@@ -2527,10 +2534,13 @@
     "popoverTitle": "Transcrire",
     "badgeLocal": "Sur ce Mac",
     "badgeHosted": "Mistral",
+    "badgeAlbert": "Albert API",
     "labelLanguage": "Langue",
     "labelInto": "Ajouter à",
     "whereHosted": "Envoyé à Mistral ({{duration}}), facturé sur votre clé.",
     "whereHostedShort": "Envoyé à Mistral, facturé sur votre clé.",
+    "whereAlbert": "Envoyé à Albert API ({{duration}}), utilise le quota de votre compte.",
+    "whereAlbertShort": "Envoyé à Albert API, utilise le quota de votre compte.",
     "failedShort": "Échec de la transcription",
     "corrected_one": "{{count}} mot corrigé d’après le vocabulaire du cours",
     "corrected_other": "{{count}} mots corrigés d’après le vocabulaire du cours"

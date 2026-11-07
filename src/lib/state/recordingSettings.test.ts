@@ -49,4 +49,18 @@ describe('recording settings', () => {
     expect(edited.engineId).toBe('apple-speech');
     expect(edited.language).toBe('auto');
   });
+
+  it('preserves an explicit Albert transcription choice across restarts', () => {
+    expect(
+      migrateSettings({
+        recording: {
+          transcription: {
+            engineId: 'albert-api',
+            language: 'auto',
+            useCourseVocabulary: true,
+          },
+        },
+      } as never).recording.transcription.engineId,
+    ).toBe('albert-api');
+  });
 });

@@ -169,6 +169,32 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     },
   },
   {
+    id: 'albert',
+    label: 'Albert API',
+    protocol: 'openai',
+    defaultBaseUrl: 'https://albert.api.etalab.gouv.fr/v1',
+    requiresKey: true,
+    editableBaseUrl: false,
+    // Albert maintains these aliases across model migrations. Only chat
+    // models belong here; Whisper, embeddings and OCR use separate endpoints.
+    models: [
+      'openweight-medium',
+      'openweight-large',
+      'openweight-small',
+      'gpt-oss-120b',
+      'ministral-3-8b-instruct-2512',
+      'gemma-4-31b-it',
+      'deepseek-v4-flash',
+    ],
+    defaultModel: 'openweight-medium',
+    featureDefaults: { agent: 'openweight-large' },
+    keyUrl: 'https://albert.api.etalab.gouv.fr',
+    // Conservative shared ceiling for the suggested general-purpose models.
+    contextTokens: 128_000,
+    nativeTools: true,
+    quirks: { jsonSchemaMode: true, jsonSchemaStrict: false, explicitStream: true },
+  },
+  {
     id: 'gemini',
     label: 'Google Gemini',
     protocol: 'gemini',

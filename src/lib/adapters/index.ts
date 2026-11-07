@@ -89,6 +89,7 @@ import type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
 import type { AppleFmAdapter } from './appleFm/AppleFmAdapter';
 import type { RecorderAdapter } from './recorder/RecorderAdapter';
 import type { AsrAdapter } from './asr/AsrAdapter';
+import { createAlbertAsrEngine } from './asr/albertAsrEngine';
 
 export const library: LibraryAdapter = isTauri
   ? tauriLibraryAdapter
@@ -167,6 +168,7 @@ export const dictation: DictationAdapter = isTauri
 export const asrRegistry = createAsrEngineRegistry(
   createAppleAsrEngine(asr),
   createMistralAsrEngine(aiTransport, secrets),
+  createAlbertAsrEngine(aiTransport, secrets),
 );
 /** Compatibility alias while callers migrate to the registry. */
 export const tts = activeSystemTtsEngine;

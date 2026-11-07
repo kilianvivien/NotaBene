@@ -14,10 +14,11 @@ import type { TtsEngineState } from '../tts/TtsEngine';
  * `apple-speech` is macOS's own on-device recogniser (`SpeechTranscriber`,
  * macOS 26+), and the default: nothing leaves the Mac and there is no model
  * of ours to pin. `mistral-api` is opt-in and sends each window to Mistral
- * with the student's key. The CrispASR engines of
+ * with the student's key. `albert-api` uses Albert's hosted Whisper with the
+ * main Albert API key. The CrispASR engines of
  * `docs/transcription-1.3.5.md` are not in this release.
  */
-export type AsrEngineId = 'apple-speech' | 'mistral-api';
+export type AsrEngineId = 'apple-speech' | 'mistral-api' | 'albert-api';
 
 /** The languages a lecture may be transcribed in. */
 export type AsrLanguage = 'fr' | 'en';
@@ -33,10 +34,10 @@ export interface AsrEngineCapabilities {
   /** Whether a language hint is honoured rather than detected by the engine. */
   languageHint: boolean;
   /** How the course's accepted terms reach the engine, if at all. */
-  vocabulary: 'contextual-strings' | 'context-bias' | false;
+  vocabulary: 'contextual-strings' | 'context-bias' | 'prompt' | false;
   maxVocabularyTerms: number;
   /** For a hosted engine, whose servers hear the audio. */
-  provider: 'mistral' | null;
+  provider: 'mistral' | 'albert' | null;
 }
 
 export type AsrEngineState = TtsEngineState;

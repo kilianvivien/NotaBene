@@ -182,6 +182,10 @@ export function resolveFeature(
   if (
     feature === 'imageDrawing' &&
     (definition.id === 'apple' ||
+      (definition.id === 'albert' &&
+        /^(?:openweight-(?:large|code)$|(?:openai\/)?gpt-oss-|(?:deepseek-ai\/)?deepseek-v4|(?:qwen\/)?qwen3-coder-)/i.test(
+          model,
+        )) ||
       /(?:^|\/)(?:zai-glm-|deepseek-v4|llama3\.2(?::|$)|qwen2\.5(?!-vl))/i.test(model))
   )
     return { available: false, reason: 'vision_required' };

@@ -213,8 +213,17 @@ export function TranscribeControl({
   // -- Idle: one button, and the popover it opens --------------------------
 
   const where = durationMs
-    ? t('transcription.whereHosted', { duration: formatOffset(durationMs) })
-    : t('transcription.whereHostedShort');
+    ? t(
+        capabilities.provider === 'albert'
+          ? 'transcription.whereAlbert'
+          : 'transcription.whereHosted',
+        { duration: formatOffset(durationMs) },
+      )
+    : t(
+        capabilities.provider === 'albert'
+          ? 'transcription.whereAlbertShort'
+          : 'transcription.whereHostedShort',
+      );
   const WhereIcon = capabilities.local ? Lock : Cloud;
 
   return (
@@ -249,7 +258,9 @@ export function TranscribeControl({
               <WhereIcon size={10} aria-hidden />
               {capabilities.local
                 ? t('transcription.badgeLocal')
-                : t('transcription.badgeHosted')}
+                : capabilities.provider === 'albert'
+                  ? t('transcription.badgeAlbert')
+                  : t('transcription.badgeHosted')}
             </span>
           </header>
 

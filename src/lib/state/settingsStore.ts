@@ -237,7 +237,7 @@ function normalizeTranscription(
 ): AppSettings['recording']['transcription'] {
   const defaults = DEFAULT_SETTINGS.recording.transcription;
   return {
-    engineId: (['apple-speech', 'mistral-api'] as const).includes(
+    engineId: (['apple-speech', 'mistral-api', 'albert-api'] as const).includes(
       stored?.engineId as AppSettings['recording']['transcription']['engineId'],
     )
       ? stored!.engineId!

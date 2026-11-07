@@ -119,7 +119,7 @@ the eight of the agent's tier 2 (attachments and highlights, versions, and the
 study features as tools).
 The tools that act on many notes take a `notes: [{ noteId, baseUpdatedAt }]`
 list — `manage_tags` accepts both that and the original single-note form.
-E adds the provider layer (Anthropic, OpenAI, Mistral, Gemini, OpenRouter,
+E adds the provider layer (Anthropic, OpenAI, Mistral, Albert API, Gemini, OpenRouter,
 Ollama, LM Studio, custom), Keychain key storage, rewrite-with-diff-gate,
 synthesis, and an Ask panel for questions about a note. F adds the authenticated MCP
 surface, client setup, agent activity, versioned writes, and optimistic
@@ -377,11 +377,15 @@ Lecture audio notes (phase M, plan §10.0) worth knowing before touching it:
 
 Transcription notes (phase N, plan §10.3) worth knowing before touching it:
 
-- Two engines: `apple-speech` (default) is macOS's `SpeechTranscriber`
+- Three engines: `apple-speech` (default) is macOS's `SpeechTranscriber`
   through `notabene-speech`, a Swift helper in `src-tauri/speech/main.swift`
   that `build.rs` compiles with `xcrun swiftc` into `binaries/` and Tauri
   bundles as an `externalBin`. `mistral-api` is opt-in, pinned to
-  `voxtral-mini-transcribe-3-0`. Hosted TTS pins `voxtral-mini-tts-3-0`
+  `voxtral-mini-transcribe-3-0`. `albert-api` is opt-in, using Albert's
+  `whisper-large-v3` and the main Albert key. It sends 300-second WAV windows
+  (under Albert's 20 MB limit) with `diarized_json` for segment timestamps;
+  it omits `language` because Albert can translate instead of merely hinting.
+  Hosted TTS pins `voxtral-mini-tts-3-0`
   and lists voices through the cursor-paginated `/v2/audio/voices` API.
   The CrispASR engines of `docs/transcription-1.3.5.md`
   are not built; they stay gated on §13.1 and the model spike.

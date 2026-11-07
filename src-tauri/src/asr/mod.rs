@@ -268,6 +268,27 @@ fn window_wav(job: &Job, index: usize) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+/// One window as WAV for hosts that do not accept AAC, without exposing a
+/// filesystem path or audio bytes to the webview.
+pub async fn window_pcm(app: &AppHandle, job_id: &str, index: usize) -> Result<Vec<u8>, String> {
+    check_id(job_id)?;
+    let job = app.state::<AsrJobs>().get(job_id)?;
+    blocking(move || {
+        let path = window_wav(&job, index)?;
+        // Albert's upload ceiling. Refuse before allocating or uploading an
+        // oversized window, even if a caller supplies a longer job plan.
+        if fs::metadata(&path)
+            .map_err(|error| error.to_string())?
+            .len()
+            > 20_000_000
+        {
+            return Err("ASR_ALBERT_FILE_TOO_LARGE".into());
+        }
+        fs::read(path).map_err(|error| error.to_string())
+    })
+    .await
+}
+
 /// One window as AAC, for a hosted engine. Called by `ai.rs` when a request
 /// names a window; the bytes go straight into the multipart body.
 pub async fn window_aac(app: &AppHandle, job_id: &str, index: usize) -> Result<Vec<u8>, String> {

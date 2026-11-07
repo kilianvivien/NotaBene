@@ -68,6 +68,16 @@ pub struct AiAudioBody {
     file_field: String,
     job_id: String,
     index: usize,
+    #[serde(default)]
+    format: AudioFormat,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum AudioFormat {
+    #[default]
+    Aac,
+    Wav,
 }
 
 #[derive(Debug, Serialize)]
@@ -95,6 +105,7 @@ const BUILT_IN_ORIGINS: &[&str] = &[
     "https://api.anthropic.com",
     "https://api.openai.com",
     "https://api.mistral.ai",
+    "https://albert.api.etalab.gouv.fr",
     "https://generativelanguage.googleapis.com",
     "https://openrouter.ai",
 ];
@@ -327,7 +338,7 @@ fn check_field_name(name: &str) -> Result<(), String> {
 }
 
 /// `multipart/form-data` by hand: the fields, then the window as
-/// `window.m4a`. The boundary is random, so no field value can forge one.
+/// WAV or AAC. The boundary is random, so no field value can forge one.
 fn multipart_body(audio: &AiAudioBody, file: &[u8]) -> Result<(String, Vec<u8>), String> {
     check_field_name(&audio.file_field)?;
     let boundary = format!("notabene-{:032x}", rand::random::<u128>());
@@ -341,9 +352,13 @@ fn multipart_body(audio: &AiAudioBody, file: &[u8]) -> Result<(String, Vec<u8>),
             .as_bytes(),
         );
     }
+    let (filename, mime) = match audio.format {
+        AudioFormat::Aac => ("window.m4a", "audio/mp4"),
+        AudioFormat::Wav => ("window.wav", "audio/wav"),
+    };
     body.extend_from_slice(
         format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"{}\"; filename=\"window.m4a\"\r\nContent-Type: audio/mp4\r\n\r\n",
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"{}\"; filename=\"{filename}\"\r\nContent-Type: {mime}\r\n\r\n",
             audio.file_field
         )
         .as_bytes(),
@@ -370,7 +385,10 @@ async fn audio_body(
     if request.body.is_some() {
         return Err("a request carries a body or audio, not both".into());
     }
-    let file = crate::asr::window_aac(app, &audio.job_id, audio.index).await?;
+    let file = match audio.format {
+        AudioFormat::Aac => crate::asr::window_aac(app, &audio.job_id, audio.index).await?,
+        AudioFormat::Wav => crate::asr::window_pcm(app, &audio.job_id, audio.index).await?,
+    };
     multipart_body(audio, &file).map(Some)
 }
 
@@ -611,6 +629,7 @@ mod tests {
             file_field: "file".into(),
             job_id: "job1".into(),
             index: 0,
+            format: AudioFormat::Aac,
         }
     }
 
@@ -644,6 +663,32 @@ mod tests {
         let mut body = audio(&[]);
         body.file_field = "file\"".into();
         assert!(multipart_body(&body, b"").is_err());
+    }
+
+    #[test]
+    fn albert_audio_is_wav_with_the_matching_mime_type() {
+        let mut audio = audio(&[("model", "whisper-large-v3")]);
+        audio.format = AudioFormat::Wav;
+        let (_, body) = multipart_body(&audio, b"RIFF").unwrap();
+        let body = String::from_utf8(body).unwrap();
+        assert!(body.contains("filename=\"window.wav\"\r\nContent-Type: audio/wav"));
+        assert!(!body.contains("audio/mp4"));
+    }
+
+    #[test]
+    fn albert_is_built_in_but_lookalikes_are_not() {
+        assert!(BUILT_IN_ORIGINS.contains(
+            &origin_of(&url(
+                "https://albert.api.etalab.gouv.fr/v1/chat/completions"
+            ))
+            .as_str()
+        ));
+        for other in [
+            "https://albert.api.etalab.gouv.fr.evil.com/v1",
+            "http://albert.api.etalab.gouv.fr/v1",
+        ] {
+            assert!(!BUILT_IN_ORIGINS.contains(&origin_of(&url(other)).as_str()));
+        }
     }
 
     #[test]

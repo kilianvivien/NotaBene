@@ -77,3 +77,14 @@ export const MistralTranscriptionSchema = z.object({
     )
     .default([]),
 });
+
+/** Albert's timestamped `diarized_json` response. Speaker ids and usage are
+ * intentionally ignored: NotaBene anchors segments, without labelling people. */
+export const AlbertTranscriptionSchema = z.object({
+  text: z.string(),
+  segments: z.array(
+    z
+      .object({ text: z.string(), start: seconds, end: seconds })
+      .refine((segment) => segment.end >= segment.start),
+  ),
+});

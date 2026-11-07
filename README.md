@@ -140,13 +140,15 @@ what was left out. Generated mind maps stay shallow and selective; longer
 explanations appear below the tree. Both outputs remain editable and export
 with the note.
 
-**AI, on your terms.** Anthropic, OpenAI, Mistral, Gemini, OpenRouter, Ollama,
+**AI, on your terms.** Anthropic, OpenAI, Mistral, Albert API, Gemini, OpenRouter, Ollama,
 LM Studio, Apple Intelligence on-device, or any OpenAI-compatible endpoint —
 or none. AI editing tools show proposals for review; the Agent follows your
 scope and review settings. Model outputs are validated. Voices can be macOS
 system voices, on-device neural voices (Kokoro, Voxtral), or opt-in hosted ones. Hosted speech uses
 Gemini 3.8 Flash-Lite TTS or Voxtral 3, with your main Gemini or Mistral API key;
 configure each key once in Settings → AI Providers. Local voices are unchanged.
+Albert API also transcribes recordings with Whisper Large v3 using the same
+Albert key; select it in Settings → Recording → Transcription.
 
 **Agent and MCP.** A local, token-protected
 [Model Context Protocol](https://modelcontextprotocol.io/) server lets an

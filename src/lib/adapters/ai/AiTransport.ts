@@ -18,6 +18,8 @@ export interface AiAudioBody {
   fileField: string;
   jobId: string;
   index: number;
+  /** AAC by default; Albert accepts WAV/MP3 rather than M4A. */
+  format?: 'aac' | 'wav';
 }
 
 export interface AiRequest {

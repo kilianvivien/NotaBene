@@ -6,8 +6,8 @@
  * this Mac, each installed on the student's click (Apple's download, like a
  * dictation language); and the two defaults the dialog starts from.
  *
- * Mistral shares the main AI provider key with speech synthesis. This pane
- * points at AI Providers to configure it.
+ * Hosted engines share their main AI provider key. This pane points at
+ * AI Providers to configure it.
  */
 import { Download, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -97,7 +97,10 @@ export function TranscriptionSettings() {
   const state = (id: AsrEngineId) => engines.find((engine) => engine.id === id)?.state;
   const appleReady = state('apple-speech')?.kind === 'ready';
   const mistralReady = state('mistral-api')?.kind === 'ready';
-  const hosted = settings.engineId === 'mistral-api';
+  const albertReady = state('albert-api')?.kind === 'ready';
+  const albert = settings.engineId === 'albert-api';
+  const hosted = settings.engineId !== 'apple-speech';
+  const hostedReady = albert ? albertReady : mistralReady;
 
   return (
     <FieldSection
@@ -113,21 +116,39 @@ export function TranscriptionSettings() {
           <option value="apple-speech">{t('recordingSettings.engineApple')}</option>
           {/* Selectable only with a key, so choosing it can never be the
               thing that silently fails at the first transcription. */}
-          <option value="mistral-api" disabled={!mistralReady && !hosted}>
+          <option
+            value="mistral-api"
+            disabled={!mistralReady && settings.engineId !== 'mistral-api'}
+          >
             {mistralReady
               ? t('recordingSettings.engineMistral')
               : t('recordingSettings.engineMistralNoKey')}
+          </option>
+          <option value="albert-api" disabled={!albertReady && !albert}>
+            {t(
+              albertReady
+                ? 'recordingSettings.engineAlbert'
+                : 'recordingSettings.engineAlbertNoKey',
+            )}
           </option>
         </GlassSelect>
       </FieldRow>
       <FieldNote tone={hosted ? 'notice' : 'muted'}>
         {t(
-          hosted ? 'recordingSettings.privacyMistral' : 'recordingSettings.privacyLocal',
+          albert
+            ? 'recordingSettings.privacyAlbert'
+            : hosted
+              ? 'recordingSettings.privacyMistral'
+              : 'recordingSettings.privacyLocal',
         )}
       </FieldNote>
-      {hosted && !mistralReady && (
+      {hosted && !hostedReady && (
         <FieldNote tone="danger">
-          {t('transcription.error.ASR_API_KEY_MISSING')}{' '}
+          {t(
+            albert
+              ? 'transcription.error.ASR_ALBERT_KEY_MISSING'
+              : 'transcription.error.ASR_API_KEY_MISSING',
+          )}{' '}
           <button
             type="button"
             className="underline"
