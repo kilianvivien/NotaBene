@@ -1391,7 +1391,8 @@
     "lectureBack": "Reculer le cours de 10 secondes",
     "lectureForward": "Avancer le cours de 10 secondes",
     "transcribeRecording": "Transcrire l’enregistrement…",
-    "dictation": "Démarrer/arrêter la dictée en direct (Voxtral 3)"
+    "dictation": "Démarrer/arrêter la dictée en direct (Voxtral 3)",
+    "checkUpdates": "Rechercher les mises à jour…"
   },
   "import": {
     "attachmentMissing": "Les données de la pièce jointe sont introuvables.",
@@ -2604,5 +2605,35 @@
     "missingImage": "L’image d’origine n’est plus disponible.",
     "unreadableImage": "Impossible de décoder cette image. Essayez une image PNG ou JPEG.",
     "imageNotFound": "Image introuvable dans la note. Utilisez assetId et occurrence renvoyés par read_note.images."
+  },
+  "updates": {
+    "statusAvailable": "Mise à jour {{version}}",
+    "statusDownloading": "Mise à jour… {{percent}} %",
+    "statusDownloadingPlain": "Mise à jour…",
+    "statusReady": "Redémarrer pour mettre à jour",
+    "statusFailed": "Échec de la mise à jour",
+    "title": "NotaBene {{version}}",
+    "available": "Une nouvelle version est disponible. Vous utilisez la {{current}}.",
+    "downloading": "Téléchargement et vérification de la signature…",
+    "ready": "Installée. Redémarrez NotaBene pour l’utiliser — la note ouverte est d’abord enregistrée.",
+    "notes": "Nouveautés",
+    "install": "Installer",
+    "restart": "Redémarrer",
+    "later": "Plus tard",
+    "skip": "Ignorer cette version",
+    "retry": "Réessayer",
+    "close": "Fermer",
+    "upToDate": "NotaBene est à jour.",
+    "refused": {
+      "recording": "Arrêtez l’enregistrement avant de redémarrer.",
+      "dictation": "Arrêtez la dictée avant de redémarrer."
+    },
+    "error": {
+      "platform": "Les mises à jour ne sont disponibles que dans l’application de bureau.",
+      "not-configured": "Cette version a été empaquetée sans signature de mise à jour : elle ne peut pas se mettre à jour seule.",
+      "network": "Impossible de joindre GitHub pour rechercher les mises à jour.",
+      "install": "La mise à jour n’a pas pu être installée. Rien n’a été modifié.",
+      "signature": "Le téléchargement ne correspond pas à la signature de NotaBene : il n’a pas été installé."
+    }
   }
 }

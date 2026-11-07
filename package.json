@@ -1,7 +1,7 @@
 {
   "name": "notabene",
   "private": true,
-  "version": "1.4.8",
+  "version": "1.4.9",
   "type": "module",
   "description": "A simple, privacy-first note-taking app for students",
   "license": "Apache-2.0",
@@ -16,6 +16,7 @@
     "native:prepare": "./scripts/prepare-crispasr-macos.sh",
     "tauri:dev": "pnpm native:prepare && tauri dev",
     "tauri:build": "./scripts/tauri-build.sh",
+    "release": "./scripts/release.sh",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",

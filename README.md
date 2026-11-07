@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.8"><img alt="Latest release: 1.4.8" src="https://img.shields.io/badge/release-1.4.8-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.9"><img alt="Latest release: 1.4.9" src="https://img.shields.io/badge/release-1.4.9-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,15 +50,15 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.4.8 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.8/NotaBene_1.4.8_aarch64.dmg)**
+**[NotaBene 1.4.9 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.9/NotaBene_1.4.9_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral with your own
 API key. Apple Intelligence as a provider needs macOS 27.
 
 > [!IMPORTANT]
 > The DMG is ad-hoc signed and not notarized, so Gatekeeper may block it. Go to
-> System Settings → Privacy & Security and choose **Open Anyway**. There are no
-> automatic updates yet.
+> System Settings → Privacy & Security and choose **Open Anyway**. From 1.4.9,
+> NotaBene updates itself; copies of 1.4.8 or earlier need this download once.
 
 A first launch offers a short tour and asks how to begin: import your notes,
 explore a sample course, or start empty. Help → NotaBene help (⇧⌘/) covers the
@@ -180,14 +180,13 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.4.8** fixes false “note changed elsewhere” warnings after
-adding or removing tags, pinning, or moving an open note. Autosave stays in
-step with those changes and preserves typing while they are saved. This
-release also includes dependency security and build fixes. Verification
-details and remaining limitations are in the
-[1.4.8 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.8).
-The app is not yet signed with a
-Developer ID or notarized, and has no automatic updates.
+**NotaBene 1.4.9** updates itself. It checks GitHub for a new release after
+launch and every few hours, shows it in the status bar, installs it while you
+keep working, and restarts when you choose. Every download is checked against
+NotaBene's update signature first. Copies of 1.4.8 or earlier cannot update
+themselves, so install 1.4.9 by hand once. Details are in the
+[1.4.9 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.9).
+The app is not signed with a Developer ID or notarized.
 
 See also the [security policy](./SECURITY.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).

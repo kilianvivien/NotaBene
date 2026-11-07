@@ -35,6 +35,7 @@ import {
 } from '@/lib/commands';
 import { startAgentBridge } from '@/lib/mcp/agentBridge';
 import { startReminderScheduler } from '@/lib/tasks/reminderScheduler';
+import { startUpdateChecks } from '@/lib/updates/updateScheduler';
 import { useMcpStore, watchMcpStatus } from '@/lib/state/mcpStore';
 import { EditorConflictDialog } from './editor/EditorConflictDialog';
 import { ImportDocumentDialog } from './import/ImportDocumentDialog';
@@ -98,6 +99,7 @@ export function App() {
     let stopStatusWatch = () => {};
     let stopReminders = () => {};
     const stopThemeWatch = watchSystemTheme();
+    const stopUpdateChecks = startUpdateChecks();
     // The scheduled backup used to run during bootstrap and nowhere else, so a
     // machine left open for a fortnight backed up exactly once. The command is
     // already gated on when the last one ran, so an extra tick is free.
@@ -152,6 +154,7 @@ export function App() {
       stopStatusWatch();
       stopReminders();
       stopThemeWatch();
+      stopUpdateChecks();
     };
   }, [loadSettings, refreshLibraryAccess, bootstrap]);
 

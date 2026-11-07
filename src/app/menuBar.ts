@@ -34,6 +34,7 @@ export function buildMenuBar(t: Translate): MenuNode[] {
       label: appName,
       items: [
         { kind: 'predefined', role: 'about', label: `${t('menu.about')} ${appName}` },
+        command('app.checkUpdates', t),
         separator,
         command('app.commandPalette', t),
         command('app.settings', t),

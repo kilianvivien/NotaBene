@@ -10,6 +10,7 @@ import { useLibraryAccessStore } from '@/lib/state/libraryAccessStore';
 import { writingProgress } from '@/lib/longForm/outline';
 import { RecordingStatus } from '@/app/recording/RecordingControls';
 import { TranscriptionStatus } from '@/app/recording/TranscriptionStatus';
+import { UpdateStatus } from './UpdateStatus';
 
 /** Save state, note stats, and the agent-activity indicator. The save state is
  * load-bearing UI: it is what replaces a Save button.
@@ -120,6 +121,8 @@ export function StatusBar() {
           {t('mcp.agentWorking')}
         </span>
       )}
+
+      <UpdateStatus />
 
       <span title={t('app.version', { version: __APP_VERSION__ })}>
         v{__APP_VERSION__}

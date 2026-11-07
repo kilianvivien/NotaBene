@@ -1391,7 +1391,8 @@
     "lectureBack": "Lecture Back 10 Seconds",
     "lectureForward": "Lecture Forward 10 Seconds",
     "transcribeRecording": "Transcribe Recording…",
-    "dictation": "Start/stop live dictation (Voxtral 3)"
+    "dictation": "Start/stop live dictation (Voxtral 3)",
+    "checkUpdates": "Check for Updates…"
   },
   "import": {
     "attachmentMissing": "The attachment data could not be found.",
@@ -2604,5 +2605,35 @@
     "missingImage": "The original image is no longer available.",
     "unreadableImage": "This image could not be decoded. Try a PNG or JPEG image.",
     "imageNotFound": "The inline image was not found. Use assetId and occurrence from read_note.images."
+  },
+  "updates": {
+    "statusAvailable": "Update {{version}}",
+    "statusDownloading": "Updating… {{percent}}%",
+    "statusDownloadingPlain": "Updating…",
+    "statusReady": "Restart to update",
+    "statusFailed": "Update failed",
+    "title": "NotaBene {{version}}",
+    "available": "A new version is available. You are on {{current}}.",
+    "downloading": "Downloading and checking the signature…",
+    "ready": "Installed. Restart NotaBene to start using it — your open note is saved first.",
+    "notes": "What’s new",
+    "install": "Install",
+    "restart": "Restart now",
+    "later": "Later",
+    "skip": "Skip this version",
+    "retry": "Try again",
+    "close": "Close",
+    "upToDate": "NotaBene is up to date.",
+    "refused": {
+      "recording": "Stop the recording before restarting.",
+      "dictation": "Stop dictation before restarting."
+    },
+    "error": {
+      "platform": "Updates are available in the desktop app only.",
+      "not-configured": "This build was packaged without update signing, so it cannot update itself.",
+      "network": "Could not reach GitHub to check for updates.",
+      "install": "The update could not be installed. Nothing was changed.",
+      "signature": "The download did not match NotaBene’s signature, so it was not installed."
+    }
   }
 }

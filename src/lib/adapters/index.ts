@@ -63,6 +63,11 @@ import { createMistralAsrEngine } from './asr/mistralAsrEngine';
 import { createAsrEngineRegistry } from './asr/asrEngineRegistry';
 import { tauriDictationAdapter } from './asr/tauriDictationAdapter';
 import type { DictationAdapter } from './asr/DictationAdapter';
+import {
+  tauriUpdaterAdapter,
+  unavailableUpdaterAdapter,
+} from './updater/tauriUpdaterAdapter';
+import type { UpdaterAdapter } from './updater/UpdaterAdapter';
 import { isTauri } from '@/lib/platform/runtime';
 import {
   browserAppLifecycleAdapter,
@@ -133,6 +138,9 @@ export const appleFm: AppleFmAdapter = isTauri
 export const recorder: RecorderAdapter = isTauri
   ? tauriRecorderAdapter
   : unavailableRecorderAdapter;
+export const appUpdater: UpdaterAdapter = isTauri
+  ? tauriUpdaterAdapter
+  : unavailableUpdaterAdapter;
 export const appLifecycle: AppLifecycleAdapter = isTauri
   ? tauriAppLifecycleAdapter
   : browserAppLifecycleAdapter;
@@ -257,6 +265,13 @@ export type {
   StorageSummary,
 } from './storage/StorageAdapter';
 export type { AppLifecycleAdapter } from './lifecycle/AppLifecycleAdapter';
+export type {
+  AvailableUpdate,
+  UpdateDownloadProgress,
+  UpdaterAdapter,
+  UpdaterUnavailableReason,
+} from './updater/UpdaterAdapter';
+export { UpdaterUnavailableError } from './updater/UpdaterAdapter';
 export type {
   TtsAudioEncoding,
   TtsEngine,

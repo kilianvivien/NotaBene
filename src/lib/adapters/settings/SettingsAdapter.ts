@@ -248,7 +248,12 @@ export interface AppSettings {
   mcpScope: 'read' | 'write';
   /** Configs authored by NotaBene and therefore safe to refresh on rotation. */
   mcpConfiguredClients: Exclude<McpClientId, 'custom'>[];
+  /** Look for a new release shortly after launch and every few hours. A
+   * manual check (NotaBene ▸ Check for Updates…) works either way. */
   checkForUpdates: boolean;
+  /** A release the student chose to skip: background checks stay quiet about
+   * it, a manual check still offers it. */
+  skippedUpdateVersion: string | null;
   /** Sort choice per stable view key (`all`, `course:<id>`, …). */
   viewSorts: Record<string, 'updated' | 'created' | 'title' | 'manual' | 'relevance'>;
   recentSearches: string[];
@@ -384,6 +389,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mcpScope: 'write',
   mcpConfiguredClients: [],
   checkForUpdates: true,
+  skippedUpdateVersion: null,
   viewSorts: {},
   recentSearches: [],
 };

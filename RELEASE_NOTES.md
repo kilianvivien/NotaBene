@@ -1,5 +1,25 @@
 # Release notes
 
+## NotaBene 1.4.9 — 7 November 2026
+
+- **NotaBene now updates itself.** It looks for a new release on GitHub
+  shortly after launch and every few hours (Settings → General → Check for
+  updates, or NotaBene → Check for Updates… at any time). A new version shows
+  up as a small item in the status bar: install it while you keep working,
+  then restart when it suits you — the open note is saved first. Each
+  download is checked against NotaBene's update signature before anything is
+  replaced, and a version can be skipped.
+- **Install this one by hand.** Copies of 1.4.8 and earlier cannot update
+  themselves, so download 1.4.9 once; later versions arrive on their own.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+
+**Download:** [NotaBene 1.4.9 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.9/NotaBene_1.4.9_aarch64.dmg).
+The app is ad-hoc signed and not notarized. If Gatekeeper blocks it, open
+System Settings → Privacy & Security and choose **Open Anyway**.
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.8...v1.4.9)
+
 ## NotaBene 1.4.8 — 4 November 2026
 
 - **No false conflict warnings after organizing a note.** Adding or removing

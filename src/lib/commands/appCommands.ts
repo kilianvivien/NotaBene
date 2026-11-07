@@ -23,6 +23,7 @@ import { useRecordingStore } from '@/lib/state/recordingStore';
 import { useDictationStore } from '@/lib/state/dictationStore';
 import { SKIP_MS, useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { useUiStore } from '@/lib/state/uiStore';
+import { useUpdaterStore } from '@/lib/state/updaterStore';
 import { docStats } from '@/lib/notes/docText';
 import { appWindow, asr, externalLinks } from '@/lib/adapters';
 import { createNoteCommand } from './noteCommands';
@@ -34,6 +35,7 @@ import { runEditorCommand, type EditorCommand } from '@/editor/commandBridge';
 export const APP_COMMAND_IDS = [
   'app.commandPalette',
   'app.settings',
+  'app.checkUpdates',
   'note.new',
   'note.quick',
   'note.newFromTemplate',
@@ -262,6 +264,27 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     run: () => {
       useUiStore.getState().setSettingsOpen(true);
       return ok(undefined);
+    },
+  },
+  /**
+   * The answer to "is there a new version?" whatever it is. A background check
+   * stays silent unless it finds something; this one also says "up to date"
+   * or why it could not look, and offers a skipped version again.
+   */
+  'app.checkUpdates': {
+    id: 'app.checkUpdates',
+    labelKey: 'menu.checkUpdates',
+    accelerator: 'CmdOrCtrl+Alt+U',
+    landsIn: 'A',
+    run: async () => {
+      const outcome = await useUpdaterStore.getState().check({ manual: true });
+      const notice = useUiStore.getState().showStatusNotice;
+      if (outcome.kind === 'current') notice(translate('updates.upToDate'));
+      if (outcome.kind === 'failed') {
+        notice(translate(`updates.error.${outcome.reason}`));
+        return fail('not_supported', `update check failed: ${outcome.reason}`);
+      }
+      return ok(outcome);
     },
   },
   'note.new': {

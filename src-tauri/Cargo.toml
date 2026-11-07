@@ -1,6 +1,6 @@
 [package]
 name = "notabene"
-version = "1.4.8"
+version = "1.4.9"
 description = "A simple, privacy-first note-taking app for students"
 authors = ["NotaBene contributors"]
 edition = "2021"
