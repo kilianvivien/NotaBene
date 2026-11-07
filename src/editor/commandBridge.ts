@@ -3,6 +3,8 @@
  * lets menu and toolbar actions reach the mounted editor without putting an
  * Editor instance in global state or teaching the command layer about React.
  */
+import type { DocNode } from '@/lib/schema';
+
 export type EditorCommand =
   | 'correctSelection'
   | 'rewriteSelection'
@@ -126,4 +128,31 @@ export function applyParagraphCorrections(
   corrections: AcceptedCorrection[],
 ): boolean {
   return paragraphChecker?.apply(target, corrections) ?? false;
+}
+
+/**
+ * How a background image → drawing job reaches the note it belongs to while
+ * that note is open: the editor places the drawing as one transaction, so it
+ * autosaves, versions and undoes like anything typed, and the caret stays put.
+ * With the note closed there is no host and the command layer writes it.
+ */
+export interface ImageDrawingHost {
+  /** False when the job's image is no longer in the note. */
+  place(jobId: string, drawing: DocNode): boolean;
+}
+
+const imageDrawingHosts = new Map<string, ImageDrawingHost>();
+
+export function registerImageDrawingHost(
+  noteId: string,
+  host: ImageDrawingHost,
+): () => void {
+  imageDrawingHosts.set(noteId, host);
+  return () => {
+    if (imageDrawingHosts.get(noteId) === host) imageDrawingHosts.delete(noteId);
+  };
+}
+
+export function imageDrawingHostFor(noteId: string): ImageDrawingHost | null {
+  return imageDrawingHosts.get(noteId) ?? null;
 }

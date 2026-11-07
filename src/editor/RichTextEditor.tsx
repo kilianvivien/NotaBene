@@ -4,7 +4,12 @@ import { NodeSelection } from '@tiptap/pm/state';
 import type { Editor } from '@tiptap/core';
 import { useTranslation } from 'react-i18next';
 import type { NoteDoc } from '@/lib/schema';
-import { storeImageCommand } from '@/lib/commands';
+import {
+  releaseImageDrawingJobsCommand,
+  retryImageDrawingCommand,
+  startImageDrawingCommand,
+  storeImageCommand,
+} from '@/lib/commands';
 import {
   createNoteCommand,
   resolveWikiTitleCommand,
@@ -38,7 +43,18 @@ import {
 } from './extensions/LectureAnchors';
 import { activeRecording } from '@/lib/state/recordingStore';
 import { createDictationWriter } from './dictationWriter';
-import { registerDictationWriterFactory } from './commandBridge';
+import {
+  registerDictationWriterFactory,
+  registerImageDrawingHost,
+} from './commandBridge';
+import {
+  adoptImageDrawing,
+  imageDrawingJobAt,
+  placeImageDrawing,
+  stepPastImage,
+  trackImageDrawing,
+} from './extensions/ImageDrawingJobs';
+import { useImageDrawingStore } from '@/lib/state/imageDrawingStore';
 import { useLecturePlaybackStore } from '@/lib/state/lecturePlaybackStore';
 import { closeHistory } from '@tiptap/pm/history';
 import {
@@ -457,16 +473,23 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
             selection.node.type.name !== 'image'
           )
             return false;
-          const path = Array.from({ length: selection.$from.depth + 1 }, (_, depth) =>
-            selection.$from.index(depth),
-          );
-          useUiStore
-            .getState()
-            .setImageDrawingTarget({
+          const pos = selection.from;
+          // One job per image: asking again is a retry if it failed, and
+          // otherwise not a second request.
+          const existing = imageDrawingJobAt(current.state, pos);
+          if (existing) retryImageDrawingCommand(existing);
+          else {
+            const path = Array.from({ length: selection.$from.depth + 1 }, (_, depth) =>
+              selection.$from.index(depth),
+            );
+            const jobId = startImageDrawingCommand({
               noteId: note.id,
               path,
               image: selection.node.toJSON(),
             });
+            trackImageDrawing(current.view, jobId, pos);
+          }
+          stepPastImage(current, pos);
           return true;
         }
         case 'image':
@@ -651,6 +674,23 @@ export function RichTextEditor({ doc, editable = true, onChange }: RichTextEdito
   );
 
   useEffect(() => registerEditorCommandRunner(run), [run]);
+  // Image → drawing jobs outlive the editor: pick up this note's (the student
+  // left and came back mid-request), and be the place a finished one lands.
+  useEffect(() => {
+    if (!editor || !noteId) return;
+    for (const job of Object.values(useImageDrawingStore.getState().jobs)) {
+      if (job.target.noteId === noteId && job.status !== 'done')
+        adoptImageDrawing(editor, job.id, job.target);
+    }
+    const unregister = registerImageDrawingHost(noteId, {
+      place: (jobId, drawing) => placeImageDrawing(editor, jobId, drawing),
+    });
+    return () => {
+      unregister();
+      releaseImageDrawingJobsCommand(noteId);
+    };
+  }, [editor, noteId]);
+
   useEffect(() => {
     if (!editor || !noteId) return;
     return registerDictationWriterFactory((targetId) =>

@@ -17,6 +17,8 @@ import { TaskRef } from './TaskRef';
 import { Drawing } from './Drawing';
 import { MindMap } from './MindMap';
 import { AssetImage } from './AssetImage';
+import { ImageDrawingJobs } from './ImageDrawingJobs';
+import { forgetImageDrawingCommand } from '@/lib/commands/imageDrawingCommands';
 import { AlignedTableCell, AlignedTableHeader } from './AlignedTable';
 import { Abbreviation } from './Abbreviation';
 import { Concentration, type ConcentrationState } from './Concentration';
@@ -89,6 +91,7 @@ export function editorExtensions(
     WikiLink,
     TaskRef,
     AssetImage,
+    ImageDrawingJobs.configure({ onLost: forgetImageDrawingCommand }),
     Drawing,
     MindMap,
     Footnote,

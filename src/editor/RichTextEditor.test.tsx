@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { useEditorStore } from '@/lib/state/editorStore';
-import { useUiStore } from '@/lib/state/uiStore';
+import { useImageDrawingStore } from '@/lib/state/imageDrawingStore';
+import { forgetImageDrawingCommand } from '@/lib/commands/imageDrawingCommands';
 import type { NoteDoc } from '@/lib/schema';
 import { RichTextEditor } from './RichTextEditor';
 
@@ -50,7 +51,7 @@ describe('RichTextEditor change tracking', () => {
 });
 
 describe('image context action', () => {
-  it('targets the right-clicked image and opens its drawing preview flow', async () => {
+  it('redraws the right-clicked image inline, without a dialog', async () => {
     const imageDoc: NoteDoc = {
       type: 'doc',
       content: [
@@ -69,13 +70,23 @@ describe('image context action', () => {
       await screen.findByRole('menuitem', { name: 'Recreate as editable drawing…' }),
     );
     await waitFor(() =>
-      expect(useUiStore.getState().imageDrawingTarget).toMatchObject({
-        noteId: 'image-note',
-        path: [1],
-        image: { type: 'image', attrs: { assetId: 'inline-picture' } },
-      }),
+      expect(Object.values(useImageDrawingStore.getState().jobs)).toEqual([
+        expect.objectContaining({
+          target: {
+            noteId: 'image-note',
+            path: [1],
+            image: expect.objectContaining({
+              attrs: expect.objectContaining({ assetId: 'inline-picture' }),
+            }),
+          },
+        }),
+      ]),
     );
-    useUiStore.getState().setImageDrawingTarget(null);
+    // The job is told on the image itself, and nothing modal opened.
+    expect(container.querySelector('.nb-redraw-bar')).not.toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    for (const id of Object.keys(useImageDrawingStore.getState().jobs))
+      forgetImageDrawingCommand(id);
     useEditorStore.setState({ note: null });
   });
 });

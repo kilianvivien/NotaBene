@@ -7,9 +7,14 @@ import { inlineImages } from '@/lib/notes/imageTargets';
 import type { ImageDrawingResult } from '@/lib/ai/imageDrawing';
 import { createNoteCommand, updateNoteCommand } from './noteCommands';
 import {
+  forgetImageDrawingCommand,
   proposeImageDrawingCommand,
   insertImageDrawingCommand,
+  retryImageDrawingCommand,
+  startImageDrawingCommand,
 } from './imageDrawingCommands';
+import { registerImageDrawingHost } from '@/editor/commandBridge';
+import { useImageDrawingStore } from '@/lib/state/imageDrawingStore';
 
 const mocks = vi.hoisted(() => ({ request: vi.fn(), prepare: vi.fn() }));
 vi.mock('@/lib/images/vision', () => ({ imageForVision: mocks.prepare }));
@@ -50,6 +55,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
   memoryLibraryAdapter.reset();
   useEditorStore.setState({ note: null });
+  useImageDrawingStore.setState({ jobs: {} });
   vi.clearAllMocks();
 });
 
@@ -248,5 +254,86 @@ describe('image reconstruction', () => {
         expect.objectContaining({ cause: 'agent', runId: 'vision-run' }),
       ]),
     );
+  });
+});
+
+describe('inline image reconstruction', () => {
+  async function storedFixture() {
+    const asset = await assets.put(new Blob(['picture'], { type: 'image/png' }));
+    mocks.prepare.mockResolvedValue({ mimeType: 'image/png', data: 'aW1hZ2U=' });
+    return fixture({
+      type: 'doc',
+      content: [paragraph, { type: 'image', attrs: { assetId: asset.id } }],
+    });
+  }
+  const job = (id: string) => useImageDrawingStore.getState().jobs[id];
+
+  it('hands the drawing to the open editor instead of rewriting the note', async () => {
+    const { note, target } = await storedFixture();
+    mocks.request.mockResolvedValueOnce(result);
+    const place = vi.fn(() => true);
+    const unregister = registerImageDrawingHost(note.id, { place });
+
+    const id = startImageDrawingCommand(target);
+    expect(job(id)?.status).toBe('running');
+    await vi.waitFor(() => expect(job(id)?.status).toBe('done'));
+
+    expect(place).toHaveBeenCalledWith(
+      id,
+      expect.objectContaining({
+        type: 'drawing',
+        attrs: expect.objectContaining({ title: 'Delegation' }),
+      }),
+    );
+    // The editor owns the write; the stored note is untouched until it autosaves.
+    expect((await memoryLibraryAdapter.getNote(note.id))?.doc.content).toHaveLength(2);
+    unregister();
+  });
+
+  it('writes below the image itself when the student has left the note', async () => {
+    const { note, target } = await storedFixture();
+    mocks.request.mockResolvedValueOnce(result);
+    const id = startImageDrawingCommand(target);
+    await vi.waitFor(() => expect(job(id)).toBeUndefined());
+
+    const saved = await memoryLibraryAdapter.getNote(note.id);
+    expect(saved?.doc.content.map((node) => node.type)).toEqual([
+      'paragraph',
+      'image',
+      'drawing',
+    ]);
+  });
+
+  it('drops the result quietly when the image was deleted from the open note', async () => {
+    const { note, target } = await storedFixture();
+    mocks.request.mockResolvedValueOnce(result);
+    const unregister = registerImageDrawingHost(note.id, { place: () => false });
+    const id = startImageDrawingCommand(target);
+    await vi.waitFor(() => expect(mocks.request).toHaveBeenCalled());
+    await vi.waitFor(() => expect(job(id)).toBeUndefined());
+    expect((await memoryLibraryAdapter.getNote(note.id))?.doc.content).toHaveLength(2);
+    unregister();
+  });
+
+  it('keeps a failure on the image with a retry, and cancels on forget', async () => {
+    const { target } = await storedFixture();
+    mocks.request.mockRejectedValueOnce(new Error('provider down'));
+    const id = startImageDrawingCommand(target);
+    await vi.waitFor(() => expect(job(id)?.status).toBe('failed'));
+    expect(job(id)?.failure?.ok).toBe(false);
+
+    let signal: AbortSignal | undefined;
+    mocks.request.mockImplementationOnce(
+      (_request: unknown, options: { signal: AbortSignal }) => {
+        signal = options.signal;
+        return new Promise(() => {});
+      },
+    );
+    retryImageDrawingCommand(id);
+    expect(job(id)?.status).toBe('running');
+    await vi.waitFor(() => expect(signal).toBeDefined());
+    forgetImageDrawingCommand(id);
+    expect(signal?.aborted).toBe(true);
+    expect(job(id)).toBeUndefined();
   });
 });

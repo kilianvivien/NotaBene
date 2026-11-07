@@ -800,6 +800,191 @@
   background: var(--nb-active);
 }
 
+.nb-node-toolbar button:disabled {
+  opacity: 0.4;
+}
+
+.nb-node-toolbar-divider {
+  width: 1px;
+  margin: 3px 2px;
+  background: var(--nb-control-border);
+}
+
+/* Image → drawing, inline. While the model works the picture recedes a little
+   and a single accent line reads it top to bottom: the student sees that it is
+   being looked at, and the page around it stays theirs to keep writing in. */
+.nb-asset-image[data-redrawing] .nb-asset-image-frame {
+  border-color: var(--nb-accent);
+}
+
+.nb-asset-image[data-redrawing] img {
+  filter: saturate(0.55);
+  transition: filter var(--nb-t-slow) var(--nb-ease-out);
+}
+
+.nb-redraw-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nb-redraw-scan::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--nb-accent);
+  box-shadow: 0 0 12px 3px var(--nb-accent-ring);
+  content: '';
+}
+
+.nb-redraw-bar {
+  display: flex;
+  max-width: min(100%, 640px);
+  margin-top: 8px;
+  padding: 4px 4px 4px 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  border: 1px solid var(--nb-control-border);
+  border-radius: var(--nb-radius-sm);
+  color: var(--nb-text-2);
+  background: var(--nb-toolbar-surface);
+  box-shadow: var(--nb-shadow-sm);
+  font-size: 12px;
+  line-height: 1.35;
+  user-select: none;
+}
+
+.nb-redraw-text {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.nb-redraw-warning {
+  color: var(--nb-text-3);
+}
+
+.nb-redraw-spark {
+  flex: none;
+  color: var(--nb-accent);
+}
+
+.nb-redraw-ok {
+  flex: none;
+  color: var(--nb-success);
+}
+
+.nb-redraw-error {
+  flex: none;
+  color: var(--nb-danger);
+}
+
+.nb-redraw-action,
+.nb-redraw-icon {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--nb-text-2);
+  background: transparent;
+  font: inherit;
+  white-space: nowrap;
+}
+
+.nb-redraw-action {
+  padding: 0 8px;
+}
+
+.nb-redraw-icon {
+  width: 24px;
+  justify-content: center;
+}
+
+.nb-redraw-action:hover,
+.nb-redraw-icon:hover {
+  color: var(--nb-text);
+  background: var(--nb-hover);
+}
+
+.nb-redraw-action[data-primary] {
+  color: var(--nb-text-on-accent);
+  background: var(--nb-accent);
+}
+
+.nb-redraw-action[data-primary]:hover {
+  background: var(--nb-accent-strong);
+}
+
+.nb-drawing-arrived .nb-drawing-preview {
+  border-color: var(--nb-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nb-redraw-scan::after {
+    top: 0;
+    animation: nb-redraw-scan 2.4s ease-in-out infinite alternate;
+  }
+
+  .nb-redraw-spark {
+    animation: nb-redraw-pulse 1.6s ease-in-out infinite;
+  }
+
+  .nb-redraw-bar {
+    animation: nb-redraw-in var(--nb-t-base) var(--nb-ease-out) both;
+  }
+
+  /* The drawing arrives rather than appears: it settles into place and the
+     accent ring it lands with fades, so the eye finds it without a scroll. */
+  .nb-drawing-arrived .nb-drawing-preview {
+    animation:
+      nb-drawing-arrive 560ms var(--nb-ease-out) both,
+      nb-drawing-glow 2.4s var(--nb-ease-out) both;
+  }
+}
+
+@keyframes nb-redraw-scan {
+  from {
+    top: 0;
+  }
+  to {
+    top: calc(100% - 2px);
+  }
+}
+
+@keyframes nb-redraw-pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes nb-redraw-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes nb-drawing-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
+@keyframes nb-drawing-glow {
+  from {
+    box-shadow: 0 0 0 6px var(--nb-accent-ring);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 .nb-drawing {
   margin: 1.3em 0;
   text-align: center;

@@ -12,6 +12,9 @@ import { useTranslation } from 'react-i18next';
 import { assets } from '@/lib/adapters';
 import { ContextMenu, type ContextPoint } from '@/components/glass';
 import { APP_COMMANDS, runAppCommand } from '@/lib/commands/appCommands';
+import { useImageDrawingStore } from '@/lib/state/imageDrawingStore';
+import { IMAGE_JOB_SPEC } from './ImageDrawingJobs';
+import { ImageDrawingBar } from './ImageDrawingBar';
 
 function AssetImageView({
   node,
@@ -19,8 +22,21 @@ function AssetImageView({
   updateAttributes,
   editor,
   getPos,
+  decorations,
 }: NodeViewProps) {
   const { t } = useTranslation();
+  const jobId = decorations.find((decoration) => decoration.spec?.[IMAGE_JOB_SPEC])?.spec[
+    IMAGE_JOB_SPEC
+  ] as string | undefined;
+  const job = useImageDrawingStore((state) => (jobId ? state.jobs[jobId] : undefined));
+  const redrawing = job?.status === 'running';
+
+  function redraw() {
+    const pos = getPos();
+    if (typeof pos !== 'number' || editor.isDestroyed) return;
+    editor.commands.setNodeSelection(pos);
+    void runAppCommand('ai.imageDrawing');
+  }
   const [src, setSrc] = useState<string | null>(null);
   const [menu, setMenu] = useState<ContextPoint | null>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -84,6 +100,7 @@ function AssetImageView({
       className="nb-asset-image"
       data-align={node.attrs.align}
       data-selected={selected || undefined}
+      data-redrawing={redrawing || undefined}
       tabIndex={0}
       onContextMenu={(event: React.MouseEvent) => {
         if (
@@ -122,6 +139,7 @@ function AssetImageView({
         ) : (
           <div className="nb-asset-loading" aria-hidden />
         )}
+        {redrawing && <div className="nb-redraw-scan" aria-hidden />}
         <button
           type="button"
           className="nb-image-resize"
@@ -149,6 +167,15 @@ function AssetImageView({
         className="nb-image-caption"
       />
 
+      {job && jobId && (
+        <ImageDrawingBar
+          job={job}
+          editor={editor}
+          getPos={getPos}
+          imageSize={node.nodeSize}
+        />
+      )}
+
       {menu &&
         createPortal(
           <ContextMenu
@@ -159,13 +186,8 @@ function AssetImageView({
                 id: 'ai.imageDrawing',
                 label: t(APP_COMMANDS['ai.imageDrawing'].labelKey),
                 icon: PencilRuler,
-                disabled: !editor.isEditable,
-                onSelect: () => {
-                  const pos = getPos();
-                  if (typeof pos !== 'number' || editor.isDestroyed) return;
-                  editor.commands.setNodeSelection(pos);
-                  void runAppCommand('ai.imageDrawing');
-                },
+                disabled: !editor.isEditable || redrawing,
+                onSelect: redraw,
               },
             ]}
           />,
@@ -197,6 +219,20 @@ function AssetImageView({
               <Icon size={14} />
             </button>
           ))}
+          {editor.isEditable && (
+            <>
+              <span className="nb-node-toolbar-divider" aria-hidden />
+              <button
+                type="button"
+                aria-label={t(APP_COMMANDS['ai.imageDrawing'].labelKey)}
+                title={t(APP_COMMANDS['ai.imageDrawing'].labelKey)}
+                disabled={redrawing}
+                onClick={redraw}
+              >
+                <PencilRuler size={14} />
+              </button>
+            </>
+          )}
         </div>
       )}
     </NodeViewWrapper>
@@ -253,6 +289,14 @@ export const AssetImage = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(AssetImageView);
+    return ReactNodeViewRenderer(AssetImageView, {
+      // TipTap's default skips a re-render when only decorations change, and
+      // a redraw job reaches this view as nothing but a decoration.
+      update: ({ oldNode, newNode, updateProps }) => {
+        if (newNode.type !== oldNode.type) return false;
+        updateProps();
+        return true;
+      },
+    });
   },
 });
