@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import {
   appSettings,
+  appWindow,
   COMPLETION_MIN_PREFIX,
   DEFAULT_SETTINGS,
   GRAPH_LIMITS,
@@ -264,6 +265,14 @@ function resolveTheme(theme: AppSettings['theme']): 'light' | 'dark' {
 export function applySettingsToDom(settings: AppSettings): void {
   const root = document.documentElement;
   root.dataset.theme = resolveTheme(settings.theme);
+  // `system` hands the window back to macOS. Until it has, the media query
+  // still reports the old forced appearance; `watchSystemTheme` hears the
+  // change that follows and resolves the page again.
+  void appWindow
+    .setTheme(settings.theme === 'system' ? null : settings.theme)
+    .catch((error: unknown) =>
+      console.warn('Could not set the window appearance', error),
+    );
   root.dataset.accent = settings.accentColor;
   // Read alongside `data-focus`, which App.tsx owns: the look only bites while
   // concentration mode is actually on.

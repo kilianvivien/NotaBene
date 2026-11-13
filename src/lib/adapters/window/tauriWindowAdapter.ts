@@ -4,6 +4,7 @@ import type { WindowAdapter } from './WindowAdapter';
 export const tauriWindowAdapter: WindowAdapter = {
   setFullscreen: (on) => getCurrentWindow().setFullscreen(on),
   isFullscreen: () => getCurrentWindow().isFullscreen(),
+  setTheme: (theme) => getCurrentWindow().setTheme(theme),
 
   // Tauri has no fullscreen event, but a fullscreen transition is a resize, and
   // the window is the one that knows the answer afterwards.

@@ -25,4 +25,7 @@ export const browserWindowAdapter: WindowAdapter = {
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
   },
+
+  // The browser draws its own chrome; there is no window appearance to set.
+  async setTheme() {},
 };

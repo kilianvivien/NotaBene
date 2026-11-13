@@ -16,4 +16,12 @@ export interface WindowAdapter {
    * unsubscribe.
    */
   onFullscreenChange(listener: (fullscreen: boolean) => void): Promise<() => void>;
+  /**
+   * Give the native window the appearance the app chose, or `null` to follow
+   * the system. The web page is themed by CSS alone, but macOS draws the traffic
+   * lights in the window's own appearance: a Light app on a Dark Mac otherwise
+   * gets dark-mode buttons, whose pale rims vanish against a light title bar and
+   * leave them looking squashed.
+   */
+  setTheme(theme: 'light' | 'dark' | null): Promise<void>;
 }
