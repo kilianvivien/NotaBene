@@ -1,5 +1,22 @@
 # Release notes
 
+## NotaBene 1.4.11 — 13 November 2026
+
+- **Round window buttons in Light mode on a Dark Mac.** With NotaBene set to
+  Light while macOS is in Dark mode, the close, minimise and zoom buttons were
+  drawn in their dark-mode style, whose pale rims disappear against the light
+  title bar and made them look squashed. The window now follows the theme you
+  chose in Settings, and still follows macOS when the theme is System.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+
+**Download:** [NotaBene 1.4.11 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.11/NotaBene_1.4.11_aarch64.dmg).
+Copies of 1.4.9 or later update themselves. The app is ad-hoc signed and not
+notarized. If Gatekeeper blocks it, open System Settings → Privacy & Security
+and choose **Open Anyway**.
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.10...v1.4.11)
+
 ## NotaBene 1.4.10 — 7 November 2026
 
 - **Recreate an image as a drawing without leaving your notes.** Choosing
