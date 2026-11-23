@@ -1,5 +1,40 @@
 # Release notes
 
+## NotaBene 1.4.12 — 23 November 2026
+
+- **Recreating an image as a drawing no longer stalls on reasoning models.**
+  With Mistral Large 4 and other models that think before answering, a
+  drawing could run for many minutes with no sign of progress and then fail.
+  The model now has the time it needs as long as it is working, and the bar
+  on the image counts the shapes as they arrive.
+- **Faster, tidier drawings.** The model is asked to think briefly and to draw
+  a dashed line, a double-headed arrow or a block arrow as one shape rather
+  than dozens of pieces. On a photographed timeline slide, Mistral Large 4
+  finished in about three minutes instead of four, with every label kept and
+  half as many shapes to edit.
+- **Your reasoning choice applies to drawings.** Settings → Agent → *How hard
+  the agent thinks* now also sets how long Image to drawing thinks, on models
+  that let NotaBene choose.
+- **A slow answer is not sent three times.** When a provider takes too long,
+  NotaBene now reports it once instead of silently asking again, and a reply
+  that was already arriving is never started over.
+- **Quicker small edits with Mistral Large 4.** Light corrections, paragraph
+  proofreading, definitions and questions about the open note ask Large 4 for
+  its lightest reasoning.
+- **Provider test names the model.** **Test** in AI settings now checks a model
+  you actually use with that provider, and says which one answered.
+- Accented text arriving in a stream could lose a character when it fell
+  across two network packets. It no longer does.
+
+No library schema change. The Apple silicon build runs on macOS 13 or newer.
+
+**Download:** [NotaBene 1.4.12 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.12/NotaBene_1.4.12_aarch64.dmg).
+Copies of 1.4.9 or later update themselves. The app is ad-hoc signed and not
+notarized. If Gatekeeper blocks it, open System Settings → Privacy & Security
+and choose **Open Anyway**.
+
+[Full changelog](https://github.com/kilianvivien/NotaBene/compare/v1.4.11...v1.4.12)
+
 ## NotaBene 1.4.11 — 13 November 2026
 
 - **Round window buttons in Light mode on a Dark Mac.** With NotaBene set to

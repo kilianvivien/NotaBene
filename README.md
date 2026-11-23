@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="Platform: macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.11"><img alt="Latest release: 1.4.11" src="https://img.shields.io/badge/release-1.4.11-22C55E?style=flat-square"></a>
+  <a href="https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.12"><img alt="Latest release: 1.4.12" src="https://img.shields.io/badge/release-1.4.12-22C55E?style=flat-square"></a>
   <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-3B82F6?style=flat-square"></a>
 </p>
 
@@ -50,7 +50,7 @@ cloud sync and no collaboration. Your library is a folder on your Mac.
 
 ## Download
 
-**[NotaBene 1.4.11 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.11/NotaBene_1.4.11_aarch64.dmg)**
+**[NotaBene 1.4.12 for Apple silicon](https://github.com/kilianvivien/NotaBene/releases/download/v1.4.12/NotaBene_1.4.12_aarch64.dmg)**
 — macOS 13 Ventura or newer. On-device transcription needs macOS 26 or newer;
 on older versions, transcription is available through Mistral or Albert API
 with your own API key. Apple Intelligence as a provider needs macOS 27.
@@ -179,15 +179,16 @@ go only to built-in providers, your own machine, or an address you approved.
 
 ## Status
 
-**NotaBene 1.4.11** keeps the window buttons round when NotaBene is set to
-Light on a Mac in Dark mode: the window now follows the theme chosen in
-Settings. 1.4.10 recreated an image as an editable drawing inline, with the
-drawing landing below the image as one undoable step.
+**NotaBene 1.4.12** makes recreating an image as a drawing dependable on
+reasoning models such as Mistral Large 4: it shows the shapes as they arrive,
+gives the model the time it needs, draws with fewer, cleaner shapes, and
+follows your reasoning setting. A slow provider is no longer asked three
+times. 1.4.11 kept the window buttons round in Light mode on a Dark Mac.
 NotaBene updates itself from 1.4.9 on — it checks GitHub after launch and every
 few hours, installs while you keep working, and restarts when you choose, after
 checking each download against NotaBene's update signature. Copies of 1.4.8 or
 earlier need one manual install. Details are in the
-[1.4.11 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.11).
+[1.4.12 release notes](https://github.com/kilianvivien/NotaBene/releases/tag/v1.4.12).
 The app is not signed with a Developer ID or notarized.
 
 See also the [security policy](./SECURITY.md) and
