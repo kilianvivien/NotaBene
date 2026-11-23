@@ -38,10 +38,17 @@ use tokio_util::sync::CancellationToken;
 /// Event carrying stream frames back to the webview.
 pub const AI_STREAM_EVENT: &str = "notabene-ai-stream";
 
-/// Ceiling on a single call. Long enough for a slow local model to think about
-/// a long note, short enough that a wedged endpoint does not hang the feature
-/// forever. The TypeScript side also has its own, shorter, per-feature timeout.
+/// Ceiling on a single whole-response call. Long enough for a slow local
+/// model to think about a long note, short enough that a wedged endpoint does
+/// not hang the feature forever. The TypeScript side also has its own,
+/// shorter, per-feature timeout.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// A stream has no total ceiling: a reasoning model writing a long structured
+/// answer may legitimately send for many minutes. What ends a stream is
+/// silence — no byte for this long — or the student's Cancel.
+const STREAM_READ_TIMEOUT: Duration = Duration::from_secs(300);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -301,13 +308,16 @@ async fn permit(app: &AppHandle, state: &AiShared, url: &reqwest::Url) -> Result
 /// pool connections *across providers*, and the user may well have configured
 /// one they trust less than another. A fresh client per call keeps them
 /// separate, and next to model latency the handshake is noise.
-fn client() -> Result<reqwest::Client, String> {
+fn client(streaming: bool) -> Result<reqwest::Client, String> {
     crate::tls::ensure_provider();
 
-    reqwest::Client::builder()
-        .timeout(REQUEST_TIMEOUT)
-        .build()
-        .map_err(|error| error.to_string())
+    let builder = reqwest::Client::builder().connect_timeout(CONNECT_TIMEOUT);
+    let builder = if streaming {
+        builder.read_timeout(STREAM_READ_TIMEOUT)
+    } else {
+        builder.timeout(REQUEST_TIMEOUT)
+    };
+    builder.build().map_err(|error| error.to_string())
 }
 
 /// Reject anything that is not an ordinary web request before it is built.
@@ -395,6 +405,7 @@ async fn audio_body(
 fn build(
     request: &AiHttpRequest,
     multipart: Option<(String, Vec<u8>)>,
+    streaming: bool,
 ) -> Result<reqwest::RequestBuilder, String> {
     let url = parse_url(request)?;
 
@@ -404,7 +415,7 @@ fn build(
         other => return Err(format!("refusing method \"{other}\"")),
     };
 
-    let mut builder = client()?.request(method, url);
+    let mut builder = client(streaming)?.request(method, url);
     for (name, value) in &request.headers {
         // The form sets its own type, boundary included.
         if multipart.is_some() && name.eq_ignore_ascii_case("content-type") {
@@ -468,7 +479,7 @@ async fn run_request(
 ) -> Result<AiHttpResponse, String> {
     let response = tokio::select! {
         _ = token.cancelled() => return Err(CANCELLED.into()),
-        sent = build(&request, multipart)?.send() => sent.map_err(|error| error.to_string())?,
+        sent = build(&request, multipart, false)?.send() => sent.map_err(|error| error.to_string())?,
     };
 
     let status = response.status().as_u16();
@@ -526,7 +537,7 @@ async fn run_stream(
 ) -> Result<(), String> {
     let response = tokio::select! {
         _ = token.cancelled() => return Err(CANCELLED.into()),
-        sent = build(&request, None)?.send() => sent.map_err(|error| error.to_string())?,
+        sent = build(&request, None, true)?.send() => sent.map_err(|error| error.to_string())?,
     };
 
     // An error status arrives as a normal body, not a stream, and the caller
@@ -538,36 +549,54 @@ async fn run_stream(
     }
 
     let mut chunks = response.bytes_stream();
+    // Providers stream UTF-8, but a chunk boundary can land inside a
+    // multi-byte character. Lossy decoding would corrupt an accented word —
+    // and a streamed JSON document with it — so the incomplete tail waits for
+    // the next chunk.
+    let mut pending: Vec<u8> = Vec::new();
     loop {
         let next = tokio::select! {
             _ = token.cancelled() => return Err(CANCELLED.into()),
             chunk = chunks.next() => chunk,
         };
         match next {
-            None => return Ok(()),
+            None => {
+                if !pending.is_empty() {
+                    let tail = String::from_utf8_lossy(&pending).into_owned();
+                    emit(app, stream_id, "chunk", Some(tail));
+                }
+                return Ok(());
+            }
             Some(Err(error)) => return Err(error.to_string()),
             Some(Ok(bytes)) => {
-                // Providers stream UTF-8, but a chunk boundary can land inside
-                // a multi-byte character. Lossy decoding would corrupt an
-                // accented word silently, so hold the tail back instead — the
-                // webview reassembles frames anyway.
-                match std::str::from_utf8(&bytes) {
-                    Ok(text) => emit(app, stream_id, "chunk", Some(text.to_string())),
-                    Err(error) => {
-                        let (valid, _) = bytes.split_at(error.valid_up_to());
-                        if !valid.is_empty() {
-                            emit(
-                                app,
-                                stream_id,
-                                "chunk",
-                                Some(String::from_utf8_lossy(valid).into_owned()),
-                            );
-                        }
-                    }
+                pending.extend_from_slice(&bytes);
+                if let Some(text) = take_utf8(&mut pending) {
+                    emit(app, stream_id, "chunk", Some(text));
                 }
             }
         }
     }
+}
+
+/// The longest valid UTF-8 prefix of `buffer`, removed from it. An invalid
+/// sequence (not merely an incomplete one) is decoded lossily rather than held
+/// forever.
+fn take_utf8(buffer: &mut Vec<u8>) -> Option<String> {
+    let valid = match std::str::from_utf8(buffer) {
+        Ok(_) => buffer.len(),
+        Err(error) if error.error_len().is_none() => error.valid_up_to(),
+        Err(_) => {
+            let text = String::from_utf8_lossy(buffer).into_owned();
+            buffer.clear();
+            return Some(text);
+        }
+    };
+    if valid == 0 {
+        return None;
+    }
+    let rest = buffer.split_off(valid);
+    let text = String::from_utf8(std::mem::replace(buffer, rest)).ok()?;
+    Some(text)
 }
 
 /// Cancel an in-flight call, streamed or not. Unknown ids are ignored on
@@ -596,6 +625,19 @@ fn emit(app: &AppHandle, stream_id: &str, kind: &'static str, data: Option<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn utf8_split_across_chunks_is_carried_over() {
+        let word = "é".as_bytes();
+        let mut buffer = b"caf".to_vec();
+        buffer.push(word[0]);
+        assert_eq!(take_utf8(&mut buffer).as_deref(), Some("caf"));
+        assert_eq!(buffer, vec![word[0]]);
+        buffer.push(word[1]);
+        assert_eq!(take_utf8(&mut buffer).as_deref(), Some("é"));
+        assert!(buffer.is_empty());
+        assert_eq!(take_utf8(&mut buffer), None);
+    }
 
     fn url(text: &str) -> reqwest::Url {
         reqwest::Url::parse(text).unwrap()

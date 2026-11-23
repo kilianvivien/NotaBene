@@ -23,6 +23,8 @@ export interface ImageDrawingJob {
   /** Kept whole so the surface translates it (`aiErrorMessage`). */
   failure?: Extract<CommandResult<unknown>, { ok: false }>;
   warnings: string[];
+  /** Shapes received so far while the model writes the drawing. */
+  progress?: number;
 }
 
 interface ImageDrawingState {

@@ -19,6 +19,7 @@
  */
 import { docToMarkdown } from '@/editor/markdown';
 import type { Note } from '@/lib/schema';
+import { quickReasoningEffort } from './budgets';
 import { runAi, type AiRunOptions } from './client';
 import { askPrompt, type AskMode } from './prompts';
 import { ASK_RESPONSE_BUDGET_TOKENS, type AskScope } from './retrieval';
@@ -74,6 +75,10 @@ export async function requestAnswer(
         language: request.language,
       }),
       maxTokens: ASK_RESPONSE_BUDGET_TOKENS,
+      reasoningEffort:
+        request.scope === 'note' && request.mode === 'note'
+          ? quickReasoningEffort(request.provider)
+          : undefined,
       temperature: 0.2,
       json: false,
       stream: true,

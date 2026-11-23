@@ -13,6 +13,7 @@ import { imageForVision } from '@/lib/images/vision';
 import { locateImageTarget, type ImageDrawingTarget } from '@/lib/notes/imageTargets';
 import type { DocNode, Note } from '@/lib/schema';
 import { useEditorStore } from '@/lib/state/editorStore';
+import { useSettingsStore } from '@/lib/state/settingsStore';
 import { aiFailure, providerFor } from './aiCommands';
 import { updateNoteCommand } from './noteCommands';
 import type { StudyWrite } from './studyCommands';
@@ -20,7 +21,7 @@ import { fail, ok, type CommandResult } from './types';
 
 export async function proposeImageDrawingCommand(
   target: ImageDrawingTarget,
-  options: AiRunOptions = {},
+  options: AiRunOptions & { onProgress?(elements: number): void } = {},
 ): Promise<CommandResult<ImageDrawingResult>> {
   try {
     await useEditorStore.getState().flush();
@@ -40,7 +41,10 @@ export async function proposeImageDrawingCommand(
       return fail('invalid_input', i18n.t('imageDrawing.unreadableImage'));
     }
     if (options.signal?.aborted) return fail('cancelled', 'cancelled');
-    return ok(await requestImageDrawing({ provider: lookup.provider, image }, options));
+    const reasoning = useSettingsStore.getState().settings.agentReasoning;
+    return ok(
+      await requestImageDrawing({ provider: lookup.provider, image, reasoning }, options),
+    );
   } catch (error) {
     return aiFailure(error, options.signal);
   }
@@ -140,10 +144,18 @@ async function runImageDrawingJob(jobId: string): Promise<void> {
   controllers.set(jobId, controller);
   const current = () =>
     controllers.get(jobId) === controller && !controller.signal.aborted;
-  store.patch(jobId, { status: 'running', failure: undefined, warnings: [] });
+  store.patch(jobId, {
+    status: 'running',
+    failure: undefined,
+    warnings: [],
+    progress: 0,
+  });
   try {
     const proposed = await proposeImageDrawingCommand(job.target, {
       signal: controller.signal,
+      onProgress: (progress) => {
+        if (current()) store.patch(jobId, { progress });
+      },
     });
     if (!current()) return;
     if (!proposed.ok) {

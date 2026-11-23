@@ -13,7 +13,7 @@
  * passage behind it — one typed into the dialog — is still allowed, just
  * answered with less to go on.
  */
-import { DEFAULT_OUTPUT_TOKENS } from './budgets';
+import { DEFAULT_OUTPUT_TOKENS, quickReasoningEffort } from './budgets';
 import { AiDefinitionResponseSchema, type AiDefinitionResponse } from '@/lib/schema';
 import type { AiRunOptions } from './client';
 import { runStructured } from './structured';
@@ -70,6 +70,7 @@ export async function requestDefinition(
       // Two sentences and a headword. The ceiling is generous for that and
       // still small enough that a runaway answer stops being expensive.
       maxTokens: DEFAULT_OUTPUT_TOKENS,
+      reasoningEffort: quickReasoningEffort(request.provider),
       // A definition is not a creative act. This is the same call the student
       // may run twice on the same word, and getting two different answers
       // would read as the feature being unreliable rather than as variety.

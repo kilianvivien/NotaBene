@@ -13,6 +13,8 @@ export type AgentReasoning = (typeof AGENT_REASONING_LEVELS)[number];
 
 type Effort = NonNullable<AiCall['reasoningEffort']>;
 
+const MISTRAL_LARGE_4_MODELS = ['mistral-large-4', 'mistral-large-4-0'];
+
 /**
  * The levels each hosted model accepts — an unsupported one is a 400, not a
  * downgrade. Initially probed against `/v1/responses` on 2026-10-28; Large 4's
@@ -25,8 +27,12 @@ const MISTRAL_REASONING: Record<string, Record<AgentReasoning, Effort>> = {
   'zai-glm-5-3': { auto: 'low', light: 'low', thorough: 'high' },
   'zai-glm-5-3-flash': { auto: 'low', light: 'low', thorough: 'high' },
   'deepseek-v4-1-flash-1017': { auto: 'low', light: 'none', thorough: 'high' },
-  'mistral-large-4': { auto: 'low', light: 'low', thorough: 'high' },
-  'mistral-large-4-0': { auto: 'low', light: 'low', thorough: 'high' },
+  ...Object.fromEntries(
+    MISTRAL_LARGE_4_MODELS.map((model) => [
+      model,
+      { auto: 'low', light: 'low', thorough: 'high' } as const,
+    ]),
+  ),
   ...Object.fromEntries(
     ['mistral-medium-3-5', 'mistral-small-latest', 'mistral-small-2603'].map((model) => [
       model,
@@ -40,6 +46,19 @@ export function structuredReasoningEffort(
   provider: ResolvedProvider,
 ): AiCall['reasoningEffort'] {
   return reasoningEffortFor(provider, 'auto');
+}
+
+/** Large 4 defaults to high effort and always reasons, even for a small edit. */
+export function quickReasoningEffort(
+  provider: ResolvedProvider,
+): AiCall['reasoningEffort'] {
+  if (
+    provider.definition.id !== 'mistral' ||
+    !MISTRAL_LARGE_4_MODELS.includes(provider.model)
+  ) {
+    return undefined;
+  }
+  return reasoningEffortFor(provider, 'light');
 }
 
 /** The level to send for a reasoning choice, or `undefined` where the model

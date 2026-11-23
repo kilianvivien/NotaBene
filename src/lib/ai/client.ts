@@ -19,6 +19,7 @@ import {
   parseStreamError,
   parseStreamFrame,
   ProviderRefusalError,
+  streamFrameTruncated,
   ProviderTruncationError,
 } from './protocols';
 import type { AiCall, ResolvedProvider } from './protocols';
@@ -37,6 +38,12 @@ export interface AiRunOptions {
    * streaming on — a caller that cannot show partial text gains nothing from
    * it and loses the cleaner error reporting of a whole response. */
   onToken?(text: string): void;
+  /** Called as each attempt starts, so a caller counting streamed progress
+   * can start again when a retry or a JSON repair replaces the answer. */
+  onAttempt?(): void;
+  /** A whole response: the ceiling on the call. A stream: the longest silence
+   * allowed — a model still sending reasoning or text is given all the time
+   * it needs, bounded by its output allowance and the student's Cancel. */
   timeoutMs?: number;
 }
 
@@ -191,12 +198,24 @@ async function attemptCall<T>(
   const streaming = Boolean(options.onToken);
   const request = buildRequest({ ...call, stream: streaming });
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(new DOMException('timed out', 'TimeoutError')),
-    options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-  );
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const arm = () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(
+      () => controller.abort(new DOMException('timed out', 'TimeoutError')),
+      options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    );
+  };
+  arm();
+  options.onAttempt?.();
   const forward = () => controller.abort(options.signal?.reason);
   options.signal?.addEventListener('abort', forward, { once: true });
+
+  let received = false;
+  const alive = () => {
+    received = true;
+    arm();
+  };
 
   try {
     if (options.signal?.aborted) throw new DOMException('aborted', 'AbortError');
@@ -204,10 +223,20 @@ async function attemptCall<T>(
     // Only text streams; `runAiParsed` never passes `onToken`, so a parsed
     // call always takes the whole-response path.
     return streaming
-      ? ((await readStream(call, signed, options)) as T)
+      ? ((await readStream(call, signed, options, alive)) as T)
       : await readWhole(call, signed, controller.signal, parse);
   } catch (error) {
-    throw asAiError(error);
+    // Once aborted, why is the abort's reason, not whatever the transport
+    // threw: the desktop stream reports a cancel as a plain "cancelled" error,
+    // which would otherwise read as an unreachable — and retryable — provider.
+    const failure = asAiError(
+      controller.signal.aborted ? controller.signal.reason : error,
+    );
+    // A stream that had begun is not replayed: the answer is already paid
+    // for in part, and a second attempt would take as long again.
+    if (received && failure.retryable)
+      throw new AiError(failure.message, failure.status, false, failure.code);
+    throw failure;
   } finally {
     clearTimeout(timeout);
     options.signal?.removeEventListener('abort', forward);
@@ -260,9 +289,13 @@ async function readStream(
   call: AiCall,
   request: Parameters<typeof aiTransport.stream>[0],
   options: AiRunOptions,
+  alive: () => void,
 ): Promise<string> {
   let text = '';
   for await (const payload of aiTransport.stream(request)) {
+    // Any frame is a sign of life, reasoning included: a thinking model can
+    // send nothing visible for minutes and still be working.
+    alive();
     const failure = parseStreamError(payload);
     if (failure) {
       throw new AiError(
@@ -278,6 +311,9 @@ async function readStream(
       text += delta;
       options.onToken?.(delta);
     }
+    // Prose cut short is still worth showing; a cut JSON document is not, and
+    // reading it as malformed would buy a second, equally long, repair call.
+    if (call.json && streamFrameTruncated(payload)) throw new ProviderTruncationError();
   }
   if (!text) throw new AiError('the model returned nothing');
   return text;
@@ -309,8 +345,10 @@ function asAiError(error: unknown): AiError {
   if (errorNamed(error, 'AbortError')) {
     return new AiError('cancelled');
   }
+  // Not retried: a generation that outlasted the timeout will outlast it
+  // again, and three silent attempts turned one slow answer into ten minutes.
   if (errorNamed(error, 'TimeoutError')) {
-    return new AiError('the provider did not answer in time', undefined, true);
+    return new AiError('the provider did not answer in time', undefined, false);
   }
 
   const message = error instanceof Error ? error.message : String(error);

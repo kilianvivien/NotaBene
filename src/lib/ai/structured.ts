@@ -20,8 +20,9 @@ import { jsonRepairPrompt } from './prompts';
 import type { AiCall } from './protocols';
 
 /** `json` and `stream` are not the caller's to choose here: a structured call
- * asks for JSON, and it cannot stream because there is nothing to show until
- * the document is complete. */
+ * asks for JSON, and streams only when the caller passes `onToken` — for a
+ * long generation, where progress and an idle (rather than total) timeout
+ * matter more than the whole-response path's simpler error reporting. */
 export type StructuredCall = Omit<AiCall, 'json' | 'stream'>;
 
 /**

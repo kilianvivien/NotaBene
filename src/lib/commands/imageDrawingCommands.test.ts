@@ -75,7 +75,7 @@ describe('image reconstruction', () => {
     expect(mocks.prepare).toHaveBeenCalledWith(blob);
     expect(target.image.attrs).toEqual({ assetId: asset.id });
     expect(mocks.request).toHaveBeenCalledWith(
-      { provider: { model: 'vision-model' }, image: input },
+      { provider: { model: 'vision-model' }, image: input, reasoning: 'auto' },
       {},
     );
   });
@@ -113,7 +113,7 @@ describe('image reconstruction', () => {
     expect(assets.get).toHaveBeenCalledWith('asset');
     expect(mocks.prepare).toHaveBeenCalledWith(blob);
     expect(mocks.request).toHaveBeenCalledWith(
-      { provider: { model: 'vision-model' }, image: input },
+      { provider: { model: 'vision-model' }, image: input, reasoning: 'auto' },
       {},
     );
   });

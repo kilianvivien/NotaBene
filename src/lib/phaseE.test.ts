@@ -20,13 +20,14 @@ import {
   parseStreamFrame,
   preflight,
   providerById,
+  requestRewrite,
   resolveFeature,
   runAi,
   secretKeyFor,
   type ResolvedProvider,
 } from '@/lib/ai';
 import { SseBuffer } from '@/lib/adapters/ai/sse';
-import { DEFAULT_SETTINGS, type AppSettings } from '@/lib/adapters';
+import { aiTransport, DEFAULT_SETTINGS, type AppSettings } from '@/lib/adapters';
 import {
   AiRewriteResponseSchema,
   AiSynthesisResponseSchema,
@@ -47,6 +48,37 @@ function resolved(providerId: string, model = 'test-model'): ResolvedProvider {
 function settingsWith(patch: Partial<AppSettings> = {}): AppSettings {
   return { ...DEFAULT_SETTINGS, ...patch };
 }
+
+it.each([
+  ['mistral-large-4', 'light', 'low'],
+  ['mistral-large-4-0', 'light', 'low'],
+  ['mistral-large-4', 'full', undefined],
+  ['mistral-large-2512', 'light', undefined],
+] as const)('sets reasoning for %s in %s rewrite mode', async (model, mode, effort) => {
+  const transport = vi.spyOn(aiTransport, 'request').mockResolvedValue({
+    status: 200,
+    headers: {},
+    body: JSON.stringify({
+      choices: [{ message: { content: '{"blocks":[]}' }, finish_reason: 'stop' }],
+    }),
+  });
+  try {
+    await requestRewrite({
+      provider: resolved('mistral', model),
+      doc: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'It work.' }] }],
+      },
+      mode,
+      language: 'en',
+    });
+    const body = JSON.parse(transport.mock.calls[0]![0].body ?? '');
+    if (effort) expect(body).toHaveProperty('reasoning_effort', effort);
+    else expect(body).not.toHaveProperty('reasoning_effort');
+  } finally {
+    transport.mockRestore();
+  }
+});
 
 // ---------------------------------------------------------------------------
 // The garbage test the exit criteria ask for
@@ -440,7 +472,7 @@ describe('feature resolution', () => {
     });
   });
 
-  it("does not offer Apple features when the managed server is unavailable", () => {
+  it('does not offer Apple features when the managed server is unavailable', () => {
     const settings = settingsWith({
       aiProviders: { apple: { enabled: true, baseUrl: null, extraModels: [] } },
     });
@@ -555,9 +587,9 @@ describe('the request engine', () => {
       }),
     });
 
-    await expect(runAi({ ...call, provider: resolved('apple', 'system') })).rejects.toThrow(
-      /exceeded the model's context size/,
-    );
+    await expect(
+      runAi({ ...call, provider: resolved('apple', 'system') }),
+    ).rejects.toThrow(/exceeded the model's context size/);
     expect(request).toHaveBeenCalledTimes(1);
   });
 
@@ -570,10 +602,7 @@ describe('the request engine', () => {
     });
 
     await expect(
-      runAi(
-        { ...call, provider: resolved('apple', 'system') },
-        { onToken: vi.fn() },
-      ),
+      runAi({ ...call, provider: resolved('apple', 'system') }, { onToken: vi.fn() }),
     ).rejects.toThrow(/exceeded the model's context size/);
   });
 
@@ -647,5 +676,114 @@ describe('the request engine', () => {
     controller.abort();
     await expect(pending).rejects.toThrow();
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not replay a call that timed out', async () => {
+    const transport = await import('@/lib/adapters');
+    const request = vi
+      .spyOn(transport.aiTransport, 'request')
+      .mockReturnValue(new Promise(() => {}));
+
+    const pending = runAi(call, { timeoutMs: 1_000 });
+    const settled = expect(pending).rejects.toThrow(/did not answer in time/);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await settled;
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  /** A stream that sends a frame every `gap` ms and honours the abort. */
+  function slowStream(frames: string[], gap: number) {
+    return async function* (request: { signal?: AbortSignal }) {
+      for (const frame of frames) {
+        await new Promise((resolve) => setTimeout(resolve, gap));
+        if (request.signal?.aborted) throw request.signal.reason;
+        yield frame;
+      }
+    };
+  }
+
+  const delta = (content: unknown, finish: string | null = null) =>
+    JSON.stringify({ choices: [{ delta: { content }, finish_reason: finish }] });
+
+  it('gives a stream that keeps sending all the time it needs', async () => {
+    const transport = await import('@/lib/adapters');
+    vi.spyOn(transport.aiTransport, 'stream').mockImplementation(
+      slowStream(
+        [
+          // Reasoning frames carry no answer text but are still progress.
+          delta([{ type: 'thinking', thinking: [{ type: 'text', text: 'hmm' }] }]),
+          delta('a'),
+          delta('b'),
+          delta('c', 'stop'),
+        ],
+        800,
+      ),
+    );
+
+    const pending = runAi(call, { onToken: vi.fn(), timeoutMs: 1_000 });
+    await vi.advanceTimersByTimeAsync(4_000);
+    await expect(pending).resolves.toBe('abc');
+  });
+
+  it('times out a stream that falls silent', async () => {
+    const transport = await import('@/lib/adapters');
+    const stream = vi
+      .spyOn(transport.aiTransport, 'stream')
+      .mockImplementation(slowStream([delta('a'), delta('b')], 5_000));
+
+    const pending = runAi(call, { onToken: vi.fn(), timeoutMs: 1_000 });
+    const settled = expect(pending).rejects.toThrow(/did not answer in time/);
+    await vi.advanceTimersByTimeAsync(20_000);
+    await settled;
+    expect(stream).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads a desktop stream that answers an abort with a plain error as a timeout', async () => {
+    const transport = await import('@/lib/adapters');
+    // What `tauriAiTransport` does: the abort goes to Rust as `ai_cancel`,
+    // and the stream ends with an error frame carrying only "cancelled".
+    const stream = vi
+      .spyOn(transport.aiTransport, 'stream')
+      .mockImplementation(async function* (request) {
+        yield delta('a');
+        await new Promise<void>((resolve) =>
+          request.signal?.addEventListener('abort', () => resolve()),
+        );
+        throw new Error('cancelled');
+      });
+
+    const pending = runAi(call, { onToken: vi.fn(), timeoutMs: 1_000 });
+    const settled = expect(pending).rejects.toThrow(/did not answer in time/);
+    await vi.advanceTimersByTimeAsync(20_000);
+    await settled;
+    expect(stream).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not replay a stream that dropped after it began', async () => {
+    const transport = await import('@/lib/adapters');
+    const stream = vi
+      .spyOn(transport.aiTransport, 'stream')
+      .mockImplementation(async function* () {
+        yield delta('a');
+        throw new Error('connection reset');
+      });
+
+    const pending = runAi(call, { onToken: vi.fn() });
+    const settled = expect(pending).rejects.toMatchObject({ retryable: false });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await settled;
+    expect(stream).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a streamed JSON answer cut at the output limit as truncated', async () => {
+    const transport = await import('@/lib/adapters');
+    vi.spyOn(transport.aiTransport, 'stream').mockImplementation(
+      slowStream([delta('{"a":'), delta('1', 'length')], 10),
+    );
+
+    const pending = runAi({ ...call, json: true }, { onToken: vi.fn() });
+    const settled = expect(pending).rejects.toMatchObject({ code: 'output_truncated' });
+    await vi.advanceTimersByTimeAsync(100);
+    await settled;
   });
 });

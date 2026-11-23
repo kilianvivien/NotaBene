@@ -51,6 +51,7 @@ import {
   type AiFeature,
   type ProviderDefinition,
 } from '@/lib/ai';
+import { quickReasoningEffort } from '@/lib/ai/budgets';
 import { useAiStore } from '@/lib/state/aiStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useAppleFmStore } from '@/lib/state/appleFmStore';
@@ -248,13 +249,17 @@ function ProviderRow({
     setStatus('');
   }
 
-  /** A round trip with a two-word prompt. Cheaper than any diagnostic the user
-   * could run themselves, and it answers the only question they have. */
+  /** A round trip using a model the user has configured for this provider. */
   async function test() {
     setBusy(true);
     setStatus(t('ai.testing'));
+    const configuredModel = AI_FEATURES.map(
+      (feature) => settings.aiFeatureModels[feature],
+    )
+      .find((choice) => choice?.providerId === definition.id && choice.model.trim())
+      ?.model.trim();
     const model =
-      settings.aiFeatureModels[definition.id]?.model ||
+      configuredModel ||
       found?.loaded[0] ||
       definition.defaultModel ||
       modelsFor(definition, settings, detected)[0] ||
@@ -266,18 +271,21 @@ function ProviderRow({
         baseUrl: baseUrlFor(definition, settings),
         model,
       });
+      const reasoningEffort = quickReasoningEffort(provider);
       await runAi(
         {
           provider,
           messages: [{ role: 'user', content: 'Reply with the single word: ready' }],
-          maxTokens: 16,
+          // Reasoning and "ready" both have to fit in the output budget.
+          maxTokens: reasoningEffort ? 1_024 : 16,
+          reasoningEffort,
           temperature: 0,
           json: false,
           stream: false,
         },
         { timeoutMs: 30_000 },
       );
-      setStatus(t('ai.testOk'));
+      setStatus(t('ai.testOk', { model: modelDisplayName(definition, model) }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     }

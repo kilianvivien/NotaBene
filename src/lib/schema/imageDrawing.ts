@@ -16,20 +16,36 @@ const base = z.object({
     .max(Math.PI * 2)
     .default(0),
 });
+/** A dashed rule drawn as one element, not as a run of short segments the
+ * model has to place one by one. */
+const strokeStyle = z.enum(['solid', 'dashed', 'dotted']).default('solid');
 const shape = base.extend({
   type: z.enum(['rectangle', 'ellipse', 'diamond']),
   width: dimension,
   height: dimension,
   backgroundColor: color.default('transparent'),
+  strokeStyle,
 });
 const text = base.extend({
   type: z.literal('text'),
   text: z.string().trim().min(1).max(2_000),
-  fontSize: z.number().min(8).max(100).default(20),
+  // Clamped, not refused: a 7 pt caption is not worth a second multi-minute
+  // repair call. Only presentation depends on it.
+  fontSize: z
+    .number()
+    .finite()
+    .transform((size) => Math.min(100, Math.max(8, size)))
+    .default(20),
   textAlign: z.enum(['left', 'center', 'right']).default('left'),
 });
 const line = base.extend({
   type: z.enum(['line', 'arrow']),
+  strokeStyle,
+  /** Fills a closed line — a block arrow or chevron drawn as one polygon. */
+  backgroundColor: color.default('transparent'),
+  /** Arrowheads at either end; an arrow defaults to one at its end. */
+  startArrowhead: z.enum(['arrow', 'triangle']).nullable().optional(),
+  endArrowhead: z.enum(['arrow', 'triangle']).nullable().optional(),
   points: z
     .array(z.tuple([coordinate, coordinate]))
     .min(2)

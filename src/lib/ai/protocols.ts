@@ -794,6 +794,28 @@ export function parseStreamFrame(
   }
 }
 
+/** Whether a streamed frame says the output allowance ran out. A Responses
+ * stream reports that as `response.incomplete`, which `parseStreamError`
+ * already turns into a failure. */
+export function streamFrameTruncated(payload: string): boolean {
+  if (!payload || payload === '[DONE]') return false;
+  try {
+    const frame: unknown = JSON.parse(payload);
+    if (!isRecord(frame)) return false;
+    const choice = Array.isArray(frame.choices) ? frame.choices[0] : null;
+    const candidate = Array.isArray(frame.candidates) ? frame.candidates[0] : null;
+    return (
+      (isRecord(choice) && choice.finish_reason === 'length') ||
+      (isRecord(candidate) && candidate.finishReason === 'MAX_TOKENS') ||
+      (frame.type === 'message_delta' &&
+        isRecord(frame.delta) &&
+        frame.delta.stop_reason === 'max_tokens')
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** An error frame mid-stream. Providers send these instead of closing, and a
  * silent truncation would look to the user like a short answer. */
 export function parseStreamError(payload: string): string | null {

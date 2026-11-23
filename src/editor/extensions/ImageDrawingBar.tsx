@@ -62,7 +62,11 @@ export function ImageDrawingBar({
       {job.status === 'running' && (
         <>
           <Sparkles size={13} className="nb-redraw-spark" aria-hidden />
-          <span className="nb-redraw-text">{t('imageDrawing.running')}</span>
+          <span className="nb-redraw-text">
+            {job.progress
+              ? t('imageDrawing.drawing', { count: job.progress })
+              : t('imageDrawing.running')}
+          </span>
           <AiStatusPill feature="imageDrawing" modelOnly />
           <AiDisclosureButton />
           <button type="button" className="nb-redraw-action" onClick={dismiss}>
