@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import {
   Archive,
   BookText,
+  CalendarClock,
   ChevronDown,
   ChevronRight,
   FilePlus2,
@@ -33,6 +34,7 @@ import {
   deleteTemplateCommand,
   archiveNotesCommand,
   emptyTrashCommand,
+  exportTimetable,
   fileNotesCommand,
   reorderCoursesCommand,
   reorderSectionsCommand,
@@ -56,6 +58,7 @@ import {
   TagManagerDialog,
 } from '@/app/organization/OrganizationModals';
 import { endDrag, startDrag, useDropTarget } from './dnd';
+import { NowLine } from './NowLine';
 
 interface SmartView {
   view: ViewKind;
@@ -235,6 +238,7 @@ export function Sidebar() {
         aria-label={t('sidebar.courses')}
         className="flex h-full w-full flex-col gap-4 overflow-y-auto border-r border-[var(--nb-divider)] bg-[var(--nb-sidebar-surface)] px-2 py-3"
       >
+        <NowLine />
         <ul className="flex flex-col gap-0.5">
           {WORKING_VIEWS.map((smart) => (
             <SmartViewRow
@@ -776,6 +780,18 @@ function CourseRow({
                     icon: BookText,
                     onSelect: () => useUiStore.getState().openVocabulary(course.id),
                   },
+                  // Only for a course with a timetable: an entry that can only
+                  // answer "nothing to export" is noise in a menu.
+                  ...(course.meetings.length
+                    ? [
+                        {
+                          id: 'timetable',
+                          label: t('menu.exportTimetable'),
+                          icon: CalendarClock,
+                          onSelect: () => void exportTimetable(course.id),
+                        },
+                      ]
+                    : []),
                   null,
                   {
                     id: 'edit',

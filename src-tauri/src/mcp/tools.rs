@@ -610,7 +610,7 @@ impl NotaBeneMcpServer {
 
     #[tool(
         name = "notabene_list_courses",
-        description = "List the student's courses with colour, professor, and semester. Course ids from here are what the other tools take."
+        description = "List the student's courses with colour, professor, semester, sections, and timetable (`meetings`: weekdays 0 = Sunday, start/end in minutes from local midnight, the term's first and last day, and skipped days). Course ids from here are what the other tools take. The timetable is read-only."
     )]
     pub async fn list_courses(
         &self,

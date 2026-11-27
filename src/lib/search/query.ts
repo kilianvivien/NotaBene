@@ -5,11 +5,13 @@
  * `search_notes` MCP tool — an agent and a student write the same query
  * language, which is the whole point of exposing search over MCP at all.
  *
- * Grammar: bare words are free text; `key:value` pairs are filters. Values may
- * be quoted to include spaces. Unknown keys fall back to free text rather than
- * erroring, because a student typing `http://…` should not get a syntax error.
+ * Bare words are ANDed, double quotes match a phrase, and uppercase OR separates
+ * alternatives. A leading minus excludes a word or phrase from every branch.
+ * `key:value` pairs are filters across all branches. Unknown keys remain free
+ * text so that a pasted URL is searchable.
  */
-import type { NoteQuery } from '@/lib/adapters';
+import type { NoteQuery, NoteSearchTerm, NoteTextExpression } from '@/lib/adapters';
+import type { Course, Tag } from '@/lib/schema';
 
 /** Filter keys that name something the parser cannot resolve on its own.
  * `course` names a course; `tag` a plain tag; the rest are the typed tag
@@ -37,11 +39,62 @@ const HAS_VALUES = new Set(['image', 'drawing', 'table', 'attachment']);
 
 /** Split on whitespace, but keep `key:"two words"` and `"a phrase"` together. */
 function tokenize(input: string): string[] {
-  return input.match(/(?:[^\s"]+"[^"]*"|"[^"]*"|[^\s"]+)/g) ?? [];
+  return input.match(/(?:[^\s"]*"[^"]*"(?=\s|$)|-?"[^"]*$|\S+)/g) ?? [];
 }
 
-function unquote(value: string): string {
-  return value.replace(/^"(.*)"$/s, '$1');
+const quoted = /^"[^"]*"$/;
+
+function searchTerm(token: string): NoteSearchTerm {
+  const phrase = quoted.test(token);
+  return { text: phrase ? token.slice(1, -1) : token, phrase };
+}
+
+function parseText(tokens: string[]): NoteTextExpression {
+  const positive: (NoteSearchTerm | 'OR')[] = [];
+  const exclude: NoteSearchTerm[] = [];
+
+  for (const token of tokens) {
+    const unfinished = token.match(/^-?"([^"]*)$/)?.[1];
+    const operand = token.slice(1);
+    if (unfinished?.trim()) {
+      // Keep finding the words typed so far while the closing quote is missing.
+      positive.push(
+        ...unfinished
+          .trim()
+          .split(/\s+/)
+          .map((text) => ({ text, phrase: false })),
+      );
+    } else if (
+      token.startsWith('-') &&
+      /[\p{L}\p{N}\p{Co}]/u.test(operand) &&
+      (!operand.startsWith('"') || quoted.test(operand))
+    ) {
+      exclude.push(searchTerm(operand));
+    } else if (token === 'OR') {
+      positive.push(token);
+    } else if (quoted.test(token)) {
+      positive.push(searchTerm(token));
+    } else {
+      // A quoted value attached to an unknown facet is still ordinary text.
+      positive.push(...token.trim().split(/\s+/).map(searchTerm));
+    }
+  }
+
+  const groups: NoteSearchTerm[][] = [];
+  let group: NoteSearchTerm[] = [];
+  for (const [index, token] of positive.entries()) {
+    // Give a standalone or dangling OR the same meaning as lowercase "or".
+    const left = positive[index - 1];
+    const right = positive[index + 1];
+    if (token === 'OR' && left && left !== 'OR' && right && right !== 'OR') {
+      groups.push(group);
+      group = [];
+    } else {
+      group.push(token === 'OR' ? searchTerm(token) : token);
+    }
+  }
+  if (group.length) groups.push(group);
+  return { groups, exclude };
 }
 
 /** `before:`/`after:`/`on:` accept `YYYY-MM-DD`; anything else is ignored. */
@@ -65,14 +118,15 @@ export function parseQuery(input: string): ParsedQuery {
   for (const token of tokenize(input)) {
     const separator = token.indexOf(':');
     if (separator <= 0) {
-      freeText.push(unquote(token));
+      freeText.push(token);
       continue;
     }
 
     const key = token.slice(0, separator).toLowerCase();
-    const value = unquote(token.slice(separator + 1));
-    if (!value) {
-      freeText.push(unquote(token));
+    const rawValue = token.slice(separator + 1);
+    const value = quoted.test(rawValue) ? rawValue.slice(1, -1) : rawValue;
+    if (!value || (value === rawValue && rawValue.startsWith('"'))) {
+      freeText.push(token);
       continue;
     }
 
@@ -84,18 +138,18 @@ export function parseQuery(input: string): ParsedQuery {
     switch (key) {
       case 'has':
         if (HAS_VALUES.has(value)) has.push(value as (typeof has)[number]);
-        else freeText.push(unquote(token));
+        else freeText.push(token);
         break;
       case 'after': {
         const parsed = parseDate(value);
         if (parsed) query.createdAfter = parsed;
-        else freeText.push(unquote(token));
+        else freeText.push(token);
         break;
       }
       case 'before': {
         const parsed = parseDate(value);
         if (parsed) query.createdBefore = parsed;
-        else freeText.push(unquote(token));
+        else freeText.push(token);
         break;
       }
       case 'on': {
@@ -105,7 +159,7 @@ export function parseQuery(input: string): ParsedQuery {
           query.createdAfter = start;
           query.createdBefore = end;
         } else {
-          freeText.push(unquote(token));
+          freeText.push(token);
         }
         break;
       }
@@ -113,14 +167,22 @@ export function parseQuery(input: string): ParsedQuery {
         if (value === 'pinned') query.pinned = true;
         else if (value === 'archived') query.scope = 'archived';
         else if (value === 'trashed') query.scope = 'trashed';
-        else freeText.push(unquote(token));
+        else freeText.push(token);
         break;
       default:
-        freeText.push(unquote(token));
+        freeText.push(token);
     }
   }
 
-  if (freeText.length > 0) query.text = freeText.join(' ');
+  if (freeText.length > 0) {
+    query.textExpression = parseText(freeText);
+    const text = query.textExpression.groups
+      .flat()
+      .map((term) => term.text)
+      .join(' ')
+      .trim();
+    if (text) query.text = text;
+  }
   if (has.length > 0) query.has = has;
   query.unresolved = unresolved;
   return query;
@@ -157,4 +219,20 @@ export function resolveQuery(
 
   if (tagIds.length > 0) query.tagIds = tagIds;
   return { ...query, unresolvable };
+}
+
+/** The search field and its suggestion list resolve the same names. */
+export function resolveSearch(
+  input: string,
+  courses: readonly Course[] = [],
+  tags: readonly Tag[] = [],
+): NoteQuery & { unresolvable: boolean } {
+  const sameName = (left: string, right: string) =>
+    left.localeCompare(right, undefined, { sensitivity: 'accent' }) === 0;
+
+  return resolveQuery(parseQuery(input), {
+    courseIdByName: (name) => courses.find((course) => sameName(course.name, name))?.id,
+    tagIdByName: (namespace, name) =>
+      tags.find((tag) => tag.namespace === namespace && sameName(tag.name, name))?.id,
+  });
 }

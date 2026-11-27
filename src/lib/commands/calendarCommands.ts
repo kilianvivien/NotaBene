@@ -14,7 +14,7 @@
  * tasks one at a time under its own ceilings.
  */
 import { dialog, exporter, library } from '@/lib/adapters';
-import { tasksToIcs } from '@/lib/export/ics';
+import { tasksToIcs, timetableToIcs } from '@/lib/export/ics';
 import {
   IcsRefusal,
   parseIcs,
@@ -22,7 +22,15 @@ import {
   type CalendarPlan,
   type PlannedCalendarTask,
 } from '@/lib/import/ics';
-import { createTask, type Task } from '@/lib/schema';
+import { CourseSchema, createTask, type Task } from '@/lib/schema';
+import {
+  applyTimetableChoices,
+  planTimetableImport,
+  type GroupChoice,
+  type TimetablePlan,
+} from '@/lib/import/timetable';
+import { normalizeMeeting } from '@/lib/timetable/meetings';
+import { createCourseCommand } from './organizationCommands';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { fail, ok, type CommandResult } from './types';
 
@@ -58,6 +66,57 @@ export function calendarExportTasks(
 
 function fileName(name: string): string {
   return `${name.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'NotaBene'}.ics`;
+}
+
+/**
+ * A course's timetable — or every course's — as recurring events (plan §4
+ * item 1). No dialog: unlike tasks there is nothing to choose, and the save
+ * panel already says where it goes. `nothing_to_export` is returned as a code
+ * so the surface can say it in the student's language.
+ */
+export async function exportTimetableCommand(
+  courseId?: string,
+  destination?: string,
+): Promise<CommandResult<{ path?: string; exported: number }>> {
+  try {
+    const courses = (await library.listCourses()).filter(
+      (course) => !course.archived && (courseId === undefined || course.id === courseId),
+    );
+    const calendarName =
+      courseId !== undefined ? (courses[0]?.name ?? 'NotaBene') : 'NotaBene';
+    const built = timetableToIcs(courses, {
+      calendarName,
+      appVersion: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : undefined,
+    });
+    if (!built.exported) {
+      return fail('invalid_input', 'nothing to export', { reason: 'nothing_to_export' });
+    }
+
+    const name = fileName(calendarName);
+    const target =
+      destination ??
+      (await dialog.saveFile({
+        defaultPath: name,
+        filters: [{ name: 'iCalendar', extensions: ['ics'] }],
+      }));
+    if (!target) return fail('cancelled', 'export cancelled');
+
+    const result = await exporter.write({
+      format: 'calendar',
+      destination: target,
+      suggestedName: name,
+      files: [
+        {
+          path: name,
+          contents: new Blob([built.ics], { type: 'text/calendar;charset=utf-8' }),
+        },
+      ],
+    });
+    if (!result.ok) return fail('storage_failed', result.error ?? 'export failed');
+    return ok({ path: result.path, exported: built.exported });
+  } catch (error) {
+    return fail('storage_failed', error instanceof Error ? error.message : String(error));
+  }
 }
 
 export async function exportCalendarCommand(
@@ -119,7 +178,7 @@ export async function exportCalendarCommand(
 /** Pick an `.ics`, read it, and plan it against the tasks already here.
  * Writes nothing. `null` when the student cancelled the panel. */
 export async function readCalendarCommand(): Promise<
-  CommandResult<{ name: string; plan: CalendarPlan } | null>
+  CommandResult<{ name: string; plan: CalendarPlan; timetable: TimetablePlan } | null>
 > {
   let path: string | undefined;
   try {
@@ -134,9 +193,15 @@ export async function readCalendarCommand(): Promise<
   try {
     const blob = await dialog.readFile(path);
     const text = await blob.text();
-    const existing = await library.listTasks({ scope: 'all' });
-    const plan = planCalendarImport(parseIcs(text), existing);
-    return ok({ name: path.split(/[\\/]/).pop() ?? path, plan });
+    const [existing, courses] = await Promise.all([
+      library.listTasks({ scope: 'all' }),
+      library.listCourses(),
+    ]);
+    // One read, two readings: deadlines become tasks, sessions a timetable.
+    const parsed = parseIcs(text);
+    const plan = planCalendarImport(parsed, existing);
+    const timetable = planTimetableImport(parsed, courses);
+    return ok({ name: path.split(/[\\/]/).pop() ?? path, plan, timetable });
   } catch (error) {
     if (error instanceof IcsRefusal) return fail('invalid_input', error.code);
     return fail('invalid_input', 'unreadable', String(error));
@@ -214,4 +279,77 @@ export async function applyCalendarImportCommand(
     .refreshTasks()
     .catch(() => {});
   return ok(summary);
+}
+
+export interface TimetableImportSummary {
+  added: number;
+  updated: number;
+  removed: number;
+  coursesCreated: number;
+}
+
+/**
+ * Write the sessions the student mapped to a course (plan §4 item 1).
+ *
+ * New courses are created first, named after their category; every touched
+ * course is then written once with its whole timetable, through the same
+ * validation as the course editor. Lecture notes are never touched: removing a
+ * cancelled session leaves a note already taken for it where it is.
+ */
+export async function applyTimetableImportCommand(
+  plan: TimetablePlan,
+  choices: ReadonlyMap<string, GroupChoice>,
+): Promise<CommandResult<TimetableImportSummary>> {
+  try {
+    let courses = await library.listCourses();
+    let coursesCreated = 0;
+    const created = new Map<string, string>();
+    for (const group of plan.groups) {
+      const choice = choices.get(group.key);
+      if (choice?.kind !== 'new') continue;
+      if (!group.sessions.some((session) => !session.existing)) continue;
+      const result = await createCourseCommand({
+        name: choice.name.trim().slice(0, 200),
+      });
+      if (!result.ok) return result;
+      created.set(`new:${group.key}`, result.value.id);
+      coursesCreated += 1;
+    }
+    if (coursesCreated) courses = await library.listCourses();
+
+    const { meetings, added, updated, removed } = applyTimetableChoices(
+      plan,
+      courses,
+      choices,
+    );
+    const now = new Date().toISOString();
+    for (const [key, list] of meetings) {
+      const courseId = created.get(key) ?? key;
+      const course = courses.find((entry) => entry.id === courseId);
+      if (!course) continue;
+      const before = JSON.stringify(course.meetings);
+      if (key.startsWith('new:')) {
+        list.unshift(...course.meetings);
+      } else if (JSON.stringify(list) === before) {
+        continue;
+      }
+      const parsed = CourseSchema.safeParse({
+        ...course,
+        meetings: list.map(normalizeMeeting),
+        updatedAt: now,
+      });
+      if (!parsed.success) {
+        return fail('invalid_input', 'invalid timetable', parsed.error.issues);
+      }
+      await library.upsertCourse(parsed.data);
+    }
+    await useLibraryStore.getState().refreshCourses();
+    return ok({ added, updated, removed, coursesCreated });
+  } catch (error) {
+    await useLibraryStore
+      .getState()
+      .refreshCourses()
+      .catch(() => {});
+    return fail('storage_failed', String(error));
+  }
 }

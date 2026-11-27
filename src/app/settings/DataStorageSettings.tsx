@@ -76,7 +76,7 @@ function ImageOptimizationSection() {
   const value = useSettingsStore((state) => state.settings.imageOptimization);
   const update = useSettingsStore((state) => state.update);
   return (
-    <FieldSection title={t('storage.imagesSection')}>
+    <FieldSection anchor="storageImages" title={t('storage.imagesSection')}>
       <FieldRow
         label={t('storage.imageOptimization')}
         hint={t(`storage.imageOptimizationHint_${value}`)}
@@ -218,7 +218,7 @@ export function DataStorageSettings() {
         </div>
       )}
 
-      <FieldSection title={t('storage.locationSection')}>
+      <FieldSection anchor="storageLocation" title={t('storage.locationSection')}>
         <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] p-3">
           <div className="flex items-start gap-3">
             <div className="mt-px flex size-8 shrink-0 items-center justify-center rounded-nb-xs bg-[var(--nb-active)]">
@@ -262,7 +262,7 @@ export function DataStorageSettings() {
         </div>
       </FieldSection>
 
-      <FieldSection title={t('storage.sizeSection')}>
+      <FieldSection anchor="storageSize" title={t('storage.sizeSection')}>
         <p className="text-[22px] font-semibold tabular-nums tracking-[-0.02em]">
           {formatBytes(summary.totalBytes, locale)}
         </p>
@@ -329,7 +329,7 @@ export function DataStorageSettings() {
 
       <ImageOptimizationSection />
 
-      <FieldSection title={t('storage.contentsSection')}>
+      <FieldSection anchor="storageContents" title={t('storage.contentsSection')}>
         <ul className="grid grid-cols-3 gap-3">
           {(
             [
@@ -357,6 +357,7 @@ export function DataStorageSettings() {
       </FieldSection>
 
       <FieldSection
+        anchor="storageIntegrity"
         title={t('storage.integritySection')}
         description={t('storage.integrityHint')}
       >

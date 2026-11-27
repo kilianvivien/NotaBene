@@ -127,3 +127,10 @@ export function longDateLabel(date: Date, locale: string, capitalize = false): s
   });
   return capitalize ? label.charAt(0).toLocaleUpperCase(locale) + label.slice(1) : label;
 }
+
+/** A day in the student's own timezone, which is the only one they think in. */
+export function localDay(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}

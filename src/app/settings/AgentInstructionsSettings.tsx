@@ -16,7 +16,7 @@ export function AgentInstructionsSettings() {
   useEffect(() => setDraft(saved), [saved]);
 
   return (
-    <section className="flex flex-col gap-1.5">
+    <section data-field-anchor="agentInstructions" className="flex flex-col gap-1.5">
       <label htmlFor="nb-agent-instructions" className="text-[13px] font-semibold">
         {t('agent.instructions.title')}
       </label>

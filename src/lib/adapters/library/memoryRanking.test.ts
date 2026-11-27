@@ -76,7 +76,10 @@ describe('memory adapter searchNotes', () => {
   });
 
   it('ranks by relevance alone, leaving a pinned weak match where it lands', async () => {
-    const pinned = { ...noteWith('pinned', 'Divers', 'eigenvector une fois'), pinned: true };
+    const pinned = {
+      ...noteWith('pinned', 'Divers', 'eigenvector une fois'),
+      pinned: true,
+    };
     await library.upsertNote(pinned);
     await library.upsertNote(
       noteWith('strong', 'Eigenvector', 'eigenvector eigenvector'),

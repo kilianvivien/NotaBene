@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a persisted shape changes. See `migrations.ts`. */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 const id = z.string().min(1);
 const isoDate = z.string().datetime({ offset: true });
@@ -61,6 +61,62 @@ export type NoteDoc = z.infer<typeof NoteDocSchema>;
 // Library entities
 // ---------------------------------------------------------------------------
 
+/** A floating calendar date, `YYYY-MM-DD` — a day, not an instant. */
+const localDate = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
+const MINUTES_PER_DAY = 24 * 60;
+/** A year of dated sessions — five a week for forty weeks — with room. */
+export const MAX_COURSE_MEETINGS = 400;
+
+/**
+ * One class meeting (schema v10, plan §4 item 1): by default a single dated
+ * session (`from === until`), which is what a school's weekly export holds;
+ * a weekly series when `until` is later. Times are
+ * **floating local minutes** from midnight and dates are floating days, for
+ * the reason `recurrence.ts` computes in local time: a 10:00 lecture is at
+ * 10:00 on both sides of a clock change, and a timetable is never "in" a
+ * zone. `skip` holds the days it does not meet (a holiday, an `EXDATE`).
+ */
+export const CourseMeetingSchema = z
+  .object({
+    id,
+    /** The session's own name — "Conférence sur la corruption" — when it is
+     * more than the course's; the lecture note is titled from it. */
+    title: z.string().trim().max(300).nullable().default(null),
+    /** 0 = Sunday … 6 = Saturday, as `Recurrence.weekdays`. */
+    weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+    start: z
+      .number()
+      .int()
+      .min(0)
+      .max(MINUTES_PER_DAY - 1),
+    // 23:59 at the latest: midnight is the next day's 00:00, which neither a
+    // time field nor an iCalendar time can say as "24:00".
+    end: z
+      .number()
+      .int()
+      .min(1)
+      .max(MINUTES_PER_DAY - 1),
+    location: z.string().trim().max(200).nullable().default(null),
+    from: localDate,
+    until: localDate,
+    skip: z.array(localDate).max(366).default([]),
+    /** The template a lecture note for this meeting starts from; the
+     * course's own otherwise. */
+    templateId: id.nullable().default(null),
+    /** `ics:{UID}` for a meeting a calendar import wrote, so next term's
+     * re-import updates rather than duplicates. */
+    importKey: z.string().min(1).max(2_000).nullable().default(null),
+  })
+  .refine((meeting) => meeting.end > meeting.start, {
+    message: 'a meeting ends after it starts',
+    path: ['end'],
+  })
+  .refine((meeting) => meeting.until >= meeting.from, {
+    message: 'a meeting’s last day is on or after its first',
+    path: ['until'],
+  });
+export type CourseMeeting = z.infer<typeof CourseMeetingSchema>;
+
 export const CourseSchema = z.object({
   id,
   name: z.string().min(1),
@@ -70,8 +126,19 @@ export const CourseSchema = z.object({
   professor: z.string().optional(),
   semester: z.string().optional(),
   credits: z.number().int().nonnegative().optional(),
-  /** Free-form timetable slot, e.g. "Mon 10:00–12:00". Display only in v1. */
+  /** Free-form timetable slot, e.g. "Mon 10:00–12:00". Display only, and
+   * never parsed: the timetable proper is `meetings`. */
   schedule: z.string().optional(),
+  /** The course's timetable (schema v10). Stored as JSON on the course, not a
+   * table: a handful of rows that travel with it and are never queried
+   * across courses. */
+  meetings: z.array(CourseMeetingSchema).max(MAX_COURSE_MEETINGS).default([]),
+  /** Whether *Start lecture* records: ready but not pressed (`ask`), at once
+   * (`always`), or not at all (`never`). */
+  lectureRecording: z.enum(['ask', 'always', 'never']).default('ask'),
+  /** A notification when a meeting starts. Off: in a lecture hall a
+   * notification is noise unless the student asked for it. */
+  lectureNotify: z.boolean().default(false),
   order: z.number().int().nonnegative().default(0),
   archived: z.boolean().default(false),
   createdAt: isoDate,
@@ -157,6 +224,12 @@ export const NoteSchema = z.object({
   /** When the importer last wrote this note. Separate from `createdAt`, which
    * keeps the source file's own date so a migrated library keeps its order. */
   importedAt: isoDate.nullable().default(null),
+  /**
+   * `{meetingId}:{YYYY-MM-DD}` for the note `lecture.start` opened for one
+   * meeting on one day (schema v10). A key rather than a title match, so a
+   * renamed note is still today's lecture. `null` for every other note.
+   */
+  lectureKey: z.string().min(1).max(200).nullable().default(null),
 });
 export type Note = z.infer<typeof NoteSchema>;
 
@@ -167,6 +240,7 @@ export const NoteSummarySchema = NoteSchema.omit({
   plainText: true,
   importKey: true,
   importedAt: true,
+  lectureKey: true,
 }).extend({
   snippet: z.string().default(''),
 });
@@ -245,7 +319,14 @@ export const AttachmentSchema = z.object({
 export type Attachment = z.infer<typeof AttachmentSchema>;
 
 /** `import` is the version a re-import replaced (schema v9). */
-export const SNAPSHOT_CAUSES = ['auto', 'session', 'restore', 'ai', 'agent', 'import'] as const;
+export const SNAPSHOT_CAUSES = [
+  'auto',
+  'session',
+  'restore',
+  'ai',
+  'agent',
+  'import',
+] as const;
 export const SnapshotCauseSchema = z.enum(SNAPSHOT_CAUSES);
 export type SnapshotCause = z.infer<typeof SnapshotCauseSchema>;
 

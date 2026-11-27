@@ -24,6 +24,7 @@ import { syncEditorNote, useEditorStore } from '@/lib/state/editorStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { useUiStore } from '@/lib/state/uiStore';
 import { SNAPSHOT_RETENTION_POLICIES } from '@/lib/history/retention';
+import { resolveSearch } from '@/lib/search/query';
 import { purgeTrashedTasksCommand } from './taskCommands';
 import {
   cancelledIfRequested,
@@ -60,6 +61,8 @@ const BatchNoteInput = CreateNoteInput.extend({
   id: z.string().min(1).max(64).optional(),
   importKey: z.string().min(1).max(2_000).nullable().optional(),
   importedAt: isoDateTime.optional(),
+  /** `{meetingId}:{YYYY-MM-DD}` — only `lecture.start` writes it. */
+  lectureKey: z.string().min(1).max(200).nullable().optional(),
   /** The source file's own dates, so a migrated library keeps its order. */
   createdAt: isoDateTime.optional(),
   updatedAt: isoDateTime.optional(),
@@ -112,11 +115,14 @@ export async function searchNotesCommand(
   text: string,
   limit = 8,
 ): Promise<CommandResult<NoteSummary[]>> {
-  const query = text.trim();
-  if (!query) return ok([]);
+  const raw = text.trim();
+  if (!raw) return ok([]);
   try {
+    const { courses, tags } = useLibraryStore.getState();
+    const { unresolvable, ...query } = resolveSearch(raw, courses, tags);
+    if (unresolvable) return ok([]);
     return ok(
-      await library.queryNotes({ text: query, scope: 'live', sort: 'relevance', limit }),
+      await library.queryNotes({ scope: 'live', sort: 'relevance', ...query, limit }),
     );
   } catch (error) {
     return fail('storage_failed', error instanceof Error ? error.message : String(error));

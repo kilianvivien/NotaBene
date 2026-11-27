@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   AiDiagramResponseSchema,
+  CourseMeetingSchema,
+  createCourse,
   createNote,
   emptyLibrary,
   MindMapSchema,
@@ -186,6 +188,70 @@ describe('library import', () => {
       ],
     });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('schema v10: timetable and lecture notes', () => {
+  const meeting = {
+    id: 'meeting-1',
+    weekdays: [1, 3],
+    start: 10 * 60,
+    end: 11 * 60 + 30,
+    from: '2026-09-07',
+    until: '2026-12-18',
+  };
+
+  it('opens a v9 backup with no timetable and no lecture keys', () => {
+    const course = createCourse({ name: 'Droit constitutionnel' });
+    const note = createNote({ title: 'Lecture', courseId: course.id });
+    const { meetings: _meetings, ...v9Course } = course;
+    const { lectureKey: _lectureKey, ...v9Note } = note;
+    const result = safeImportLibrary({
+      ...emptyLibrary(),
+      schemaVersion: 9,
+      courses: [v9Course],
+      notes: [v9Note],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.library.courses[0]?.meetings).toEqual([]);
+      expect(result.library.notes[0]?.lectureKey).toBeNull();
+    }
+  });
+
+  it('fills in a meeting’s defaults', () => {
+    expect(CourseMeetingSchema.parse(meeting)).toEqual({
+      ...meeting,
+      title: null,
+      location: null,
+      skip: [],
+      templateId: null,
+      importKey: null,
+    });
+  });
+
+  it('refuses a meeting that ends before it starts, or a term that runs backwards', () => {
+    expect(
+      CourseMeetingSchema.safeParse({ ...meeting, end: meeting.start }).success,
+    ).toBe(false);
+    expect(
+      CourseMeetingSchema.safeParse({ ...meeting, until: '2026-09-01' }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a meeting on no day, or a date that is not a day', () => {
+    expect(CourseMeetingSchema.safeParse({ ...meeting, weekdays: [] }).success).toBe(
+      false,
+    );
+    expect(CourseMeetingSchema.safeParse({ ...meeting, weekdays: [7] }).success).toBe(
+      false,
+    );
+    expect(
+      CourseMeetingSchema.safeParse({ ...meeting, skip: ['2026-13-01'] }).success,
+    ).toBe(false);
+    expect(
+      CourseMeetingSchema.safeParse({ ...meeting, from: '2026-09-07T00:00:00Z' }).success,
+    ).toBe(false);
   });
 });
 

@@ -145,7 +145,7 @@ export function BackupSettings() {
     <div className="space-y-5">
       <BackupHealth />
 
-      <FieldSection title={t('backups.scheduleSection')}>
+      <FieldSection anchor="backupsSchedule" title={t('backups.scheduleSection')}>
         <FieldRow label={t('backups.schedule')} hint={t('backups.scheduleHint')}>
           <GlassSelect
             label={t('backups.schedule')}
@@ -180,13 +180,16 @@ export function BackupSettings() {
         {settings.backupSchedule !== 'off' && due && (
           <FieldNote>
             {t('backups.nextRun', {
-              date: due.getTime() <= Date.now() ? t('backups.dueNow') : when(due.toISOString()),
+              date:
+                due.getTime() <= Date.now()
+                  ? t('backups.dueNow')
+                  : when(due.toISOString()),
             })}
           </FieldNote>
         )}
       </FieldSection>
 
-      <FieldSection title={t('backups.retentionSection')}>
+      <FieldSection anchor="backupsRetention" title={t('backups.retentionSection')}>
         <FieldRow label={t('backups.keep')} hint={t('backups.keepHint')} align="end">
           <div className="flex items-center gap-2">
             <input
@@ -237,7 +240,10 @@ export function BackupSettings() {
         </FieldRow>
       </FieldSection>
 
-      <div className="flex flex-wrap gap-2 border-t border-[var(--nb-divider)] pt-4">
+      <div
+        data-field-anchor="backupsActions"
+        className="flex flex-wrap gap-2 border-t border-[var(--nb-divider)] pt-4"
+      >
         <GlassButton
           size="sm"
           variant="accent"
@@ -276,7 +282,11 @@ export function BackupSettings() {
           )}
           <FieldNote>{t('backups.safetyPromise')}</FieldNote>
           <div className="mt-3 flex gap-2">
-            <GlassButton size="sm" disabled={working} onClick={() => void restore('merge')}>
+            <GlassButton
+              size="sm"
+              disabled={working}
+              onClick={() => void restore('merge')}
+            >
               {t('backups.merge')}
             </GlassButton>
             <GlassButton
@@ -295,6 +305,7 @@ export function BackupSettings() {
       )}
 
       <FieldSection
+        anchor="backupsArchives"
         title={t('backups.archivesSection')}
         description={
           managed ? t('backups.archivesManagedHint') : t('backups.archivesChosenHint')

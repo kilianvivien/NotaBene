@@ -14,6 +14,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createCourse, createNote, newId } from '@/lib/schema';
 import { MemoryLibraryAdapter } from './memoryLibraryAdapter';
 import corpus from '@/lib/search/fixtures/ranking-corpus.json';
+import syntax from '@/lib/search/fixtures/search-syntax.json';
+import { viewToQuery } from '@/app/shell/viewQuery';
 
 describe('ranking parity', () => {
   let library: MemoryLibraryAdapter;
@@ -49,6 +51,69 @@ describe('ranking parity', () => {
       }
     });
   }
+});
+
+describe('search syntax parity', () => {
+  const library = new MemoryLibraryAdapter();
+
+  beforeEach(async () => {
+    library.reset();
+    await library.upsertNotes(
+      syntax.notes.map(({ id, title, body }) => ({
+        ...createNote({ title }),
+        id,
+        doc: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: body }] }],
+        },
+      })),
+    );
+  });
+
+  it.each(syntax.queries)(
+    'finds the same notes as SQLite for $input',
+    async ({ input, ids }) => {
+      const query = viewToQuery({ kind: 'search', query: input });
+      const listed = await library.queryNotes(query);
+      const ranked = await library.searchNotes(query);
+      expect(listed.map((note) => note.id).sort()).toEqual(ids);
+      expect(ranked.map(({ note }) => note.id).sort()).toEqual(ids);
+      expect(await library.countNotes({ ...query, limit: 1, offset: 1 })).toBe(
+        ids.length,
+      );
+    },
+  );
+
+  it('scores and highlights terms from complete alternatives', async () => {
+    await library.upsertNotes([
+      createNote({
+        title: 'Note',
+        doc: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'alpha beta' }] },
+          ],
+        },
+      }),
+      createNote({
+        title: 'Note',
+        doc: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'alpha gamma' }] },
+          ],
+        },
+      }),
+    ]);
+
+    const query = viewToQuery({ kind: 'search', query: 'beta delta OR alpha' });
+    const ranked = await library.searchNotes(query);
+    expect(ranked).toHaveLength(2);
+    expect(ranked[0]?.score).toBe(ranked[1]?.score);
+    expect(
+      (await library.queryNotes(query)).map(({ snippet }) => snippet).sort(),
+    ).toEqual(['<mark>alpha</mark> beta', '<mark>alpha</mark> gamma']);
+  });
 });
 
 /**

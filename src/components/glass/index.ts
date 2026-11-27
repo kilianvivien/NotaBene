@@ -15,6 +15,7 @@ export { GlassScrollArea } from './GlassScrollArea';
 export { ModalOverlay } from './ModalOverlay';
 export { Dialog } from './Dialog';
 export { FieldNote, FieldRow, FieldSection, FieldToggle } from './Field';
+export { FieldRevealContext } from './fieldReveal';
 export { GlassCheckbox } from './GlassCheckbox';
 export { GlassDateField } from './GlassDateField';
 export { ChoiceGroup, type ChoiceOption, type ChoiceSection } from './ChoiceGroup';

@@ -34,7 +34,7 @@ export function AgentReasoningSettings() {
     ) !== undefined;
 
   return (
-    <section className="flex flex-col gap-1.5">
+    <section data-field-anchor="agentReasoning" className="flex flex-col gap-1.5">
       <h3 className="text-[13px] font-semibold">{t('agent.reasoning.title')}</h3>
       <p className="text-[11px] leading-snug text-nb-text-3">
         {t('agent.reasoning.hint')}

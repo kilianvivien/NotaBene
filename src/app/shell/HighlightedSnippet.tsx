@@ -7,7 +7,7 @@
  * one thing in this app that must never be able to become an element.
  */
 export function HighlightedSnippet({ value }: { value: string }) {
-  const parts = value.split(/(<mark>.*?<\/mark>)/g);
+  const parts = value.split(/(<mark>.*?<\/mark>)/gs);
   return parts.map((part, index) =>
     part.startsWith('<mark>') && part.endsWith('</mark>') ? (
       <mark

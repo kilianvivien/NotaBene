@@ -24,25 +24,11 @@
  *   fade at the edge rather than slicing a row in half against the footer, and
  *   a new pane starts at its own top.
  */
-import {
-  Bot,
-  DatabaseBackup,
-  HardDrive,
-  Info,
-  Mic,
-  Palette,
-  Replace,
-  SlidersHorizontal,
-  Sparkles,
-  TextCursorInput,
-  Type,
-  Volume2,
-  Waypoints,
-  type LucideIcon,
-} from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Search, X, type LucideIcon } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  FieldRevealContext,
   FieldRow,
   FieldSection,
   FieldToggle,
@@ -55,6 +41,7 @@ import {
 import { useSettingsStore } from '@/lib/state/settingsStore';
 import { GraphSettings } from './GraphSettings';
 import { useUiStore, type SettingsTab } from '@/lib/state/uiStore';
+import { SETTINGS_GROUPS, paneLabelKey, searchSettings } from './settingsIndex';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -75,46 +62,6 @@ import { AboutSettings } from './AboutSettings';
 import { SpeechSettings } from './SpeechSettings';
 import { RecordingSettings } from './RecordingSettings';
 import { ensureReminderPermission } from '@/lib/tasks/reminderScheduler';
-
-interface TabEntry {
-  id: SettingsTab;
-  icon: LucideIcon;
-}
-
-/** Nav groups, in the order they appear. The group label is an i18n key. */
-const GROUPS: { labelKey: string; tabs: TabEntry[] }[] = [
-  {
-    labelKey: 'settings.groupApp',
-    tabs: [
-      { id: 'general', icon: SlidersHorizontal },
-      { id: 'appearance', icon: Palette },
-      { id: 'editor', icon: Type },
-      { id: 'completion', icon: TextCursorInput },
-      { id: 'abbreviations', icon: Replace },
-    ],
-  },
-  {
-    labelKey: 'settings.groupContent',
-    tabs: [
-      { id: 'graph', icon: Waypoints },
-      { id: 'speech', icon: Volume2 },
-      { id: 'recording', icon: Mic },
-      { id: 'backups', icon: DatabaseBackup },
-      // Backups are what NotaBene *does* with the data; this is what is
-      // actually sitting on the disk right now. Two questions, two panes.
-      { id: 'dataStorage', icon: HardDrive },
-    ],
-  },
-  {
-    labelKey: 'settings.groupConnections',
-    tabs: [
-      { id: 'aiProviders', icon: Sparkles },
-      // The same robot the status bar lights up when an agent is editing.
-      { id: 'agent', icon: Bot },
-    ],
-  },
-  { labelKey: 'settings.groupAbout', tabs: [{ id: 'about', icon: Info }] },
-];
 
 const EDITOR_TITLE_SIZES = { min: 28, max: 52 };
 const ACCENTS: { value: AccentColor; color: string }[] = [
@@ -147,6 +94,48 @@ export function SettingsWindow() {
 
   const [learnedForgotten, setLearnedForgotten] = useState(false);
 
+  const [query, setQuery] = useState('');
+  const [reveal, setReveal] = useState<{ anchor: string; nonce: number } | null>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const hits = useMemo(() => searchSettings(query, t), [query, t]);
+  const searching = query.trim().length > 0;
+
+  // A fresh sheet starts with an empty search: reopening Settings on a
+  // filtered nav would hide panes for no reason the student can see.
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+      setReveal(null);
+    }
+  }, [open]);
+
+  function goTo(pane: SettingsTab, anchor?: string) {
+    setTab(pane);
+    setReveal(anchor ? { anchor, nonce: (reveal?.nonce ?? 0) + 1 } : null);
+  }
+
+  // After the pane has rendered (and a folded section has opened), bring the
+  // section to the top and flash it once, so the eye lands on what was found
+  // rather than on the pane's first row.
+  useEffect(() => {
+    if (!reveal) return;
+    const frame = requestAnimationFrame(() => {
+      const target = body.current?.querySelector<HTMLElement>(
+        `[data-field-anchor="${reveal.anchor}"]`,
+      );
+      if (!target) return;
+      target.scrollIntoView({ block: 'start' });
+      target.animate?.(
+        [
+          { backgroundColor: 'var(--nb-accent-soft)' },
+          { backgroundColor: 'transparent' },
+        ],
+        { duration: 1400, easing: 'ease-out' },
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [reveal, tab]);
+
   function setCompletion(patch: Partial<CompletionSettings>): void {
     void update({ completion: { ...settings.completion, ...patch } });
   }
@@ -174,36 +163,109 @@ export function SettingsWindow() {
             'border-r border-[var(--nb-divider)] bg-[var(--nb-sidebar-surface)]',
           )}
         >
-          {GROUPS.map((group) => (
-            <div key={group.labelKey}>
-              <h2 className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
-                {t(group.labelKey)}
-              </h2>
-              <div className="flex flex-col gap-px">
-                {group.tabs.map(({ id, icon: Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setTab(id)}
-                    aria-current={tab === id ? 'page' : undefined}
-                    className={cn(
-                      'flex h-8 items-center gap-2.5 rounded-nb-xs px-2.5 text-left text-[13px]',
-                      'transition-colors duration-[var(--nb-t-fast)]',
-                      tab === id
-                        ? 'bg-[var(--nb-accent-soft)] font-medium text-[var(--nb-accent)]'
-                        : 'text-nb-text-2 hover:bg-[var(--nb-hover)] hover:text-nb-text',
-                    )}
-                  >
-                    <Icon size={15} className="shrink-0 opacity-90" aria-hidden />
-                    <span className="truncate">{t(`settings.${id}`)}</span>
-                  </button>
-                ))}
-              </div>
+          <label className="relative flex shrink-0 items-center">
+            <Search
+              size={13}
+              aria-hidden
+              className="pointer-events-none absolute left-2.5 text-nb-text-3"
+            />
+            <input
+              type="search"
+              data-autofocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                // Escape empties the search first; only an empty field lets
+                // it through to close the sheet.
+                if (event.key === 'Escape' && query) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setQuery('');
+                }
+                if (event.key === 'Enter' && hits[0]) {
+                  event.preventDefault();
+                  goTo(hits[0].pane.id, hits[0].sections[0]?.id);
+                }
+              }}
+              placeholder={t('settings.searchPlaceholder')}
+              aria-label={t('settings.search')}
+              className={cn(
+                'h-7 w-full rounded-nb-xs border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)]',
+                'pl-7 pr-7 text-[12.5px] text-nb-text placeholder:text-nb-text-3',
+                'focus:border-[var(--nb-accent)] focus:outline-none',
+                '[&::-webkit-search-cancel-button]:hidden',
+              )}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label={t('settings.searchClear')}
+                className="absolute right-1.5 rounded-full p-0.5 text-nb-text-3 hover:text-nb-text"
+              >
+                <X size={12} aria-hidden />
+              </button>
+            )}
+          </label>
+
+          {searching ? (
+            <div className="flex flex-col gap-px">
+              {hits.length === 0 && (
+                <p
+                  aria-live="polite"
+                  className="px-2.5 py-2 text-[12px] leading-snug text-nb-text-3"
+                >
+                  {t('settings.searchEmpty', { query: query.trim() })}
+                </p>
+              )}
+              {hits.map(({ pane, sections }) => (
+                <Fragment key={pane.id}>
+                  <NavButton
+                    icon={pane.icon}
+                    label={t(paneLabelKey(pane.id))}
+                    current={tab === pane.id}
+                    onClick={() => goTo(pane.id)}
+                  />
+                  {sections.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => goTo(pane.id, entry.id)}
+                      className={cn(
+                        'flex h-7 items-center rounded-nb-xs pl-[34px] pr-2.5 text-left text-[12.5px]',
+                        'text-nb-text-2 transition-colors duration-[var(--nb-t-fast)]',
+                        'hover:bg-[var(--nb-hover)] hover:text-nb-text',
+                      )}
+                    >
+                      <span className="truncate">{t(entry.titleKey)}</span>
+                    </button>
+                  ))}
+                </Fragment>
+              ))}
             </div>
-          ))}
+          ) : (
+            SETTINGS_GROUPS.map((group) => (
+              <div key={group.labelKey}>
+                <h2 className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-nb-text-3">
+                  {t(group.labelKey)}
+                </h2>
+                <div className="flex flex-col gap-px">
+                  {group.panes.map(({ id, icon }) => (
+                    <NavButton
+                      key={id}
+                      icon={icon}
+                      label={t(paneLabelKey(id))}
+                      current={tab === id}
+                      onClick={() => goTo(id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
         </nav>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div ref={body} className="flex min-w-0 flex-1 flex-col">
           {/* Right padding clears the sheet's ✕. */}
           <header className="shrink-0 border-b border-[var(--nb-divider)] py-3.5 pl-6 pr-14">
             <h2 className="text-[15px] font-semibold leading-tight">
@@ -214,380 +276,442 @@ export function SettingsWindow() {
             </p>
           </header>
 
-          <GlassScrollArea resetKey={tab} className="px-6 pb-6 pt-5">
-            {tab === 'general' && (
-              <FieldSection>
-                <FieldRow label={t('settings.language')}>
-                  <GlassSegmentedControl<Locale>
-                    fill
-                    label={t('settings.language')}
-                    value={settings.locale}
-                    onChange={(locale) => set('locale', locale)}
-                    options={SUPPORTED_LOCALES.map((locale) => ({
-                      value: locale,
-                      label: t(`settings.locale_${locale}`),
-                    }))}
-                  />
-                </FieldRow>
-                <FieldRow
-                  label={t('settings.checkForUpdates')}
-                  hint={t('settings.checkForUpdatesHint')}
-                  align="end"
-                >
-                  <FieldToggle
+          <FieldRevealContext.Provider value={reveal}>
+            <GlassScrollArea resetKey={tab} className="px-6 pb-6 pt-5">
+              {tab === 'general' && (
+                <FieldSection>
+                  <FieldRow label={t('settings.language')}>
+                    <GlassSegmentedControl<Locale>
+                      fill
+                      label={t('settings.language')}
+                      value={settings.locale}
+                      onChange={(locale) => set('locale', locale)}
+                      options={SUPPORTED_LOCALES.map((locale) => ({
+                        value: locale,
+                        label: t(`settings.locale_${locale}`),
+                      }))}
+                    />
+                  </FieldRow>
+                  <FieldRow
                     label={t('settings.checkForUpdates')}
-                    checked={settings.checkForUpdates}
-                    onChange={(checked) => set('checkForUpdates', checked)}
-                  />
-                </FieldRow>
-                {/* The hint is not decoration: reminders cannot fire while the
+                    hint={t('settings.checkForUpdatesHint')}
+                    align="end"
+                  >
+                    <FieldToggle
+                      label={t('settings.checkForUpdates')}
+                      checked={settings.checkForUpdates}
+                      onChange={(checked) => set('checkForUpdates', checked)}
+                    />
+                  </FieldRow>
+                  {/* The hint is not decoration: reminders cannot fire while the
                     app is closed, and a student should read that here rather
                     than discover it the morning an essay is due. */}
-                <FieldRow
-                  label={t('tasks.reminderSetting')}
-                  hint={t('tasks.reminderSettingHint')}
-                  align="end"
-                >
-                  <FieldToggle
+                  <FieldRow
                     label={t('tasks.reminderSetting')}
-                    checked={settings.taskRemindersEnabled}
-                    onChange={(checked) => {
-                      set('taskRemindersEnabled', checked);
-                      // Ask only when they turn it on, and only if macOS has
-                      // not already been asked.
-                      if (checked) void ensureReminderPermission();
-                    }}
-                  />
-                </FieldRow>
-              </FieldSection>
-            )}
-
-            {tab === 'appearance' && (
-              <FieldSection>
-                <FieldRow label={t('settings.theme')}>
-                  <GlassSegmentedControl<AppSettings['theme']>
-                    fill
-                    label={t('settings.theme')}
-                    value={settings.theme}
-                    onChange={(theme) => set('theme', theme)}
-                    options={[
-                      { value: 'light', label: t('settings.themeLight') },
-                      { value: 'dark', label: t('settings.themeDark') },
-                      { value: 'system', label: t('settings.themeSystem') },
-                    ]}
-                  />
-                </FieldRow>
-                <FieldRow label={t('settings.accentColor')} align="end">
-                  <div
-                    role="radiogroup"
-                    aria-label={t('settings.accentColor')}
-                    className="nb-accent-picker"
+                    hint={t('tasks.reminderSettingHint')}
+                    align="end"
                   >
-                    {ACCENTS.map((accent) => (
-                      <button
-                        key={accent.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={settings.accentColor === accent.value}
-                        aria-label={t(`settings.accent_${accent.value}`)}
-                        title={t(`settings.accent_${accent.value}`)}
-                        onClick={() => set('accentColor', accent.value)}
-                        style={{ '--accent-swatch': accent.color } as React.CSSProperties}
-                      >
-                        <span />
-                      </button>
-                    ))}
-                  </div>
-                </FieldRow>
-              </FieldSection>
-            )}
+                    <FieldToggle
+                      label={t('tasks.reminderSetting')}
+                      checked={settings.taskRemindersEnabled}
+                      onChange={(checked) => {
+                        set('taskRemindersEnabled', checked);
+                        // Ask only when they turn it on, and only if macOS has
+                        // not already been asked.
+                        if (checked) void ensureReminderPermission();
+                      }}
+                    />
+                  </FieldRow>
+                </FieldSection>
+              )}
 
-            {tab === 'editor' && (
-              <div className="space-y-6">
+              {tab === 'appearance' && (
                 <FieldSection>
-                  <FieldRow label={t('settings.editorFont')}>
-                    <GlassSelect
-                      label={t('settings.editorFont')}
-                      value={settings.editorFont}
-                      onChange={(event) =>
-                        set('editorFont', event.target.value as AppSettings['editorFont'])
-                      }
+                  <FieldRow label={t('settings.theme')}>
+                    <GlassSegmentedControl<AppSettings['theme']>
+                      fill
+                      label={t('settings.theme')}
+                      value={settings.theme}
+                      onChange={(theme) => set('theme', theme)}
+                      options={[
+                        { value: 'light', label: t('settings.themeLight') },
+                        { value: 'dark', label: t('settings.themeDark') },
+                        { value: 'system', label: t('settings.themeSystem') },
+                      ]}
+                    />
+                  </FieldRow>
+                  <FieldRow label={t('settings.accentColor')} align="end">
+                    <div
+                      role="radiogroup"
+                      aria-label={t('settings.accentColor')}
+                      className="nb-accent-picker"
                     >
-                      <option value="sans">{t('settings.fontSans')}</option>
-                      <option value="avenir">{t('settings.fontAvenir')}</option>
-                      <option value="serif">{t('settings.fontSerif')}</option>
-                      <option value="claude">{t('settings.fontClaude')}</option>
-                      <option value="iowan">{t('settings.fontIowan')}</option>
-                      <option value="mono">{t('settings.fontMono')}</option>
-                    </GlassSelect>
-                  </FieldRow>
-                  <FieldRow label={t('settings.fontSize')} align="end">
-                    <SizeSlider
-                      label={t('settings.fontSize')}
-                      range={EDITOR_FONT_SIZES}
-                      value={settings.editorFontSize}
-                      onChange={(value) => set('editorFontSize', value)}
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('settings.titleSize')} align="end">
-                    <SizeSlider
-                      label={t('settings.titleSize')}
-                      range={EDITOR_TITLE_SIZES}
-                      value={settings.editorTitleSize}
-                      onChange={(value) => set('editorTitleSize', value)}
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.editorMeasure')}
-                    hint={t('settings.editorMeasureHint')}
-                    align="end"
-                  >
-                    <SizeSlider
-                      label={t('settings.editorMeasure')}
-                      range={EDITOR_MEASURES}
-                      value={settings.editorMeasure}
-                      onChange={(value) => set('editorMeasure', value)}
-                    />
-                  </FieldRow>
-                </FieldSection>
-
-                <FieldSection
-                  title={t('settings.focusSection')}
-                  description={t('settings.focusSectionHint')}
-                >
-                  <FieldRow label={t('settings.focusAppearance')}>
-                    <GlassSegmentedControl<FocusSettings['appearance']>
-                      fill
-                      label={t('settings.focusAppearance')}
-                      value={settings.focus.appearance}
-                      onChange={(appearance) => setFocus({ appearance })}
-                      options={[
-                        { value: 'typewriter', label: t('settings.focusLookTypewriter') },
-                        { value: 'app', label: t('settings.focusLookApp') },
-                      ]}
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.focusLine')}
-                    hint={t('settings.focusLineHint')}
-                  >
-                    <GlassSegmentedControl<FocusSettings['lineFocus']>
-                      fill
-                      label={t('settings.focusLine')}
-                      value={settings.focus.lineFocus}
-                      onChange={(lineFocus) => setFocus({ lineFocus })}
-                      options={[
-                        { value: 'paragraph', label: t('settings.focusLineParagraph') },
-                        { value: 'off', label: t('settings.focusLineOff') },
-                      ]}
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.focusTypewriterScroll')}
-                    hint={t('settings.focusTypewriterScrollHint')}
-                    align="end"
-                  >
-                    <FieldToggle
-                      label={t('settings.focusTypewriterScroll')}
-                      checked={settings.focus.typewriterScrolling}
-                      onChange={(typewriterScrolling) =>
-                        setFocus({ typewriterScrolling })
-                      }
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.focusHideChrome')}
-                    hint={t('settings.focusHideChromeHint')}
-                    align="end"
-                  >
-                    <FieldToggle
-                      label={t('settings.focusHideChrome')}
-                      checked={settings.focus.hideChrome}
-                      onChange={(hideChrome) => setFocus({ hideChrome })}
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.focusFullscreen')}
-                    hint={t('settings.focusFullscreenHint')}
-                    align="end"
-                  >
-                    <FieldToggle
-                      label={t('settings.focusFullscreen')}
-                      checked={settings.focus.fullscreen}
-                      onChange={(fullscreen) => setFocus({ fullscreen })}
-                    />
-                  </FieldRow>
-                </FieldSection>
-
-                <div
-                  className="rounded-nb-sm bg-[var(--nb-inset-surface)] p-3"
-                  style={{ fontFamily: 'var(--nb-editor-font)' }}
-                >
-                  <p
-                    className="font-semibold tracking-[-0.03em]"
-                    style={{ fontSize: 'var(--nb-editor-title-size)', lineHeight: 1.15 }}
-                  >
-                    {t('settings.fontPreviewTitle')}
-                  </p>
-                  <p
-                    className="mt-2"
-                    style={{
-                      fontSize: 'var(--nb-editor-size)',
-                      lineHeight: 'var(--nb-editor-leading)',
-                    }}
-                  >
-                    {t('settings.fontPreview')}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {tab === 'completion' && (
-              <div className="space-y-6">
-                <FieldSection title={t('settings.completionSuggestions')}>
-                  <FieldRow
-                    label={t('settings.completionEnabled')}
-                    hint={t('settings.completionEnabledHint')}
-                    align="end"
-                  >
-                    <FieldToggle
-                      label={t('settings.completionEnabled')}
-                      checked={settings.completion.enabled}
-                      onChange={(enabled) => setCompletion({ enabled })}
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.completionPresence')}
-                    hint={t(
-                      `settings.completionPresenceHint_${settings.completion.presence}`,
-                    )}
-                  >
-                    <GlassSegmentedControl<CompletionSettings['presence']>
-                      fill
-                      label={t('settings.completionPresence')}
-                      value={settings.completion.presence}
-                      onChange={(presence) => setCompletion({ presence })}
-                      disabled={!settings.completion.enabled}
-                      options={[
-                        { value: 'quiet', label: t('settings.completionPresenceQuiet') },
-                        {
-                          value: 'balanced',
-                          label: t('settings.completionPresenceBalanced'),
-                        },
-                        { value: 'eager', label: t('settings.completionPresenceEager') },
-                      ]}
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.completionMinPrefix')}
-                    hint={t('settings.completionMinPrefixHint')}
-                    align="end"
-                  >
-                    <SizeSlider
-                      label={t('settings.completionMinPrefix')}
-                      range={COMPLETION_MIN_PREFIX}
-                      value={settings.completion.minPrefix}
-                      onChange={(minPrefix) => setCompletion({ minPrefix })}
-                    />
-                  </FieldRow>
-                </FieldSection>
-                <FieldSection title={t('settings.completionSources')}>
-                  <FieldRow
-                    label={t('settings.completionFromNote')}
-                    hint={t('settings.completionFromNoteHint')}
-                    align="end"
-                  >
-                    <FieldToggle
-                      label={t('settings.completionFromNote')}
-                      checked={settings.completion.fromCurrentNote}
-                      disabled={!settings.completion.enabled}
-                      onChange={(fromCurrentNote) => setCompletion({ fromCurrentNote })}
-                    />
-                  </FieldRow>
-                  <FieldRow
-                    label={t('settings.completionLearn')}
-                    hint={t('settings.completionLearnHint')}
-                    align="end"
-                  >
-                    <div className="flex items-center gap-2">
-                      <GlassButton
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          forgetLearnedCompletions();
-                          setLearnedForgotten(true);
-                        }}
-                        disabled={learnedForgotten}
-                      >
-                        {learnedForgotten
-                          ? t('settings.completionForgotten')
-                          : t('settings.completionForget')}
-                      </GlassButton>
-                      <FieldToggle
-                        label={t('settings.completionLearn')}
-                        checked={settings.completion.learn}
-                        disabled={!settings.completion.enabled}
-                        onChange={(learn) => setCompletion({ learn })}
-                      />
+                      {ACCENTS.map((accent) => (
+                        <button
+                          key={accent.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={settings.accentColor === accent.value}
+                          aria-label={t(`settings.accent_${accent.value}`)}
+                          title={t(`settings.accent_${accent.value}`)}
+                          onClick={() => set('accentColor', accent.value)}
+                          style={
+                            { '--accent-swatch': accent.color } as React.CSSProperties
+                          }
+                        >
+                          <span />
+                        </button>
+                      ))}
                     </div>
                   </FieldRow>
                 </FieldSection>
-                <FieldSection title={t('settings.completionKeyboard')}>
-                  <FieldRow
-                    label={t('settings.completionHint')}
-                    hint={t('settings.completionHintHint')}
-                  >
-                    <GlassSegmentedControl<CompletionSettings['hint']>
-                      fill
-                      label={t('settings.completionHint')}
-                      value={settings.completion.hint}
-                      onChange={(hint) => setCompletion({ hint })}
-                      disabled={!settings.completion.enabled}
-                      options={[
-                        { value: 'auto', label: t('settings.completionHintAuto') },
-                        { value: 'always', label: t('settings.completionHintAlways') },
-                        { value: 'never', label: t('settings.completionHintNever') },
-                      ]}
-                    />
-                  </FieldRow>
-                </FieldSection>
-                <FieldSection title={t('settings.completionKeys')}>
-                  <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 py-2 text-[12.5px]">
-                    {(
-                      [
-                        ['⇥', 'settings.completionKeyAccept'],
-                        ['⌥ ⇥', 'settings.completionKeyNext'],
-                        ['⌥ ⇧ ⇥', 'settings.completionKeyPrevious'],
-                        ['esc', 'settings.completionKeyDismiss'],
-                      ] as const
-                    ).map(([keys, label]) => (
-                      <Fragment key={label}>
-                        <dt>
-                          <kbd className="inline-block min-w-[44px] rounded-nb-xs border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] px-1.5 py-0.5 text-center font-[family-name:var(--nb-font-sans)] text-[11px] text-nb-text-2">
-                            {keys}
-                          </kbd>
-                        </dt>
-                        <dd className="text-nb-text-2">{t(label)}</dd>
-                      </Fragment>
-                    ))}
-                  </dl>
-                </FieldSection>
-              </div>
-            )}
+              )}
 
-            {tab === 'abbreviations' && <AbbreviationSettings />}
-            {tab === 'backups' && <BackupSettings />}
-            {tab === 'dataStorage' && <DataStorageSettings />}
-            {tab === 'speech' && <SpeechSettings />}
-            {tab === 'recording' && <RecordingSettings />}
-            {tab === 'graph' && <GraphSettings />}
-            {tab === 'aiProviders' && <AiProviderSettings />}
-            {tab === 'agent' && <AgentSettings />}
-            {tab === 'about' && <AboutSettings />}
-          </GlassScrollArea>
+              {tab === 'editor' && (
+                <div className="space-y-6">
+                  <FieldSection>
+                    <FieldRow label={t('settings.editorFont')}>
+                      <GlassSelect
+                        label={t('settings.editorFont')}
+                        value={settings.editorFont}
+                        onChange={(event) =>
+                          set(
+                            'editorFont',
+                            event.target.value as AppSettings['editorFont'],
+                          )
+                        }
+                      >
+                        <option value="sans">{t('settings.fontSans')}</option>
+                        <option value="avenir">{t('settings.fontAvenir')}</option>
+                        <option value="serif">{t('settings.fontSerif')}</option>
+                        <option value="claude">{t('settings.fontClaude')}</option>
+                        <option value="iowan">{t('settings.fontIowan')}</option>
+                        <option value="mono">{t('settings.fontMono')}</option>
+                      </GlassSelect>
+                    </FieldRow>
+                    <FieldRow label={t('settings.fontSize')} align="end">
+                      <SizeSlider
+                        label={t('settings.fontSize')}
+                        range={EDITOR_FONT_SIZES}
+                        value={settings.editorFontSize}
+                        onChange={(value) => set('editorFontSize', value)}
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('settings.titleSize')} align="end">
+                      <SizeSlider
+                        label={t('settings.titleSize')}
+                        range={EDITOR_TITLE_SIZES}
+                        value={settings.editorTitleSize}
+                        onChange={(value) => set('editorTitleSize', value)}
+                      />
+                    </FieldRow>
+                    <FieldRow
+                      label={t('settings.editorMeasure')}
+                      hint={t('settings.editorMeasureHint')}
+                      align="end"
+                    >
+                      <SizeSlider
+                        label={t('settings.editorMeasure')}
+                        range={EDITOR_MEASURES}
+                        value={settings.editorMeasure}
+                        onChange={(value) => set('editorMeasure', value)}
+                      />
+                    </FieldRow>
+                  </FieldSection>
+
+                  <FieldSection
+                    anchor="editorFocus"
+                    title={t('settings.focusSection')}
+                    description={t('settings.focusSectionHint')}
+                  >
+                    <FieldRow label={t('settings.focusAppearance')}>
+                      <GlassSegmentedControl<FocusSettings['appearance']>
+                        fill
+                        label={t('settings.focusAppearance')}
+                        value={settings.focus.appearance}
+                        onChange={(appearance) => setFocus({ appearance })}
+                        options={[
+                          {
+                            value: 'typewriter',
+                            label: t('settings.focusLookTypewriter'),
+                          },
+                          { value: 'app', label: t('settings.focusLookApp') },
+                        ]}
+                      />
+                    </FieldRow>
+                    <FieldRow
+                      label={t('settings.focusLine')}
+                      hint={t('settings.focusLineHint')}
+                    >
+                      <GlassSegmentedControl<FocusSettings['lineFocus']>
+                        fill
+                        label={t('settings.focusLine')}
+                        value={settings.focus.lineFocus}
+                        onChange={(lineFocus) => setFocus({ lineFocus })}
+                        options={[
+                          { value: 'paragraph', label: t('settings.focusLineParagraph') },
+                          { value: 'off', label: t('settings.focusLineOff') },
+                        ]}
+                      />
+                    </FieldRow>
+                    <FieldRow
+                      label={t('settings.focusTypewriterScroll')}
+                      hint={t('settings.focusTypewriterScrollHint')}
+                      align="end"
+                    >
+                      <FieldToggle
+                        label={t('settings.focusTypewriterScroll')}
+                        checked={settings.focus.typewriterScrolling}
+                        onChange={(typewriterScrolling) =>
+                          setFocus({ typewriterScrolling })
+                        }
+                      />
+                    </FieldRow>
+                    <FieldRow
+                      label={t('settings.focusHideChrome')}
+                      hint={t('settings.focusHideChromeHint')}
+                      align="end"
+                    >
+                      <FieldToggle
+                        label={t('settings.focusHideChrome')}
+                        checked={settings.focus.hideChrome}
+                        onChange={(hideChrome) => setFocus({ hideChrome })}
+                      />
+                    </FieldRow>
+                    <FieldRow
+                      label={t('settings.focusFullscreen')}
+                      hint={t('settings.focusFullscreenHint')}
+                      align="end"
+                    >
+                      <FieldToggle
+                        label={t('settings.focusFullscreen')}
+                        checked={settings.focus.fullscreen}
+                        onChange={(fullscreen) => setFocus({ fullscreen })}
+                      />
+                    </FieldRow>
+                  </FieldSection>
+
+                  <div
+                    className="rounded-nb-sm bg-[var(--nb-inset-surface)] p-3"
+                    style={{ fontFamily: 'var(--nb-editor-font)' }}
+                  >
+                    <p
+                      className="font-semibold tracking-[-0.03em]"
+                      style={{
+                        fontSize: 'var(--nb-editor-title-size)',
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {t('settings.fontPreviewTitle')}
+                    </p>
+                    <p
+                      className="mt-2"
+                      style={{
+                        fontSize: 'var(--nb-editor-size)',
+                        lineHeight: 'var(--nb-editor-leading)',
+                      }}
+                    >
+                      {t('settings.fontPreview')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {tab === 'completion' && (
+                <div className="space-y-6">
+                  <FieldSection
+                    anchor="completionSuggestions"
+                    title={t('settings.completionSuggestions')}
+                  >
+                    <FieldRow
+                      label={t('settings.completionEnabled')}
+                      hint={t('settings.completionEnabledHint')}
+                      align="end"
+                    >
+                      <FieldToggle
+                        label={t('settings.completionEnabled')}
+                        checked={settings.completion.enabled}
+                        onChange={(enabled) => setCompletion({ enabled })}
+                      />
+                    </FieldRow>
+                    <FieldRow
+                      label={t('settings.completionPresence')}
+                      hint={t(
+                        `settings.completionPresenceHint_${settings.completion.presence}`,
+                      )}
+                    >
+                      <GlassSegmentedControl<CompletionSettings['presence']>
+                        fill
+                        label={t('settings.completionPresence')}
+                        value={settings.completion.presence}
+                        onChange={(presence) => setCompletion({ presence })}
+                        disabled={!settings.completion.enabled}
+                        options={[
+                          {
+                            value: 'quiet',
+                            label: t('settings.completionPresenceQuiet'),
+                          },
+                          {
+                            value: 'balanced',
+                            label: t('settings.completionPresenceBalanced'),
+                          },
+                          {
+                            value: 'eager',
+                            label: t('settings.completionPresenceEager'),
+                          },
+                        ]}
+                      />
+                    </FieldRow>
+                    <FieldRow
+                      label={t('settings.completionMinPrefix')}
+                      hint={t('settings.completionMinPrefixHint')}
+                      align="end"
+                    >
+                      <SizeSlider
+                        label={t('settings.completionMinPrefix')}
+                        range={COMPLETION_MIN_PREFIX}
+                        value={settings.completion.minPrefix}
+                        onChange={(minPrefix) => setCompletion({ minPrefix })}
+                      />
+                    </FieldRow>
+                  </FieldSection>
+                  <FieldSection
+                    anchor="completionSources"
+                    title={t('settings.completionSources')}
+                  >
+                    <FieldRow
+                      label={t('settings.completionFromNote')}
+                      hint={t('settings.completionFromNoteHint')}
+                      align="end"
+                    >
+                      <FieldToggle
+                        label={t('settings.completionFromNote')}
+                        checked={settings.completion.fromCurrentNote}
+                        disabled={!settings.completion.enabled}
+                        onChange={(fromCurrentNote) => setCompletion({ fromCurrentNote })}
+                      />
+                    </FieldRow>
+                    <FieldRow
+                      label={t('settings.completionLearn')}
+                      hint={t('settings.completionLearnHint')}
+                      align="end"
+                    >
+                      <div className="flex items-center gap-2">
+                        <GlassButton
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            forgetLearnedCompletions();
+                            setLearnedForgotten(true);
+                          }}
+                          disabled={learnedForgotten}
+                        >
+                          {learnedForgotten
+                            ? t('settings.completionForgotten')
+                            : t('settings.completionForget')}
+                        </GlassButton>
+                        <FieldToggle
+                          label={t('settings.completionLearn')}
+                          checked={settings.completion.learn}
+                          disabled={!settings.completion.enabled}
+                          onChange={(learn) => setCompletion({ learn })}
+                        />
+                      </div>
+                    </FieldRow>
+                  </FieldSection>
+                  <FieldSection
+                    anchor="completionKeyboard"
+                    title={t('settings.completionKeyboard')}
+                  >
+                    <FieldRow
+                      label={t('settings.completionHint')}
+                      hint={t('settings.completionHintHint')}
+                    >
+                      <GlassSegmentedControl<CompletionSettings['hint']>
+                        fill
+                        label={t('settings.completionHint')}
+                        value={settings.completion.hint}
+                        onChange={(hint) => setCompletion({ hint })}
+                        disabled={!settings.completion.enabled}
+                        options={[
+                          { value: 'auto', label: t('settings.completionHintAuto') },
+                          { value: 'always', label: t('settings.completionHintAlways') },
+                          { value: 'never', label: t('settings.completionHintNever') },
+                        ]}
+                      />
+                    </FieldRow>
+                  </FieldSection>
+                  <FieldSection
+                    anchor="completionKeys"
+                    title={t('settings.completionKeys')}
+                  >
+                    <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 py-2 text-[12.5px]">
+                      {(
+                        [
+                          ['⇥', 'settings.completionKeyAccept'],
+                          ['⌥ ⇥', 'settings.completionKeyNext'],
+                          ['⌥ ⇧ ⇥', 'settings.completionKeyPrevious'],
+                          ['esc', 'settings.completionKeyDismiss'],
+                        ] as const
+                      ).map(([keys, label]) => (
+                        <Fragment key={label}>
+                          <dt>
+                            <kbd className="inline-block min-w-[44px] rounded-nb-xs border border-[var(--nb-divider)] bg-[var(--nb-inset-surface)] px-1.5 py-0.5 text-center font-[family-name:var(--nb-font-sans)] text-[11px] text-nb-text-2">
+                              {keys}
+                            </kbd>
+                          </dt>
+                          <dd className="text-nb-text-2">{t(label)}</dd>
+                        </Fragment>
+                      ))}
+                    </dl>
+                  </FieldSection>
+                </div>
+              )}
+
+              {tab === 'abbreviations' && <AbbreviationSettings />}
+              {tab === 'backups' && <BackupSettings />}
+              {tab === 'dataStorage' && <DataStorageSettings />}
+              {tab === 'speech' && <SpeechSettings />}
+              {tab === 'recording' && <RecordingSettings />}
+              {tab === 'graph' && <GraphSettings />}
+              {tab === 'aiProviders' && <AiProviderSettings />}
+              {tab === 'agent' && <AgentSettings />}
+              {tab === 'about' && <AboutSettings />}
+            </GlassScrollArea>
+          </FieldRevealContext.Provider>
         </div>
       </div>
     </ModalOverlay>
+  );
+}
+
+function NavButton({
+  icon: Icon,
+  label,
+  current,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  current: boolean;
+  onClick(): void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={current ? 'page' : undefined}
+      className={cn(
+        'flex h-8 items-center gap-2.5 rounded-nb-xs px-2.5 text-left text-[13px]',
+        'transition-colors duration-[var(--nb-t-fast)]',
+        current
+          ? 'bg-[var(--nb-accent-soft)] font-medium text-[var(--nb-accent)]'
+          : 'text-nb-text-2 hover:bg-[var(--nb-hover)] hover:text-nb-text',
+      )}
+    >
+      <Icon size={15} className="shrink-0 opacity-90" aria-hidden />
+      <span className="truncate">{label}</span>
+    </button>
   );
 }
 

@@ -104,6 +104,7 @@ export function SpeechSettings() {
   return (
     <div className="space-y-4">
       <FieldSection
+        anchor="speechEngine"
         title={t('speech.engineTitle')}
         description={t('speech.engineDescription')}
       >
@@ -199,6 +200,7 @@ export function SpeechSettings() {
       </FieldSection>
 
       <FieldSection
+        anchor="speechLocal"
         title={t('speech.localTitle')}
         description={t('speech.localDescription')}
       >
@@ -209,6 +211,7 @@ export function SpeechSettings() {
       </FieldSection>
 
       <FieldSection
+        anchor="speechHosted"
         title={t('speech.hostedTitle')}
         description={t('speech.hostedDescription')}
       >

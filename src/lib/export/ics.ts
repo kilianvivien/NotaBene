@@ -20,7 +20,9 @@
  * No dependency: the format is line folding, escaping and CRLF, and a library
  * would be a larger surface than the serializer it replaces.
  */
-import type { Recurrence, Task } from '@/lib/schema';
+import type { Course, CourseMeeting, Recurrence, Task } from '@/lib/schema';
+import { meetsOn, parseLocalDay } from '@/lib/timetable/meetings';
+import { addDays, localDay } from '@/lib/utils/calendar';
 
 const CRLF = '\r\n';
 /** How long a timed task is on the calendar. A deadline is a moment, but a
@@ -229,4 +231,87 @@ export function tasksToIcs(
     exported,
     withoutDueDate,
   };
+}
+
+/** A floating date-time on `day` at `minutes` past midnight. */
+function dayAt(day: string, minutes: number): string {
+  return `${day.replace(/-/g, '')}T${pad(Math.floor(minutes / 60))}${pad(minutes % 60)}00`;
+}
+
+/** The first day on or after `from` that the meeting actually meets. RFC 5545
+ * counts `DTSTART` as an occurrence whether or not the rule would produce it,
+ * so starting on the term's first day would put a Monday lecture on a
+ * Thursday when term begins on a Thursday. */
+function firstMeeting(meeting: CourseMeeting): string | null {
+  // A skipped first day still starts the series here; its `EXDATE` removes it.
+  for (
+    let day = parseLocalDay(meeting.from);
+    localDay(day) <= meeting.until;
+    day = addDays(day, 1)
+  ) {
+    if (meeting.weekdays.includes(day.getDay())) return localDay(day);
+  }
+  return null;
+}
+
+export interface TimetableExport {
+  ics: string;
+  exported: number;
+}
+
+/**
+ * Course meetings as recurring events (plan §4 item 1), in the same calendar
+ * dialect as tasks: floating local time, and a stable
+ * `UID:meeting-{id}@notabene` with `SEQUENCE` from the course's `updatedAt`,
+ * so a second export replaces the first in Calendar rather than doubling it.
+ * Skipped days become `EXDATE`s at the meeting's own time, as the RFC wants.
+ */
+export function timetableToIcs(
+  courses: readonly Course[],
+  options: { calendarName?: string; appVersion?: string } = {},
+): TimetableExport {
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:-//NotaBene//NotaBene${options.appVersion ? ` ${options.appVersion}` : ''}//EN`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+  ];
+  if (options.calendarName)
+    lines.push(`X-WR-CALNAME:${escapeText(options.calendarName)}`);
+
+  let exported = 0;
+  for (const course of courses) {
+    const updated = new Date(course.updatedAt);
+    for (const meeting of course.meetings) {
+      const first = firstMeeting(meeting);
+      if (!first) continue;
+      const days = [...new Set(meeting.weekdays)].sort((a, b) => a - b);
+      lines.push('BEGIN:VEVENT', `UID:meeting-${meeting.id}@notabene`);
+      lines.push(`DTSTAMP:${utcDateTime(updated)}`);
+      lines.push(
+        `SEQUENCE:${Math.max(0, Math.floor((updated.getTime() - SEQUENCE_EPOCH) / 1000))}`,
+      );
+      lines.push(
+        `DTSTART:${dayAt(first, meeting.start)}`,
+        `DTEND:${dayAt(first, meeting.end)}`,
+        // A floating `DTSTART` needs a floating `UNTIL`; the last second of the
+        // last day keeps a meeting on that day.
+        `RRULE:FREQ=WEEKLY;BYDAY=${days.map((day) => WEEKDAYS[day]).join(',')};UNTIL=${dayAt(meeting.until, 0).slice(0, 9)}235959`,
+      );
+      const skipped = meeting.skip.filter((day) =>
+        meetsOn({ ...meeting, skip: [] }, day),
+      );
+      if (skipped.length) {
+        lines.push(`EXDATE:${skipped.map((day) => dayAt(day, meeting.start)).join(',')}`);
+      }
+      lines.push(`SUMMARY:${escapeText(course.name)}`);
+      if (meeting.location) lines.push(`LOCATION:${escapeText(meeting.location)}`);
+      if (course.professor) lines.push(`DESCRIPTION:${escapeText(course.professor)}`);
+      lines.push(`CATEGORIES:${escapeText(course.name)}`, 'END:VEVENT');
+      exported += 1;
+    }
+  }
+  lines.push('END:VCALENDAR');
+  return { ics: lines.map(foldLine).join(CRLF) + CRLF, exported };
 }

@@ -3,7 +3,7 @@
  * the `search_notes` MCP tool. */
 import type { NoteQuery } from '@/lib/adapters';
 import type { Course, SavedSearch, Tag } from '@/lib/schema';
-import { parseQuery, resolveQuery } from '@/lib/search/query';
+import { resolveSearch } from '@/lib/search/query';
 import type { ViewKind } from '@/lib/state/uiStore';
 
 const PAGE_SIZE = 200;
@@ -18,22 +18,7 @@ export interface ViewQueryContext {
 }
 
 function parsedSearch(raw: string, context: ViewQueryContext): NoteQuery {
-  const resolved = resolveQuery(parseQuery(raw), {
-    courseIdByName(name) {
-      return context.courses?.find(
-        (course) =>
-          course.name.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0,
-      )?.id;
-    },
-    tagIdByName(namespace, name) {
-      return context.tags?.find(
-        (tag) =>
-          tag.namespace === namespace &&
-          tag.name.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0,
-      )?.id;
-    },
-  });
-  const { unresolvable, ...query } = resolved;
+  const { unresolvable, ...query } = resolveSearch(raw, context.courses, context.tags);
   // A deliberately impossible tag id makes an unresolved named filter return
   // zero rows rather than silently widening the search.
   if (unresolvable) query.tagIds = ['__notabene_unresolvable__'];

@@ -8,7 +8,7 @@
 use super::{DbResult, Store};
 
 /// Must match `SCHEMA_VERSION` in `src/lib/schema/schema.ts`.
-pub const SCHEMA_VERSION: i64 = 9;
+pub const SCHEMA_VERSION: i64 = 10;
 
 const V1: &str = include_str!("schema.sql");
 const V2: &str = r#"
@@ -171,6 +171,24 @@ CREATE INDEX IF NOT EXISTS idx_tasks_import_key ON tasks(import_key)
     WHERE import_key IS NOT NULL;
 "#;
 
+/// The lecture, end to end (plan §4, phase P): a course's timetable and its
+/// lecture preferences, and the key that finds the note `lecture.start` opened
+/// for one meeting on one day. Defaulted or nullable, so a v9 library reads as
+/// "no timetable, ask before recording, no notification". Split and probed per
+/// table, as V9 is.
+const V10_COURSES: &str = r#"
+ALTER TABLE courses ADD COLUMN meetings_json TEXT;
+ALTER TABLE courses ADD COLUMN lecture_recording TEXT NOT NULL DEFAULT 'ask';
+ALTER TABLE courses ADD COLUMN lecture_notify INTEGER NOT NULL DEFAULT 0;
+"#;
+const V10_NOTES: &str = r#"
+ALTER TABLE notes ADD COLUMN lecture_key TEXT;
+-- Not unique: a trashed lecture note keeps its key, and today's lookup
+-- prefers the live one rather than the schema refusing the second.
+CREATE INDEX IF NOT EXISTS idx_notes_lecture_key ON notes(lecture_key)
+    WHERE lecture_key IS NOT NULL;
+"#;
+
 /// True when `table` exists and does not yet have `column`.
 fn lacks_column(
     transaction: &rusqlite::Connection,
@@ -255,6 +273,14 @@ pub fn run(store: &Store) -> DbResult<()> {
             }
             if lacks_column(transaction, "tasks", "import_key")? {
                 transaction.execute_batch(V9_TASKS)?;
+            }
+        }
+        if current < 10 {
+            if lacks_column(transaction, "courses", "meetings_json")? {
+                transaction.execute_batch(V10_COURSES)?;
+            }
+            if lacks_column(transaction, "notes", "lecture_key")? {
+                transaction.execute_batch(V10_NOTES)?;
             }
         }
         transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
@@ -635,5 +661,57 @@ mod tests {
             .with(|database| Ok(database.pragma_update(None, "user_version", 8)?))
             .expect("failed to rewind schema version");
         run(&store).expect("re-running V9 over its own columns should be a no-op");
+    }
+
+    #[test]
+    fn v9_database_gains_meetings_and_lecture_keys_as_null() {
+        let connection = Connection::open_in_memory().expect("failed to open database");
+        for step in [V1, V2, V3] {
+            connection.execute_batch(step).expect("failed to apply step");
+        }
+        connection
+            .pragma_update(None, "user_version", 5)
+            .expect("failed to set schema version");
+        let store = Store {
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
+        };
+        run(&store).expect("failed to migrate");
+
+        let (meetings, lecture, recording, notify): (
+            Option<String>,
+            Option<String>,
+            String,
+            i64,
+        ) = store
+            .with(|database| {
+                database.execute_batch(
+                    "INSERT INTO courses (id, name, color, created_at, updated_at)
+                     VALUES ('c-1', 'Droit', '#3478c7', '2026-09-01T08:00:00Z', '2026-09-01T08:00:00Z');
+                     INSERT INTO notes (id, title, doc_json, created_at, updated_at)
+                     VALUES ('note-1', 'Lecture', '{}', '2026-09-01T08:00:00Z', '2026-09-01T08:00:00Z');",
+                )?;
+                let (meetings, recording, notify) = database.query_row(
+                    "SELECT meetings_json, lecture_recording, lecture_notify
+                     FROM courses WHERE id = 'c-1'",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )?;
+                let lecture =
+                    database.query_row("SELECT lecture_key FROM notes WHERE id = 'note-1'", [], |row| {
+                        row.get(0)
+                    })?;
+                Ok((meetings, lecture, recording, notify))
+            })
+            .expect("failed to read migrated rows");
+        assert_eq!(meetings, None);
+        assert_eq!(lecture, None);
+        assert_eq!(recording, "ask");
+        assert_eq!(notify, 0);
+
+        store
+            .with(|database| Ok(database.pragma_update(None, "user_version", 9)?))
+            .expect("failed to rewind schema version");
+        run(&store).expect("re-running V10 over its own columns should be a no-op");
     }
 }

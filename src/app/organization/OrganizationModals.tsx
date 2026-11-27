@@ -1,6 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dialog, GlassButton, GlassSelect } from '@/components/glass';
+import { ensureReminderPermission } from '@/lib/tasks/reminderScheduler';
+import {
+  Dialog,
+  FieldRow,
+  FieldToggle,
+  GlassButton,
+  GlassSegmentedControl,
+  GlassSelect,
+} from '@/components/glass';
 import {
   createCourseCommand,
   deleteCourseCommand,
@@ -22,6 +30,8 @@ import {
 } from '@/lib/schema';
 import { tagLabel } from '@/lib/notes/tagLabel';
 import { useLibraryStore } from '@/lib/state/libraryStore';
+import { TimetableEditor } from './TimetableEditor';
+import { checkMeeting, sortDrafts, toDraft, type MeetingDraft } from './timetableDraft';
 
 const field =
   'h-8 w-full rounded-nb-sm border border-[var(--nb-control-border)] bg-[var(--nb-control-surface)] px-2 text-[13px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--nb-accent-ring)]';
@@ -66,6 +76,20 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
   const [semester, setSemester] = useState('');
   const [credits, setCredits] = useState('');
   const [schedule, setSchedule] = useState('');
+  const [meetings, setMeetings] = useState<MeetingDraft[]>([]);
+  const [lectureRecording, setLectureRecording] =
+    useState<Course['lectureRecording']>('ask');
+  const [lectureNotify, setLectureNotify] = useState(false);
+  const [saveFailed, setSaveFailed] = useState<'course' | 'timetable' | null>(null);
+  const allTemplates = useLibraryStore((state) => state.templates);
+  const templates = allTemplates.filter(
+    (template) => template.courseId === null || template.courseId === course?.id,
+  );
+  /** A new course that was created but whose timetable then failed to save.
+   * Confirming again must update that course, not create a second one. */
+  const created = useRef<Course | null>(null);
+  const checked = meetings.map(checkMeeting);
+  const timetableInvalid = checked.some((entry) => entry.problem !== null);
 
   useEffect(() => {
     if (!open) return;
@@ -76,10 +100,19 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
     setSemester(course?.semester ?? '');
     setCredits(course?.credits?.toString() ?? '');
     setSchedule(course?.schedule ?? '');
+    setMeetings(sortDrafts((course?.meetings ?? []).map(toDraft)));
+    setLectureRecording(course?.lectureRecording ?? 'ask');
+    setLectureNotify(course?.lectureNotify ?? false);
+    setSaveFailed(null);
+    created.current = null;
   }, [course, open]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    // The disabled Confirm is the visible gate; this is the one that holds
+    // for anything else that submits the form.
+    if (timetableInvalid) return;
+    const saved = checked.flatMap((entry) => (entry.meeting ? [entry.meeting] : []));
     const metadata = {
       name: name.trim(),
       icon: icon.trim() || '📘',
@@ -89,10 +122,45 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
       credits: credits ? Number(credits) : undefined,
       schedule: schedule.trim() || undefined,
     };
-    const result = course
-      ? await updateCourseCommand({ ...course, ...metadata })
-      : await createCourseCommand(metadata);
-    if (result.ok) onClose();
+    setSaveFailed(null);
+    const existing = course ?? created.current;
+    if (existing) {
+      const result = await updateCourseCommand({
+        ...existing,
+        ...metadata,
+        meetings: saved,
+        lectureRecording,
+        lectureNotify,
+      });
+      if (result.ok) onClose();
+      else setSaveFailed(course ? 'course' : 'timetable');
+      return;
+    }
+    // `CreateCourseInput` is what MCP's `create_course` reaches, and agents
+    // do not write timetables yet; so a new course is created bare and its
+    // meetings and lecture preferences follow as an ordinary update.
+    const result = await createCourseCommand(metadata);
+    if (!result.ok) {
+      setSaveFailed('course');
+      return;
+    }
+    if (
+      saved.length === 0 &&
+      lectureRecording === result.value.lectureRecording &&
+      lectureNotify === result.value.lectureNotify
+    ) {
+      onClose();
+      return;
+    }
+    created.current = result.value;
+    const updated = await updateCourseCommand({
+      ...result.value,
+      meetings: saved,
+      lectureRecording,
+      lectureNotify,
+    });
+    if (updated.ok) onClose();
+    else setSaveFailed('timetable');
   }
 
   return (
@@ -116,7 +184,13 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
               {t('common.delete')}
             </GlassButton>
           )}
-          <GlassButton form={COURSE_FORM} type="submit" size="sm" variant="accent">
+          <GlassButton
+            form={COURSE_FORM}
+            type="submit"
+            size="sm"
+            variant="accent"
+            disabled={timetableInvalid}
+          >
             {t('common.confirm')}
           </GlassButton>
         </>
@@ -207,6 +281,55 @@ export function CourseDialog({ open, course, onClose }: CourseDialogProps) {
             onChange={setSchedule}
           />
         </div>
+
+        <TimetableEditor
+          meetings={meetings}
+          onChange={setMeetings}
+          templates={templates}
+        />
+        <div className="mt-2">
+          <FieldRow
+            label={t('organization.lecture.recording')}
+            hint={t('organization.lecture.recordingHint')}
+          >
+            <GlassSegmentedControl<Course['lectureRecording']>
+              label={t('organization.lecture.recording')}
+              fill
+              value={lectureRecording}
+              onChange={setLectureRecording}
+              options={[
+                { value: 'ask', label: t('organization.lecture.ask') },
+                { value: 'always', label: t('organization.lecture.always') },
+                { value: 'never', label: t('organization.lecture.never') },
+              ]}
+            />
+          </FieldRow>
+          <FieldRow
+            label={t('organization.lecture.notify')}
+            hint={t('organization.lecture.notifyHint')}
+            align="end"
+          >
+            <FieldToggle
+              label={t('organization.lecture.notify')}
+              checked={lectureNotify}
+              onChange={(checked) => {
+                setLectureNotify(checked);
+                // Ask macOS when the student turns it on, as reminders do —
+                // never at launch.
+                if (checked) void ensureReminderPermission();
+              }}
+            />
+          </FieldRow>
+        </div>
+        {saveFailed && (
+          <p role="alert" className="mt-2 text-[11px] text-[var(--nb-danger)]">
+            {t(
+              saveFailed === 'course'
+                ? 'organization.timetable.error.save'
+                : 'organization.timetable.error.timetableNotSaved',
+            )}
+          </p>
+        )}
       </form>
     </Dialog>
   );

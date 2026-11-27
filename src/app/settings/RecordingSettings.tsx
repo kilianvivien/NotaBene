@@ -6,8 +6,10 @@
  * without recording, so a student can set the level in the room before the
  * lecture starts rather than discover afterwards that it was too quiet.
  *
- * Transcription (plan §10.3) is its own section at the foot of the pane —
- * `TranscriptionSettings`.
+ * The pane has three sections (plan §4 item 0): Microphone here,
+ * Transcription (`TranscriptionSettings`, plan §10.3) and Dictation
+ * (`DictationSettings`). 1.5's lecture controls are per course and live in
+ * the course editor, so there is no Lecture section until one is global.
  */
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -30,6 +32,7 @@ import {
 import { useRecordingStore } from '@/lib/state/recordingStore';
 import { useDictationStore } from '@/lib/state/dictationStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { DictationSettings } from './DictationSettings';
 import { TranscriptionSettings } from './TranscriptionSettings';
 
 /** Gain as the student reads it: "+6 dB" means something; "×2" less so. */
@@ -109,7 +112,14 @@ export function RecordingSettings() {
 
   return (
     <div className="space-y-5">
-      <FieldSection title={t('recordingSettings.inputSection')}>
+      {/* One section for everything about the input: which microphone, how
+          loud, and what processing it gets. They were two (Input, Processing)
+          when this pane held only the microphone; beside Transcription and
+          Dictation, two headings for one device read as two devices. */}
+      <FieldSection
+        anchor="recordingMicrophone"
+        title={t('recordingSettings.microphoneSection')}
+      >
         <FieldRow
           label={t('recordingSettings.microphone')}
           hint={unnamed ? t('recordingSettings.namesHint') : undefined}
@@ -198,9 +208,6 @@ export function RecordingSettings() {
         </FieldRow>
         {(recording || dictating) && <FieldNote>{t('recordingSettings.busy')}</FieldNote>}
         {error && <FieldNote tone="danger">{error}</FieldNote>}
-      </FieldSection>
-
-      <FieldSection title={t('recordingSettings.processingSection')}>
         <FieldRow
           label={t('recordingSettings.autoGain')}
           hint={t('recordingSettings.autoGainHint')}
@@ -227,6 +234,7 @@ export function RecordingSettings() {
       </FieldSection>
 
       <TranscriptionSettings />
+      <DictationSettings />
     </div>
   );
 }

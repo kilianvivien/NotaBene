@@ -431,6 +431,7 @@ mod tests {
             order: 0,
             import_key: None,
             imported_at: None,
+            lecture_key: None,
         };
 
         let error = notes::upsert(&read_only, &note).expect_err("write must be refused");

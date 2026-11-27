@@ -89,6 +89,7 @@ export function AiProviderSettings() {
   return (
     <div className="flex flex-col gap-6">
       <FieldSection
+        anchor="aiProviderList"
         title={t('ai.providersSection')}
         description={
           connectedCount
@@ -113,7 +114,11 @@ export function AiProviderSettings() {
         </ul>
       </FieldSection>
 
-      <FieldSection title={t('ai.featureModels')} description={t('ai.featureModelsHint')}>
+      <FieldSection
+        anchor="aiFeatureModels"
+        title={t('ai.featureModels')}
+        description={t('ai.featureModelsHint')}
+      >
         <div className="flex flex-col gap-1.5">
           {AI_FEATURES.map((feature) => (
             <FeatureRow key={feature} feature={feature} settings={settings} />
@@ -134,9 +139,7 @@ function appleFmStatusText(
   if (pending) return t('ai.apple.starting');
   if (status.running) return t('ai.apple.running');
   if (!preflight) {
-    return error
-      ? t('ai.apple.startFailed', { detail: error })
-      : t('ai.apple.checking');
+    return error ? t('ai.apple.startFailed', { detail: error }) : t('ai.apple.checking');
   }
   if (!preflight.installed || !preflight.osOk) return t('ai.apple.needsMacOs27');
   if (!preflight.licensed) return t('ai.apple.needsLicense');
@@ -148,9 +151,7 @@ function appleFmStatusText(
       ? t('ai.apple.unavailableDetail', { detail: preflight.detail })
       : t('ai.apple.unavailable');
   }
-  return error
-    ? t('ai.apple.startFailed', { detail: error })
-    : t('ai.apple.unavailable');
+  return error ? t('ai.apple.startFailed', { detail: error }) : t('ai.apple.unavailable');
 }
 
 function ProviderRow({
@@ -532,7 +533,13 @@ function ProviderRow({
   );
 }
 
-function FeatureRow({ feature, settings }: { feature: AiFeature; settings: AppSettings }) {
+function FeatureRow({
+  feature,
+  settings,
+}: {
+  feature: AiFeature;
+  settings: AppSettings;
+}) {
   const { t } = useTranslation();
   const update = useSettingsStore((state) => state.update);
   const configured = useAiStore((state) => state.configuredProviderIds);

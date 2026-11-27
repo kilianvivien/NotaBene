@@ -1,0 +1,99 @@
+{
+  "notes": [
+    { "id": "exact", "title": "Cours", "body": "Étude du champ magnétique or plan" },
+    { "id": "separated", "title": "Cours", "body": "champ utile magnétique" },
+    { "id": "longer", "title": "Cours", "body": "champ magnétiques" },
+    { "id": "excluded", "title": "Cours", "body": "champ magnétique recopié" },
+    { "id": "induction", "title": "Cours", "body": "induction" },
+    { "id": "variable", "title": "Cours", "body": "induction variable" },
+    { "id": "variable-copy", "title": "Cours", "body": "induction variable recopié" },
+    { "id": "cross-column", "title": "Champ", "body": "magnétique" },
+    { "id": "hyphenated", "title": "Cours", "body": "semi-conducteur dopé" },
+    { "id": "distinct", "title": "Cours", "body": "semi courant conducteur" }
+  ],
+  "queries": [
+    {
+      "input": "\"champ magnetique\"",
+      "textExpression": {
+        "groups": [[{ "text": "champ magnetique", "phrase": true }]],
+        "exclude": []
+      },
+      "ids": ["exact", "excluded"]
+    },
+    {
+      "input": "\"champ magnetique",
+      "textExpression": {
+        "groups": [[{ "text": "champ", "phrase": false }, { "text": "magnetique", "phrase": false }]],
+        "exclude": []
+      },
+      "ids": ["cross-column", "exact", "excluded", "longer", "separated"]
+    },
+    {
+      "input": "\"champ magnetique\" -recop",
+      "textExpression": {
+        "groups": [[{ "text": "champ magnetique", "phrase": true }]],
+        "exclude": [{ "text": "recop", "phrase": false }]
+      },
+      "ids": ["exact"]
+    },
+    {
+      "input": "champ -\"champ magnetique\"",
+      "textExpression": {
+        "groups": [[{ "text": "champ", "phrase": false }]],
+        "exclude": [{ "text": "champ magnetique", "phrase": true }]
+      },
+      "ids": ["cross-column", "longer", "separated"]
+    },
+    {
+      "input": "champ OR induction variable -recop",
+      "textExpression": {
+        "groups": [
+          [{ "text": "champ", "phrase": false }],
+          [{ "text": "induction", "phrase": false }, { "text": "variable", "phrase": false }]
+        ],
+        "exclude": [{ "text": "recop", "phrase": false }]
+      },
+      "ids": ["cross-column", "exact", "longer", "separated", "variable"]
+    },
+    {
+      "input": "champ or plan",
+      "textExpression": {
+        "groups": [[{ "text": "champ", "phrase": false }, { "text": "or", "phrase": false }, { "text": "plan", "phrase": false }]],
+        "exclude": []
+      },
+      "ids": ["exact"]
+    },
+    {
+      "input": "semi-con",
+      "textExpression": {
+        "groups": [[{ "text": "semi-con", "phrase": false }]],
+        "exclude": []
+      },
+      "ids": ["hyphenated"]
+    },
+    {
+      "input": "champ -",
+      "textExpression": {
+        "groups": [[{ "text": "champ", "phrase": false }, { "text": "-", "phrase": false }]],
+        "exclude": []
+      },
+      "ids": ["cross-column", "exact", "excluded", "longer", "separated"]
+    },
+    {
+      "input": "-",
+      "textExpression": {
+        "groups": [[{ "text": "-", "phrase": false }]],
+        "exclude": []
+      },
+      "ids": []
+    },
+    {
+      "input": "-induction -\"champ magnetique\"",
+      "textExpression": {
+        "groups": [],
+        "exclude": [{ "text": "induction", "phrase": false }, { "text": "champ magnetique", "phrase": true }]
+      },
+      "ids": ["cross-column", "distinct", "hyphenated", "longer", "separated"]
+    }
+  ]
+}

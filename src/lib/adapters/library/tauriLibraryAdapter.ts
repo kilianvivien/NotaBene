@@ -61,6 +61,8 @@ export const tauriLibraryAdapter: LibraryAdapter = {
     invoke('library_get_note', { noteId }),
   upsertNote: (note: Note) => invoke('library_upsert_note', { note }),
   upsertNotes: (notes: Note[]) => invoke('library_upsert_notes', { notes }),
+  findLectureNote: (lectureKey: string) =>
+    invoke<string | null>('library_find_lecture_note', { lectureKey }),
   resolveWikiTitle: (title: string) =>
     invoke<string | null>('library_resolve_wiki_title', { title }),
   listImportedNotes: (prefix: string): Promise<ImportedNoteRef[]> =>
@@ -116,8 +118,10 @@ export const tauriLibraryAdapter: LibraryAdapter = {
   deleteSavedSearch: (searchId: string) =>
     invoke('library_delete_saved_search', { searchId }),
 
-  listTasks: (query: TaskQuery): Promise<Task[]> => invoke('library_list_tasks', { query }),
-  getTask: (taskId: string): Promise<Task | null> => invoke('library_get_task', { taskId }),
+  listTasks: (query: TaskQuery): Promise<Task[]> =>
+    invoke('library_list_tasks', { query }),
+  getTask: (taskId: string): Promise<Task | null> =>
+    invoke('library_get_task', { taskId }),
   searchTasks: (text: string, limit: number): Promise<Task[]> =>
     invoke('library_search_tasks', { text, limit }),
   upsertTask: (task: Task) => invoke('library_upsert_task', { task }),
@@ -128,7 +132,8 @@ export const tauriLibraryAdapter: LibraryAdapter = {
   purgeTrashedTasks: (trashedBefore: string) =>
     invoke<number>('library_purge_trashed_tasks', { trashedBefore }),
   listDueReminders: (): Promise<Task[]> => invoke('library_list_due_reminders'),
-  listTaskNoteLinks: (): Promise<TaskNoteLink[]> => invoke('library_list_task_note_links'),
+  listTaskNoteLinks: (): Promise<TaskNoteLink[]> =>
+    invoke('library_list_task_note_links'),
   setTaskNoteLinks: (taskId: string, noteIds: string[]) =>
     invoke('library_set_task_note_links', { taskId, noteIds }),
 

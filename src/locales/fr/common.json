@@ -525,7 +525,58 @@
     "query": "Requête de recherche",
     "deleteCourse": "Supprimer le cours",
     "deleteSection": "Supprimer la section",
-    "noTags": "Aucune étiquette"
+    "noTags": "Aucune étiquette",
+    "timetable": {
+      "title": "Emploi du temps",
+      "empty": "Aucun emploi du temps. Ajoutez les séances, ou importez le calendrier de votre établissement, pour que la note de cours soit prête quand le cours commence.",
+      "add": "Ajouter une séance",
+      "limit": "Un cours compte au plus {{count}} séances.",
+      "meeting": "Séance {{n}}",
+      "date": "Date",
+      "days": "Jours",
+      "start": "Début",
+      "end": "Fin",
+      "sessionTitle": "Intitulé de la séance",
+      "sessionTitlePlaceholder": "Intitulé de la séance (facultatif)",
+      "repeatWeekly": "Répéter chaque semaine",
+      "weeklySummary": "{{days}} jusqu’au {{until}}",
+      "past_one": "{{count}} séance passée",
+      "past_other": "{{count}} séances passées",
+      "edit": "Modifier la séance : {{session}}",
+      "close": "Terminer la modification",
+      "location": "Salle",
+      "locationPlaceholder": "Salle / Amphi B",
+      "from": "Du",
+      "until": "Au",
+      "template": "Modèle",
+      "courseDefault": "Modèle du cours",
+      "missingTemplate": "Modèle indisponible",
+      "skipped": "Jours sautés",
+      "skipDay": "Sauter un jour",
+      "addSkip": "Sauter ce jour",
+      "unskip": "Rétablir le {{day}}",
+      "remove": "Supprimer cette séance",
+      "error": {
+        "noDays": "Choisissez au moins un jour.",
+        "date": "Indiquez la date de la séance.",
+        "time": "Indiquez une heure de début et une heure de fin.",
+        "endBeforeStart": "La séance doit se terminer après son début.",
+        "term": "Indiquez le premier et le dernier jour de la période.",
+        "untilBeforeFrom": "Le dernier jour doit suivre le premier.",
+        "invalid": "Cette séance ne peut pas être enregistrée en l’état.",
+        "save": "Le cours n’a pas pu être enregistré. Vérifiez ses champs et ses séances, puis réessayez.",
+        "timetableNotSaved": "Le cours a été créé, mais son emploi du temps n’a pas été enregistré. Confirmez à nouveau pour réessayer."
+      }
+    },
+    "lecture": {
+      "recording": "Enregistrement au début d’un cours",
+      "recordingHint": "« Demander » prépare l’enregistrement sans le lancer.",
+      "ask": "Demander",
+      "always": "Toujours",
+      "never": "Jamais",
+      "notify": "Prévenir au début d’un cours",
+      "notifyHint": "Désactivé par défaut : en amphi, une notification dérange. Seulement quand NotaBene est ouvert."
+    }
   },
   "save": {
     "idle": "",
@@ -1103,7 +1154,8 @@
     "tool_synthesize_notes": "Synthétiser des notes",
     "tool_visualize_note": "Visualiser une note",
     "tool_find_mentions": "Trouver les mentions sans lien",
-    "tool_link_mentions": "Lier les mentions"
+    "tool_link_mentions": "Lier les mentions",
+    "serverSection": "Serveur MCP local"
   },
   "settings": {
     "title": "Réglages",
@@ -1220,7 +1272,7 @@
     "completionHintAlways": "Toujours",
     "completionHintNever": "Jamais",
     "recording": "Enregistrement",
-    "desc_recording": "Comment les cours sont enregistrés : quel micro, à quel niveau, avec quel traitement.",
+    "desc_recording": "Comment les cours sont enregistrés puis transcrits : le micro, la transcription et la dictée en direct.",
     "graph": "Graphe",
     "graphView": "Affichage par défaut",
     "graphViewHint": "Ces choix s’appliquent à la prochaine ouverture du graphe. Ses filtres restent modifiables pendant l’exploration.",
@@ -1241,7 +1293,12 @@
       "maxSuggestions": "Suggestions par demande",
       "maxSuggestionsHint": "Nombre maximal de liens proposés. Le modèle peut en proposer moins si les liens sont peu pertinents."
     },
-    "desc_graph": "Choisissez les options d’ouverture du graphe et la façon dont l’IA propose des liens entre vos notes."
+    "desc_graph": "Choisissez les options d’ouverture du graphe et la façon dont l’IA propose des liens entre vos notes.",
+    "search": "Rechercher dans les réglages",
+    "searchPlaceholder": "Rechercher",
+    "searchClear": "Effacer la recherche",
+    "searchEmpty": "Aucun réglage ne correspond à « {{query}} ».",
+    "backupsActions": "Sauvegarder et restaurer"
   },
   "abbreviations": {
     "trigger": "Vous tapez",
@@ -1384,7 +1441,7 @@
     "vocabularyReview": "Réviser le vocabulaire du cours…",
     "importFromApp": "Importer des notes d’une autre app…",
     "exportCalendar": "Exporter les tâches vers Calendrier…",
-    "importCalendar": "Importer un calendrier en tâches…",
+    "importCalendar": "Importer un calendrier…",
     "recordLecture": "Enregistrer le cours",
     "toggleRecording": "Démarrer ou arrêter l’enregistrement",
     "lecturePlayPause": "Lire ou mettre en pause le cours",
@@ -1392,7 +1449,9 @@
     "lectureForward": "Avancer le cours de 10 secondes",
     "transcribeRecording": "Transcrire l’enregistrement…",
     "dictation": "Démarrer/arrêter la dictée en direct (Voxtral 3)",
-    "checkUpdates": "Rechercher les mises à jour…"
+    "checkUpdates": "Rechercher les mises à jour…",
+    "exportTimetable": "Exporter l’emploi du temps vers Calendrier…",
+    "startLecture": "Commencer le cours"
   },
   "import": {
     "attachmentMissing": "Les données de la pièce jointe sont introuvables.",
@@ -2315,9 +2374,9 @@
     "exported_one": "{{count}} tâche exportée. Ouvrez le fichier pour l’ajouter à Calendrier.",
     "exported_other": "{{count}} tâches exportées. Ouvrez le fichier pour les ajouter à Calendrier.",
     "exportFailed": "Le fichier de calendrier n’a pas pu être écrit.",
-    "importTitle": "Importer un calendrier en tâches",
-    "importDescription": "Transformez les échéances d’un fichier .ics — de Moodle, Canvas ou de n’importe quel agenda — en tâches. Rien n’est écrit avant votre confirmation.",
-    "importHint": "La plupart des plateformes de cours savent exporter ou publier leur calendrier en .ics. Importer une version plus récente plus tard met à jour les tâches créées au lieu de les dupliquer.",
+    "importTitle": "Importer un calendrier",
+    "importDescription": "Récupérez les séances et les échéances d’un fichier .ics — de votre établissement, de Moodle, de Canvas ou de n’importe quel agenda. Rien n’est écrit avant votre confirmation.",
+    "importHint": "La plupart des établissements et des plateformes de cours savent exporter ou publier leur calendrier en .ics. Importer une version plus récente plus tard met à jour ce qui a été créé au lieu de le dupliquer.",
     "chooseFile": "Choisir le fichier .ics…",
     "fileLine_one": "{{name}} · {{count}} événement",
     "fileLine_other": "{{name}} · {{count}} événements",
@@ -2333,6 +2392,7 @@
     "includePast": "Inclure les événements passés",
     "includePastHint": "Les événements d’avant aujourd’hui. Les événements répétés sont toujours gardés et commencent à leur prochaine date.",
     "noCourse": "Aucun cours",
+    "tasksHeading": "Échéances en tâches",
     "simplified_one": "{{count}} événement répété ne correspond pas aux répétitions quotidiennes, hebdomadaires ou mensuelles de NotaBene et est importé comme une seule date.",
     "simplified_other": "{{count}} événements répétés ne correspondent pas aux répétitions quotidiennes, hebdomadaires ou mensuelles de NotaBene et sont importés comme des dates uniques.",
     "overrides_one": "{{count}} modification d’une seule occurrence d’une série a été écartée.",
@@ -2354,13 +2414,15 @@
     "oneOccurrence": "date unique",
     "importButton_one": "Importer {{count}} tâche",
     "importButton_other": "Importer {{count}} tâches",
+    "importBoth": "Importer",
     "error": {
       "tooLarge": "Ce fichier est trop volumineux pour un calendrier.",
       "tooManyEvents": "Ce calendrier contient plus d’événements que NotaBene n’en importe d’un coup.",
       "notCalendar": "Ce fichier n’est pas un fichier iCalendar (.ics).",
       "unreadable": "Le calendrier n’a pas pu être lu.",
       "empty": "Aucun événement daté n’a été trouvé dans ce calendrier.",
-      "applyFailed": "L’importation s’est arrêtée en cours de route. Les tâches déjà écrites sont conservées."
+      "applyFailed": "L’importation s’est arrêtée en cours de route. Les tâches déjà écrites sont conservées.",
+      "timetableFailed": "L’emploi du temps n’a pas pu être importé. Importez à nouveau le fichier pour réessayer : ce qui a déjà été écrit ne sera pas dupliqué."
     },
     "done": {
       "created_one": "{{count}} tâche créée.",
@@ -2369,6 +2431,40 @@
       "updated_other": "{{count}} mises à jour.",
       "unchanged_one": "{{count}} déjà à jour.",
       "unchanged_other": "{{count}} déjà à jour."
+    },
+    "timetable": {
+      "title": "Emploi du temps",
+      "hint": "Les séances deviennent l’emploi du temps du cours. Réimporter le fichier de la semaine suivante ajoute les nouvelles séances, déplace celles qui ont changé et retire celles qui sont annulées. Les notes déjà prises ne sont jamais modifiées.",
+      "uncategorised": "Sans catégorie",
+      "courseFor": "Cours pour {{group}}",
+      "newCourse": "Nouveau cours « {{name}} »",
+      "skip": "Ne pas importer",
+      "count": {
+        "new_one": "{{count}} nouvelle",
+        "new_other": "{{count}} nouvelles",
+        "changed_one": "{{count}} modifiée",
+        "changed_other": "{{count}} modifiées",
+        "cancelled_one": "{{count}} annulée",
+        "cancelled_other": "{{count}} annulées",
+        "upToDate": "Déjà à jour"
+      },
+      "skipped_one": "{{count}} événement a été écarté de l’emploi du temps : il n’a pas de fin, dépasse minuit ou se répète d’une façon qu’un emploi du temps ne sait pas représenter.",
+      "skipped_other": "{{count}} événements ont été écartés de l’emploi du temps : ils n’ont pas de fin, dépassent minuit ou se répètent d’une façon qu’un emploi du temps ne sait pas représenter.",
+      "importButton_one": "Importer {{count}} séance",
+      "importButton_other": "Importer {{count}} séances",
+      "done": {
+        "added_one": "{{count}} séance ajoutée à {{courses}}.",
+        "added_other": "{{count}} séances ajoutées à {{courses}}.",
+        "courses_one": "{{count}} cours",
+        "courses_other": "{{count}} cours",
+        "updated_one": "{{count}} séance mise à jour.",
+        "updated_other": "{{count}} séances mises à jour.",
+        "removed_one": "{{count}} séance annulée retirée.",
+        "removed_other": "{{count}} séances annulées retirées.",
+        "coursesCreated_one": "{{count}} nouveau cours créé.",
+        "coursesCreated_other": "{{count}} nouveaux cours créés.",
+        "upToDate": "L’emploi du temps était déjà à jour."
+      }
     }
   },
   "recording": {
@@ -2417,7 +2513,7 @@
   },
   "recordingSettings": {
     "desktopOnly": "L’enregistrement des cours nécessite l’application NotaBene pour Mac.",
-    "inputSection": "Micro",
+    "microphoneSection": "Micro",
     "microphone": "Entrée",
     "systemDefault": "Réglage du système",
     "unnamed": "Micro {{number}}",
@@ -2430,7 +2526,6 @@
     "stopTest": "Arrêter",
     "level": "Niveau d’entrée",
     "busy": "Un cours est en cours d’enregistrement ; le test sera disponible à la fin.",
-    "processingSection": "Traitement",
     "autoGain": "Niveau automatique",
     "autoGainHint": "Égalise la parole faible et forte dès la première seconde, pour qu’un enseignant qui parle bas ne se perde pas. Les silences restent silencieux.",
     "noiseSuppression": "Réduction du bruit",
@@ -2463,7 +2558,10 @@
     "defaultLanguageHint": "Le choix de départ de la fenêtre de transcription. Automatique écoute la première minute.",
     "languageAuto": "Automatique",
     "useCourseVocabulary": "Utiliser le vocabulaire du cours",
-    "useCourseVocabularyHint": "Donne à la reconnaissance les mots de la note du cours et de son cours, et corrige les mots douteux qui en sont proches. Les corrections restent surlignées pour vérification."
+    "useCourseVocabularyHint": "Donne à la reconnaissance les mots de la note du cours et de son cours, et corrige les mots douteux qui en sont proches. Les corrections restent surlignées pour vérification.",
+    "dictationSection": "Dictée",
+    "dictationBody": "Maintenez le bouton micro de l’éditeur pendant cinq secondes pour dicter directement dans la note. Cliquez de nouveau pour arrêter. Aucun enregistrement n’est conservé.",
+    "dictationPrivacy": "La dictée envoie votre voix à Mistral AI (Voxtral 3) pendant que vous parlez, avec votre clé Mistral."
   },
   "transcription": {
     "languageQuestion": "Langue",
@@ -2639,5 +2737,68 @@
       "install": "La mise à jour n’a pas pu être installée. Rien n’a été modifié.",
       "signature": "Le téléchargement ne correspond pas à la signature de NotaBene : il n’a pas été installé."
     }
+  },
+  "settingsSearch": {
+    "general": "langue anglais français mises à jour rappels notifications tâches",
+    "appearance": "thème sombre clair mode système couleur accent",
+    "editor": "police caractères taille titre largeur ligne mesure lecture",
+    "completion": "saisie semi-automatique complétion suggestions vocabulaire tab",
+    "abbreviations": "raccourcis expansion texte remplacement frappe",
+    "graph": "liens mentions carte connexions réseau",
+    "speech": "voix synthèse vocale lecture à voix haute podcast narrateur",
+    "recording": "cours audio enregistrer micro microphone",
+    "backups": "sauvegarde restaurer archive planification copie",
+    "dataStorage": "disque espace taille emplacement dossier déplacer bibliothèque images intégrité fichiers",
+    "aiProviders": "ia clé api modèle fournisseur anthropic openai mistral gemini ollama lm studio openrouter albert local",
+    "agent": "mcp agent claude code clients serveur accès outils",
+    "about": "version confidentialité crédits licences intelligence",
+    "section_editorFocus": "concentration machine à écrire plein écran distraction",
+    "section_completionSuggestions": "activer présence préfixe",
+    "section_completionSources": "apprendre note actuelle oublier",
+    "section_completionKeyboard": "indication",
+    "section_completionKeys": "tab échap raccourcis touches",
+    "section_graphView": "mentions non liées disposition",
+    "section_graphAi": "suggérer liens résumé rapide jetons",
+    "section_speechEngine": "moteur voix",
+    "section_speechLocal": "macos voix système say",
+    "section_speechHosted": "mistral gemini voxtral hébergé",
+    "section_recordingMicrophone": "entrée périphérique gain niveau test automatique bruit réduction",
+    "section_recordingTranscription": "transcrire transcription parole texte apple voxtral albert whisper langue vocabulaire",
+    "section_recordingDictation": "dicter dictée voix saisie vocale direct voxtral mistral maintenir",
+    "section_backupsSchedule": "automatique quotidien hebdomadaire dossier",
+    "section_backupsRetention": "conserver combien supprimer anciennes corbeille supprimées versions historique instantanés",
+    "section_backupsActions": "sauvegarder maintenant restaurer fichier importer",
+    "section_backupsArchives": "liste archives",
+    "section_storageImages": "images compresser redimensionner photos",
+    "section_storageLocation": "déplacer bibliothèque icloud dossier",
+    "section_storageSize": "espace disque utilisation",
+    "section_storageContents": "notes pièces jointes enregistrements",
+    "section_storageIntegrity": "vérifier réparer base de données intégrité",
+    "section_aiProviderList": "clé api connecter",
+    "section_aiFeatureModels": "modèle par fonction",
+    "section_agentInstructions": "instructions permanentes consignes",
+    "section_agentReview": "plan relecture validation approuver",
+    "section_agentReasoning": "raisonnement réflexion effort",
+    "section_agentServer": "mcp serveur port activer écriture accès jeton",
+    "section_agentClients": "claude desktop code cursor configuration",
+    "section_agentActivity": "journal historique activité",
+    "section_aboutPrivacy": "confidentialité télémétrie données local",
+    "section_aboutCredits": "crédits licences open source",
+    "section_aboutAi": "ia modèles fournisseurs"
+  },
+  "timetable": {
+    "exported_one": "{{count}} séance exportée vers Calendrier.",
+    "exported_other": "{{count}} séances exportées vers Calendrier.",
+    "nothingToExport": "Aucun emploi du temps à exporter. Ajoutez d’abord des séances dans l’éditeur du cours, ou importez un calendrier.",
+    "exportFailed": "L’emploi du temps n’a pas pu être exporté."
+  },
+  "lecture": {
+    "until": "jusqu’à {{time}}",
+    "notifyTitle": "{{course}} commence",
+    "noneNow": "Aucun cours en ce moment. Ajoutez les séances du cours dans son emploi du temps.",
+    "readyToRecord": "Note de cours prête. Appuyez sur ⌥⌘R pour enregistrer.",
+    "now": "Maintenant",
+    "soon": "À {{time}}",
+    "open": "Ouvrir la note du cours"
   }
 }

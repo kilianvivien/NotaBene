@@ -35,12 +35,9 @@ const DEFAULT_STEP_COUNT = 6;
  * `GlassDateField` picks for a day chosen from the calendar. */
 const DEFAULT_HOUR = 9;
 
-/** A day in the student's own timezone, which is the only one they think in. */
-export function localDay(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
-}
+import { localDay } from '@/lib/utils/calendar';
+
+export { localDay };
 
 /**
  * `YYYY-MM-DD` plus an hour, as a local instant.

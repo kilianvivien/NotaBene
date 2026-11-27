@@ -8,8 +8,8 @@
 use rusqlite::{params_from_iter, types::Value as SqlValue, Connection, OptionalExtension, Row};
 
 use super::model::{
-    Backlink, ImportedNote, Note, NoteMatch, NoteQuery, NoteSummary, NoteTitle, Snapshot,
-    SnapshotMeta,
+    Backlink, ImportedNote, Note, NoteMatch, NoteQuery, NoteSearchTerm, NoteSummary, NoteTitle,
+    Snapshot, SnapshotMeta,
 };
 use super::{DbError, DbResult, Store};
 use crate::commands::SnapshotRetentionPolicy;
@@ -50,7 +50,7 @@ const BM25_WEIGHTS: [f64; 5] = [10.0, 1.0, 6.0, 3.0, 0.5];
 
 pub fn query(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteSummary>> {
     store.with(|connection| {
-        let (sql, binds) = build_note_query(query, false);
+        let (sql, binds) = build_note_query(query, false)?;
         let mut statement = connection.prepare(&sql)?;
         let rows = statement
             .query_map(params_from_iter(binds.iter()), row_to_summary)?
@@ -62,7 +62,7 @@ pub fn query(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteSummary>> {
 
 pub fn count(store: &Store, query: &NoteQuery) -> DbResult<i64> {
     store.with(|connection| {
-        let (sql, mut binds) = build_note_query(query, false);
+        let (sql, mut binds) = build_note_query(query, false)?;
         let from = sql
             .find(" FROM notes n")
             .ok_or_else(|| DbError::Other("note query has no FROM clause".into()))?;
@@ -83,21 +83,8 @@ pub fn count(store: &Store, query: &NoteQuery) -> DbResult<i64> {
 /// on every new filter, both share [`build_note_query`] and differ only in the
 /// projection and the ordering.
 pub fn search(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteMatch>> {
-    if query
-        .text
-        .as_deref()
-        .map(str::trim)
-        .is_none_or(str::is_empty)
-    {
-        // Nothing to rank by. Silently degrading to a full-table scan ordered by
-        // nothing would look like a working search returning bad answers.
-        return Err(DbError::Other(
-            "SEARCH_REQUIRES_TEXT: a ranked search needs something to rank".into(),
-        ));
-    }
-
     store.with(|connection| {
-        let (sql, binds) = build_note_query(query, true);
+        let (sql, binds) = build_note_query(query, true)?;
         let mut statement = connection.prepare(&sql)?;
         let rows = statement
             .query_map(params_from_iter(binds.iter()), |row| {
@@ -116,27 +103,33 @@ pub fn search(store: &Store, query: &NoteQuery) -> DbResult<Vec<NoteMatch>> {
 
 /// One statement for both entry points, so a filter added for the note list is
 /// a filter retrieval gets too.
-fn build_note_query(query: &NoteQuery, ranked: bool) -> (String, Vec<SqlValue>) {
+fn build_note_query(query: &NoteQuery, ranked: bool) -> DbResult<(String, Vec<SqlValue>)> {
     {
-        let has_text = query
-            .text
-            .as_deref()
-            .map(str::trim)
-            .is_some_and(|text| !text.is_empty());
+        let text_filter = note_text_filter(query);
+        if ranked && text_filter.is_none() {
+            return Err(DbError::Other(
+                "SEARCH_REQUIRES_TEXT: a ranked search needs something to rank".into(),
+            ));
+        }
+        let has_text = matches!(text_filter, Some(NoteTextFilter::Match(_)));
         let snippet = match (ranked, has_text) {
             // A citation chip wants prose, not `<mark>` — nothing downstream of
             // the ranked path parses highlights, and it wants more of the note.
-            (true, _) => "snippet(notes_fts, 1, '', '', ' … ', 64)",
+            (true, true) => "snippet(notes_fts, 1, '', '', ' … ', 64)",
             (false, true) => "snippet(notes_fts, 1, '<mark>', '</mark>', ' … ', 32)",
-            (false, false) => "substr(n.plain_text, 1, 200)",
+            (_, false) => "substr(n.plain_text, 1, 200)",
         };
-        let score = if ranked {
-            // Negated: SQLite's `bm25()` is more-negative-is-better, and every
-            // consumer on the TypeScript side expects larger to mean closer.
-            let [title, body, tags, course, attachments] = BM25_WEIGHTS;
-            format!(", -bm25(notes_fts, {title}, {body}, {tags}, {course}, {attachments}) AS score")
-        } else {
-            String::new()
+        let score = match (ranked, has_text) {
+            (true, true) => {
+                // SQLite's bm25 is more-negative-is-better, while retrieval
+                // expects larger scores to mean closer.
+                let [title, body, tags, course, attachments] = BM25_WEIGHTS;
+                format!(
+                    ", -bm25(notes_fts, {title}, {body}, {tags}, {course}, {attachments}) AS score"
+                )
+            }
+            (true, false) => ", 0.0 AS score".into(),
+            (false, _) => String::new(),
         };
         let mut sql = format!(
             "SELECT n.id, n.course_id, n.section_id, n.title, n.pinned, \
@@ -146,20 +139,21 @@ fn build_note_query(query: &NoteQuery, ranked: bool) -> (String, Vec<SqlValue>) 
         let mut clauses: Vec<String> = Vec::new();
         let mut binds: Vec<SqlValue> = Vec::new();
 
-        // Free text goes through FTS5; everything else is a column predicate.
-        if let Some(text) = query
-            .text
-            .as_deref()
-            .map(str::trim)
-            .filter(|t| !t.is_empty())
-        {
-            let mode = match query.text_match.as_deref() {
-                Some("any") => TextMatch::Any,
-                _ => TextMatch::All,
-            };
-            sql.push_str(" JOIN notes_fts ON notes_fts.rowid = n.rowid");
-            clauses.push("notes_fts MATCH ?".into());
-            binds.push(SqlValue::Text(fts_match_expression(text, mode)));
+        match text_filter {
+            Some(NoteTextFilter::Match(expression)) => {
+                sql.push_str(" JOIN notes_fts ON notes_fts.rowid = n.rowid");
+                clauses.push("notes_fts MATCH ?".into());
+                binds.push(SqlValue::Text(expression));
+            }
+            // FTS5's NOT needs a positive left operand. Without one, take the
+            // complement of the excluded matches within the ordinary filters.
+            Some(NoteTextFilter::Exclude(expression)) => {
+                clauses.push(
+                    "n.rowid NOT IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?)".into(),
+                );
+                binds.push(SqlValue::Text(expression));
+            }
+            None => {}
         }
 
         match query.scope.as_deref().unwrap_or("live") {
@@ -240,7 +234,11 @@ fn build_note_query(query: &NoteQuery, ranked: bool) -> (String, Vec<SqlValue>) 
             // where I can see it", not "this answers the question" — floating a
             // barely-matching pinned note above the note that actually answers
             // is how a retrieved context ends up full of the wrong material.
-            sql.push_str(" ORDER BY score DESC");
+            sql.push_str(if has_text {
+                " ORDER BY score DESC"
+            } else {
+                " ORDER BY n.updated_at DESC"
+            });
         } else {
             // Pinned notes float, then the requested order. Relevance only means
             // anything when there is an FTS match to rank.
@@ -258,7 +256,7 @@ fn build_note_query(query: &NoteQuery, ranked: bool) -> (String, Vec<SqlValue>) 
         binds.push(SqlValue::Integer(query.limit.unwrap_or(200)));
         binds.push(SqlValue::Integer(query.offset.unwrap_or(0)));
 
-        (sql, binds)
+        Ok((sql, binds))
     }
 }
 
@@ -292,21 +290,72 @@ fn attach_tags(connection: &Connection, mut rows: Vec<NoteSummary>) -> DbResult<
     Ok(rows)
 }
 
-/// Turn a user's words into an FTS5 prefix query.
-///
-/// Every token is quoted before the `*` is appended, so a stray `"` or `-` in a
-/// lecture title is data rather than syntax — an unquoted apostrophe would
-/// otherwise turn a search into a parse error. That quoting carries more weight
-/// now than it used to: with a real `OR` in the expression, a student who types
-/// the word "or" must still be searching for the word, not writing an operator.
+enum NoteTextFilter {
+    Match(String),
+    Exclude(String),
+}
+
+fn note_text_filter(query: &NoteQuery) -> Option<NoteTextFilter> {
+    if let Some(expression) = &query.text_expression {
+        let includes = expression
+            .groups
+            .iter()
+            .filter(|group| !group.is_empty())
+            .map(|group| {
+                // Implicit AND keeps punctuation-only terms harmless next to
+                // real words, just as in a plain-text search.
+                let terms = group.iter().map(fts_search_term).collect::<Vec<_>>();
+                format!("({})", terms.join(" "))
+            })
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        let excludes = expression
+            .exclude
+            .iter()
+            .map(fts_search_term)
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        return match (includes.is_empty(), excludes.is_empty()) {
+            (false, false) => Some(NoteTextFilter::Match(format!(
+                "({includes}) NOT ({excludes})"
+            ))),
+            (false, true) => Some(NoteTextFilter::Match(includes)),
+            (true, false) => Some(NoteTextFilter::Exclude(excludes)),
+            (true, true) => None,
+        };
+    }
+
+    let text = query.text.as_deref()?.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let mode = match query.text_match.as_deref() {
+        Some("any") => TextMatch::Any,
+        _ => TextMatch::All,
+    };
+    Some(NoteTextFilter::Match(fts_match_expression(text, mode)))
+}
+
+fn fts_search_term(term: &NoteSearchTerm) -> String {
+    fts_quote(&term.text, term.phrase)
+}
+
+fn fts_quote(text: &str, phrase: bool) -> String {
+    // FTS5 parses MATCH as a C string. Replace embedded NULs before quoting so
+    // that every closing quote still reaches the parser.
+    let escaped = text.replace('\0', " ").replace('"', "\"\"");
+    let suffix = if phrase { "" } else { "*" };
+    format!("\"{escaped}\"{suffix}")
+}
+
+/// Turn literal words into an FTS5 prefix query for retrieval and tasks.
 pub(crate) fn fts_match_expression(text: &str, mode: TextMatch) -> String {
     let terms = text
         .split_whitespace()
-        .map(|token| format!("\"{}\"*", token.replace('"', "\"\"")))
+        .map(|token| fts_quote(token, false))
         .collect::<Vec<_>>();
     match mode {
         TextMatch::All => terms.join(" "),
-        // Uppercase because FTS5 only reads `OR` as an operator in caps.
         TextMatch::Any => terms.join(" OR "),
     }
 }
@@ -315,8 +364,8 @@ pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
     store.with(|connection| {
         let mut statement = connection.prepare(
             "SELECT id, course_id, section_id, title, doc_json, plain_text, pinned, archived, \
-             trashed_at, created_at, updated_at, \"order\", import_key, imported_at \
-             FROM notes WHERE id = ?",
+             trashed_at, created_at, updated_at, \"order\", import_key, imported_at, \
+             lecture_key FROM notes WHERE id = ?",
         )?;
 
         let mut rows = statement.query([note_id])?;
@@ -341,6 +390,7 @@ pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
             order: row.get("order")?,
             import_key: row.get("import_key")?,
             imported_at: row.get("imported_at")?,
+            lecture_key: row.get("lecture_key")?,
         };
 
         let mut tag_statement =
@@ -356,8 +406,8 @@ pub fn get(store: &Store, note_id: &str) -> DbResult<Option<Note>> {
 pub(crate) fn list_all_in(connection: &Connection) -> DbResult<Vec<Note>> {
     let mut statement = connection.prepare(
         "SELECT id, course_id, section_id, title, doc_json, plain_text, pinned, archived,
-         trashed_at, created_at, updated_at, \"order\", import_key, imported_at
-         FROM notes ORDER BY rowid",
+         trashed_at, created_at, updated_at, \"order\", import_key, imported_at,
+         lecture_key FROM notes ORDER BY rowid",
     )?;
     let mut notes = statement
         .query_map([], |row| {
@@ -384,6 +434,7 @@ pub(crate) fn list_all_in(connection: &Connection) -> DbResult<Vec<Note>> {
                 order: row.get(11)?,
                 import_key: row.get(12)?,
                 imported_at: row.get(13)?,
+                lecture_key: row.get(14)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -490,7 +541,7 @@ pub fn upsert_if_unchanged(store: &Store, note: &Note, base_updated_at: &str) ->
              doc_json = ?4, plain_text = ?5, pinned = ?6, archived = ?7,
              trashed_at = ?8, updated_at = ?9, \"order\" = ?10,
              has_image = ?11, has_drawing = ?12, has_table = ?13,
-             import_key = ?16, imported_at = ?17
+             import_key = ?16, imported_at = ?17, lecture_key = ?18
              WHERE id = ?14 AND updated_at = ?15",
             rusqlite::params![
                 note.course_id,
@@ -510,6 +561,7 @@ pub fn upsert_if_unchanged(store: &Store, note: &Note, base_updated_at: &str) ->
                 base_updated_at,
                 note.import_key,
                 note.imported_at,
+                note.lecture_key,
             ],
         )?;
         if changed == 0 {
@@ -543,8 +595,9 @@ pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
     transaction.execute(
         "INSERT INTO notes (id, course_id, section_id, title, doc_json, plain_text, \
          pinned, archived, trashed_at, created_at, updated_at, \"order\", \
-         has_image, has_drawing, has_table, import_key, imported_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17) \
+         has_image, has_drawing, has_table, import_key, imported_at, lecture_key) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, \
+         ?18) \
          ON CONFLICT(id) DO UPDATE SET \
          course_id = excluded.course_id, section_id = excluded.section_id, \
          title = excluded.title, doc_json = excluded.doc_json, \
@@ -553,7 +606,7 @@ pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
          updated_at = excluded.updated_at, \"order\" = excluded.\"order\", \
          has_image = excluded.has_image, has_drawing = excluded.has_drawing, \
          has_table = excluded.has_table, import_key = excluded.import_key, \
-         imported_at = excluded.imported_at",
+         imported_at = excluded.imported_at, lecture_key = excluded.lecture_key",
         rusqlite::params![
             note.id,
             note.course_id,
@@ -572,6 +625,7 @@ pub(crate) fn upsert_in(transaction: &Connection, note: &Note) -> DbResult<()> {
             i64::from(has_table),
             note.import_key,
             note.imported_at,
+            note.lecture_key,
         ],
     )?;
 
@@ -718,6 +772,22 @@ pub fn resolve_wiki_title(store: &Store, title: &str) -> DbResult<Option<String>
         return Ok(None);
     }
     store.with(|connection| resolve_wiki_title_in(connection, &title))
+}
+
+/// The live note `lecture.start` opened for one meeting on one day (plan §4
+/// item 2), by `lecture_key`. Trashed notes are not today's lecture; when more
+/// than one note somehow holds the key, the most recently edited wins.
+pub fn find_lecture_note(store: &Store, lecture_key: &str) -> DbResult<Option<String>> {
+    store.with(|connection| {
+        Ok(connection
+            .query_row(
+                "SELECT id FROM notes WHERE lecture_key = ?1 AND trashed_at IS NULL
+                 ORDER BY updated_at DESC LIMIT 1",
+                [lecture_key],
+                |row| row.get(0),
+            )
+            .optional()?)
+    })
 }
 
 fn rebuild_links(connection: &Connection, note: &Note) -> DbResult<()> {
@@ -1143,6 +1213,7 @@ mod tests {
             order: 0,
             import_key: None,
             imported_at: None,
+            lecture_key: None,
         }
     }
 
@@ -1361,8 +1432,8 @@ mod tests {
             fts_match_expression("eigen vector", TextMatch::Any),
             "\"eigen\"* OR \"vector\"*"
         );
-        // A student writing "or" or "NEAR" is searching for a word. Quoting is
-        // what keeps the new operators from being reachable from the text box.
+        // Retrieval keywords and task searches are literal, even when their
+        // spelling coincides with an FTS operator.
         assert_eq!(
             fts_match_expression("OR NEAR", TextMatch::Any),
             "\"OR\"* OR \"NEAR\"*"
@@ -1371,6 +1442,114 @@ mod tests {
             fts_match_expression("say \"this\"", TextMatch::Any),
             "\"say\"* OR \"\"\"this\"\"\"*"
         );
+    }
+
+    #[test]
+    fn search_syntax_matches_the_shared_corpus() {
+        #[derive(serde::Deserialize)]
+        struct CorpusNote {
+            id: String,
+            title: String,
+            body: String,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct Case {
+            input: String,
+            ids: Vec<String>,
+            #[serde(flatten)]
+            query: NoteQuery,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct Corpus {
+            notes: Vec<CorpusNote>,
+            queries: Vec<Case>,
+        }
+
+        let corpus: Corpus = serde_json::from_str(include_str!(
+            "../../../src/lib/search/fixtures/search-syntax.json"
+        ))
+        .unwrap();
+        let temporary = temp_store();
+        let store = &temporary.store;
+        for note in corpus.notes {
+            upsert(store, &note_with(&note.id, &note.title, &note.body)).unwrap();
+        }
+
+        for Case {
+            input,
+            ids,
+            mut query,
+        } in corpus.queries
+        {
+            query.sort = Some("relevance".into());
+            let mut listed = super::query(store, &query)
+                .unwrap_or_else(|error| panic!("{input}: {error}"))
+                .into_iter()
+                .map(|note| note.id)
+                .collect::<Vec<_>>();
+            let mut ranked = search(store, &query)
+                .unwrap_or_else(|error| panic!("{input}: {error}"))
+                .into_iter()
+                .map(|hit| hit.note.id)
+                .collect::<Vec<_>>();
+            listed.sort();
+            ranked.sort();
+            assert_eq!(listed, ids, "listed results for {input}");
+            assert_eq!(ranked, ids, "ranked results for {input}");
+
+            query.limit = Some(1);
+            query.offset = Some(1);
+            assert_eq!(count(store, &query).unwrap(), ids.len() as i64, "{input}");
+        }
+    }
+
+    #[test]
+    fn a_structured_term_cannot_introduce_fts_syntax() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        upsert(store, &note_with("literal", "Lecture", "near and literal")).unwrap();
+        upsert(store, &note_with("unrelated", "Lecture", "other words")).unwrap();
+
+        let query: NoteQuery = serde_json::from_value(serde_json::json!({
+            "text": "ignored fallback",
+            "textExpression": {
+                "groups": [[{ "text": "\"* (NEAR\0AND literal)", "phrase": true }]],
+                "exclude": [{ "text": "\")* AND (NEAR other)", "phrase": false }]
+            }
+        }))
+        .unwrap();
+
+        let result = super::query(store, &query).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "literal");
+        assert!(result[0].snippet.contains("<mark>near and literal</mark>"));
+    }
+
+    #[test]
+    fn exclusion_only_search_still_honours_scope_and_has_no_rank() {
+        let temporary = temp_store();
+        let store = &temporary.store;
+        let mut archived = note_with("archived", "Lecture", "final");
+        archived.archived = true;
+        upsert(store, &archived).unwrap();
+        upsert(store, &note_with("draft", "Lecture", "drafting")).unwrap();
+        upsert(store, &note_with("live", "Lecture", "final")).unwrap();
+
+        let query: NoteQuery = serde_json::from_value(serde_json::json!({
+            "textExpression": {
+                "groups": [],
+                "exclude": [{ "text": "draft", "phrase": false }]
+            }
+        }))
+        .unwrap();
+        assert_eq!(count(store, &query).unwrap(), 1);
+        let result = search(store, &query).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].note.id, "live");
+        assert_eq!(result[0].note.snippet, "final");
+        assert_eq!(result[0].score, 0.0);
     }
 
     #[test]

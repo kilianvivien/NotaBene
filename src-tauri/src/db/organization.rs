@@ -15,7 +15,8 @@ pub fn list_courses(store: &Store) -> DbResult<Vec<Course>> {
     store.with(|connection| {
         let mut statement = connection.prepare(
             "SELECT id, name, color, icon, professor, semester, credits, schedule, \
-             \"order\", archived, created_at, updated_at FROM courses ORDER BY \"order\"",
+             \"order\", archived, created_at, updated_at, meetings_json, \
+             lecture_recording, lecture_notify FROM courses ORDER BY \"order\"",
         )?;
         let rows = statement
             .query_map([], |row| {
@@ -32,6 +33,18 @@ pub fn list_courses(store: &Store) -> DbResult<Vec<Course>> {
                     archived: row.get::<_, i64>(9)? != 0,
                     created_at: row.get(10)?,
                     updated_at: row.get(11)?,
+                    meetings: match row.get::<_, Option<String>>(12)? {
+                        Some(json) => serde_json::from_str(&json).map_err(|error| {
+                            rusqlite::Error::FromSqlConversionFailure(
+                                12,
+                                rusqlite::types::Type::Text,
+                                Box::new(error),
+                            )
+                        })?,
+                        None => Vec::new(),
+                    },
+                    lecture_recording: row.get(13)?,
+                    lecture_notify: row.get::<_, i64>(14)? != 0,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -44,16 +57,26 @@ pub fn upsert_course(store: &Store, course: &Course) -> DbResult<()> {
 }
 
 pub(crate) fn upsert_course_in(connection: &Connection, course: &Course) -> DbResult<()> {
+    // NULL rather than `[]` for a course without a timetable, so a v9 row and
+    // an untouched v10 row look the same.
+    let meetings_json = if course.meetings.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_string(&course.meetings)?)
+    };
     connection.execute(
         "INSERT INTO courses (id, name, color, icon, professor, semester, credits, \
-         schedule, \"order\", archived, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
+         schedule, \"order\", archived, created_at, updated_at, meetings_json, \
+         lecture_recording, lecture_notify) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15) \
          ON CONFLICT(id) DO UPDATE SET \
          name = excluded.name, color = excluded.color, icon = excluded.icon, \
          professor = excluded.professor, semester = excluded.semester, \
          credits = excluded.credits, schedule = excluded.schedule, \
          \"order\" = excluded.\"order\", archived = excluded.archived, \
-         updated_at = excluded.updated_at",
+         updated_at = excluded.updated_at, meetings_json = excluded.meetings_json, \
+         lecture_recording = excluded.lecture_recording, \
+         lecture_notify = excluded.lecture_notify",
         rusqlite::params![
             course.id,
             course.name,
@@ -67,6 +90,9 @@ pub(crate) fn upsert_course_in(connection: &Connection, course: &Course) -> DbRe
             i64::from(course.archived),
             course.created_at,
             course.updated_at,
+            meetings_json,
+            course.lecture_recording,
+            i64::from(course.lecture_notify),
         ],
     )?;
     let note_ids = ids_for(
@@ -260,4 +286,87 @@ fn ids_for(connection: &rusqlite::Connection, sql: &str, value: &str) -> DbResul
         .query_map([value], |row| row.get(0))?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(ids)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{atomic::AtomicBool, Arc, Mutex};
+
+    use rusqlite::Connection;
+
+    use super::*;
+    use crate::db::migrations;
+    use crate::db::model::CourseMeeting;
+
+    fn store() -> Store {
+        let connection = Connection::open_in_memory().expect("failed to open database");
+        let store = Store {
+            connection: Arc::new(Mutex::new(connection)),
+            read_only: Arc::new(AtomicBool::new(false)),
+        };
+        migrations::run(&store).expect("failed to migrate");
+        store
+    }
+
+    fn course(meetings: Vec<CourseMeeting>) -> Course {
+        Course {
+            id: "droit".into(),
+            name: "Droit constitutionnel".into(),
+            color: "#3478c7".into(),
+            icon: "📘".into(),
+            professor: None,
+            semester: None,
+            credits: None,
+            schedule: None,
+            order: 0,
+            archived: false,
+            created_at: "2026-09-01T08:00:00Z".into(),
+            updated_at: "2026-09-01T08:00:00Z".into(),
+            meetings,
+            lecture_recording: "always".into(),
+            lecture_notify: true,
+        }
+    }
+
+    #[test]
+    fn a_course_keeps_its_timetable_and_lecture_preferences() {
+        let store = store();
+        let session = CourseMeeting {
+            id: "m-1".into(),
+            title: Some("Conférence « La corruption en France »".into()),
+            weekdays: vec![1],
+            start: 13 * 60 + 30,
+            end: 14 * 60 + 30,
+            location: Some("Auditorium".into()),
+            from: "2026-11-30".into(),
+            until: "2026-11-30".into(),
+            skip: Vec::new(),
+            template_id: None,
+            import_key: Some("ics:edt-insp-1".into()),
+        };
+        upsert_course(&store, &course(vec![session])).expect("failed to write course");
+        let read = list_courses(&store).expect("failed to read courses");
+        let meeting = &read[0].meetings[0];
+        assert_eq!(meeting.title.as_deref(), Some("Conférence « La corruption en France »"));
+        assert_eq!(meeting.import_key.as_deref(), Some("ics:edt-insp-1"));
+        assert_eq!(read[0].lecture_recording, "always");
+        assert!(read[0].lecture_notify);
+    }
+
+    #[test]
+    fn a_course_without_a_timetable_stores_null() {
+        let store = store();
+        upsert_course(&store, &course(Vec::new())).expect("failed to write course");
+        let stored: Option<String> = store
+            .with(|connection| {
+                Ok(connection.query_row(
+                    "SELECT meetings_json FROM courses WHERE id = 'droit'",
+                    [],
+                    |row| row.get(0),
+                )?)
+            })
+            .expect("failed to read row");
+        assert_eq!(stored, None);
+        assert!(list_courses(&store).expect("failed to read")[0].meetings.is_empty());
+    }
 }

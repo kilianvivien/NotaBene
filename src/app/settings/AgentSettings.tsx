@@ -60,7 +60,10 @@ export function AgentSettings() {
       <AgentInstructionsSettings />
       <AgentReviewSettings />
       <AgentReasoningSettings />
-      <div className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-hover)] p-3">
+      <div
+        data-field-anchor="agentServer"
+        className="rounded-nb-sm border border-[var(--nb-divider)] bg-[var(--nb-hover)] p-3"
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-[13px]">
@@ -117,7 +120,7 @@ export function AgentSettings() {
       {/* Same shape as the AI provider list: one row per client, expanded to
           show exactly which file is about to be edited. Five buttons in a row
           told the student nothing about what pressing one would do. */}
-      <div>
+      <div data-field-anchor="agentClients">
         <h3 className="text-[13px] font-medium">{t('mcp.clientSetup')}</h3>
         <p className="mt-0.5 text-[11px] text-nb-text-3">{t('mcp.clientSetupHint')}</p>
 
@@ -162,7 +165,7 @@ export function AgentSettings() {
         )}
       </div>
 
-      <div>
+      <div data-field-anchor="agentActivity">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-[13px] font-medium">{t('mcp.activityTitle')}</h3>

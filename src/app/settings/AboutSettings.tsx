@@ -105,7 +105,7 @@ export function AboutSettings() {
         </div>
       </div>
 
-      <FieldSection title={t('settings.aboutPrivacy')}>
+      <FieldSection anchor="aboutPrivacy" title={t('settings.aboutPrivacy')}>
         <ul className="divide-y divide-[var(--nb-divider)] overflow-hidden rounded-nb-sm bg-[var(--nb-inset-surface)]">
           {PROMISES.map(({ key, icon: Icon }) => (
             <li key={key} className="flex items-start gap-2.5 px-3 py-2.5">
@@ -118,7 +118,7 @@ export function AboutSettings() {
         </ul>
       </FieldSection>
 
-      <FieldSection title={t('settings.aboutCredits')}>
+      <FieldSection anchor="aboutCredits" title={t('settings.aboutCredits')}>
         <ul className="grid grid-cols-2 gap-x-5">
           {CREDITS.map((credit) => (
             <li
@@ -147,6 +147,7 @@ export function AboutSettings() {
       <div ref={aiNotice}>
         <FieldSection
           key={aiNoticeRequested ? 'ai-notice-open' : 'ai-notice'}
+          anchor="aboutAi"
           title={t('settings.aboutAi')}
           description={t('settings.aboutAiLaw')}
           collapsible

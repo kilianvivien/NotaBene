@@ -151,6 +151,7 @@ pub fn run() {
             commands::library_upsert_note,
             commands::library_upsert_notes,
             commands::library_resolve_wiki_title,
+            commands::library_find_lecture_note,
             commands::library_list_imported_notes,
             commands::library_list_note_titles,
             commands::library_upsert_note_if_unchanged,

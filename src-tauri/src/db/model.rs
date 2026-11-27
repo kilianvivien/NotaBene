@@ -26,6 +26,51 @@ pub struct Course {
     pub archived: bool,
     pub created_at: String,
     pub updated_at: String,
+    /// The timetable (schema v10), stored as `meetings_json`. A handful per
+    /// course, travelling with it, never queried across courses -- the same
+    /// reasoning as a task's `recurrence_json`. Defaulted so a course written
+    /// before v10 still deserialises.
+    #[serde(default)]
+    pub meetings: Vec<CourseMeeting>,
+    /// `ask`, `always` or `never` (schema v10): whether *Start lecture*
+    /// records.
+    #[serde(default = "default_lecture_recording")]
+    pub lecture_recording: String,
+    /// A notification when a meeting starts (schema v10). Off by default.
+    #[serde(default)]
+    pub lecture_notify: bool,
+}
+
+fn default_lecture_recording() -> String {
+    "ask".into()
+}
+
+/// One recurring class meeting. Times are floating local minutes from
+/// midnight and dates are floating `YYYY-MM-DD`, for the reason
+/// `recurrence.ts` computes in local time: a 10:00 lecture is at 10:00 on
+/// both sides of a clock change. `src/lib/schema/` validates the shape.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseMeeting {
+    pub id: String,
+    /// The session's own name, when it is more than the course's.
+    #[serde(default)]
+    pub title: Option<String>,
+    /// 0 = Sunday … 6 = Saturday.
+    pub weekdays: Vec<i64>,
+    pub start: i64,
+    pub end: i64,
+    #[serde(default)]
+    pub location: Option<String>,
+    pub from: String,
+    pub until: String,
+    #[serde(default)]
+    pub skip: Vec<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+    /// `ics:{UID}` for a meeting a calendar import wrote.
+    #[serde(default)]
+    pub import_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +118,11 @@ pub struct Note {
     /// which keeps the source file's own date.
     #[serde(default)]
     pub imported_at: Option<String>,
+    /// `{meetingId}:{YYYY-MM-DD}` for the note `lecture.start` opened for one
+    /// meeting on one day (schema v10), so a renamed note is still today's
+    /// lecture.
+    #[serde(default)]
+    pub lecture_key: Option<String>,
 }
 
 /// What the note list renders — everything but the document itself.
@@ -399,6 +449,7 @@ pub struct Library {
 #[serde(rename_all = "camelCase")]
 pub struct NoteQuery {
     pub text: Option<String>,
+    pub text_expression: Option<NoteTextExpression>,
     #[serde(default, deserialize_with = "double_option")]
     pub course_id: Option<Option<String>>,
     #[serde(default, deserialize_with = "double_option")]
@@ -417,6 +468,18 @@ pub struct NoteQuery {
     /// sets `"any"` — ANDing every word of a natural-language question is a
     /// guaranteed empty result.
     pub text_match: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct NoteSearchTerm {
+    pub text: String,
+    pub phrase: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct NoteTextExpression {
+    pub groups: Vec<Vec<NoteSearchTerm>>,
+    pub exclude: Vec<NoteSearchTerm>,
 }
 
 /// Distinguish an absent key from an explicit `null`.

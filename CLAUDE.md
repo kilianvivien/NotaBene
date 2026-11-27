@@ -108,7 +108,7 @@ Four rules carry most of the weight:
 
 ## Status
 
-Phases A–L are code-complete, apart from the explicitly deferred signing,
+Phases A–L are code-complete (P, 1.5, is in progress), apart from the explicitly deferred signing,
 notarization, and signed-update work: foundation, the TipTap authoring surface, course
 organization/search, versions/backups/exports, the AI core, the local MCP
 server, the study features, bulk selection, and tasks. The MCP and in-app Agent
@@ -485,6 +485,27 @@ Graph view notes (phase O, plan §5) worth knowing before touching it:
 - `linkMentionCommand` only replaces a mention that sits inside one text node,
   and never inside code or a web link. It refuses the rest (`not_supported`)
   rather than guessing at marks.
+
+Lecture notes (phase P, 1.5, plan §4) worth knowing before touching it:
+
+- Schema v10: `courses.meetings_json` (the timetable), `courses.lecture_recording`
+  (`ask`/`always`/`never`), `courses.lecture_notify`, and `notes.lecture_key`.
+  All three legs moved together; a v9 library reads as no timetable, *ask*, off.
+- A meeting is a **dated session by default** (`from === until`); a weekly
+  series is the exception. That came from a real school export (one event per
+  session, course in `CATEGORIES`, title in `SUMMARY`, re-imported weekly), not
+  from taste — do not "simplify" it back to weekly-only.
+- Times are floating local minutes, dates floating `YYYY-MM-DD` (`localDay`).
+  `end` is 23:59 at most: iCalendar has no `T240000`.
+- `src/lib/import/timetable.ts` is pure and keys sessions by `ics:{UID}`: a
+  re-import adds, moves and removes (cancelled) sessions, never moves one
+  between courses, and never touches a lecture note. Deadlines stay tasks.
+- `lectureKey` is written only through `BatchNoteInput` (`lecture.start`);
+  keep it off `CreateNoteInput`, which MCP reaches. MCP reads meetings through
+  `list_courses` and has no timetable write.
+- The Now line and the lecture notification ride the reminder poll
+  (`sweepLectures`), plus a pass on every courses change. The notification has
+  no catch-up, unlike reminders.
 
 ## House rules
 

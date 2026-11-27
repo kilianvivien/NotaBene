@@ -46,6 +46,9 @@ export function createCourse(input: Partial<Course> & { name: string }): Course 
     semester: input.semester,
     credits: input.credits,
     schedule: input.schedule,
+    meetings: input.meetings ?? [],
+    lectureRecording: input.lectureRecording ?? 'ask',
+    lectureNotify: input.lectureNotify ?? false,
     order: input.order ?? 0,
     archived: input.archived ?? false,
     createdAt: input.createdAt ?? timestamp,
@@ -53,7 +56,9 @@ export function createCourse(input: Partial<Course> & { name: string }): Course 
   };
 }
 
-export function createSection(input: Partial<Section> & { courseId: string; name: string }): Section {
+export function createSection(
+  input: Partial<Section> & { courseId: string; name: string },
+): Section {
   return {
     id: input.id ?? newId(),
     courseId: input.courseId,
@@ -80,6 +85,7 @@ export function createNote(input: Partial<Note> = {}): Note {
     order: input.order ?? 0,
     importKey: input.importKey ?? null,
     importedAt: input.importedAt ?? null,
+    lectureKey: input.lectureKey ?? null,
   };
 }
 
@@ -115,8 +121,7 @@ export function createTask(input: Partial<Task> & { title: string }): Task {
  * reads through `CARGO_PKG_VERSION`. The fallback covers callers outside a
  * bundled context, which is only ever a test.
  */
-const APP_VERSION =
-  typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev';
+const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev';
 
 export function emptyLibrary(appVersion = APP_VERSION): Library {
   return {

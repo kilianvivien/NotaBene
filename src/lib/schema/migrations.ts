@@ -90,6 +90,30 @@ const MIGRATIONS: Record<number, Migration> = {
         )
       : input.tasks,
   }),
+  // v10 adds a course's timetable and the lecture note's key. Nothing before
+  // it had either.
+  9: (input) => ({
+    ...input,
+    courses: Array.isArray(input.courses)
+      ? input.courses.map((course) =>
+          typeof course === 'object' && course !== null
+            ? {
+                meetings: [],
+                lectureRecording: 'ask',
+                lectureNotify: false,
+                ...(course as Record<string, unknown>),
+              }
+            : course,
+        )
+      : input.courses,
+    notes: Array.isArray(input.notes)
+      ? input.notes.map((note) =>
+          typeof note === 'object' && note !== null
+            ? { lectureKey: null, ...(note as Record<string, unknown>) }
+            : note,
+        )
+      : input.notes,
+  }),
 };
 
 export type ImportResult =

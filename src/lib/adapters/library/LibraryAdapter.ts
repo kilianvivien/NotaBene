@@ -35,10 +35,25 @@ import type {
 
 export type { NoteMatch };
 
+export interface NoteSearchTerm {
+  text: string;
+  /** Match whole, consecutive words. Plain terms allow a prefix on the last word. */
+  phrase: boolean;
+}
+
+export interface NoteTextExpression {
+  /** Alternatives joined by OR, with every term in an alternative required. */
+  groups: NoteSearchTerm[][];
+  /** Exclusions apply to every alternative, or to all notes if there are none. */
+  exclude: NoteSearchTerm[];
+}
+
 /** Parsed form of the search box. See `src/lib/search/query.ts`. */
 export interface NoteQuery {
-  /** Free text; empty means "no text constraint". */
+  /** Free text for legacy callers, or the positive terms for snippets. */
   text?: string;
+  /** The search box's parsed text, which takes precedence over `text`. */
+  textExpression?: NoteTextExpression;
   courseId?: string | null;
   sectionId?: string | null;
   tagIds?: string[];
@@ -134,7 +149,8 @@ export interface LibraryAdapter {
   /**
    * The same query, ranked and scored, ordered by relevance alone — pinning is
    * ignored, because pinning says "keep this handy", not "this answers the
-   * question". Requires `text`; a ranked search with nothing to rank throws.
+   * question". A ranked search requires text or an expression. Exclusion-only
+   * searches return a score of zero.
    */
   searchNotes(query: NoteQuery): Promise<NoteMatch[]>;
   getNote(noteId: string): Promise<Note | null>;
@@ -157,6 +173,9 @@ export interface LibraryAdapter {
    * first match wins — duplicate titles are resolved before writing, not here.
    */
   resolveWikiTitle(title: string): Promise<string | null>;
+  /** The live note holding `lectureKey` (`{meetingId}:{YYYY-MM-DD}`), the most
+   * recently edited when there are several; `null` when there is none. */
+  findLectureNote(lectureKey: string): Promise<string | null>;
   /**
    * Notes whose `importKey` starts with `prefix` — one source's worth, such as
    * `obsidian:`. Trashed notes included; newest import first.

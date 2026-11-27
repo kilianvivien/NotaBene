@@ -22,6 +22,7 @@ import { library, notifications } from '@/lib/adapters';
 import { applyTaskUpdate } from '@/lib/commands/taskCommands';
 import { useLibraryStore } from '@/lib/state/libraryStore';
 import { useSettingsStore } from '@/lib/state/settingsStore';
+import { sweepLectures, watchCourses } from '@/lib/timetable/lectureClock';
 
 const SWEEP_MS = 30_000;
 
@@ -64,7 +65,10 @@ export async function sweepReminders(): Promise<number> {
   }
   if (!delivered.length) return 0;
 
-  await useLibraryStore.getState().refreshTasks().catch(() => {});
+  await useLibraryStore
+    .getState()
+    .refreshTasks()
+    .catch(() => {});
   // A notification that cannot be shown is a missed reminder, not a failed
   // sweep. The interval below calls this without awaiting it, so letting a
   // rejection escape would be an unhandled one — and the pass has already done
@@ -98,8 +102,17 @@ export function startReminderScheduler(): () => void {
   // thirty seconds: a reminder from last night should be waiting when the
   // window appears, not half a minute later.
   void sweepReminders();
-  const timer = window.setInterval(() => void sweepReminders(), SWEEP_MS);
-  return () => window.clearInterval(timer);
+  // The lecture clock shares the poll (plan §4 item 2): one heartbeat that
+  // survives sleep, rather than a second timer with the same job.
+  const stopWatching = watchCourses();
+  const timer = window.setInterval(() => {
+    void sweepReminders();
+    sweepLectures();
+  }, SWEEP_MS);
+  return () => {
+    window.clearInterval(timer);
+    stopWatching();
+  };
 }
 
 /**

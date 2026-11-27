@@ -104,6 +104,7 @@ export function TranscriptionSettings() {
 
   return (
     <FieldSection
+      anchor="recordingTranscription"
       title={t('recordingSettings.transcriptionSection')}
       description={t('recordingSettings.transcriptionBody')}
     >

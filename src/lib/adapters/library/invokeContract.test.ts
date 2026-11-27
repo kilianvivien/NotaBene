@@ -37,15 +37,15 @@ describe('library invoke contract', () => {
   });
 
   it('registers every invoked command in the Tauri handler list', () => {
-    const missing = invoked().filter(
-      (name) => !handlers.includes(`commands::${name},`),
-    );
+    const missing = invoked().filter((name) => !handlers.includes(`commands::${name},`));
     expect(missing, 'not in generate_handler![] in src-tauri/src/lib.rs').toEqual([]);
   });
 
   it('defines every invoked command in commands.rs', () => {
     const missing = invoked().filter(
-      (name) => !commands.includes(`pub fn ${name}(`) && !commands.includes(`pub async fn ${name}(`),
+      (name) =>
+        !commands.includes(`pub fn ${name}(`) &&
+        !commands.includes(`pub async fn ${name}(`),
     );
     expect(missing, 'no #[tauri::command] with that name').toEqual([]);
   });

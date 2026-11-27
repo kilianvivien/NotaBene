@@ -31,6 +31,7 @@ export function GraphSettings() {
   return (
     <div className="space-y-6">
       <FieldSection
+        anchor="graphView"
         title={t('settings.graphView')}
         description={t('settings.graphViewHint')}
       >
@@ -58,7 +59,11 @@ export function GraphSettings() {
         </FieldRow>
       </FieldSection>
 
-      <FieldSection title={t('settings.graphAi')} description={t('settings.graphAiHint')}>
+      <FieldSection
+        anchor="graphAi"
+        title={t('settings.graphAi')}
+        description={t('settings.graphAiHint')}
+      >
         <FieldRow
           label={t('settings.graphMaxOutputTokens')}
           hint={t('settings.graphMaxOutputTokensHint')}

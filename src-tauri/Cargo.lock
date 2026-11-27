@@ -2784,7 +2784,7 @@ dependencies = [
 
 [[package]]
 name = "notabene"
-version = "1.4.12"
+version = "1.5.0"
 dependencies = [
  "aho-corasick",
  "anydoc",

@@ -28,6 +28,9 @@ import { docStats } from '@/lib/notes/docText';
 import { appWindow, asr, externalLinks } from '@/lib/adapters';
 import { createNoteCommand } from './noteCommands';
 import { createCourseCommand } from './organizationCommands';
+import { exportTimetableCommand } from './calendarCommands';
+import { startLectureCommand } from './lectureCommands';
+import i18n from '@/lib/i18n';
 import { beginDocumentImportCommand } from './importCommands';
 import { fail, ok, USER, type CommandContext, type CommandResult } from './types';
 import { runEditorCommand, type EditorCommand } from '@/editor/commandBridge';
@@ -92,6 +95,8 @@ export const APP_COMMAND_IDS = [
   'ai.agent',
   'task.new',
   'tasks.exportCalendar',
+  'timetable.export',
+  'lecture.start',
   'tasks.importCalendar',
   'view.tasks',
   'view.taskCalendar',
@@ -105,7 +110,7 @@ export type AppCommandId = (typeof APP_COMMAND_IDS)[number];
 
 /** The phase a command becomes real. `A` means it works today. */
 export type CommandPhase =
-  'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O';
+  'A' | 'B' | 'C' | 'D' | 'E' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O' | 'P';
 
 export interface AppCommand {
   id: AppCommandId;
@@ -116,6 +121,28 @@ export interface AppCommand {
   accelerator?: string;
   landsIn: CommandPhase;
   run?(context: CommandContext): Promise<CommandResult<unknown>> | CommandResult<unknown>;
+}
+
+/** Export a timetable and say how it went, in the student's language. Shared
+ * by the menu command and the course's context menu. */
+export async function exportTimetable(
+  courseId?: string,
+): Promise<CommandResult<unknown>> {
+  const result = await exportTimetableCommand(courseId);
+  const notice = useUiStore.getState().showStatusNotice;
+  if (result.ok) {
+    notice(i18n.t('timetable.exported', { count: result.value.exported }));
+  } else if (result.code !== 'cancelled') {
+    const reason = (result.details as { reason?: string } | undefined)?.reason;
+    notice(
+      translate(
+        reason === 'nothing_to_export'
+          ? 'timetable.nothingToExport'
+          : 'timetable.exportFailed',
+      ),
+    );
+  }
+  return result;
 }
 
 async function openNewNote(): Promise<CommandResult<unknown>> {
@@ -709,6 +736,31 @@ export const APP_COMMANDS: Record<AppCommandId, AppCommand> = {
     run: () => {
       useUiStore.getState().setCalendarExportOpen(true);
       return ok(undefined);
+    },
+  },
+  /** Today's note for the meeting under way, created the first time. */
+  'lecture.start': {
+    id: 'lecture.start',
+    labelKey: 'menu.startLecture',
+    accelerator: 'CmdOrCtrl+Shift+Alt+L',
+    landsIn: 'P',
+    run: async () => {
+      const result = await startLectureCommand();
+      if (!result.ok && result.code === 'not_found') {
+        useUiStore.getState().showStatusNotice(result.message);
+      }
+      return result;
+    },
+  },
+  /** The course on screen, or every course from anywhere else. */
+  'timetable.export': {
+    id: 'timetable.export',
+    labelKey: 'menu.exportTimetable',
+    accelerator: 'CmdOrCtrl+Shift+Alt+Y',
+    landsIn: 'P',
+    run: () => {
+      const view = useUiStore.getState().view;
+      return exportTimetable(view.kind === 'course' ? view.courseId : undefined);
     },
   },
   'tasks.importCalendar': {

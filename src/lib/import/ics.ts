@@ -49,6 +49,14 @@ export interface IcsEvent {
   /** How long before `start` the first alarm fires, in milliseconds. */
   alarmBeforeMs: number | null;
   completed: boolean;
+  /** What a timetable import reads (plan §4 item 1); a task import ignores
+   * them. `CATEGORIES` is where a school's export names the course. */
+  location: string | null;
+  categories: string[];
+  /** `STATUS:CANCELLED` — a session that was called off. */
+  cancelled: boolean;
+  /** `EXDATE` values, as ISO instants: the occurrences a series leaves out. */
+  exdates: string[];
 }
 
 export interface IcsParse {
@@ -278,6 +286,23 @@ export function parseIcs(text: string): IcsParse {
       alarmBeforeMs,
       completed:
         kind === 'todo' && (status === 'COMPLETED' || Boolean(first('COMPLETED'))),
+      location: text('LOCATION', 500) || null,
+      categories: props
+        .filter((prop) => prop.name === 'CATEGORIES')
+        // Split on unescaped commas only: `\,` is a comma inside one name.
+        .flatMap((prop) => prop.value.split(/(?<!\\),/))
+        .map((name) => unescapeText(name).trim().slice(0, 200))
+        .filter(Boolean),
+      cancelled: status === 'CANCELLED',
+      exdates: props
+        .filter((prop) => prop.name === 'EXDATE')
+        .flatMap((prop) =>
+          prop.value
+            .split(',')
+            .map((value) => parseIcsDate(value, prop.params, warnings)?.iso)
+            .filter((iso): iso is string => Boolean(iso)),
+        )
+        .slice(0, 1_000),
     });
   };
 

@@ -10,7 +10,8 @@
  * when a translation gets longer.
  */
 import { ChevronRight } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
+import { FieldRevealContext } from './fieldReveal';
 import { cn } from '@/lib/utils/cn';
 
 export function FieldRow({
@@ -55,12 +56,16 @@ export function FieldRow({
 export function FieldSection({
   title,
   description,
+  anchor,
   collapsible = false,
   defaultOpen = true,
   children,
 }: {
   title?: string;
   description?: string;
+  /** Where a search can land: written to `data-field-anchor`, and a folded
+   * section opens when `FieldRevealContext` names it. */
+  anchor?: string;
   /** Turns the title into a disclosure. The description stays put either way —
    * it is the label for what is folded away, so hiding it too would leave a
    * heading that says nothing about what opening it gets you. */
@@ -70,9 +75,15 @@ export function FieldSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const folded = collapsible && !open;
+  const reveal = useContext(FieldRevealContext);
+  const revealed = anchor !== undefined && reveal?.anchor === anchor;
+  const revealNonce = revealed ? reveal.nonce : null;
+  useEffect(() => {
+    if (revealNonce !== null) setOpen(true);
+  }, [revealNonce]);
 
   return (
-    <section>
+    <section data-field-anchor={anchor}>
       {/* The button goes inside the heading, never the other way round: a
           heading nested in a button is not phrasing content, and the browser
           drops it from the accessibility tree — the section would lose the

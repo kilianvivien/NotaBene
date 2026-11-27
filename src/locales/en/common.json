@@ -525,7 +525,58 @@
     "query": "Search query",
     "deleteCourse": "Delete course",
     "deleteSection": "Delete section",
-    "noTags": "No tags yet"
+    "noTags": "No tags yet",
+    "timetable": {
+      "title": "Timetable",
+      "empty": "No timetable. Add the sessions, or import your school’s calendar, to have the lecture note ready when class starts.",
+      "add": "Add a session",
+      "limit": "A course holds at most {{count}} sessions.",
+      "meeting": "Session {{n}}",
+      "date": "Date",
+      "days": "Days",
+      "start": "Starts",
+      "end": "Ends",
+      "sessionTitle": "Session title",
+      "sessionTitlePlaceholder": "Session title (optional)",
+      "repeatWeekly": "Repeat weekly",
+      "weeklySummary": "{{days}} until {{until}}",
+      "past_one": "{{count}} past session",
+      "past_other": "{{count}} past sessions",
+      "edit": "Edit session: {{session}}",
+      "close": "Done editing",
+      "location": "Room",
+      "locationPlaceholder": "Room / Amphi B",
+      "from": "From",
+      "until": "Until",
+      "template": "Template",
+      "courseDefault": "Course default",
+      "missingTemplate": "Unavailable template",
+      "skipped": "Skipped days",
+      "skipDay": "Skip a day",
+      "addSkip": "Skip this day",
+      "unskip": "Restore {{day}}",
+      "remove": "Remove this session",
+      "error": {
+        "noDays": "Choose at least one day.",
+        "date": "Enter the session’s date.",
+        "time": "Enter a start and an end time.",
+        "endBeforeStart": "The session must end after it starts.",
+        "term": "Enter the first and last day of the term.",
+        "untilBeforeFrom": "The last day must come after the first.",
+        "invalid": "This session cannot be saved as it is.",
+        "save": "The course could not be saved. Check its fields and sessions, then try again.",
+        "timetableNotSaved": "The course was created, but its timetable was not saved. Confirm again to retry."
+      }
+    },
+    "lecture": {
+      "recording": "Recording when a lecture starts",
+      "recordingHint": "Ask readies the recorder without starting it.",
+      "ask": "Ask",
+      "always": "Always",
+      "never": "Never",
+      "notify": "Notify when a lecture starts",
+      "notifyHint": "Off by default: in a lecture hall a notification is noise. Only while NotaBene is open."
+    }
   },
   "save": {
     "idle": "",
@@ -1103,7 +1154,8 @@
     "tool_synthesize_notes": "Synthesize notes",
     "tool_visualize_note": "Visualize note",
     "tool_find_mentions": "Find unlinked mentions",
-    "tool_link_mentions": "Link mentions"
+    "tool_link_mentions": "Link mentions",
+    "serverSection": "Local MCP server"
   },
   "settings": {
     "title": "Settings",
@@ -1220,7 +1272,7 @@
     "completionHintAlways": "Always",
     "completionHintNever": "Never",
     "recording": "Recording",
-    "desc_recording": "How lectures are recorded: which microphone, how loud, and what processing to keep.",
+    "desc_recording": "How lectures are recorded and turned into text: the microphone, transcription, and live dictation.",
     "graph": "Graph",
     "graphView": "View defaults",
     "graphViewHint": "These defaults apply next time you open the graph. You can still change its filters while exploring.",
@@ -1241,7 +1293,12 @@
       "maxSuggestions": "Suggestions per request",
       "maxSuggestionsHint": "The maximum number of proposed links. The model can return fewer when connections are weak."
     },
-    "desc_graph": "Choose how the graph opens and how AI suggests connections between your notes."
+    "desc_graph": "Choose how the graph opens and how AI suggests connections between your notes.",
+    "search": "Search settings",
+    "searchPlaceholder": "Search",
+    "searchClear": "Clear search",
+    "searchEmpty": "No setting matches “{{query}}”.",
+    "backupsActions": "Back up and restore"
   },
   "abbreviations": {
     "trigger": "Type this",
@@ -1384,7 +1441,7 @@
     "vocabularyReview": "Review Course Vocabulary…",
     "importFromApp": "Import notes from another app…",
     "exportCalendar": "Export tasks to Calendar…",
-    "importCalendar": "Import a calendar as tasks…",
+    "importCalendar": "Import a calendar…",
     "recordLecture": "Record Lecture",
     "toggleRecording": "Start or Stop Recording",
     "lecturePlayPause": "Play or Pause Lecture",
@@ -1392,7 +1449,9 @@
     "lectureForward": "Lecture Forward 10 Seconds",
     "transcribeRecording": "Transcribe Recording…",
     "dictation": "Start/stop live dictation (Voxtral 3)",
-    "checkUpdates": "Check for Updates…"
+    "checkUpdates": "Check for Updates…",
+    "exportTimetable": "Export timetable to Calendar…",
+    "startLecture": "Start lecture"
   },
   "import": {
     "attachmentMissing": "The attachment data could not be found.",
@@ -2315,9 +2374,9 @@
     "exported_one": "{{count}} task exported. Open the file to add it to Calendar.",
     "exported_other": "{{count}} tasks exported. Open the file to add them to Calendar.",
     "exportFailed": "The calendar file could not be written.",
-    "importTitle": "Import a calendar as tasks",
-    "importDescription": "Turn the deadlines in an .ics file — from Moodle, Canvas or any calendar — into tasks. Nothing is written until you confirm.",
-    "importHint": "Most course sites can export or publish their calendar as an .ics file. Importing a newer copy later updates the tasks it made instead of doubling them.",
+    "importTitle": "Import a calendar",
+    "importDescription": "Bring in the sessions and deadlines of an .ics file — from your school, Moodle, Canvas or any calendar. Nothing is written until you confirm.",
+    "importHint": "Most school and course sites can export or publish their calendar as an .ics file. Importing a newer copy later updates what it wrote instead of doubling it.",
     "chooseFile": "Choose .ics file…",
     "fileLine_one": "{{name}} · {{count}} event",
     "fileLine_other": "{{name}} · {{count}} events",
@@ -2333,6 +2392,7 @@
     "includePast": "Include past events",
     "includePastHint": "Events before today. Repeating events are always kept and start at their next date.",
     "noCourse": "No course",
+    "tasksHeading": "Deadlines as tasks",
     "simplified_one": "{{count}} repeating event does not fit NotaBene’s daily, weekly or monthly repeats and is imported as a single date.",
     "simplified_other": "{{count}} repeating events do not fit NotaBene’s daily, weekly or monthly repeats and are imported as single dates.",
     "overrides_one": "{{count}} change to a single occurrence of a series was left out.",
@@ -2354,13 +2414,15 @@
     "oneOccurrence": "single date",
     "importButton_one": "Import {{count}} task",
     "importButton_other": "Import {{count}} tasks",
+    "importBoth": "Import",
     "error": {
       "tooLarge": "This file is too large for a calendar.",
       "tooManyEvents": "This calendar has more events than NotaBene imports at once.",
       "notCalendar": "This file is not an iCalendar (.ics) file.",
       "unreadable": "The calendar could not be read.",
       "empty": "No events with a date were found in this calendar.",
-      "applyFailed": "The import stopped part-way. The tasks written so far are kept."
+      "applyFailed": "The import stopped part-way. The tasks written so far are kept.",
+      "timetableFailed": "The timetable could not be imported. Import the file again to retry: what was already written will not be doubled."
     },
     "done": {
       "created_one": "{{count}} task created.",
@@ -2369,6 +2431,40 @@
       "updated_other": "{{count}} updated.",
       "unchanged_one": "{{count}} already up to date.",
       "unchanged_other": "{{count}} already up to date."
+    },
+    "timetable": {
+      "title": "Timetable",
+      "hint": "Sessions become the course’s timetable. Re-importing next week’s file adds new sessions, moves changed ones and removes cancelled ones. Notes already taken are never touched.",
+      "uncategorised": "Uncategorised",
+      "courseFor": "Course for {{group}}",
+      "newCourse": "New course “{{name}}”",
+      "skip": "Don’t import",
+      "count": {
+        "new_one": "{{count}} new",
+        "new_other": "{{count}} new",
+        "changed_one": "{{count}} changed",
+        "changed_other": "{{count}} changed",
+        "cancelled_one": "{{count}} cancelled",
+        "cancelled_other": "{{count}} cancelled",
+        "upToDate": "Already up to date"
+      },
+      "skipped_one": "{{count}} event was left out of the timetable: it has no end, runs past midnight, or repeats in a way a timetable cannot hold.",
+      "skipped_other": "{{count}} events were left out of the timetable: they have no end, run past midnight, or repeat in a way a timetable cannot hold.",
+      "importButton_one": "Import {{count}} session",
+      "importButton_other": "Import {{count}} sessions",
+      "done": {
+        "added_one": "{{count}} session added to {{courses}}.",
+        "added_other": "{{count}} sessions added to {{courses}}.",
+        "courses_one": "{{count}} course",
+        "courses_other": "{{count}} courses",
+        "updated_one": "{{count}} session updated.",
+        "updated_other": "{{count}} sessions updated.",
+        "removed_one": "{{count}} cancelled session removed.",
+        "removed_other": "{{count}} cancelled sessions removed.",
+        "coursesCreated_one": "{{count}} new course created.",
+        "coursesCreated_other": "{{count}} new courses created.",
+        "upToDate": "The timetable was already up to date."
+      }
     }
   },
   "recording": {
@@ -2417,7 +2513,7 @@
   },
   "recordingSettings": {
     "desktopOnly": "Recording lectures needs the NotaBene desktop app.",
-    "inputSection": "Microphone",
+    "microphoneSection": "Microphone",
     "microphone": "Input",
     "systemDefault": "System default",
     "unnamed": "Microphone {{number}}",
@@ -2430,7 +2526,6 @@
     "stopTest": "Stop",
     "level": "Input level",
     "busy": "A lecture is being recorded; the test is unavailable until it stops.",
-    "processingSection": "Processing",
     "autoGain": "Automatic level",
     "autoGainHint": "Evens out quiet and loud speech from the first second, so a soft-spoken lecturer is not lost. Pauses stay quiet.",
     "noiseSuppression": "Noise reduction",
@@ -2463,7 +2558,10 @@
     "defaultLanguageHint": "Where the transcribe dialog starts. Automatic listens to the first minute.",
     "languageAuto": "Automatic",
     "useCourseVocabulary": "Use course vocabulary",
-    "useCourseVocabularyHint": "Gives the recognition the words of the lecture note and its course, and fixes the doubtful words that are near misses of them. The fixes stay highlighted for you to check."
+    "useCourseVocabularyHint": "Gives the recognition the words of the lecture note and its course, and fixes the doubtful words that are near misses of them. The fixes stay highlighted for you to check.",
+    "dictationSection": "Dictation",
+    "dictationBody": "Hold the microphone button in the editor for five seconds to dictate straight into the note. Click it again to stop. No recording is kept.",
+    "dictationPrivacy": "Dictation streams your voice to Mistral AI (Voxtral 3) as you speak, using your Mistral key."
   },
   "transcription": {
     "languageQuestion": "Language",
@@ -2639,5 +2737,68 @@
       "install": "The update could not be installed. Nothing was changed.",
       "signature": "The download did not match NotaBene’s signature, so it was not installed."
     }
+  },
+  "settingsSearch": {
+    "general": "language english french updates reminders notifications tasks",
+    "appearance": "theme dark light mode system accent colour color",
+    "editor": "font typeface size title line length measure reading",
+    "completion": "autocomplete word completion suggestions vocabulary tab ghost text",
+    "abbreviations": "shortcuts text expansion snippets replace typing",
+    "graph": "links mentions map connections network",
+    "speech": "voice text to speech tts podcast read aloud narrator",
+    "recording": "lecture audio record microphone mic",
+    "backups": "backup restore archive schedule copy",
+    "dataStorage": "disk space size location folder move library images integrity files",
+    "aiProviders": "ai key api model provider anthropic openai mistral gemini ollama lm studio openrouter albert local",
+    "agent": "mcp agent claude code clients server access tools",
+    "about": "version privacy credits licences licenses intelligence",
+    "section_editorFocus": "concentration focus typewriter fullscreen distraction chrome",
+    "section_completionSuggestions": "enable presence prefix eager quiet",
+    "section_completionSources": "learn current note forget",
+    "section_completionKeyboard": "hint",
+    "section_completionKeys": "tab escape shortcuts",
+    "section_graphView": "mentions unlinked layout",
+    "section_graphAi": "suggest links quick summary tokens",
+    "section_speechEngine": "engine voice",
+    "section_speechLocal": "macos system voices say",
+    "section_speechHosted": "mistral gemini voxtral hosted",
+    "section_recordingMicrophone": "input device gain level test automatic noise suppression reduction",
+    "section_recordingTranscription": "transcribe transcript speech to text apple voxtral albert whisper language vocabulary",
+    "section_recordingDictation": "dictate voice typing live voxtral mistral hold",
+    "section_backupsSchedule": "automatic daily weekly folder",
+    "section_backupsRetention": "keep how many delete old trash bin deleted versions history snapshots",
+    "section_backupsActions": "backup now restore file import",
+    "section_backupsArchives": "list archives",
+    "section_storageImages": "images compress resize photos",
+    "section_storageLocation": "move library icloud folder",
+    "section_storageSize": "disk space usage",
+    "section_storageContents": "notes attachments recordings",
+    "section_storageIntegrity": "check repair database integrity",
+    "section_aiProviderList": "api key connect",
+    "section_aiFeatureModels": "model per feature",
+    "section_agentInstructions": "standing instructions prompt",
+    "section_agentReview": "plan review approve",
+    "section_agentReasoning": "reasoning thinking effort",
+    "section_agentServer": "mcp server port enable write access token",
+    "section_agentClients": "claude desktop code cursor config",
+    "section_agentActivity": "log history activity",
+    "section_aboutPrivacy": "privacy telemetry data local",
+    "section_aboutCredits": "credits licences licenses open source",
+    "section_aboutAi": "ai models providers"
+  },
+  "timetable": {
+    "exported_one": "Exported {{count}} session to Calendar.",
+    "exported_other": "Exported {{count}} sessions to Calendar.",
+    "nothingToExport": "No timetable to export. Add sessions in the course editor, or import a calendar, first.",
+    "exportFailed": "The timetable could not be exported."
+  },
+  "lecture": {
+    "until": "until {{time}}",
+    "notifyTitle": "{{course}} is starting",
+    "noneNow": "No lecture is under way. Add the course’s sessions in its timetable.",
+    "readyToRecord": "Lecture note ready. Press ⌥⌘R to record.",
+    "now": "Now",
+    "soon": "At {{time}}",
+    "open": "Open the lecture note"
   }
 }

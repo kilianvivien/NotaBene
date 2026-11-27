@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseQuery, resolveQuery } from './query';
+import syntax from './fixtures/search-syntax.json';
 
 describe('parseQuery', () => {
   it('keeps bare words as free text', () => {
@@ -19,9 +20,50 @@ describe('parseQuery', () => {
     expect(parsed.text).toBe('basis');
   });
 
+  it.each(syntax.queries)('parses $input', ({ input, textExpression }) => {
+    expect(parseQuery(input).textExpression).toEqual(textExpression);
+  });
+
+  it('treats an unfinished quoted exclusion as ordinary words', () => {
+    expect(parseQuery('-"one OR two').textExpression).toEqual({
+      groups: [
+        [
+          { text: 'one', phrase: false },
+          { text: 'OR', phrase: false },
+          { text: 'two', phrase: false },
+        ],
+      ],
+      exclude: [],
+    });
+  });
+
+  it.each(['OR', 'a OR', 'OR a', 'a OR OR b'])('keeps an unpaired OR in %s', (input) => {
+    expect(parseQuery(input).textExpression?.groups).toEqual([
+      input.split(' ').map((text) => ({ text, phrase: false })),
+    ]);
+  });
+
+  it('applies facets across alternatives and keeps colons and OR inside a phrase', () => {
+    const parsed = parseQuery(
+      'course:"Linear Algebra" "lemma: OR proof" OR basis -draft has:table',
+    );
+    expect(parsed.unresolved).toEqual([{ key: 'course', value: 'Linear Algebra' }]);
+    expect(parsed.has).toEqual(['table']);
+    expect(parsed.text).toBe('lemma: OR proof basis');
+    expect(parsed.textExpression).toEqual({
+      groups: [
+        [{ text: 'lemma: OR proof', phrase: true }],
+        [{ text: 'basis', phrase: false }],
+      ],
+      exclude: [{ text: 'draft', phrase: false }],
+    });
+  });
+
   it('treats an unknown key as free text rather than erroring', () => {
     // A pasted URL must not become a syntax error.
-    expect(parseQuery('https://example.com/notes').text).toBe('https://example.com/notes');
+    expect(parseQuery('https://example.com/notes').text).toBe(
+      'https://example.com/notes',
+    );
   });
 
   it('turns on: into a whole-day range', () => {

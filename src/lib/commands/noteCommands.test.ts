@@ -8,6 +8,7 @@ import {
   emptyTrashCommand,
   fileNoteCommand,
   restoreSnapshotCommand,
+  searchNotesCommand,
   trashNoteCommand,
   updateNoteCommand,
 } from './noteCommands';
@@ -23,6 +24,22 @@ function docOf(text: string): NoteDoc {
 
 beforeEach(() => {
   memoryLibraryAdapter.reset();
+});
+
+describe('searchNotesCommand', () => {
+  it('uses the note-list syntax for title-bar and palette suggestions', async () => {
+    await createNoteCommand({ doc: docOf('chain rule recap') });
+    await createNoteCommand({ doc: docOf('chain rule proof') });
+    await createNoteCommand({ doc: docOf('chain of reasoning about the rule') });
+    await createNoteCommand({ doc: docOf('substitution examples') });
+
+    const result = await searchNotesCommand('"chain rule" OR substitution -recap');
+    if (!result.ok) throw new Error(result.message);
+    expect(result.value.map(({ title }) => title).sort()).toEqual([
+      'chain rule proof',
+      'substitution examples',
+    ]);
+  });
 });
 
 describe('createNoteCommand', () => {

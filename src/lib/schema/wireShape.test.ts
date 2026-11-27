@@ -41,6 +41,7 @@ describe('wire shape', () => {
       plainText: _plainText,
       importKey: _importKey,
       importedAt: _importedAt,
+      lectureKey: _lectureKey,
       ...summary
     } = NoteSchema.parse(fixture);
     const match = { note: { ...summary, snippet: 'a … snippet' }, score: 12.5 };

@@ -120,6 +120,15 @@ pub fn library_resolve_wiki_title(
     notes::resolve_wiki_title(&store, &title)
 }
 
+/// Today's lecture note for one meeting, by its `lecture_key`.
+#[tauri::command]
+pub fn library_find_lecture_note(
+    store: State<'_, Store>,
+    lecture_key: String,
+) -> DbResult<Option<String>> {
+    notes::find_lecture_note(&store, &lecture_key)
+}
+
 /// The notes one importer wrote, for planning a re-import of the same source.
 #[tauri::command]
 pub fn library_list_imported_notes(

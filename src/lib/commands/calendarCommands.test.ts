@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryLibraryAdapter } from '@/lib/adapters/library/memoryLibraryAdapter';
 import { parseIcs, planCalendarImport } from '@/lib/import/ics';
-import { createTask } from '@/lib/schema';
-import { applyCalendarImportCommand, calendarExportTasks } from './calendarCommands';
+import { createCourse, createTask } from '@/lib/schema';
+import {
+  applyCalendarImportCommand,
+  calendarExportTasks,
+  exportTimetableCommand,
+} from './calendarCommands';
 
 const now = new Date(2026, 0, 20, 12).toISOString();
 const ics = (summary: string, day: string) =>
@@ -60,5 +64,39 @@ describe('calendarExportTasks', () => {
     expect(chosen.tasks.map((task) => task.title)).toEqual(['A']);
     expect(chosen.withoutDueDate).toBe(1);
     expect(calendarExportTasks(tasks, { includeDone: true }).tasks).toHaveLength(3);
+  });
+});
+
+describe('exportTimetableCommand', () => {
+  const meeting = {
+    id: 'm-1',
+    title: null,
+    weekdays: [1],
+    start: 600,
+    end: 690,
+    location: null,
+    from: '2026-09-07',
+    until: '2026-12-18',
+    skip: [],
+    templateId: null,
+    importKey: null,
+  };
+
+  it('says there is nothing to export, by code, before asking where to save', async () => {
+    await memoryLibraryAdapter.upsertCourse(createCourse({ id: 'c-1', name: 'Libre' }));
+    await memoryLibraryAdapter.upsertCourse(
+      createCourse({ id: 'c-2', name: 'Archivé', archived: true, meetings: [meeting] }),
+    );
+    const result = await exportTimetableCommand(undefined, '/nowhere');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.details).toEqual({ reason: 'nothing_to_export' });
+  });
+
+  it('exports only the course asked for', async () => {
+    await memoryLibraryAdapter.upsertCourse(
+      createCourse({ id: 'c-1', name: 'Droit', meetings: [meeting] }),
+    );
+    const other = await exportTimetableCommand('c-other', '/nowhere');
+    expect(other.ok).toBe(false);
   });
 });

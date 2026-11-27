@@ -43,13 +43,15 @@ import {
   mentionMatcher,
   mentionSnippet,
 } from '@/lib/graph/mentions';
-import { bm25Rank, BM25_WEIGHTS, type RankedFields } from './memoryRanking';
+import { bm25Rank, compileNoteText, type RankedFields } from './memoryRanking';
 import type {
   ImportedNoteRef,
   LibraryAdapter,
   NoteMatch,
   NoteQuery,
+  NoteSearchTerm,
   NoteText,
+  NoteTextExpression,
   NoteTitle,
   SnapshotRetentionPolicy,
   TaskQuery,
@@ -80,6 +82,19 @@ function toSummary(note: Note, text?: string): NoteSummary {
   return {
     ...clone(rest),
     snippet: text ? highlightedSnippet(note, text) : snippetFor(note),
+  };
+}
+
+function noteTextExpression(query: NoteQuery): NoteTextExpression | undefined {
+  if (query.textExpression) return query.textExpression;
+  const text = query.text?.trim();
+  if (!text) return undefined;
+  // Retrieval supplies literal keywords. Give it the same matcher without
+  // treating any of those words as search-box syntax.
+  const terms = text.split(/\s+/).map((word) => ({ text: word, phrase: false }));
+  return {
+    groups: query.textMatch === 'any' ? terms.map((term) => [term]) : [terms],
+    exclude: [],
   };
 }
 
@@ -243,24 +258,43 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     return true;
   }
 
+  private matchNotes(
+    query: NoteQuery,
+    expression: NoteTextExpression | undefined,
+    rank: boolean,
+  ) {
+    const candidates = this.library.notes.filter((note) =>
+      this.matchesFilters(note, query),
+    );
+    if (!expression) return { rows: candidates, scores: null, matches: null };
+
+    const docs = candidates.map((note) => ({
+      id: note.id,
+      fields: this.indexedFields(note),
+    }));
+    const matchText = compileNoteText(expression);
+    const matches = new Map<string, NoteSearchTerm[]>();
+    for (const { id, fields } of docs) {
+      const matched = matchText(fields);
+      if (matched) matches.set(id, matched);
+    }
+    const terms = expression.groups.flat();
+    return {
+      rows: candidates.filter(({ id }) => matches.has(id)),
+      scores: rank && terms.length ? bm25Rank(docs, terms, undefined, matches) : null,
+      matches,
+    };
+  }
+
   async queryNotes(query: NoteQuery): Promise<NoteSummary[]> {
-    const text = query.text?.trim();
-    const foldedText = text ? fold(text) : '';
-    const any = query.textMatch === 'any';
-
-    let rows = this.library.notes.filter((note) => {
-      if (!this.matchesFilters(note, query)) return false;
-      if (foldedText) {
-        const haystack = fold(this.indexedFields(note).join('\n'));
-        const terms = foldedText.split(/\s+/);
-        const hit = (term: string) => haystack.includes(term);
-        if (!(any ? terms.some(hit) : terms.every(hit))) return false;
-      }
-      return true;
-    });
-
+    const expression = noteTextExpression(query);
     const sort = query.sort ?? 'updated';
-    rows = [...rows].sort((a, b) => {
+    const { rows, scores, matches } = this.matchNotes(
+      query,
+      expression,
+      sort === 'relevance',
+    );
+    rows.sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       switch (sort) {
         case 'created':
@@ -269,6 +303,9 @@ class MemoryLibraryAdapter implements LibraryAdapter {
           return a.title.localeCompare(b.title);
         case 'manual':
           return a.order - b.order;
+        case 'relevance':
+          if (scores) return (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0);
+          return b.updatedAt.localeCompare(a.updatedAt);
         default:
           return b.updatedAt.localeCompare(a.updatedAt);
       }
@@ -276,46 +313,43 @@ class MemoryLibraryAdapter implements LibraryAdapter {
 
     const offset = query.offset ?? 0;
     const limit = query.limit ?? rows.length;
-    return rows.slice(offset, offset + limit).map((note) => toSummary(note, text));
+    return rows.slice(offset, offset + limit).map((note) => {
+      const text = matches
+        ?.get(note.id)
+        ?.map((term) => term.text)
+        .join(' ');
+      return toSummary(note, text);
+    });
   }
 
   async countNotes(query: NoteQuery): Promise<number> {
-    return (
-      await this.queryNotes({
-        ...query,
-        limit: Number.MAX_SAFE_INTEGER,
-        offset: 0,
-      })
-    ).length;
+    return this.matchNotes(query, noteTextExpression(query), false).rows.length;
   }
 
   async searchNotes(query: NoteQuery): Promise<NoteMatch[]> {
-    const text = query.text?.trim();
-    if (!text) {
+    const expression = noteTextExpression(query);
+    if (
+      !expression ||
+      (!expression.groups.some((group) => group.length > 0) && !expression.exclude.length)
+    ) {
       // Same refusal as the SQL path: a ranked search with nothing to rank
       // would return the whole library in arbitrary order.
       throw new Error('SEARCH_REQUIRES_TEXT: a ranked search needs something to rank');
     }
 
-    const candidates = this.library.notes.filter((note) =>
-      this.matchesFilters(note, query),
+    const { rows, scores } = this.matchNotes(query, expression, true);
+    // Pinning stays out of ranked searches. Exclusion-only matches have no score.
+    rows.sort((a, b) =>
+      scores
+        ? (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0)
+        : b.updatedAt.localeCompare(a.updatedAt),
     );
-    const scores = bm25Rank(
-      candidates.map((note) => ({ id: note.id, fields: this.indexedFields(note) })),
-      text.split(/\s+/).filter(Boolean),
-      BM25_WEIGHTS,
-    );
-
-    // Ranked by score alone — pinning deliberately does not lift a note here.
-    const ranked = candidates
-      .filter((note) => (scores.get(note.id) ?? 0) > 0)
-      .sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0));
 
     const offset = query.offset ?? 0;
-    const limit = query.limit ?? ranked.length;
-    return ranked.slice(offset, offset + limit).map((note) => ({
+    const limit = query.limit ?? rows.length;
+    return rows.slice(offset, offset + limit).map((note) => ({
       note: toSummary(note),
-      score: scores.get(note.id) ?? 0,
+      score: scores?.get(note.id) ?? 0,
     }));
   }
 
@@ -352,6 +386,14 @@ class MemoryLibraryAdapter implements LibraryAdapter {
     for (const note of notes) {
       await this.upsertNote(note);
     }
+  }
+
+  async findLectureNote(lectureKey: string): Promise<string | null> {
+    return (
+      this.library.notes
+        .filter((note) => note.lectureKey === lectureKey && !note.trashedAt)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id ?? null
+    );
   }
 
   async resolveWikiTitle(title: string): Promise<string | null> {
@@ -471,7 +513,10 @@ class MemoryLibraryAdapter implements LibraryAdapter {
   private graphMentions(edges: GraphEdge[]): GraphEdge[] {
     // First note to hold a title keeps it, Trash included — what a bare
     // `[[Title]]` resolves to.
-    const matchers = new Map<string, { id: string; match: ReturnType<typeof mentionMatcher> }>();
+    const matchers = new Map<
+      string,
+      { id: string; match: ReturnType<typeof mentionMatcher> }
+    >();
     for (const note of this.library.notes) {
       const key = mentionKey(note.title);
       if (!isMentionableTitle(note.title) || matchers.has(key)) continue;
